@@ -1,0 +1,81 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  checks:
+    name: Lint, test, and build
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18.6
+        env:
+          POSTGRES_USER: nexa
+          POSTGRES_PASSWORD: nexa
+          POSTGRES_DB: nexa_bos
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U nexa -d nexa_bos"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      APP_ENV: test
+      LOG_LEVEL: INFO
+      DATABASE_URL: postgresql+asyncpg://nexa:nexa@localhost:5432/nexa_bos
+      CORS_ORIGINS: http://localhost:3000,http://127.0.0.1:3000
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.24.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.20.0
+          cache: pnpm
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14.7"
+
+      - name: Install web dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install API dependencies
+        working-directory: apps/api
+        run: uv sync --frozen
+
+      - name: Ruff lint
+        working-directory: apps/api
+        run: uv run ruff check .
+
+      - name: Ruff format
+        working-directory: apps/api
+        run: uv run ruff format --check .
+
+      - name: ESLint
+        run: pnpm lint:web
+
+      - name: TypeScript
+        run: pnpm typecheck:web
+
+      - name: API tests
+        working-directory: apps/api
+        run: uv run pytest
+
+      - name: Next.js production build
+        run: pnpm build:web

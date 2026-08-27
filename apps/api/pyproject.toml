@@ -1,0 +1,43 @@
+[project]
+name = "nexa-bos-api"
+version = "0.1.0"
+description = "NEXA BOS API engineering foundation"
+requires-python = ">=3.14.6,<3.15"
+dependencies = [
+    "fastapi==0.141.1",
+    "pydantic==2.13.4",
+    "pydantic-settings==2.15.0",
+    "uvicorn==0.52.4",
+    "sqlalchemy[asyncio]==2.0.52",
+    "asyncpg==0.31.0",
+    "alembic==1.19.1",
+]
+
+[dependency-groups]
+dev = [
+    "httpx==0.28.1",
+    "pytest==9.1.1",
+    "pytest-asyncio==1.4.0",
+    "ruff==0.16.5",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["nexa_bos_api"]
+
+[tool.ruff]
+target-version = "py314"
+line-length = 100
+src = ["nexa_bos_api"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["../../tests/api"]
+pythonpath = ["."]

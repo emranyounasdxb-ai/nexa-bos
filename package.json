@@ -1,0 +1,19 @@
+{
+  "name": "nexa-bos",
+  "private": true,
+  "packageManager": "pnpm@11.24.0",
+  "engines": {
+    "node": ">=24.18.0 <25",
+    "pnpm": "11.24.0"
+  },
+  "scripts": {
+    "dev:web": "pnpm --filter web dev",
+    "dev:api": "uv run --directory apps/api uvicorn nexa_bos_api.main:app --reload --host 0.0.0.0 --port 8000",
+    "lint:web": "pnpm --filter web lint",
+    "lint:api": "uv run --directory apps/api ruff check .",
+    "typecheck:web": "pnpm --filter web typecheck",
+    "test:api": "uv run --directory apps/api pytest",
+    "test:e2e": "pnpm --filter web test:e2e",
+    "build:web": "pnpm --filter web build"
+  }
+}

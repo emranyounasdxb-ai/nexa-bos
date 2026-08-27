@@ -1,0 +1,47 @@
+import { defineConfig, devices } from "@playwright/test";
+
+const webPort = process.env.PLAYWRIGHT_WEB_PORT ?? "3010";
+const apiPort = process.env.PLAYWRIGHT_API_PORT ?? "8010";
+const apiOrigin = `http://127.0.0.1:${apiPort}`;
+const webOrigin = `http://127.0.0.1:${webPort}`;
+
+const apiCommand =
+  process.platform === "win32"
+    ? `uv run --directory ..\\..\\apps\\api uvicorn nexa_bos_api.main:app --host 127.0.0.1 --port ${apiPort}`
+    : `uv run --directory ../../apps/api uvicorn nexa_bos_api.main:app --host 127.0.0.1 --port ${apiPort}`;
+
+export default defineConfig({
+  testDir: "../../tests/e2e",
+  fullyParallel: true,
+  forbidOnly: Boolean(process.env.CI),
+  retries: process.env.CI ? 1 : 0,
+  reporter: "list",
+  use: {
+    baseURL: process.env.PLAYWRIGHT_BASE_URL ?? webOrigin,
+    trace: "on-first-retry",
+  },
+  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  webServer: [
+    {
+      command: apiCommand,
+      url: `${apiOrigin}/api/v1/health`,
+      reuseExistingServer: false,
+      timeout: 120_000,
+      env: {
+        ...process.env,
+        APP_ENV: process.env.APP_ENV ?? "test",
+        CORS_ORIGINS: `${webOrigin},http://localhost:${webPort}`,
+      },
+    },
+    {
+      command: `pnpm exec next dev --hostname 127.0.0.1 --port ${webPort}`,
+      url: webOrigin,
+      reuseExistingServer: false,
+      timeout: 120_000,
+      env: {
+        ...process.env,
+        NEXT_PUBLIC_API_URL: `http://localhost:${apiPort}`,
+      },
+    },
+  ],
+});

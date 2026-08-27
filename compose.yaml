@@ -1,0 +1,53 @@
+name: nexa-bos
+
+services:
+  postgres:
+    image: postgres:18.6
+    environment:
+      POSTGRES_USER: ${NEXA_POSTGRES_USER:-nexa}
+      POSTGRES_PASSWORD: ${NEXA_POSTGRES_PASSWORD:-nexa}
+      POSTGRES_DB: ${NEXA_POSTGRES_DB:-nexa_bos}
+    ports:
+      - "${NEXA_POSTGRES_PORT:-15432}:5432"
+    volumes:
+      - nexa_bos_pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nexa -d nexa_bos"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  api:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    environment:
+      APP_ENV: ${APP_ENV:-development}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
+      DATABASE_URL: postgresql+asyncpg://${NEXA_POSTGRES_USER:-nexa}:${NEXA_POSTGRES_PASSWORD:-nexa}@postgres:5432/${NEXA_POSTGRES_DB:-nexa_bos}
+    ports:
+      - "${API_PORT:-8000}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+      API_URL: ${API_URL:-http://api:8000}
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  nexa_bos_pgdata:
+    name: nexa-bos-pgdata

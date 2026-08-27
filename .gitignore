@@ -1,0 +1,39 @@
+# Secrets and local environment
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Python
+.venv/
+**/__pycache__/
+**/*.py[cod]
+**/*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+dist/
+*.tsbuildinfo
+apps/web/AGENTS.md
+apps/web/CLAUDE.md
+
+# Playwright
+playwright-report/
+test-results/
+blob-report/
+playwright/.cache/
+
+# Docker / OS / IDE
+*.log
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
