@@ -15,6 +15,8 @@ tests/e2e    Playwright smoke
 
 Copy `.env.example` to `.env`. Database credentials come from environment variables. Do not commit `.env`.
 
+Set `BOOTSTRAP_SECRET` before creating the first OWNER. After OWNER exists, bootstrap is permanently disabled even if the secret remains in the environment.
+
 ## API
 
 From `apps/api`:

@@ -10,6 +10,9 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 REPO_ROOT = Path(__file__).resolve().parents[3]
 API_ROOT = Path(__file__).resolve().parents[2]
 
+SESSION_COOKIE_NAME = "nexa_session"
+CSRF_HEADER_NAME = "X-CSRF-Token"
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -27,6 +30,10 @@ class Settings(BaseSettings):
         ...,
         description="SQLAlchemy async URL, e.g. postgresql+asyncpg://user:pass@host:5432/db",
     )
+    web_origin: str = "http://localhost:3000"
+    bootstrap_secret: str = ""
+    file_storage_dir: Path = API_ROOT / "var" / "uploads"
+    session_cookie_secure: bool | None = None
 
     @property
     def cors_origin_list(self) -> list[str]:
@@ -35,6 +42,12 @@ class Settings(BaseSettings):
     @property
     def is_production(self) -> bool:
         return self.app_env == "production"
+
+    @property
+    def cookie_secure(self) -> bool:
+        if self.session_cookie_secure is not None:
+            return self.session_cookie_secure
+        return self.is_production
 
     @property
     def docs_url(self) -> str | None:

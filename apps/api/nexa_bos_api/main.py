@@ -11,6 +11,8 @@ from nexa_bos_api.core.errors import register_exception_handlers
 from nexa_bos_api.core.logging import configure_logging
 from nexa_bos_api.core.middleware import RequestIdMiddleware, SecurityHeadersMiddleware
 from nexa_bos_api.db.session import create_engine, create_session_factory
+from nexa_bos_api.identity import models as _identity_models  # noqa: F401
+from nexa_bos_api.identity.bootstrap import bootstrap_identity
 
 
 @asynccontextmanager
@@ -20,6 +22,8 @@ async def lifespan(app: FastAPI):
     app.state.settings = settings
     app.state.engine = engine
     app.state.session_factory = create_session_factory(engine)
+    async with app.state.session_factory() as session:
+        await bootstrap_identity(session)
     yield
     await engine.dispose()
 
@@ -46,7 +50,8 @@ def create_app() -> FastAPI:
         allow_origins=settings.cors_origin_list,
         allow_credentials=True,
         allow_methods=["*"],
-        allow_headers=["*"],
+        allow_headers=["*", "X-CSRF-Token"],
+        expose_headers=["X-Request-ID"],
     )
     application.include_router(api_v1_router)
     return application

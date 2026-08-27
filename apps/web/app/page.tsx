@@ -1,17 +1,22 @@
-import { SmokeStatus } from "@/components/smoke-status";
+"use client";
+
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+
+import { apiGet } from "@/lib/api";
+import { getBrowserApiUrl } from "@/lib/env";
+import type { UserRecord } from "@/lib/types";
 
 export default function HomePage() {
-  return (
-    <section className="space-y-6">
-      <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h2 className="text-xl font-semibold text-slate-900">Foundation smoke page</h2>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-          This screen verifies that the Next.js application starts and can reach the FastAPI
-          service over <code className="rounded bg-slate-100 px-1 py-0.5">/api/v1</code>. It is
-          not a business dashboard.
-        </p>
-      </div>
-      <SmokeStatus />
-    </section>
-  );
+  const router = useRouter();
+  useEffect(() => {
+    void apiGet<UserRecord>("/api/v1/auth/me", getBrowserApiUrl())
+      .then(() => router.replace("/users"))
+      .catch(() =>
+        apiGet<{ available: boolean }>("/api/v1/auth/bootstrap-status", getBrowserApiUrl())
+          .then((status) => router.replace(status.available ? "/bootstrap" : "/login"))
+          .catch(() => router.replace("/login")),
+      );
+  }, [router]);
+  return <p className="p-8 text-sm text-slate-500">Redirecting…</p>;
 }

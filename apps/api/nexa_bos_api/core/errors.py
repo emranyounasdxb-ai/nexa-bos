@@ -7,6 +7,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from nexa_bos_api.core.exceptions import AppError
 from nexa_bos_api.core.middleware import get_request_id
 
 logger = logging.getLogger("nexa_bos_api")
@@ -30,6 +31,19 @@ def error_body(
 
 
 def register_exception_handlers(app: FastAPI) -> None:
+    @app.exception_handler(AppError)
+    async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
+        request_id = get_request_id(request)
+        return JSONResponse(
+            status_code=exc.status_code,
+            content=error_body(
+                code=exc.code,
+                message=exc.message,
+                request_id=request_id,
+                details=exc.details,
+            ),
+        )
+
     @app.exception_handler(StarletteHTTPException)
     async def http_exception_handler(request: Request, exc: StarletteHTTPException) -> JSONResponse:
         request_id = get_request_id(request)

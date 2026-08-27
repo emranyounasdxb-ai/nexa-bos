@@ -29,6 +29,7 @@ jobs:
       DATABASE_URL: postgresql+asyncpg://nexa:nexa@localhost:5432/nexa_bos
       CORS_ORIGINS: http://localhost:3000,http://127.0.0.1:3000
       NEXT_PUBLIC_API_URL: http://localhost:8000
+      BOOTSTRAP_SECRET: nexa-test-bootstrap-secret
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -75,7 +76,9 @@ jobs:
 
       - name: API tests
         working-directory: apps/api
-        run: uv run pytest
+        run: |
+          uv run alembic upgrade head
+          uv run pytest
 
       - name: Next.js production build
         run: pnpm build:web

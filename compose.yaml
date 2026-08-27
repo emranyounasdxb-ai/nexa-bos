@@ -27,6 +27,8 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
       DATABASE_URL: postgresql+asyncpg://${NEXA_POSTGRES_USER:-nexa}:${NEXA_POSTGRES_PASSWORD:-nexa}@postgres:5432/${NEXA_POSTGRES_DB:-nexa_bos}
+      WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:3000}
+      BOOTSTRAP_SECRET: ${BOOTSTRAP_SECRET:-}
     ports:
       - "${API_PORT:-8000}:8000"
     depends_on:

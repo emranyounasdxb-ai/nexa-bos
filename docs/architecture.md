@@ -23,6 +23,9 @@ PostgreSQL
 
 - Versioned REST JSON under `/api/v1`.
 - Foundation routes: `GET /api/v1/health`, `GET /api/v1/ready`.
+- User management routes under `/api/v1/auth`, `/api/v1/users`, `/api/v1/user-types`, `/api/v1/permissions`, `/api/v1/security-settings`, `/api/v1/offices`, `/api/v1/departments`, `/api/v1/designations`, `/api/v1/teams`.
+- Authentication is a server-side PostgreSQL session in an HttpOnly host-only cookie (`nexa_session`, SameSite=Lax, Secure in production). State-changing requests send `X-CSRF-Token`.
+- First-time OWNER setup is `POST /api/v1/auth/bootstrap` with `BOOTSTRAP_SECRET`. It is permanently disabled after OWNER creation.
 - OpenAPI is served at `/docs`, `/redoc`, and `/openapi.json` outside production.
 - Errors use `{ "error": { "code", "message", "details", "requestId" } }`.
 - Every response includes `X-Request-ID`. Incoming `X-Request-ID` is preserved.
@@ -43,8 +46,6 @@ PostgreSQL
 
 ## Explicitly not in this foundation
 
-- Authentication / sessions / User tables
-- RBAC roles and permissions
 - HRMS integration
 - Application, workflow, TAT, delay, finance, dashboards
 - Redis / workers

@@ -30,6 +30,9 @@ test-results/
 blob-report/
 playwright/.cache/
 
+# Runtime / private storage (profile photos). Created on demand; never commit contents.
+apps/api/var/
+
 # Docker / OS / IDE
 *.log
 .DS_Store

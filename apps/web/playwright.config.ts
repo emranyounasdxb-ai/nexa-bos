@@ -7,12 +7,13 @@ const webOrigin = `http://127.0.0.1:${webPort}`;
 
 const apiCommand =
   process.platform === "win32"
-    ? `uv run --directory ..\\..\\apps\\api uvicorn nexa_bos_api.main:app --host 127.0.0.1 --port ${apiPort}`
-    : `uv run --directory ../../apps/api uvicorn nexa_bos_api.main:app --host 127.0.0.1 --port ${apiPort}`;
+    ? `uv run --directory ..\\..\\apps\\api alembic upgrade head && uv run --directory ..\\..\\apps\\api uvicorn nexa_bos_api.main:app --host 127.0.0.1 --port ${apiPort}`
+    : `uv run --directory ../../apps/api alembic upgrade head && uv run --directory ../../apps/api uvicorn nexa_bos_api.main:app --host 127.0.0.1 --port ${apiPort}`;
 
 export default defineConfig({
   testDir: "../../tests/e2e",
-  fullyParallel: true,
+  fullyParallel: false,
+  workers: 1,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 1 : 0,
   reporter: "list",
@@ -31,6 +32,8 @@ export default defineConfig({
         ...process.env,
         APP_ENV: process.env.APP_ENV ?? "test",
         CORS_ORIGINS: `${webOrigin},http://localhost:${webPort}`,
+        WEB_ORIGIN: webOrigin,
+        BOOTSTRAP_SECRET: process.env.BOOTSTRAP_SECRET ?? "nexa-test-bootstrap-secret",
       },
     },
     {
@@ -40,7 +43,7 @@ export default defineConfig({
       timeout: 120_000,
       env: {
         ...process.env,
-        NEXT_PUBLIC_API_URL: `http://localhost:${apiPort}`,
+        NEXT_PUBLIC_API_URL: apiOrigin,
       },
     },
   ],

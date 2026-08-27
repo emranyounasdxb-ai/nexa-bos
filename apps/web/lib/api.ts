@@ -1,11 +1,3 @@
-export type HealthResponse = {
-  status: string;
-};
-
-export type ReadyResponse = {
-  status: string;
-};
-
 export type ApiErrorBody = {
   error?: {
     code?: string;
@@ -27,14 +19,38 @@ export class ApiClientError extends Error {
   }
 }
 
-export async function apiGet<T>(path: string, baseUrl: string): Promise<T> {
-  const url = `${baseUrl}${path.startsWith("/") ? path : `/${path}`}`;
-  const response = await fetch(url, {
-    method: "GET",
-    headers: { Accept: "application/json" },
-    cache: "no-store",
-  });
+export type HealthResponse = { status: string };
+export type ReadyResponse = { status: string };
 
+let csrfToken: string | null = null;
+
+export function getCsrfToken(): string | null {
+  return csrfToken;
+}
+
+export function setCsrfToken(token: string | null): void {
+  csrfToken = token;
+}
+
+export async function apiRequest<T>(
+  path: string,
+  baseUrl: string,
+  init: RequestInit = {},
+): Promise<T> {
+  const headers = new Headers(init.headers);
+  headers.set("Accept", "application/json");
+  const method = (init.method ?? "GET").toUpperCase();
+  if (csrfToken && !["GET", "HEAD", "OPTIONS"].includes(method)) {
+    headers.set("X-CSRF-Token", csrfToken);
+  }
+  if (init.body && !(init.body instanceof FormData) && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
+  const url = `${baseUrl}${path.startsWith("/") ? path : `/${path}`}`;
+  const response = await fetch(url, { ...init, headers, cache: "no-store", credentials: "include" });
+  if (response.status === 204) {
+    return undefined as T;
+  }
   const body = (await response.json().catch(() => null)) as T | ApiErrorBody | null;
   if (!response.ok) {
     const errorBody = (body ?? null) as ApiErrorBody | null;
@@ -44,6 +60,9 @@ export async function apiGet<T>(path: string, baseUrl: string): Promise<T> {
       errorBody,
     );
   }
-
   return body as T;
+}
+
+export async function apiGet<T>(path: string, baseUrl: string): Promise<T> {
+  return apiRequest<T>(path, baseUrl, { method: "GET" });
 }

@@ -1,6 +1,6 @@
 # NEXA BOS
 
-Standalone brokerage operating system. This repository currently contains the **engineering foundation only**. Business modules are not implemented.
+Standalone brokerage operating system. This repository contains the engineering foundation plus User Management & Access Control.
 
 ## Architecture
 
@@ -55,6 +55,8 @@ npx pnpm@11.24.0 --filter web dev
 - API ready: http://localhost:8000/api/v1/ready
 - OpenAPI (non-production): http://localhost:8000/docs
 
+First-time OWNER setup: set `BOOTSTRAP_SECRET`, open `/bootstrap`, then sign in with email and password. After OWNER is created, bootstrap is permanently disabled. Sessions use an HttpOnly cookie plus `X-CSRF-Token`; the browser does not store an auth token.
+
 ## Checks
 
 ```bash
@@ -77,6 +79,6 @@ docker compose up
 
 Do not commit `.env`. Use `.env.example` as the placeholder template.
 
-## Out of scope in this foundation
+## Out of scope
 
-Authentication, RBAC, HRMS, applications, workflow, TAT, finance, dashboards, Redis, workers, and multi-tenancy are not implemented.
+Applications, workflow, TAT, finance, dashboards, HRMS, Redis, workers, and multi-tenancy are not implemented.
