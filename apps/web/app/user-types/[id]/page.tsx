@@ -54,7 +54,8 @@ export default function UserTypeDetailPage() {
       </h2>
       <p className="text-sm text-slate-600">{item.description || "No description"}</p>
       <p className="text-sm">
-        Status: {item.status} · Scope: {item.visibilityScope ?? "none"} · MFA required flag:{" "}
+        Status: {item.status} · User directory scope: {item.visibilityScope ?? "none"} · Customer
+        scope: {item.customerVisibilityScope ?? "none"} · MFA required flag:{" "}
         {item.mfaRequired ? "on" : "off (default, not enforced)"}
       </p>
       {can("UserTypes.Edit") && !item.isSystem ? (
@@ -104,25 +105,54 @@ export default function UserTypeDetailPage() {
           </button>
         ) : null}
         {can("UserTypes.AssignScope") ? (
-          <select
-            className="rounded-md border px-2 py-1"
-            value={item.visibilityScope ?? ""}
-            onChange={(event) =>
-              void apiRequest(`/api/v1/user-types/${item.id}/scope`, api, {
-                method: "PUT",
-                body: JSON.stringify({
-                  visibility_scope: event.target.value || null,
-                }),
-              }).then(refresh)
-            }
-          >
-            <option value="">No scope</option>
-            {SCOPES.map((scope) => (
-              <option key={scope} value={scope}>
-                {scope}
-              </option>
-            ))}
-          </select>
+          <>
+            <label className="flex items-center gap-2 text-sm">
+              User directory scope
+              <select
+                className="rounded-md border px-2 py-1"
+                aria-label="User directory scope"
+                value={item.visibilityScope ?? ""}
+                onChange={(event) =>
+                  void apiRequest(`/api/v1/user-types/${item.id}/scope`, api, {
+                    method: "PUT",
+                    body: JSON.stringify({
+                      visibility_scope: event.target.value || null,
+                    }),
+                  }).then(refresh)
+                }
+              >
+                <option value="">No scope</option>
+                {SCOPES.map((scope) => (
+                  <option key={scope} value={scope}>
+                    {scope}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              Customer scope
+              <select
+                className="rounded-md border px-2 py-1"
+                aria-label="Customer scope"
+                value={item.customerVisibilityScope ?? ""}
+                onChange={(event) =>
+                  void apiRequest(`/api/v1/user-types/${item.id}/customer-scope`, api, {
+                    method: "PUT",
+                    body: JSON.stringify({
+                      customer_visibility_scope: event.target.value || null,
+                    }),
+                  }).then(refresh)
+                }
+              >
+                <option value="">No scope</option>
+                {SCOPES.map((scope) => (
+                  <option key={scope} value={scope}>
+                    {scope}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </>
         ) : null}
       </div>
       {can("UserTypes.AssignPermissions") && item.code !== "OWNER" ? (

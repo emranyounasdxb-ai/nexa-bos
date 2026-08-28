@@ -54,6 +54,27 @@ def visibility_scope(user: User) -> VisibilityScope:
         return VisibilityScope.OWN
 
 
+def customer_visibility_scope(user: User) -> VisibilityScope | None:
+    """Customer directory scope. Independent of user-directory visibility_scope.
+
+    Office / Team / Own Customers are Application-derived (Case Owner) and are
+    not enforced until Applications exist. COMPANY is enforced now.
+    """
+    if is_owner(user):
+        return VisibilityScope.COMPANY
+    raw = user.user_type.customer_visibility_scope if user.user_type else None
+    if not raw:
+        return None
+    try:
+        return VisibilityScope(raw)
+    except ValueError:
+        return None
+
+
+def has_company_customer_visibility(user: User) -> bool:
+    return customer_visibility_scope(user) is VisibilityScope.COMPANY
+
+
 async def descendant_ids(session: AsyncSession, manager_id: UUID) -> set[UUID]:
     result = await session.execute(
         text(

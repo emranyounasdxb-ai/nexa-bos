@@ -36,6 +36,7 @@ async def test_custom_type_starts_inactive_without_permissions(client: AsyncClie
     assert body["status"] == "inactive"
     assert body["permissions"] == []
     assert body["visibilityScope"] is None
+    assert body["customerVisibilityScope"] is None
     assert body["mfaRequired"] is False
     assert body["canBeReportingManager"] is False
     assert body["isSystem"] is False

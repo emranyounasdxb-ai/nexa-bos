@@ -30,8 +30,11 @@ function Shell({ children }: { children: ReactNode }) {
   const links = [
     { href: "/users", label: "Users", show: can("Users.View") },
     { href: "/users/new", label: "Create user", show: can("Users.Create") },
+    { href: "/customers", label: "Customers", show: can("Customers.View") },
+    { href: "/customers/new", label: "Create customer", show: can("Customers.Create") },
     { href: "/user-types", label: "User types", show: can("UserTypes.View") },
     { href: "/organization", label: "Organization", show: true },
+    { href: "/catalog", label: "Banks & products", show: true },
     { href: "/security", label: "Security", show: can("Security.ManageSettings") },
     { href: "/account", label: "My profile", show: true },
   ];
@@ -42,7 +45,7 @@ function Shell({ children }: { children: ReactNode }) {
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">NEXA BOS</p>
-            <h1 className="text-lg font-semibold text-slate-900">User Management</h1>
+            <h1 className="text-lg font-semibold text-slate-900">NEXA BOS</h1>
           </div>
           <div className="flex items-center gap-3 text-sm">
             <span className="text-slate-600">{user?.fullName}</span>

@@ -5,6 +5,8 @@ from datetime import UTC, datetime
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from nexa_bos_api.catalog.service import seed_catalog
+from nexa_bos_api.customers.models import CustomerCodeCounter
 from nexa_bos_api.identity.enums import (
     DEFAULT_REPORTING_MANAGER_CODES,
     INITIAL_OFFICES,
@@ -33,6 +35,7 @@ async def bootstrap_identity(session: AsyncSession) -> None:
     await _seed_user_types(session)
     await _seed_settings(session)
     await _seed_offices(session)
+    await seed_catalog(session)
     await session.commit()
 
 
@@ -59,6 +62,7 @@ async def _seed_user_types(session: AsyncSession) -> None:
             row.mfa_required = False
             if code == "OWNER":
                 row.visibility_scope = VisibilityScope.COMPANY
+                row.customer_visibility_scope = VisibilityScope.COMPANY
             continue
         user_type = UserType(
             id=new_uuid(),
@@ -68,6 +72,7 @@ async def _seed_user_types(session: AsyncSession) -> None:
             is_system=True,
             status=UserTypeStatus.ACTIVE,
             visibility_scope=VisibilityScope.COMPANY if code == "OWNER" else None,
+            customer_visibility_scope=VisibilityScope.COMPANY if code == "OWNER" else None,
             mfa_required=False,
             can_be_reporting_manager=can_manage,
             created_at=now,
@@ -116,6 +121,9 @@ async def _seed_settings(session: AsyncSession) -> None:
     counter = await session.get(UserCodeCounter, 1)
     if counter is None:
         session.add(UserCodeCounter(id=1, last_value=0))
+    customer_counter = await session.get(CustomerCodeCounter, 1)
+    if customer_counter is None:
+        session.add(CustomerCodeCounter(id=1, last_value=0))
 
 
 async def _seed_offices(session: AsyncSession) -> None:

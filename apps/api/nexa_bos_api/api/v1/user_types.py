@@ -19,12 +19,14 @@ from nexa_bos_api.identity.permissions import (
     USER_TYPES_VIEW,
 )
 from nexa_bos_api.identity.schemas import (
+    AssignCustomerScopeRequest,
     AssignPermissionsRequest,
     AssignScopeRequest,
     UserTypeCreateRequest,
     UserTypeUpdateRequest,
 )
 from nexa_bos_api.identity.user_types_service import (
+    assign_customer_scope,
     assign_permissions,
     assign_scope,
     create_custom_type,
@@ -133,4 +135,16 @@ async def set_scope(
 ) -> dict[str, object]:
     row = await load_user_type(session, user_type_id)
     updated = await assign_scope(session, actor, row, payload.visibility_scope)
+    return serialize_user_type(updated)
+
+
+@router.put("/user-types/{user_type_id}/customer-scope")
+async def set_customer_scope(
+    user_type_id: UUID,
+    payload: AssignCustomerScopeRequest,
+    session: SessionDep,
+    actor: Annotated[CurrentUser, Depends(require_permission(USER_TYPES_ASSIGN_SCOPE))],
+) -> dict[str, object]:
+    row = await load_user_type(session, user_type_id)
+    updated = await assign_customer_scope(session, actor, row, payload.customer_visibility_scope)
     return serialize_user_type(updated)

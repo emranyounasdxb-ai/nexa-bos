@@ -1,6 +1,6 @@
 import { expect, test, type APIRequestContext } from "@playwright/test";
 
-const apiOrigin = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8010";
+const apiOrigin = `http://127.0.0.1:${process.env.PLAYWRIGHT_API_PORT ?? "8010"}`;
 const secret = process.env.BOOTSTRAP_SECRET ?? "nexa-test-bootstrap-secret";
 
 type NamedRef = { id: string; code: string; name: string };

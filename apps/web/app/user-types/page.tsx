@@ -85,7 +85,8 @@ export default function UserTypesPage() {
             <th className="px-3 py-2 text-left">Code</th>
             <th className="px-3 py-2 text-left">Name</th>
             <th className="px-3 py-2 text-left">Status</th>
-            <th className="px-3 py-2 text-left">Scope</th>
+            <th className="px-3 py-2 text-left">User directory scope</th>
+            <th className="px-3 py-2 text-left">Customer scope</th>
             <th className="px-3 py-2 text-left">Can be reporting manager</th>
           </tr>
         </thead>
@@ -100,6 +101,7 @@ export default function UserTypesPage() {
               <td className="px-3 py-2">{item.name}</td>
               <td className="px-3 py-2">{item.status}</td>
               <td className="px-3 py-2">{item.visibilityScope ?? "none"}</td>
+              <td className="px-3 py-2">{item.customerVisibilityScope ?? "none"}</td>
               <td className="px-3 py-2">{item.canBeReportingManager ? "Yes" : "No"}</td>
             </tr>
           ))}

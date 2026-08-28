@@ -1,6 +1,6 @@
 # NEXA BOS
 
-Standalone brokerage operating system. This repository contains the engineering foundation plus User Management & Access Control.
+Standalone brokerage operating system. This repository contains the engineering foundation, User Management & Access Control, and Customer + Bank/Product masters.
 
 ## Architecture
 

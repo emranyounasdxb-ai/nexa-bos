@@ -6,7 +6,9 @@ import asyncio
 from logging.config import fileConfig
 
 from alembic import context
+from nexa_bos_api.catalog import models as _catalog_models  # noqa: F401
 from nexa_bos_api.core.config import get_settings
+from nexa_bos_api.customers import models as _customer_models  # noqa: F401
 from nexa_bos_api.db.base import Base
 from nexa_bos_api.identity import models as _identity_models  # noqa: F401
 from sqlalchemy import pool

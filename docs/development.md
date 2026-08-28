@@ -61,6 +61,16 @@ PostgreSQL 18 official images store data under `/var/lib/postgresql` (not `/var/
 
 Compose uses a NEXA BOS-only named volume `nexa-bos-pgdata`. Do not reuse NexaHR volumes. Credentials come from `NEXA_POSTGRES_*` so a machine-level `POSTGRES_PASSWORD` cannot initialize this database. The container still listens on 5432; the host mapping defaults to 15432 so a machine-level PostgreSQL on 5432 is not used. If host ports 3000 or 8000 are already in use, set `WEB_PORT`, `API_PORT`, and `NEXT_PUBLIC_API_URL` when starting Compose.
 
+## Task 5 deferrals (Customer masters)
+
+Customer visibility configuration is stored on user types as `customer_visibility_scope`. Company-wide enforcement is in Task 4. Do not invent a Customer Owner.
+
+Deferred until Applications exist:
+
+- Office, Team/Reporting Hierarchy, and Own Customers filtering (derived from Application Case Owner)
+- Customer deactivation blocked by active Applications
+- Merge relinking of Applications onto the primary customer
+
 ## Host runtime notes
 
 Project files pin the approved versions. If the developer machine has a nearby 24.x / 3.14.x patch, use Docker and CI as the source of truth for the exact approved runtimes. Do not change the machine-wide default Node or Python unless you intend to.

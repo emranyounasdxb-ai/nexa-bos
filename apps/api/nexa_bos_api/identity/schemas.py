@@ -113,6 +113,10 @@ class AssignScopeRequest(BaseModel):
     visibility_scope: VisibilityScope | None = None
 
 
+class AssignCustomerScopeRequest(BaseModel):
+    customer_visibility_scope: VisibilityScope | None = None
+
+
 class MasterCreateRequest(BaseModel):
     name: str = Field(min_length=1, max_length=120)
     code: str = Field(min_length=1, max_length=32)

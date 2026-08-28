@@ -26,8 +26,7 @@ async function ensureOwner(request: APIRequestContext) {
   expect(created.ok()).toBeTruthy();
 }
 
-test("owner can sign in and open the user directory", async ({ page, request }) => {
-  await ensureOwner(request);
+async function signIn(page: import("@playwright/test").Page) {
   await page.goto("/login");
   await page.getByLabel("Email").fill("owner@example.com");
   await page.getByLabel("Password").fill("OwnerPass1!");
@@ -35,10 +34,19 @@ test("owner can sign in and open the user directory", async ({ page, request }) 
   await expect(page.getByRole("heading", { name: "User directory" })).toBeVisible({
     timeout: 30_000,
   });
-  await expect(page.getByRole("link", { name: "USR-000001" })).toBeVisible();
-  await page.goto("/users/new");
-  await expect(page.getByLabel("Reporting manager")).toBeVisible();
-  await page.goto("/organization");
-  await expect(page.getByRole("heading", { name: "Teams" })).toBeVisible();
-  await expect(page.getByRole("columnheader", { name: "Team leader" })).toBeVisible();
+}
+
+test("owner can create a customer and view bank product catalog", async ({ page, request }) => {
+  await ensureOwner(request);
+  await signIn(page);
+  const suffix = Date.now().toString().slice(-8);
+  await page.goto("/customers/new");
+  await page.getByLabel("Full name").fill(`Playwright Customer ${suffix}`);
+  await page.getByLabel("Mobile").fill(`+97150${suffix}`);
+  await page.getByRole("button", { name: "Create customer" }).click();
+  await expect(page.getByRole("heading", { name: /CUS-/ })).toBeVisible({ timeout: 30_000 });
+  await page.goto("/catalog");
+  await expect(page.getByRole("heading", { name: "Banks and products" })).toBeVisible();
+  await expect(page.getByText("DIB", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("PF", { exact: true }).first()).toBeVisible();
 });

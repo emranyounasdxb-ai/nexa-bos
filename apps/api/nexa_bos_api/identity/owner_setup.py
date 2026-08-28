@@ -89,6 +89,7 @@ async def complete_owner_bootstrap(session: AsyncSession, payload: OwnerBootstra
         )
     ).scalar_one()
     owner_type.visibility_scope = VisibilityScope.COMPANY
+    owner_type.customer_visibility_scope = VisibilityScope.COMPANY
     owner_type.mfa_required = False
     designation = await create_designation(
         session,

@@ -108,3 +108,50 @@ INITIAL_OFFICES: tuple[tuple[str, str], ...] = (
     ("DXB", "Dubai"),
     ("AUH", "Abu Dhabi"),
 )
+
+
+class CustomerType(StrEnum):
+    INDIVIDUAL = "individual"
+    COMPANY = "company"
+
+
+class CustomerStatus(StrEnum):
+    ACTIVE = "Active"
+    INACTIVE = "Inactive"
+    MERGED = "Merged"
+
+
+class CustomerIdentifierKind(StrEnum):
+    EMIRATES_ID = "emirates_id"
+    PASSPORT = "passport"
+    TRADE_LICENSE = "trade_license"
+
+
+class CustomerField(StrEnum):
+    FULL_NAME = "full_name"
+    COMPANY_NAME = "company_name"
+    CONTACT_PERSON = "contact_person"
+    EMPLOYER = "employer"
+    MOBILE = "mobile"
+    EMAIL = "email"
+
+
+INITIAL_BANKS: tuple[tuple[str, str], ...] = (
+    ("DIB", "DIB"),
+    ("EIB", "EIB"),
+    ("SIB", "SIB"),
+)
+
+INITIAL_PRODUCTS: tuple[tuple[str, str], ...] = (
+    ("PF", "Personal Finance"),
+    ("CC", "Credit Card"),
+)
+
+# Bank code → product codes. Additional combinations remain configurable.
+INITIAL_BANK_PRODUCTS: tuple[tuple[str, str], ...] = (
+    ("DIB", "PF"),
+    ("DIB", "CC"),
+    ("EIB", "PF"),
+    ("EIB", "CC"),
+    ("SIB", "PF"),
+)
