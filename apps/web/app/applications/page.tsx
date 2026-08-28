@@ -96,6 +96,7 @@ export default function ApplicationsPage() {
   }, [api]);
 
   useEffect(() => {
+    let active = true;
     const params = new URLSearchParams();
     if (query) {
       params.set("q", query);
@@ -108,12 +109,21 @@ export default function ApplicationsPage() {
     const suffix = params.toString() ? `?${params.toString()}` : "";
     void apiGet<{ items: ApplicationRecord[] }>(`/api/v1/applications${suffix}`, api)
       .then((data) => {
+        if (!active) {
+          return;
+        }
         setItems(data.items);
         setError("");
       })
       .catch((err: unknown) => {
+        if (!active) {
+          return;
+        }
         setError(err instanceof ApiClientError ? err.message : "Unable to load applications");
       });
+    return () => {
+      active = false;
+    };
   }, [api, applied, query]);
 
   const stages = useMemo(

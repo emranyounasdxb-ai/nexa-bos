@@ -153,9 +153,10 @@ test("elapsed TAT, mark delay, list badge, timeline, and correction", async ({ p
   await page.goto("/applications");
   await page.getByLabel("Search applications").fill(app.applicationCode);
   await page.getByRole("button", { name: "Apply filters" }).click();
-  await expect(page.getByRole("link", { name: app.applicationCode })).toBeVisible();
-  await expect(page.getByText("Delay · Bank")).toBeVisible();
-  await page.getByRole("link", { name: app.applicationCode }).click();
+  await expect(page.getByRole("link", { name: app.applicationCode })).toHaveCount(1);
+  const delayedRow = page.getByRole("row").filter({ hasText: app.applicationCode });
+  await expect(delayedRow.getByText("Delay · Bank")).toBeVisible();
+  await delayedRow.getByRole("link", { name: app.applicationCode }).click();
   await page.getByLabel("Correction action").selectOption("cancel");
   await page.getByRole("textbox", { name: "Correction reason", exact: true }).fill("Marked in error");
   await page.getByRole("button", { name: "Correct Delay" }).click();
@@ -164,6 +165,8 @@ test("elapsed TAT, mark delay, list badge, timeline, and correction", async ({ p
   await page.goto("/applications");
   await page.getByLabel("Search applications").fill(app.applicationCode);
   await page.getByRole("button", { name: "Apply filters" }).click();
-  await expect(page.getByRole("link", { name: app.applicationCode })).toBeVisible();
-  await expect(page.getByText("Delay · Bank")).toHaveCount(0);
+  await expect(page.getByRole("link", { name: app.applicationCode })).toHaveCount(1);
+  await expect(
+    page.getByRole("row").filter({ hasText: app.applicationCode }).getByText("Delay · Bank"),
+  ).toHaveCount(0);
 });

@@ -27,6 +27,7 @@ export default function UsersPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let active = true;
     const params = new URLSearchParams();
     if (query) {
       params.set("q", query);
@@ -35,13 +36,26 @@ export default function UsersPage() {
     setLoading(true);
     void apiGet<{ items: UserRecord[] }>(`/api/v1/users${suffix}`, getBrowserApiUrl())
       .then((data) => {
+        if (!active) {
+          return;
+        }
         setItems(data.items);
         setError("");
       })
       .catch((err: unknown) => {
+        if (!active) {
+          return;
+        }
         setError(err instanceof ApiClientError ? err.message : "Unable to load users");
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (active) {
+          setLoading(false);
+        }
+      });
+    return () => {
+      active = false;
+    };
   }, [query]);
 
   return (

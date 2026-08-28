@@ -26,6 +26,7 @@ export default function CustomersPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
+    let active = true;
     const params = new URLSearchParams();
     if (query) {
       params.set("q", query);
@@ -33,12 +34,21 @@ export default function CustomersPage() {
     const suffix = params.toString() ? `?${params.toString()}` : "";
     void apiGet<{ items: CustomerRecord[] }>(`/api/v1/customers${suffix}`, getBrowserApiUrl())
       .then((data) => {
+        if (!active) {
+          return;
+        }
         setItems(data.items);
         setError("");
       })
       .catch((err: unknown) => {
+        if (!active) {
+          return;
+        }
         setError(err instanceof ApiClientError ? err.message : "Unable to load customers");
       });
+    return () => {
+      active = false;
+    };
   }, [query]);
 
   return (
