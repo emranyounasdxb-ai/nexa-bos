@@ -499,6 +499,24 @@ async def list_reporting_managers(
     return list((await session.execute(stmt)).scalars().unique().all())
 
 
+async def list_case_owners(
+    session: AsyncSession, *, exclude_user_id: UUID | None = None
+) -> list[User]:
+    stmt = (
+        select(User)
+        .options(*user_load_options())
+        .join(UserType, User.user_type_id == UserType.id)
+        .where(
+            User.account_status == AccountStatus.ACTIVE,
+            UserType.can_be_case_owner.is_(True),
+        )
+        .order_by(User.user_code)
+    )
+    if exclude_user_id is not None:
+        stmt = stmt.where(User.id != exclude_user_id)
+    return list((await session.execute(stmt)).scalars().unique().all())
+
+
 async def get_visible_user(session: AsyncSession, actor: User, user_id: UUID) -> User:
     user = await reload_user(session, user_id)
     if not await can_view_user(session, actor, user):

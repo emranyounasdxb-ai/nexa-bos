@@ -97,12 +97,14 @@ class UserTypeCreateRequest(BaseModel):
     code: str = Field(min_length=1, max_length=64)
     description: str | None = Field(default=None, max_length=500)
     can_be_reporting_manager: bool = False
+    can_be_case_owner: bool = False
 
 
 class UserTypeUpdateRequest(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=120)
     description: str | None = Field(default=None, max_length=500)
     can_be_reporting_manager: bool | None = None
+    can_be_case_owner: bool | None = None
 
 
 class AssignPermissionsRequest(BaseModel):
@@ -115,6 +117,14 @@ class AssignScopeRequest(BaseModel):
 
 class AssignCustomerScopeRequest(BaseModel):
     customer_visibility_scope: VisibilityScope | None = None
+
+
+class AssignApplicationScopeRequest(BaseModel):
+    application_visibility_scope: VisibilityScope | None = None
+
+
+class AssignCaseOwnerRequest(BaseModel):
+    can_be_case_owner: bool
 
 
 class MasterCreateRequest(BaseModel):

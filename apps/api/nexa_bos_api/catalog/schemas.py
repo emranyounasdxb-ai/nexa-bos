@@ -26,3 +26,10 @@ class ProductNameUpdateRequest(MasterNameUpdateRequest):
 class BankProductCreateRequest(BaseModel):
     bank_id: UUID
     product_id: UUID
+
+
+class ProductFieldRulesUpdate(BaseModel):
+    requested_amount_required: bool | None = None
+    approved_amount_required: bool | None = None
+    booked_amount_required: bool | None = None
+    funded_amount_required: bool | None = None

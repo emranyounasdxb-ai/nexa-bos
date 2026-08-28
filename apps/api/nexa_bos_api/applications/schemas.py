@@ -1,0 +1,102 @@
+from datetime import date
+from decimal import Decimal
+from uuid import UUID
+
+from pydantic import BaseModel, Field
+
+from nexa_bos_api.identity.enums import TerminalOutcome, VisibilityScope
+
+
+class AssignApplicationScopeRequest(BaseModel):
+    application_visibility_scope: VisibilityScope | None = None
+
+
+class ApplicationCreateRequest(BaseModel):
+    customer_id: UUID
+    bank_id: UUID
+    product_id: UUID
+    case_owner_id: UUID
+    requested_amount: Decimal | None = None
+    bank_case_number: str | None = Field(default=None, max_length=64)
+
+
+class ApplicationUpdateRequest(BaseModel):
+    requested_amount: Decimal | None = None
+    approved_amount: Decimal | None = None
+    booked_amount: Decimal | None = None
+    funded_amount: Decimal | None = None
+    bank_case_number: str | None = Field(default=None, max_length=64)
+
+
+class CaseNumberRequest(BaseModel):
+    bank_case_number: str = Field(min_length=1, max_length=64)
+    reason: str | None = Field(default=None, max_length=2000)
+
+
+class CorrectSubmittedRequest(BaseModel):
+    reason: str = Field(min_length=1, max_length=2000)
+    requested_amount: Decimal | None = None
+    approved_amount: Decimal | None = None
+    booked_amount: Decimal | None = None
+    funded_amount: Decimal | None = None
+
+
+class ReassignOwnerRequest(BaseModel):
+    case_owner_id: UUID
+    reason: str | None = Field(default=None, max_length=2000)
+
+
+class StageUpdateRequest(BaseModel):
+    stage_id: UUID
+    bank_stage_date: date
+    stage_note: str | None = Field(default=None, max_length=4000)
+    approved_amount: Decimal | None = None
+    booked_amount: Decimal | None = None
+    funded_amount: Decimal | None = None
+    requirement_text: str | None = Field(default=None, max_length=4000)
+
+
+class StageCorrectionRequest(BaseModel):
+    reason: str = Field(min_length=1, max_length=2000)
+    stage_id: UUID
+    bank_stage_date: date
+    stage_note: str | None = Field(default=None, max_length=4000)
+    correction_of_event_id: UUID | None = None
+
+
+class OutcomeRequest(BaseModel):
+    outcome: TerminalOutcome
+    reason: str = Field(min_length=1, max_length=4000)
+
+
+class MigrateWorkflowRequest(BaseModel):
+    workflow_id: UUID
+    target_stage_id: UUID
+    reason: str = Field(min_length=1, max_length=2000)
+
+
+class WorkflowCreateRequest(BaseModel):
+    bank_id: UUID
+    product_id: UUID
+
+
+class WorkflowStageCreateRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    code: str = Field(min_length=1, max_length=64)
+    sort_order: int = Field(ge=1, le=10000)
+
+
+class WorkflowStageUpdateRequest(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=120)
+    sort_order: int | None = Field(default=None, ge=1, le=10000)
+
+
+class WorkflowTransitionsRequest(BaseModel):
+    items: list[dict]
+
+
+class ProductFieldRulesUpdate(BaseModel):
+    requested_amount_required: bool | None = None
+    approved_amount_required: bool | None = None
+    booked_amount_required: bool | None = None
+    funded_amount_required: bool | None = None

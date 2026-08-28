@@ -155,3 +155,46 @@ INITIAL_BANK_PRODUCTS: tuple[tuple[str, str], ...] = (
     ("EIB", "CC"),
     ("SIB", "PF"),
 )
+
+
+class StageSystemKey(StrEnum):
+    APPLICATION_CREATED = "application_created"
+    SUBMITTED = "submitted"
+    RETURNED = "returned_requirement_pending"
+    RESUBMITTED = "resubmitted"
+    APPROVED = "approved"
+    BOOKED = "booked"
+    FUND_RELEASED = "fund_released"
+
+
+class StageKind(StrEnum):
+    ENTRY = "entry"
+    NORMAL = "normal"
+
+
+class TerminalOutcome(StrEnum):
+    COMPLETED = "Completed"
+    FINAL_REJECTED = "Final Rejected"
+    CANCELLED = "Cancelled"
+    WITHDRAWN = "Withdrawn"
+
+
+class ApplicationEventType(StrEnum):
+    CREATED = "application_created"
+    SUBMISSION = "submission"
+    STAGE_MOVED = "stage_moved"
+    STAGE_CORRECTED = "stage_corrected"
+    RETURNED = "returned_requirement_pending"
+    RESUBMISSION = "resubmission"
+    APPROVAL = "approval"
+    BOOKING = "booking"
+    FUND_RELEASE = "fund_release"
+    COMPLETED = "completed"
+    FINAL_REJECTED = "final_rejected"
+    CANCELLED = "cancelled"
+    WITHDRAWN = "withdrawn"
+    CASE_OWNER_REASSIGNED = "case_owner_reassigned"
+    SUBMITTED_DATA_CORRECTED = "submitted_data_corrected"
+    CASE_NUMBER_CORRECTED = "case_number_corrected"
+    WORKFLOW_MIGRATED = "workflow_migrated"
+    CUSTOMER_RELINKED = "customer_relinked"
