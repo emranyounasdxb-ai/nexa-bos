@@ -6,11 +6,14 @@ from uuid import UUID
 from fastapi import APIRouter, Depends
 
 from nexa_bos_api.api.v1.deps import CurrentUser, require_permission
+from nexa_bos_api.applications.models import Application
 from nexa_bos_api.applications.schemas import (
     ApplicationCreateRequest,
     ApplicationUpdateRequest,
     CaseNumberRequest,
+    CorrectDelayRequest,
     CorrectSubmittedRequest,
+    MarkDelayRequest,
     MigrateWorkflowRequest,
     OutcomeRequest,
     ReassignOwnerRequest,
@@ -35,14 +38,17 @@ from nexa_bos_api.applications.service import (
     update_application,
     update_stage,
 )
+from nexa_bos_api.applications.tat import correct_delay, mark_delay
 from nexa_bos_api.customers.service import get_visible_customer
 from nexa_bos_api.db.session import SessionDep
 from nexa_bos_api.identity.access import has_permission
 from nexa_bos_api.identity.permissions import (
+    APPLICATIONS_CORRECT_DELAY,
     APPLICATIONS_CORRECT_STAGE,
     APPLICATIONS_CORRECT_SUBMITTED,
     APPLICATIONS_CREATE,
     APPLICATIONS_EDIT,
+    APPLICATIONS_MARK_DELAY,
     APPLICATIONS_REASSIGN_CASE_OWNER,
     APPLICATIONS_SET_OUTCOME,
     APPLICATIONS_SUBMIT,
@@ -367,6 +373,33 @@ async def applications_migrate(
             payload.reason,
         ),
     )
+
+
+@router.post("/applications/{application_id}/delays")
+async def applications_mark_delay(
+    application_id: UUID,
+    payload: MarkDelayRequest,
+    session: SessionDep,
+    actor: Annotated[CurrentUser, Depends(require_permission(APPLICATIONS_MARK_DELAY))],
+) -> dict[str, object]:
+    application = await get_visible_application(session, actor, application_id)
+    await mark_delay(session, actor, application, payload)
+    refreshed = (await session.get(Application, application.id)) or application
+    return await serialize_application(session, refreshed)
+
+
+@router.post("/applications/{application_id}/delays/{delay_id}/correct")
+async def applications_correct_delay(
+    application_id: UUID,
+    delay_id: UUID,
+    payload: CorrectDelayRequest,
+    session: SessionDep,
+    actor: Annotated[CurrentUser, Depends(require_permission(APPLICATIONS_CORRECT_DELAY))],
+) -> dict[str, object]:
+    application = await get_visible_application(session, actor, application_id)
+    await correct_delay(session, actor, application, delay_id, payload)
+    refreshed = (await session.get(Application, application.id)) or application
+    return await serialize_application(session, refreshed)
 
 
 @router.get("/customers/{customer_id}/applications")

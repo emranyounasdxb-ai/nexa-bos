@@ -49,6 +49,8 @@ APPLICATIONS_UPDATE_STAGE = "Applications.UpdateStage"
 APPLICATIONS_CORRECT_STAGE = "Applications.CorrectStage"
 APPLICATIONS_REASSIGN_CASE_OWNER = "Applications.ReassignCaseOwner"
 APPLICATIONS_SET_OUTCOME = "Applications.SetOutcome"
+APPLICATIONS_MARK_DELAY = "Applications.MarkDelay"
+APPLICATIONS_CORRECT_DELAY = "Applications.CorrectDelay"
 WORKFLOW_STAGES_CREATE = "WorkflowStages.Create"
 WORKFLOW_STAGES_EDIT = "WorkflowStages.Edit"
 WORKFLOW_STAGES_ACTIVATE = "WorkflowStages.Activate"
@@ -109,6 +111,8 @@ PERMISSION_CATALOG: tuple[tuple[str, str], ...] = (
     (APPLICATIONS_CORRECT_STAGE, "Correct stage history without deleting original events"),
     (APPLICATIONS_REASSIGN_CASE_OWNER, "Reassign Case Owner and preserve ownership history"),
     (APPLICATIONS_SET_OUTCOME, "Set Final Rejected, Cancelled, or Withdrawn terminal outcomes"),
+    (APPLICATIONS_MARK_DELAY, "Manually mark an application delay against the current stage"),
+    (APPLICATIONS_CORRECT_DELAY, "Correct or cancel a delay without editing the original event"),
     (WORKFLOW_STAGES_CREATE, "Create workflow stages for a Bank and Product"),
     (WORKFLOW_STAGES_EDIT, "Edit workflow stage names and order"),
     (WORKFLOW_STAGES_ACTIVATE, "Activate workflow stages"),

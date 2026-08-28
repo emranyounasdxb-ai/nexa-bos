@@ -5,9 +5,22 @@ import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
 import { DatePicker } from "@/components/date-picker";
-import { ErrorText, PageHeader, controlClass, primaryButtonClass, secondaryButtonClass } from "@/components/ui";
+import {
+  Badge,
+  Button,
+  Card,
+  ErrorText,
+  Field,
+  PageHeader,
+  Select,
+  Textarea,
+  controlClass,
+  primaryButtonClass,
+  secondaryButtonClass,
+} from "@/components/ui";
 import { apiGet, apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
+import { formatDuration } from "@/lib/duration";
 import { getBrowserApiUrl } from "@/lib/env";
 import type {
   ApplicationEventRecord,
@@ -49,6 +62,11 @@ export default function ApplicationDetailPage() {
   const [migrateStageId, setMigrateStageId] = useState("");
   const [migrateReason, setMigrateReason] = useState("");
   const [correctionAmount, setCorrectionAmount] = useState("");
+  const [delayType, setDelayType] = useState("Bank");
+  const [delayReason, setDelayReason] = useState("");
+  const [delayOther, setDelayOther] = useState("");
+  const [delayAction, setDelayAction] = useState("cancel");
+  const [delayCorrectionReason, setDelayCorrectionReason] = useState("");
 
   const refresh = useCallback(async () => {
     const data = await apiGet<ApplicationRecord>(`/api/v1/applications/${params.id}`, api);
@@ -112,15 +130,61 @@ export default function ApplicationDetailPage() {
       <PageHeader
         title={item.applicationCode}
         description={`${item.customerCode} · ${item.customerName} · ${item.bankCode} / ${item.productCode} · Case Owner ${item.caseOwnerName}${item.terminalOutcome ? ` · ${item.terminalOutcome}` : ""}`}
+        actions={
+          item.hasActiveDelay && item.activeDelay ? (
+            <Badge>{`Delay · ${item.activeDelay.delayType}`}</Badge>
+          ) : undefined
+        }
       />
       <p className="text-sm text-slate-500">
         Bank and Product are immutable. Workflow version {item.workflowVersion}.
       </p>
       <ErrorText>{message}</ErrorText>
 
+      <Card>
+        <h3 className="font-semibold">Turnaround time</h3>
+        <dl className="mt-3 grid gap-2 text-sm md:grid-cols-2">
+          <div>
+            {item.terminal ? "Total duration" : "Elapsed TAT"}:{" "}
+            {item.terminal
+              ? formatDuration(item.totalDurationSeconds)
+              : formatDuration(item.currentElapsedSeconds)}
+          </div>
+          <div>Current stage elapsed: {formatDuration(item.currentStageElapsedSeconds)}</div>
+          <div>Started: {item.tatStartedAt}</div>
+          <div>Stopped: {item.tatStoppedAt ?? "running"}</div>
+        </dl>
+        <h4 className="mt-4 text-sm font-semibold">Stage durations</h4>
+        <ul className="mt-2 space-y-2 text-sm">
+          {item.stageDurations.map((row) => (
+            <li key={row.id} className="rounded-md border border-slate-200 p-3">
+              <p className="font-medium">
+                {row.stageName}
+                {row.completed ? "" : " (current)"}
+              </p>
+              <p className="text-slate-600">Duration: {formatDuration(row.durationSeconds)}</p>
+              <p className="text-xs text-slate-500">
+                Entered {row.enteredAt}
+                {row.exitedAt ? ` · Exited ${row.exitedAt}` : ""}
+              </p>
+              {row.bankStageDate ? <p>Bank Stage Date: {row.bankStageDate}</p> : null}
+              {row.stageNote ? <p>Note: {row.stageNote}</p> : null}
+              <p className="text-xs text-slate-500">
+                BOS {row.bosUpdatedAt} · {row.updatedBy}
+              </p>
+            </li>
+          ))}
+        </ul>
+      </Card>
+
       <div>
         <h3 className="font-semibold">Progress</h3>
         <p className="text-xs text-slate-500">Workflow version {version}</p>
+        {item.activeDelay ? (
+          <p className="mt-2 text-sm">
+            <Badge>{`Active delay · ${item.activeDelay.delayType} · ${item.activeDelay.stageName}`}</Badge>
+          </p>
+        ) : null}
         <ol className="mt-3 flex flex-wrap gap-2">
           {progress.map((stage) => (
             <li
@@ -132,6 +196,9 @@ export default function ApplicationDetailPage() {
               }
             >
               {stage.name}
+              {stage.current && item.currentStageElapsedSeconds != null
+                ? ` · ${formatDuration(item.currentStageElapsedSeconds)}`
+                : ""}
             </li>
           ))}
         </ol>
@@ -145,6 +212,111 @@ export default function ApplicationDetailPage() {
         <div>Bank File / Case Number: {item.bankCaseNumber ?? "—"}</div>
         <div>Submitted: {item.submittedAt ?? "not submitted"}</div>
       </dl>
+
+      {item.activeDelay ? (
+        <Card>
+          <h3 className="font-semibold">Active delay</h3>
+          <dl className="mt-3 grid gap-2 text-sm md:grid-cols-2">
+            <div>Type: {item.activeDelay.delayType}</div>
+            <div>Stage: {item.activeDelay.stageName}</div>
+            <div>Marked by: {item.activeDelay.markedBy}</div>
+            <div>Started: {item.activeDelay.startedAt}</div>
+          </dl>
+          <p className="mt-2 text-sm">Reason: {item.activeDelay.reason}</p>
+          {item.activeDelay.otherExplanation ? (
+            <p className="text-sm">Explanation: {item.activeDelay.otherExplanation}</p>
+          ) : null}
+          {!item.terminal && can("Applications.CorrectDelay") ? (
+            <form
+              className="mt-4 space-y-2"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void post(`/api/v1/applications/${item.id}/delays/${item.activeDelay!.id}/correct`, {
+                  action: delayAction,
+                  reason: delayCorrectionReason,
+                }).then(() => {
+                  setDelayCorrectionReason("");
+                });
+              }}
+            >
+              <Field label="Correction action">
+                <Select
+                  aria-label="Correction action"
+                  value={delayAction}
+                  onChange={(event) => setDelayAction(event.target.value)}
+                >
+                  <option value="cancel">Cancel delay</option>
+                  <option value="correct">Correct delay</option>
+                </Select>
+              </Field>
+              <Field label="Correction reason">
+                <Textarea
+                  aria-label="Correction reason"
+                  placeholder="Correction reason (mandatory)"
+                  value={delayCorrectionReason}
+                  onChange={(event) => setDelayCorrectionReason(event.target.value)}
+                  required
+                />
+              </Field>
+              <Button variant="secondary" type="submit">
+                Correct Delay
+              </Button>
+            </form>
+          ) : null}
+        </Card>
+      ) : null}
+
+      {!item.terminal && !item.activeDelay && can("Applications.MarkDelay") ? (
+        <form
+          className="space-y-2 rounded-xl border bg-white p-4"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void post(`/api/v1/applications/${item.id}/delays`, {
+              delay_type: delayType,
+              reason: delayReason,
+              other_explanation: delayType === "Other" ? delayOther : null,
+            }).then(() => {
+              setDelayReason("");
+              setDelayOther("");
+            });
+          }}
+        >
+          <h3 className="font-semibold">Mark Delay</h3>
+          <Field label="Delay type">
+            <Select
+              aria-label="Delay type"
+              value={delayType}
+              onChange={(event) => setDelayType(event.target.value)}
+            >
+              <option>Bank</option>
+              <option>Customer</option>
+              <option>Internal</option>
+              <option>Other</option>
+            </Select>
+          </Field>
+          <Field label="Delay reason">
+            <Textarea
+              aria-label="Delay reason"
+              placeholder="Delay reason (mandatory)"
+              value={delayReason}
+              onChange={(event) => setDelayReason(event.target.value)}
+              required
+            />
+          </Field>
+          {delayType === "Other" ? (
+            <Field label="Other explanation">
+              <Textarea
+                aria-label="Other explanation"
+                placeholder="Explain Other delay type"
+                value={delayOther}
+                onChange={(event) => setDelayOther(event.target.value)}
+                required
+              />
+            </Field>
+          ) : null}
+          <Button type="submit">Mark Delay</Button>
+        </form>
+      ) : null}
 
       {!item.terminal && can("Applications.Submit") ? (
         <form
@@ -493,6 +665,26 @@ export default function ApplicationDetailPage() {
               {event.bankStageDate ? <p>Bank Stage Date: {event.bankStageDate}</p> : null}
               {event.stageNote ? <p>Note: {event.stageNote}</p> : null}
               {event.reason ? <p>Reason: {event.reason}</p> : null}
+              {event.payload &&
+              typeof event.payload.delayType === "string" ? (
+                <p>
+                  Delay: {event.payload.delayType}
+                  {typeof event.payload.otherExplanation === "string" && event.payload.otherExplanation
+                    ? ` · ${event.payload.otherExplanation}`
+                    : ""}
+                </p>
+              ) : null}
+              {event.payload && typeof event.payload.startedAt === "string" ? (
+                <p className="text-xs text-slate-500">
+                  Delay start {event.payload.startedAt}
+                  {typeof event.payload.endedAt === "string" && event.payload.endedAt
+                    ? ` · end ${event.payload.endedAt}`
+                    : ""}
+                  {typeof event.payload.durationSeconds === "number"
+                    ? ` · ${formatDuration(event.payload.durationSeconds)}`
+                    : ""}
+                </p>
+              ) : null}
               <p className="text-xs text-slate-500">
                 BOS {event.bosUpdatedAt} · {event.updatedBy}
               </p>

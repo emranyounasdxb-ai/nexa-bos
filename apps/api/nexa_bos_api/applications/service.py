@@ -27,6 +27,15 @@ from nexa_bos_api.applications.schemas import (
     StageUpdateRequest,
 )
 from nexa_bos_api.applications.seed import entry_stage, stage_by_key, utcnow
+from nexa_bos_api.applications.tat import (
+    occupancy_by_stage,
+    on_stage_corrected,
+    on_successful_stage_movement,
+    on_terminal_outcome,
+    open_occupancy,
+    serialize_occupancy,
+    tat_fields,
+)
 from nexa_bos_api.applications.visibility import apply_owner_filter, visible_case_owner_ids
 from nexa_bos_api.applications.workflow_service import latest_active_workflow, load_workflow
 from nexa_bos_api.catalog.models import Bank, BankProduct, Product
@@ -109,6 +118,7 @@ async def serialize_application(
         "updatedAt": application.updated_at.isoformat(),
         "submitted": application.submitted_at is not None,
         "terminal": application.terminal_outcome is not None,
+        **(await tat_fields(session, application)),
     }
 
 
@@ -207,6 +217,7 @@ async def _add_event(
     payload: dict | None = None,
     reason: str | None = None,
     correction_of_event_id: UUID | None = None,
+    at: datetime | None = None,
 ) -> ApplicationEvent:
     event = ApplicationEvent(
         id=new_uuid(),
@@ -216,7 +227,7 @@ async def _add_event(
         new_stage_id=new_stage_id,
         bank_stage_date=bank_stage_date,
         stage_note=stage_note,
-        bos_updated_at=utcnow(),
+        bos_updated_at=at or utcnow(),
         actor_id=actor_id,
         payload=payload,
         correction_of_event_id=correction_of_event_id,
@@ -378,6 +389,14 @@ async def create_application(
         actor_id=actor.id,
         new_stage_id=start.id,
         payload={"applicationCode": application.application_code},
+        at=now,
+    )
+    await open_occupancy(
+        session,
+        application,
+        stage_id=start.id,
+        actor_id=actor.id,
+        at=now,
     )
     case_number = _blank(payload.bank_case_number)
     if case_number:
@@ -479,6 +498,15 @@ async def _first_or_correct_case_number(
             previous_stage_id=previous,
             new_stage_id=submitted.id,
             payload={"bankCaseNumber": normalized},
+            at=now,
+        )
+        await on_successful_stage_movement(
+            session,
+            application,
+            actor_id=actor.id,
+            at=now,
+            previous_stage_id=previous,
+            new_stage_id=submitted.id,
         )
     else:
         await _add_event(
@@ -892,7 +920,9 @@ async def update_stage(
         session, actor, application, target, payload
     )
     application.current_stage_id = target.id
-    application.updated_at = utcnow()
+    now = utcnow()
+    application.updated_at = now
+    stage_note = _blank(payload.stage_note) or _blank(payload.requirement_text)
     await _add_event(
         session,
         application=application,
@@ -901,10 +931,11 @@ async def update_stage(
         previous_stage_id=previous,
         new_stage_id=target.id,
         bank_stage_date=payload.bank_stage_date,
-        stage_note=_blank(payload.stage_note) or _blank(payload.requirement_text),
-        payload={"resubmittedAt": utcnow().isoformat()}
+        stage_note=stage_note,
+        payload={"resubmittedAt": now.isoformat()}
         if event_type == ApplicationEventType.RESUBMISSION
         else None,
+        at=now,
     )
     if event_type == ApplicationEventType.FUND_RELEASE:
         await _add_event(
@@ -913,7 +944,18 @@ async def update_stage(
             event_type=ApplicationEventType.COMPLETED,
             actor_id=actor.id,
             new_stage_id=target.id,
+            at=now,
         )
+    await on_successful_stage_movement(
+        session,
+        application,
+        actor_id=actor.id,
+        at=now,
+        previous_stage_id=previous,
+        new_stage_id=target.id,
+        bank_stage_date=payload.bank_stage_date,
+        stage_note=stage_note,
+    )
     await record_audit(
         session,
         action="application.stage",
@@ -938,7 +980,8 @@ async def correct_stage(
         )
     previous = application.current_stage_id
     application.current_stage_id = target.id
-    application.updated_at = utcnow()
+    now = utcnow()
+    application.updated_at = now
     await _add_event(
         session,
         application=application,
@@ -950,6 +993,17 @@ async def correct_stage(
         stage_note=_blank(payload.stage_note),
         reason=payload.reason,
         correction_of_event_id=payload.correction_of_event_id,
+        at=now,
+    )
+    await on_stage_corrected(
+        session,
+        application,
+        actor_id=actor.id,
+        at=now,
+        previous_stage_id=previous,
+        new_stage_id=target.id,
+        bank_stage_date=payload.bank_stage_date,
+        stage_note=_blank(payload.stage_note),
     )
     await record_audit(
         session,
@@ -992,7 +1046,9 @@ async def set_outcome(
         event_type=event_map[outcome],
         actor_id=actor.id,
         reason=reason.strip(),
+        at=now,
     )
+    await on_terminal_outcome(session, application, actor_id=actor.id, at=now)
     await record_audit(
         session,
         action="application.outcome",
@@ -1036,7 +1092,8 @@ async def migrate_application(
     old_stage = application.current_stage_id
     application.workflow_id = target_workflow.id
     application.current_stage_id = target_stage.id
-    application.updated_at = utcnow()
+    now = utcnow()
+    application.updated_at = now
     await _add_event(
         session,
         application=application,
@@ -1050,6 +1107,16 @@ async def migrate_application(
             "toWorkflowId": str(target_workflow.id),
             "toVersion": target_workflow.version,
         },
+        at=now,
+    )
+    await on_successful_stage_movement(
+        session,
+        application,
+        actor_id=actor.id,
+        at=now,
+        previous_stage_id=old_stage,
+        new_stage_id=target_stage.id,
+        stage_note=reason,
     )
     await record_audit(
         session,
@@ -1111,15 +1178,26 @@ async def application_progress(
     session: AsyncSession, application: Application
 ) -> dict[str, object]:
     workflow = await load_workflow(session, application.workflow_id)
-    stages = [
-        serialize_progress_stage(row, application.current_stage_id)
-        for row in sorted(workflow.stages, key=lambda item: item.sort_order)
-        if row.status == MasterStatus.ACTIVE
-    ]
+    latest = await occupancy_by_stage(session, application)
+    now = utcnow()
+    tat = await tat_fields(session, application)
+    stages = []
+    for row in sorted(workflow.stages, key=lambda item: item.sort_order):
+        if row.status != MasterStatus.ACTIVE:
+            continue
+        item = serialize_progress_stage(row, application.current_stage_id)
+        occupancy = latest.get(str(row.id))
+        if occupancy is not None:
+            item.update(await serialize_occupancy(session, occupancy, now=now))
+            item["id"] = str(row.id)
+            item["current"] = row.id == application.current_stage_id
+        stages.append(item)
     return {
         "workflowId": str(workflow.id),
         "version": workflow.version,
         "currentStageId": str(application.current_stage_id),
+        "activeDelay": tat["activeDelay"],
+        "currentStageElapsedSeconds": tat["currentStageElapsedSeconds"],
         "stages": stages,
     }
 

@@ -4,7 +4,12 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-from nexa_bos_api.identity.enums import TerminalOutcome, VisibilityScope
+from nexa_bos_api.identity.enums import (
+    DelayCorrectionAction,
+    DelayType,
+    TerminalOutcome,
+    VisibilityScope,
+)
 
 
 class AssignApplicationScopeRequest(BaseModel):
@@ -73,6 +78,17 @@ class MigrateWorkflowRequest(BaseModel):
     workflow_id: UUID
     target_stage_id: UUID
     reason: str = Field(min_length=1, max_length=2000)
+
+
+class MarkDelayRequest(BaseModel):
+    delay_type: DelayType
+    reason: str = Field(min_length=1, max_length=4000)
+    other_explanation: str | None = Field(default=None, max_length=4000)
+
+
+class CorrectDelayRequest(BaseModel):
+    action: DelayCorrectionAction
+    reason: str = Field(min_length=1, max_length=4000)
 
 
 class WorkflowCreateRequest(BaseModel):

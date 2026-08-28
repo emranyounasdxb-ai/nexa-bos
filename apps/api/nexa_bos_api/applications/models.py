@@ -135,6 +135,7 @@ class Application(Base):
     booked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     fund_released_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    tat_stopped_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
@@ -192,3 +193,80 @@ class ApplicationEvent(Base):
         Uuid, ForeignKey("application_events.id")
     )
     reason: Mapped[str | None] = mapped_column(Text)
+
+
+class ApplicationStageOccupancy(Base):
+    __tablename__ = "application_stage_occupancies"
+    __table_args__ = (
+        Index("ix_application_stage_occupancies_application_id", "application_id"),
+        Index(
+            "uq_application_stage_occupancies_open",
+            "application_id",
+            unique=True,
+            postgresql_where=text("exited_at IS NULL"),
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_uuid)
+    application_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("applications.id", ondelete="CASCADE"), nullable=False
+    )
+    stage_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("workflow_stages.id"), nullable=False
+    )
+    entered_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    exited_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    duration_seconds: Mapped[int | None] = mapped_column(Integer)
+    bank_stage_date: Mapped[date | None] = mapped_column(Date)
+    stage_note: Mapped[str | None] = mapped_column(Text)
+    bos_updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_by_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("users.id"), nullable=False)
+
+
+class ApplicationDelay(Base):
+    __tablename__ = "application_delays"
+    __table_args__ = (
+        Index("ix_application_delays_application_id", "application_id"),
+        Index(
+            "uq_application_delays_one_active",
+            "application_id",
+            unique=True,
+            postgresql_where=text("ended_at IS NULL"),
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_uuid)
+    application_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("applications.id", ondelete="CASCADE"), nullable=False
+    )
+    stage_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("workflow_stages.id"), nullable=False
+    )
+    delay_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
+    other_explanation: Mapped[str | None] = mapped_column(Text)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    duration_seconds: Mapped[int | None] = mapped_column(Integer)
+    marked_by_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("users.id"), nullable=False)
+    marked_event_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("application_events.id")
+    )
+    closed_cause: Mapped[str | None] = mapped_column(String(32))
+
+
+class ApplicationDelayCorrection(Base):
+    __tablename__ = "application_delay_corrections"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_uuid)
+    delay_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("application_delays.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    application_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("applications.id", ondelete="CASCADE"), nullable=False
+    )
+    action: Mapped[str] = mapped_column(String(20), nullable=False)
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
+    actor_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("users.id"), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    event_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("application_events.id"))
