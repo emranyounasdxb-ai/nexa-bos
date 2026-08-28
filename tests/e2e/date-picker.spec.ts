@@ -71,6 +71,48 @@ test("create user form uses the NEXA BOS date picker", async ({ page, request })
   await expect(page.getByRole("dialog", { name: "Choose date" })).toHaveCount(0);
 });
 
+test("invalid typed dates block submit and month navigation keeps a focused day", async ({
+  page,
+  request,
+}) => {
+  await signIn(page, request);
+  await page.goto("/users/new");
+  await expect(page.getByRole("heading", { name: "Create user" })).toBeVisible();
+
+  const joining = page.getByLabel("Joining date");
+  await joining.fill("2026-02-31");
+  await expect(joining).toHaveAttribute("aria-invalid", "true");
+  await expect
+    .poll(async () => joining.evaluate((el: HTMLInputElement) => el.checkValidity()))
+    .toBe(false);
+  await expect
+    .poll(async () => joining.evaluate((el: HTMLInputElement) => el.validationMessage))
+    .toBe("Enter a valid date as YYYY-MM-DD");
+
+  await joining.fill("2026-03-31");
+  await expect(joining).not.toHaveAttribute("aria-invalid", "true");
+  await expect
+    .poll(async () => joining.evaluate((el: HTMLInputElement) => el.checkValidity()))
+    .toBe(true);
+  await page.getByRole("button", { name: "Open calendar" }).first().click();
+  await expect(page.getByRole("dialog", { name: "Choose date" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "2026-03-31" })).toHaveAttribute("tabindex", "0");
+  await page.getByRole("button", { name: "Previous month" }).click();
+  await expect(page.getByText("February 2026")).toBeVisible();
+  await expect(page.getByRole("button", { name: "2026-02-28" })).toHaveAttribute("tabindex", "0");
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog", { name: "Choose date" })).toHaveCount(0);
+
+  await joining.fill("2026-03-03");
+  await page.getByRole("button", { name: "Open calendar" }).first().click();
+  await expect(page.getByRole("dialog", { name: "Choose date" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "2026-03-03" })).toHaveAttribute("tabindex", "0");
+  await page.getByRole("button", { name: "2026-03-03" }).focus();
+  await page.keyboard.press("ArrowUp");
+  await expect(page.getByText("February 2026")).toBeVisible();
+  await expect(page.getByRole("button", { name: "2026-02-24" })).toHaveAttribute("tabindex", "0");
+});
+
 test("optional application date filters open the calendar and can be cleared", async ({
   page,
   request,

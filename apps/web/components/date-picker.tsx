@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { Button, controlClass, controlErrorClass, cx, focusRing, secondaryButtonClass } from "@/components/ui";
 
@@ -49,9 +49,21 @@ function addMonths(date: Date, count: number): Date {
   return new Date(date.getFullYear(), date.getMonth() + count, 1);
 }
 
+function daysInMonth(date: Date): number {
+  return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+}
+
 function todayIso(): string {
   const now = new Date();
   return toIso(now.getFullYear(), now.getMonth(), now.getDate());
+}
+
+function typedDateError(draft: string): string {
+  const trimmed = draft.trim();
+  if (!trimmed || parseIso(trimmed)) {
+    return "";
+  }
+  return "Enter a valid date as YYYY-MM-DD";
 }
 
 export type DatePickerProps = {
@@ -81,15 +93,31 @@ export function DatePicker({
   const inputId = id ?? generatedId;
   const dialogId = `${inputId}-calendar`;
   const rootRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const restoreGridFocus = useRef(false);
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(value);
   const selected = parseIso(value);
   const [view, setView] = useState(() => startOfMonth(selected ?? new Date()));
   const [focusDay, setFocusDay] = useState(() => selected?.getDate() ?? 1);
+  const dateError = typedDateError(draft);
 
   useEffect(() => {
     setDraft(value);
   }, [value]);
+
+  useEffect(() => {
+    inputRef.current?.setCustomValidity(dateError);
+  }, [dateError]);
+
+  useLayoutEffect(() => {
+    if (!open || !restoreGridFocus.current) {
+      return;
+    }
+    restoreGridFocus.current = false;
+    const iso = toIso(view.getFullYear(), view.getMonth(), focusDay);
+    rootRef.current?.querySelector<HTMLButtonElement>(`button[aria-label="${iso}"]`)?.focus();
+  }, [open, view, focusDay]);
 
   useEffect(() => {
     if (open) {
@@ -124,12 +152,12 @@ export function DatePicker({
   const cells = useMemo(() => {
     const first = startOfMonth(view);
     const startOffset = first.getDay();
-    const daysInMonth = new Date(view.getFullYear(), view.getMonth() + 1, 0).getDate();
+    const monthLength = daysInMonth(view);
     const items: Array<{ iso: string; day: number; inMonth: boolean }> = [];
     for (let index = 0; index < startOffset; index += 1) {
       items.push({ iso: "", day: 0, inMonth: false });
     }
-    for (let day = 1; day <= daysInMonth; day += 1) {
+    for (let day = 1; day <= monthLength; day += 1) {
       items.push({
         iso: toIso(view.getFullYear(), view.getMonth(), day),
         day,
@@ -158,19 +186,18 @@ export function DatePicker({
     }
   }
 
-  function moveFocus(delta: number) {
-    const daysInMonth = new Date(view.getFullYear(), view.getMonth() + 1, 0).getDate();
-    let next = focusDay + delta;
-    let nextView = view;
-    if (next < 1) {
-      nextView = addMonths(view, -1);
-      next = new Date(nextView.getFullYear(), nextView.getMonth() + 1, 0).getDate();
-    } else if (next > daysInMonth) {
-      nextView = addMonths(view, 1);
-      next = 1;
-    }
+  function shiftView(count: number) {
+    const nextView = addMonths(view, count);
     setView(nextView);
-    setFocusDay(next);
+    setFocusDay((day) => Math.min(day, daysInMonth(nextView)));
+  }
+
+  function moveFocus(delta: number) {
+    const current = new Date(view.getFullYear(), view.getMonth(), focusDay);
+    const moved = new Date(current.getFullYear(), current.getMonth(), current.getDate() + delta);
+    restoreGridFocus.current = true;
+    setView(startOfMonth(moved));
+    setFocusDay(moved.getDate());
   }
 
   const showClear = (optional || !required) && Boolean(value) && !disabled;
@@ -179,6 +206,7 @@ export function DatePicker({
     <div ref={rootRef} className="relative mt-1">
       <div className="flex gap-2">
         <input
+          ref={inputRef}
           id={inputId}
           name={name}
           type="text"
@@ -186,15 +214,25 @@ export function DatePicker({
           autoComplete="off"
           spellCheck={false}
           placeholder="YYYY-MM-DD"
-          className={cx(controlClass, error && controlErrorClass)}
+          className={cx(controlClass, (error || Boolean(dateError)) && controlErrorClass)}
           value={draft}
           disabled={disabled}
           required={required}
-          aria-invalid={error || undefined}
+          aria-invalid={error || Boolean(dateError) || undefined}
           aria-label={ariaLabel}
           aria-haspopup="dialog"
           aria-controls={dialogId}
-          onChange={(event) => setDraft(event.target.value)}
+          onChange={(event) => {
+            const next = event.target.value;
+            setDraft(next);
+            event.currentTarget.setCustomValidity(typedDateError(next));
+            const trimmed = next.trim();
+            if (parseIso(trimmed)) {
+              onChange(trimmed);
+            } else if (!trimmed && (optional || !required)) {
+              onChange("");
+            }
+          }}
           onBlur={applyTyped}
           onKeyDown={(event) => {
             if (event.key === "Enter") {
@@ -240,7 +278,7 @@ export function DatePicker({
               type="button"
               className={cx("rounded-md px-2 py-1 text-sm text-slate-700", focusRing)}
               aria-label="Previous year"
-              onClick={() => setView(addMonths(view, -12))}
+              onClick={() => shiftView(-12)}
             >
               «
             </button>
@@ -248,7 +286,7 @@ export function DatePicker({
               type="button"
               className={cx("rounded-md px-2 py-1 text-sm text-slate-700", focusRing)}
               aria-label="Previous month"
-              onClick={() => setView(addMonths(view, -1))}
+              onClick={() => shiftView(-1)}
             >
               ‹
             </button>
@@ -259,7 +297,7 @@ export function DatePicker({
               type="button"
               className={cx("rounded-md px-2 py-1 text-sm text-slate-700", focusRing)}
               aria-label="Next month"
-              onClick={() => setView(addMonths(view, 1))}
+              onClick={() => shiftView(1)}
             >
               ›
             </button>
@@ -267,7 +305,7 @@ export function DatePicker({
               type="button"
               className={cx("rounded-md px-2 py-1 text-sm text-slate-700", focusRing)}
               aria-label="Next year"
-              onClick={() => setView(addMonths(view, 12))}
+              onClick={() => shiftView(12)}
             >
               »
             </button>

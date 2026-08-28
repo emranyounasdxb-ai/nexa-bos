@@ -23,6 +23,10 @@ function Shell({ children }: { children: ReactNode }) {
       if (current.csrfToken) {
         setCsrfToken(current.csrfToken);
       }
+    } catch {
+      /* keep any existing CSRF token and still attempt logout */
+    }
+    try {
       await apiRequest("/api/v1/auth/logout", getBrowserApiUrl(), { method: "POST" });
     } catch {
       /* session already gone */
