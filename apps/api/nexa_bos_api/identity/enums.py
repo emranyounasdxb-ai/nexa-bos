@@ -198,3 +198,19 @@ class ApplicationEventType(StrEnum):
     CASE_NUMBER_CORRECTED = "case_number_corrected"
     WORKFLOW_MIGRATED = "workflow_migrated"
     CUSTOMER_RELINKED = "customer_relinked"
+    DELAY_MARKED = "delay_marked"
+    DELAY_CLOSED = "delay_closed"
+    DELAY_CORRECTED = "delay_corrected"
+    DELAY_CANCELLED = "delay_cancelled"
+
+
+class DelayType(StrEnum):
+    BANK = "Bank"
+    CUSTOMER = "Customer"
+    INTERNAL = "Internal"
+    OTHER = "Other"
+
+
+class DelayCorrectionAction(StrEnum):
+    CORRECT = "correct"
+    CANCEL = "cancel"

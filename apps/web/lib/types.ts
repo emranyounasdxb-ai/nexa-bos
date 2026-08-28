@@ -141,6 +141,46 @@ export type ApplicationRecord = {
   updatedAt: string;
   submitted: boolean;
   terminal: boolean;
+  tatStartedAt: string;
+  tatStoppedAt: string | null;
+  totalDurationSeconds: number | null;
+  currentElapsedSeconds: number | null;
+  currentStageEnteredAt: string | null;
+  currentStageElapsedSeconds: number | null;
+  stageDurations: StageDurationRecord[];
+  activeDelay: DelayRecord | null;
+  hasActiveDelay: boolean;
+};
+
+export type StageDurationRecord = {
+  id: string;
+  stageId: string;
+  stageName: string | null;
+  enteredAt: string;
+  exitedAt: string | null;
+  durationSeconds: number;
+  completed: boolean;
+  bankStageDate: string | null;
+  stageNote: string | null;
+  bosUpdatedAt: string;
+  updatedBy: string | null;
+  updatedById: string;
+};
+
+export type DelayRecord = {
+  id: string;
+  delayType: string;
+  reason: string;
+  otherExplanation: string | null;
+  stageId: string;
+  stageName: string | null;
+  startedAt: string;
+  endedAt: string | null;
+  durationSeconds: number | null;
+  markedById: string;
+  markedBy: string | null;
+  closedCause: string | null;
+  active: boolean;
 };
 
 export type ApplicationEventRecord = {
@@ -166,6 +206,9 @@ export type WorkflowStageRecord = {
   sortOrder: number;
   status?: string;
   current?: boolean;
+  enteredAt?: string | null;
+  exitedAt?: string | null;
+  durationSeconds?: number | null;
 };
 
 export type WorkflowRecord = {

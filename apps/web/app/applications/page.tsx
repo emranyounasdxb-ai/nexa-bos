@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { DatePicker } from "@/components/date-picker";
 import {
+  Badge,
   Button,
   ButtonLink,
   EmptyState,
@@ -19,6 +20,7 @@ import {
 } from "@/components/ui";
 import { apiGet, ApiClientError } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
+import { formatDuration } from "@/lib/duration";
 import { getBrowserApiUrl } from "@/lib/env";
 import type {
   ApplicationRecord,
@@ -369,12 +371,14 @@ export default function ApplicationsPage() {
             <Th>Case Owner</Th>
             <Th>Stage</Th>
             <Th>Outcome</Th>
+            <Th>TAT</Th>
+            <Th>Delay</Th>
           </tr>
         </TableHead>
         <tbody>
           {items.length === 0 ? (
             <tr>
-              <td colSpan={6}>
+              <td colSpan={8}>
                 <EmptyState>No applications match the current filters.</EmptyState>
               </td>
             </tr>
@@ -395,6 +399,18 @@ export default function ApplicationsPage() {
                 <Td>{item.caseOwnerName}</Td>
                 <Td>{item.currentStage}</Td>
                 <Td>{item.terminalOutcome ?? "Open"}</Td>
+                <Td>
+                  {item.terminal
+                    ? formatDuration(item.totalDurationSeconds)
+                    : formatDuration(item.currentElapsedSeconds)}
+                </Td>
+                <Td>
+                  {item.hasActiveDelay && item.activeDelay ? (
+                    <Badge>{`Delay · ${item.activeDelay.delayType}`}</Badge>
+                  ) : (
+                    "—"
+                  )}
+                </Td>
               </tr>
             ))
           )}

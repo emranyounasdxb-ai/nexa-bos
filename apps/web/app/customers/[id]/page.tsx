@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
-import { Button, ErrorText, PageHeader, TextInput, controlClass, secondaryButtonClass } from "@/components/ui";
+import { Badge, Button, ErrorText, PageHeader, TextInput, controlClass, secondaryButtonClass } from "@/components/ui";
 import { apiGet, apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { getBrowserApiUrl } from "@/lib/env";
@@ -196,6 +196,12 @@ export default function CustomerDetailPage() {
                 </Link>{" "}
                 · {app.bankCode}/{app.productCode} · {app.currentStage}
                 {app.terminalOutcome ? ` · ${app.terminalOutcome}` : ""}
+                {app.hasActiveDelay && app.activeDelay ? (
+                  <>
+                    {" "}
+                    <Badge>{`Delay · ${app.activeDelay.delayType}`}</Badge>
+                  </>
+                ) : null}
               </li>
             ))}
           </ul>
