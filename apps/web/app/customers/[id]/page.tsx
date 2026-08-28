@@ -1,17 +1,19 @@
 "use client";
 
+import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
 import { apiGet, apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { getBrowserApiUrl } from "@/lib/env";
-import type { CustomerRecord } from "@/lib/types";
+import type { ApplicationRecord, CustomerRecord } from "@/lib/types";
 
 export default function CustomerDetailPage() {
   const params = useParams<{ id: string }>();
   const { can } = useAuth();
   const [customer, setCustomer] = useState<CustomerRecord | null>(null);
+  const [applications, setApplications] = useState<ApplicationRecord[]>([]);
   const [others, setOthers] = useState<CustomerRecord[]>([]);
   const [primaryId, setPrimaryId] = useState("");
   const [message, setMessage] = useState("");
@@ -44,6 +46,15 @@ export default function CustomerDetailPage() {
     });
     const directory = await apiGet<{ items: CustomerRecord[] }>("/api/v1/customers", api);
     setOthers(directory.items.filter((item) => item.id !== data.id && item.status !== "Merged"));
+    try {
+      const apps = await apiGet<{ items: ApplicationRecord[] }>(
+        `/api/v1/customers/${params.id}/applications`,
+        api,
+      );
+      setApplications(apps.items);
+    } catch {
+      setApplications([]);
+    }
   }, [api, params.id]);
 
   useEffect(() => {
@@ -172,6 +183,25 @@ export default function CustomerDetailPage() {
             Activate
           </button>
         ) : null}
+      </div>
+      <div className="space-y-2 rounded-xl border border-slate-200 bg-white p-4">
+        <h3 className="font-semibold">Applications</h3>
+        <p className="text-xs text-slate-500">Only applications visible to you are listed.</p>
+        {applications.length === 0 ? (
+          <p className="text-sm text-slate-500">No visible applications.</p>
+        ) : (
+          <ul className="text-sm">
+            {applications.map((app) => (
+              <li key={app.id}>
+                <Link className="underline" href={`/applications/${app.id}`}>
+                  {app.applicationCode}
+                </Link>{" "}
+                · {app.bankCode}/{app.productCode} · {app.currentStage}
+                {app.terminalOutcome ? ` · ${app.terminalOutcome}` : ""}
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
       {can("Customers.Merge") && !merged ? (
         <div className="space-y-2 rounded-xl border border-slate-200 bg-white p-4">

@@ -16,7 +16,6 @@ from nexa_bos_api.customers.models import (
     new_uuid,
 )
 from nexa_bos_api.customers.schemas import CustomerCreateRequest, CustomerUpdateRequest
-from nexa_bos_api.identity.access import has_company_customer_visibility
 from nexa_bos_api.identity.audit import record_audit
 from nexa_bos_api.identity.enums import (
     CustomerField,
@@ -92,17 +91,18 @@ async def next_customer_code(session: AsyncSession) -> str:
     return f"CUS-{counter.last_value:06d}"
 
 
-def _customer_visible_now(actor: User) -> bool:
-    """Company-wide customer visibility is enforced now.
+async def _allowed_customer_ids(session: AsyncSession, actor: User) -> set[UUID] | None:
+    """None means all customers. Empty set means none."""
+    from nexa_bos_api.applications.visibility import visible_customer_ids
 
-    Office, Team/Reporting Hierarchy, and Own Customers require Applications and
-    Case Owner (Task 5). Until then those scopes do not invent a substitute owner.
-    """
-    return has_company_customer_visibility(actor)
+    return await visible_customer_ids(session, actor)
 
 
-async def can_view_customer(_session: AsyncSession, actor: User, _customer: Customer) -> bool:
-    return _customer_visible_now(actor)
+async def can_view_customer(session: AsyncSession, actor: User, customer: Customer) -> bool:
+    allowed = await _allowed_customer_ids(session, actor)
+    if allowed is None:
+        return True
+    return customer.id in allowed
 
 
 async def get_visible_customer(session: AsyncSession, actor: User, customer_id: UUID) -> Customer:
@@ -406,8 +406,11 @@ async def list_customers(
     status: str | None,
 ) -> list[Customer]:
     stmt = select(Customer)
-    if not _customer_visible_now(actor):
-        return []
+    allowed = await _allowed_customer_ids(session, actor)
+    if allowed is not None:
+        if not allowed:
+            return []
+        stmt = stmt.where(Customer.id.in_(allowed))
     if status:
         stmt = stmt.where(Customer.status == status)
     if q:
@@ -527,6 +530,15 @@ async def set_customer_status(
     session: AsyncSession, actor: User, customer: Customer, status: CustomerStatus
 ) -> Customer:
     _reject_merged(customer)
+    if status is CustomerStatus.INACTIVE:
+        from nexa_bos_api.applications.service import has_active_applications
+
+        if await has_active_applications(session, customer.id):
+            raise AppError(
+                status_code=422,
+                code="CUSTOMER_HAS_ACTIVE_APPLICATIONS",
+                message="A customer with active applications cannot be deactivated",
+            )
     customer.status = status
     customer.updated_at = utcnow()
     await record_audit(
@@ -593,6 +605,9 @@ async def merge_customers(
         actor_id=actor.id,
         new_values={"mergedSourceId": str(source.id), "retiredCustomerCode": source.customer_code},
     )
+    from nexa_bos_api.applications.service import relink_applications
+
+    await relink_applications(session, source.id, primary.id, actor.id)
     await session.commit()
     return (await session.get(Customer, source.id)) or source
 

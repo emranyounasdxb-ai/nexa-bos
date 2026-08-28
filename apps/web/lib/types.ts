@@ -12,6 +12,9 @@ export type ManagerOption = {
   id: string;
   userCode: string;
   fullName: string;
+  officeId?: string | null;
+  departmentId?: string | null;
+  teamId?: string | null;
 };
 
 export type UserTypeSummary = {
@@ -23,8 +26,10 @@ export type UserTypeSummary = {
   status: string;
   visibilityScope: string | null;
   customerVisibilityScope: string | null;
+  applicationVisibilityScope?: string | null;
   mfaRequired: boolean;
   canBeReportingManager?: boolean;
+  canBeCaseOwner?: boolean;
   permissions?: string[];
 };
 
@@ -85,6 +90,10 @@ export type CatalogItem = {
   code: string;
   name: string;
   status: string;
+  requestedAmountRequired?: boolean;
+  approvedAmountRequired?: boolean;
+  bookedAmountRequired?: boolean;
+  fundedAmountRequired?: boolean;
 };
 
 export type BankProductRecord = {
@@ -94,4 +103,79 @@ export type BankProductRecord = {
   status: string;
   bank: CatalogItem | null;
   product: CatalogItem | null;
+};
+
+export type ApplicationRecord = {
+  id: string;
+  applicationCode: string;
+  customerId: string;
+  customerCode: string | null;
+  customerName: string | null;
+  customerMobile: string | null;
+  bankId: string;
+  bankCode: string | null;
+  bankName: string | null;
+  productId: string;
+  productCode: string | null;
+  productName: string | null;
+  workflowId: string;
+  workflowVersion: number | null;
+  currentStageId: string;
+  currentStage: string | null;
+  currentStageKey: string | null;
+  terminalOutcome: string | null;
+  terminalReason: string | null;
+  caseOwnerId: string;
+  caseOwnerName: string | null;
+  requestedAmount: string | null;
+  approvedAmount: string | null;
+  bookedAmount: string | null;
+  fundedAmount: string | null;
+  bankCaseNumber: string | null;
+  submittedAt: string | null;
+  approvedAt: string | null;
+  bookedAt: string | null;
+  fundReleasedAt: string | null;
+  completedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  submitted: boolean;
+  terminal: boolean;
+};
+
+export type ApplicationEventRecord = {
+  id: string;
+  eventType: string;
+  previousStage: string | null;
+  newStage: string | null;
+  bankStageDate: string | null;
+  stageNote: string | null;
+  bosUpdatedAt: string;
+  updatedBy: string | null;
+  reason: string | null;
+  payload: Record<string, unknown> | null;
+};
+
+export type WorkflowStageRecord = {
+  id: string;
+  workflowId?: string;
+  code: string;
+  name: string;
+  kind?: string;
+  systemKey?: string | null;
+  sortOrder: number;
+  status?: string;
+  current?: boolean;
+};
+
+export type WorkflowRecord = {
+  id: string;
+  bankId: string;
+  productId: string;
+  version: number;
+  status: string;
+  bank: CatalogItem | null;
+  product: CatalogItem | null;
+  stages: WorkflowStageRecord[];
+  transitions: { id: string; fromStageId: string; toStageId: string }[];
 };

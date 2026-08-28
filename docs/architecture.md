@@ -25,6 +25,7 @@ PostgreSQL
 - Foundation routes: `GET /api/v1/health`, `GET /api/v1/ready`.
 - User management routes under `/api/v1/auth`, `/api/v1/users`, `/api/v1/user-types`, `/api/v1/permissions`, `/api/v1/security-settings`, `/api/v1/offices`, `/api/v1/departments`, `/api/v1/designations`, `/api/v1/teams`.
 - Customer and catalog routes under `/api/v1/customers`, `/api/v1/banks`, `/api/v1/products`, `/api/v1/bank-products`.
+- Application and workflow routes under `/api/v1/applications` and `/api/v1/workflows`.
 - Authentication is a server-side PostgreSQL session in an HttpOnly host-only cookie (`nexa_session`, SameSite=Lax, Secure in production). State-changing requests send `X-CSRF-Token`.
 - First-time OWNER setup is `POST /api/v1/auth/bootstrap` with `BOOTSTRAP_SECRET`. It is permanently disabled after OWNER creation.
 - OpenAPI is served at `/docs`, `/redoc`, and `/openapi.json` outside production.
@@ -48,25 +49,20 @@ PostgreSQL
 
 ## Customer visibility
 
-Customer visibility is a separate user-type setting (`customer_visibility_scope`) from User Directory visibility (`visibility_scope`). The configured values are company, office, team, and own.
+Customer visibility is a separate user-type setting (`customer_visibility_scope`) from User Directory visibility (`visibility_scope`) and Application visibility (`application_visibility_scope`). The configured values are company, office, team, and own.
 
-Company-wide customer visibility is enforced now: users with that customer scope (and OWNER) can list and open all customers.
+Company-wide customer visibility lists all customers. Office, Team/Reporting Hierarchy, and Own Customers are derived from Applications: Own Customers are those where the current user is Case Owner; office and team scopes use the current Case Owner's office or reporting hierarchy. Customer profiles list only applications the current user can see.
 
-## Deferred to Task 5 (Applications)
+Customer deactivation is blocked while active applications exist. Customer merge relinks active and historical applications to the primary customer without changing application lifecycle history.
 
-These remain structurally configured but are not enforced until Applications and Case Owner exist. Task 4 does not query an Applications table.
+## Applications and workflows
 
-- Office customer visibility: customers with at least one permitted Application whose Case Owner is in the current user's office
-- Team / Reporting Hierarchy customer visibility: customers with at least one permitted Application whose Case Owner is in the current user's reporting hierarchy
-- Own Customers: customers with at least one permitted Application where the current user is Case Owner
-- Until those rules exist, office / team / own / unset customer scopes fail closed (empty list / forbidden) and do not substitute creator or any other owner field
-- Customer deactivation blocking while active Applications exist
-- Merge relinking of Applications from the source customer to the primary customer
+Case Owner eligibility is a user-type flag that defaults to No. OWNER enables it per user type. Workflows are versioned per Bank and Product. Application Created is the only globally fixed entry stage; remaining stages and transitions are configured by authorized users and are not seeded.
 
 ## Explicitly not in this foundation
 
 - HRMS integration
-- Application, workflow, TAT, delay, finance, dashboards
+- TAT, delay engine, finance, dashboards
 - Redis / workers
 - Multi-tenancy
 - NexaHR IAM, packages, or database coupling

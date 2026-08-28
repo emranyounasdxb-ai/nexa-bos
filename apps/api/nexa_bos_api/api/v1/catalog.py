@@ -12,6 +12,7 @@ from nexa_bos_api.catalog.schemas import (
     BankNameUpdateRequest,
     BankProductCreateRequest,
     ProductCreateRequest,
+    ProductFieldRulesUpdate,
     ProductNameUpdateRequest,
 )
 from nexa_bos_api.catalog.service import (
@@ -30,6 +31,7 @@ from nexa_bos_api.catalog.service import (
     set_bank_product_status,
     set_bank_status,
     set_product_status,
+    update_product_field_rules,
 )
 from nexa_bos_api.core.exceptions import AppError
 from nexa_bos_api.db.session import SessionDep
@@ -151,6 +153,29 @@ async def products_rename(
     if product is None:
         raise AppError(status_code=404, code="PRODUCT_NOT_FOUND", message="Product not found")
     return serialize_product(await rename_product(session, actor, product, payload.name))
+
+
+@router.put("/products/{product_id}/field-rules")
+async def products_field_rules(
+    product_id: UUID,
+    payload: ProductFieldRulesUpdate,
+    session: SessionDep,
+    actor: Annotated[CurrentUser, Depends(require_permission(PRODUCTS_EDIT))],
+) -> dict[str, object]:
+    product = await session.get(Product, product_id)
+    if product is None:
+        raise AppError(status_code=404, code="PRODUCT_NOT_FOUND", message="Product not found")
+    return serialize_product(
+        await update_product_field_rules(
+            session,
+            actor,
+            product,
+            requested_amount_required=payload.requested_amount_required,
+            approved_amount_required=payload.approved_amount_required,
+            booked_amount_required=payload.booked_amount_required,
+            funded_amount_required=payload.funded_amount_required,
+        )
+    )
 
 
 @router.post("/products/{product_id}/deactivate")

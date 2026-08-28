@@ -13,6 +13,8 @@ from nexa_bos_api.identity.access import has_permission
 from nexa_bos_api.identity.auth_service import public_user
 from nexa_bos_api.identity.enums import AccountStatus
 from nexa_bos_api.identity.permissions import (
+    APPLICATIONS_CREATE,
+    APPLICATIONS_REASSIGN_CASE_OWNER,
     USERS_ACTIVATE,
     USERS_ASSIGN_USER_TYPE,
     USERS_CREATE,
@@ -33,6 +35,7 @@ from nexa_bos_api.identity.users_service import (
     assign_user_type,
     create_user,
     get_visible_user,
+    list_case_owners,
     list_reporting_managers,
     list_users,
     photo_path,
@@ -99,6 +102,38 @@ async def reporting_managers(
                 "id": str(user.id),
                 "userCode": user.user_code,
                 "fullName": user.full_name,
+            }
+            for user in users
+        ]
+    }
+
+
+@router.get("/case-owners")
+async def case_owners(
+    session: SessionDep,
+    actor: CurrentUser,
+    exclude_user_id: Annotated[UUID | None, Query(alias="excludeUserId")] = None,
+) -> dict[str, object]:
+    if not (
+        has_permission(actor, APPLICATIONS_CREATE)
+        or has_permission(actor, APPLICATIONS_REASSIGN_CASE_OWNER)
+    ):
+        raise AppError(
+            status_code=403,
+            code="FORBIDDEN",
+            message="You do not have permission to perform this action",
+            details=[{"permission": APPLICATIONS_CREATE}],
+        )
+    users = await list_case_owners(session, exclude_user_id=exclude_user_id)
+    return {
+        "items": [
+            {
+                "id": str(user.id),
+                "userCode": user.user_code,
+                "fullName": user.full_name,
+                "officeId": str(user.office_id) if user.office_id else None,
+                "departmentId": str(user.department_id) if user.department_id else None,
+                "teamId": str(user.team_id) if user.team_id else None,
             }
             for user in users
         ]

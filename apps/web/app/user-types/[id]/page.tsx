@@ -55,27 +55,47 @@ export default function UserTypeDetailPage() {
       <p className="text-sm text-slate-600">{item.description || "No description"}</p>
       <p className="text-sm">
         Status: {item.status} · User directory scope: {item.visibilityScope ?? "none"} · Customer
-        scope: {item.customerVisibilityScope ?? "none"} · MFA required flag:{" "}
+        scope: {item.customerVisibilityScope ?? "none"} · Application scope:{" "}
+        {item.applicationVisibilityScope ?? "none"} · MFA required flag:{" "}
         {item.mfaRequired ? "on" : "off (default, not enforced)"}
       </p>
       {can("UserTypes.Edit") && !item.isSystem ? (
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={Boolean(item.canBeReportingManager)}
-            onChange={(event) =>
-              void apiRequest(`/api/v1/user-types/${item.id}`, api, {
-                method: "PATCH",
-                body: JSON.stringify({ can_be_reporting_manager: event.target.checked }),
-              }).then(refresh)
-            }
-          />
-          Can be reporting manager
-        </label>
+        <div className="space-y-2">
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={Boolean(item.canBeReportingManager)}
+              onChange={(event) =>
+                void apiRequest(`/api/v1/user-types/${item.id}`, api, {
+                  method: "PATCH",
+                  body: JSON.stringify({ can_be_reporting_manager: event.target.checked }),
+                }).then(refresh)
+              }
+            />
+            Can be reporting manager
+          </label>
+        </div>
       ) : (
         <p className="text-sm">
           Can be reporting manager: {item.canBeReportingManager ? "Yes" : "No"}
         </p>
+      )}
+      {can("UserTypes.Edit") ? (
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={Boolean(item.canBeCaseOwner)}
+            onChange={(event) =>
+              void apiRequest(`/api/v1/user-types/${item.id}/case-owner`, api, {
+                method: "PUT",
+                body: JSON.stringify({ can_be_case_owner: event.target.checked }),
+              }).then(refresh)
+            }
+          />
+          Can be Case Owner
+        </label>
+      ) : (
+        <p className="text-sm">Can be Case Owner: {item.canBeCaseOwner ? "Yes" : "No"}</p>
       )}
       <div className="flex gap-2 text-sm">
         {can("UserTypes.Activate") ? (
@@ -140,6 +160,29 @@ export default function UserTypeDetailPage() {
                     method: "PUT",
                     body: JSON.stringify({
                       customer_visibility_scope: event.target.value || null,
+                    }),
+                  }).then(refresh)
+                }
+              >
+                <option value="">No scope</option>
+                {SCOPES.map((scope) => (
+                  <option key={scope} value={scope}>
+                    {scope}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              Application scope
+              <select
+                className="rounded-md border px-2 py-1"
+                aria-label="Application scope"
+                value={item.applicationVisibilityScope ?? ""}
+                onChange={(event) =>
+                  void apiRequest(`/api/v1/user-types/${item.id}/application-scope`, api, {
+                    method: "PUT",
+                    body: JSON.stringify({
+                      application_visibility_scope: event.target.value || null,
                     }),
                   }).then(refresh)
                 }

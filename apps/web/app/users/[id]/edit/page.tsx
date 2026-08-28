@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { apiGet, apiRequest } from "@/lib/api";
 import { getBrowserApiUrl } from "@/lib/env";
@@ -59,9 +59,16 @@ export default function EditUserPage() {
   const [managers, setManagers] = useState<ManagerOption[]>([]);
   const [isOwner, setIsOwner] = useState(false);
   const [error, setError] = useState("");
+  const orgDirty = useRef(false);
+  const userHydrated = useRef(false);
 
   useEffect(() => {
+    let cancelled = false;
     void apiGet<UserRecord>(`/api/v1/users/${params.id}`, api).then((user) => {
+      if (cancelled || orgDirty.current || userHydrated.current) {
+        return;
+      }
+      userHydrated.current = true;
       setForm({
         full_name: user.fullName,
         employee_code: user.employeeCode,
@@ -78,18 +85,27 @@ export default function EditUserPage() {
       });
       setIsOwner(user.userType?.code === "OWNER");
     });
-    void apiGet<{ items: OrgRef[] }>("/api/v1/designations", api).then((data) =>
-      setDesignations(data.items),
-    );
-    void apiGet<{ items: OrgRef[] }>("/api/v1/offices", api).then((data) => setOffices(data.items));
-    void apiGet<{ items: OrgRef[] }>("/api/v1/departments", api).then((data) =>
-      setDepartments(data.items),
-    );
-    void apiGet<{ items: OrgRef[] }>("/api/v1/teams", api).then((data) => setTeams(data.items));
+    void apiGet<{ items: OrgRef[] }>("/api/v1/designations", api).then((data) => {
+      if (!cancelled) setDesignations(data.items);
+    });
+    void apiGet<{ items: OrgRef[] }>("/api/v1/offices", api).then((data) => {
+      if (!cancelled) setOffices(data.items);
+    });
+    void apiGet<{ items: OrgRef[] }>("/api/v1/departments", api).then((data) => {
+      if (!cancelled) setDepartments(data.items);
+    });
+    void apiGet<{ items: OrgRef[] }>("/api/v1/teams", api).then((data) => {
+      if (!cancelled) setTeams(data.items);
+    });
     void apiGet<{ items: ManagerOption[] }>(
       `/api/v1/users/managers?excludeUserId=${params.id}`,
       api,
-    ).then((data) => setManagers(data.items));
+    ).then((data) => {
+      if (!cancelled) setManagers(data.items);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [api, params.id]);
 
   const departmentValid = Boolean(
@@ -196,7 +212,10 @@ export default function EditUserPage() {
           id="edit-office"
           className="mt-1 w-full rounded-md border px-3 py-2"
           value={form.office_id}
-          onChange={(event) => setForm({ ...form, office_id: event.target.value })}
+          onChange={(event) => {
+            orgDirty.current = true;
+            setForm((current) => ({ ...current, office_id: event.target.value }));
+          }}
         >
           <option value="">None</option>
           {offices.map((item) => (
@@ -212,7 +231,10 @@ export default function EditUserPage() {
           id="edit-department"
           className="mt-1 w-full rounded-md border px-3 py-2"
           value={form.department_id ?? ""}
-          onChange={(event) => setForm({ ...form, department_id: event.target.value })}
+          onChange={(event) => {
+            orgDirty.current = true;
+            setForm((current) => ({ ...current, department_id: event.target.value }));
+          }}
         >
           <option value="">None</option>
           {departmentOptions.map((item) => (
@@ -229,7 +251,10 @@ export default function EditUserPage() {
           id="edit-team"
           className="mt-1 w-full rounded-md border px-3 py-2"
           value={form.team_id ?? ""}
-          onChange={(event) => setForm({ ...form, team_id: event.target.value })}
+          onChange={(event) => {
+            orgDirty.current = true;
+            setForm((current) => ({ ...current, team_id: event.target.value }));
+          }}
         >
           <option value="">None</option>
           {teamOptions.map((item) => (

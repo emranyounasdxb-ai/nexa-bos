@@ -30,8 +30,10 @@ def serialize_user_type(user_type: UserType) -> dict[str, object]:
         "status": user_type.status,
         "visibilityScope": user_type.visibility_scope,
         "customerVisibilityScope": user_type.customer_visibility_scope,
+        "applicationVisibilityScope": user_type.application_visibility_scope,
         "mfaRequired": user_type.mfa_required,
         "canBeReportingManager": user_type.can_be_reporting_manager,
+        "canBeCaseOwner": user_type.can_be_case_owner,
         "permissions": sorted(row.permission_code for row in user_type.permissions),
         "createdAt": user_type.created_at.isoformat(),
         "updatedAt": user_type.updated_at.isoformat(),
@@ -81,8 +83,10 @@ async def create_custom_type(
         status=UserTypeStatus.INACTIVE,
         visibility_scope=None,
         customer_visibility_scope=None,
+        application_visibility_scope=None,
         mfa_required=False,
         can_be_reporting_manager=payload.can_be_reporting_manager,
+        can_be_case_owner=payload.can_be_case_owner,
         created_at=now,
         updated_at=now,
     )
@@ -99,6 +103,7 @@ async def create_custom_type(
             "name": user_type.name,
             "status": user_type.status,
             "canBeReportingManager": user_type.can_be_reporting_manager,
+            "canBeCaseOwner": user_type.can_be_case_owner,
         },
     )
     await session.commit()
@@ -118,6 +123,7 @@ async def update_custom_type(
         "name": user_type.name,
         "description": user_type.description,
         "canBeReportingManager": user_type.can_be_reporting_manager,
+        "canBeCaseOwner": user_type.can_be_case_owner,
     }
     if payload.name is not None:
         user_type.name = payload.name.strip()
@@ -125,6 +131,8 @@ async def update_custom_type(
         user_type.description = payload.description.strip() if payload.description else None
     if payload.can_be_reporting_manager is not None:
         user_type.can_be_reporting_manager = payload.can_be_reporting_manager
+    if payload.can_be_case_owner is not None:
+        user_type.can_be_case_owner = payload.can_be_case_owner
     user_type.updated_at = utcnow()
     await record_audit(
         session,
@@ -137,6 +145,7 @@ async def update_custom_type(
             "name": user_type.name,
             "description": user_type.description,
             "canBeReportingManager": user_type.can_be_reporting_manager,
+            "canBeCaseOwner": user_type.can_be_case_owner,
         },
     )
     await session.commit()
@@ -271,6 +280,58 @@ async def assign_customer_scope(
         actor_id=actor.id,
         old_values=old,
         new_values={"customerVisibilityScope": user_type.customer_visibility_scope},
+    )
+    await session.commit()
+    return await load_user_type(session, user_type.id)
+
+
+async def assign_application_scope(
+    session: AsyncSession,
+    actor: User,
+    user_type: UserType,
+    scope: VisibilityScope | None,
+) -> UserType:
+    if user_type.code == "OWNER":
+        raise AppError(
+            status_code=403,
+            code="OWNER_PROTECTED",
+            message="OWNER always has company-wide application visibility",
+        )
+    old = {"applicationVisibilityScope": user_type.application_visibility_scope}
+    user_type.application_visibility_scope = scope.value if scope else None
+    user_type.updated_at = utcnow()
+    assigned_users = (
+        await session.execute(select(User.id).where(User.user_type_id == user_type.id))
+    ).all()
+    for row in assigned_users:
+        await terminate_sessions(session, row[0])
+    await record_audit(
+        session,
+        action="user_type.application_scope",
+        entity_type="user_type",
+        entity_id=str(user_type.id),
+        actor_id=actor.id,
+        old_values=old,
+        new_values={"applicationVisibilityScope": user_type.application_visibility_scope},
+    )
+    await session.commit()
+    return await load_user_type(session, user_type.id)
+
+
+async def assign_case_owner_eligibility(
+    session: AsyncSession, actor: User, user_type: UserType, enabled: bool
+) -> UserType:
+    old = {"canBeCaseOwner": user_type.can_be_case_owner}
+    user_type.can_be_case_owner = enabled
+    user_type.updated_at = utcnow()
+    await record_audit(
+        session,
+        action="user_type.case_owner",
+        entity_type="user_type",
+        entity_id=str(user_type.id),
+        actor_id=actor.id,
+        old_values=old,
+        new_values={"canBeCaseOwner": user_type.can_be_case_owner},
     )
     await session.commit()
     return await load_user_type(session, user_type.id)

@@ -40,6 +40,21 @@ BANK_PRODUCTS_CREATE = "BankProducts.Create"
 BANK_PRODUCTS_EDIT = "BankProducts.Edit"
 BANK_PRODUCTS_ACTIVATE = "BankProducts.Activate"
 BANK_PRODUCTS_DEACTIVATE = "BankProducts.Deactivate"
+APPLICATIONS_VIEW = "Applications.View"
+APPLICATIONS_CREATE = "Applications.Create"
+APPLICATIONS_EDIT = "Applications.Edit"
+APPLICATIONS_SUBMIT = "Applications.Submit"
+APPLICATIONS_CORRECT_SUBMITTED = "Applications.CorrectSubmittedData"
+APPLICATIONS_UPDATE_STAGE = "Applications.UpdateStage"
+APPLICATIONS_CORRECT_STAGE = "Applications.CorrectStage"
+APPLICATIONS_REASSIGN_CASE_OWNER = "Applications.ReassignCaseOwner"
+APPLICATIONS_SET_OUTCOME = "Applications.SetOutcome"
+WORKFLOW_STAGES_CREATE = "WorkflowStages.Create"
+WORKFLOW_STAGES_EDIT = "WorkflowStages.Edit"
+WORKFLOW_STAGES_ACTIVATE = "WorkflowStages.Activate"
+WORKFLOW_STAGES_DEACTIVATE = "WorkflowStages.Deactivate"
+WORKFLOW_STAGES_CONFIGURE_TRANSITIONS = "WorkflowStages.ConfigureTransitions"
+WORKFLOWS_MIGRATE_APPLICATION = "Workflows.MigrateApplication"
 
 PERMISSION_CATALOG: tuple[tuple[str, str], ...] = (
     (USERS_VIEW, "View users within assigned visibility scope"),
@@ -85,6 +100,21 @@ PERMISSION_CATALOG: tuple[tuple[str, str], ...] = (
     (BANK_PRODUCTS_EDIT, "Edit bank-product mappings"),
     (BANK_PRODUCTS_ACTIVATE, "Activate bank-product mappings"),
     (BANK_PRODUCTS_DEACTIVATE, "Deactivate bank-product mappings"),
+    (APPLICATIONS_VIEW, "View applications within assigned application visibility scope"),
+    (APPLICATIONS_CREATE, "Create applications"),
+    (APPLICATIONS_EDIT, "Edit allowed application fields"),
+    (APPLICATIONS_SUBMIT, "Submit applications by recording a Bank File / Case Number"),
+    (APPLICATIONS_CORRECT_SUBMITTED, "Correct locked submitted application data with a reason"),
+    (APPLICATIONS_UPDATE_STAGE, "Move an application to an allowed workflow stage"),
+    (APPLICATIONS_CORRECT_STAGE, "Correct stage history without deleting original events"),
+    (APPLICATIONS_REASSIGN_CASE_OWNER, "Reassign Case Owner and preserve ownership history"),
+    (APPLICATIONS_SET_OUTCOME, "Set Final Rejected, Cancelled, or Withdrawn terminal outcomes"),
+    (WORKFLOW_STAGES_CREATE, "Create workflow stages for a Bank and Product"),
+    (WORKFLOW_STAGES_EDIT, "Edit workflow stage names and order"),
+    (WORKFLOW_STAGES_ACTIVATE, "Activate workflow stages"),
+    (WORKFLOW_STAGES_DEACTIVATE, "Deactivate workflow stages"),
+    (WORKFLOW_STAGES_CONFIGURE_TRANSITIONS, "Configure allowed stage transitions"),
+    (WORKFLOWS_MIGRATE_APPLICATION, "Manually migrate an application to a new workflow version"),
 )
 
 ALL_PERMISSION_CODES: tuple[str, ...] = tuple(code for code, _ in PERMISSION_CATALOG)

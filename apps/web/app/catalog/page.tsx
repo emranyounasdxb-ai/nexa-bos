@@ -89,6 +89,51 @@ export default function CatalogPage() {
           void apiRequest(`/api/v1/products/${id}/deactivate`, api, { method: "POST" }).then(refresh)
         }
       />
+      {can("Products.Edit") ? (
+        <section className="space-y-3">
+          <h3 className="font-semibold">Product amount rules</h3>
+          <table className="min-w-full rounded-xl border bg-white text-sm">
+            <thead className="bg-slate-50">
+              <tr>
+                <th className="px-3 py-2 text-left">Product</th>
+                <th className="px-3 py-2 text-left">Requested</th>
+                <th className="px-3 py-2 text-left">Approved</th>
+                <th className="px-3 py-2 text-left">Booked</th>
+                <th className="px-3 py-2 text-left">Funded</th>
+              </tr>
+            </thead>
+            <tbody>
+              {products.map((product) => (
+                <tr key={product.id} className="border-t">
+                  <td className="px-3 py-2">{product.code}</td>
+                  {(
+                    [
+                      ["requested_amount_required", product.requestedAmountRequired],
+                      ["approved_amount_required", product.approvedAmountRequired],
+                      ["booked_amount_required", product.bookedAmountRequired],
+                      ["funded_amount_required", product.fundedAmountRequired],
+                    ] as const
+                  ).map(([field, value]) => (
+                    <td key={field} className="px-3 py-2">
+                      <input
+                        type="checkbox"
+                        aria-label={`${product.code} ${field}`}
+                        checked={Boolean(value)}
+                        onChange={(event) =>
+                          void apiRequest(`/api/v1/products/${product.id}/field-rules`, api, {
+                            method: "PUT",
+                            body: JSON.stringify({ [field]: event.target.checked }),
+                          }).then(refresh)
+                        }
+                      />
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      ) : null}
       <section className="space-y-3">
         <h3 className="font-semibold">Bank-product mappings</h3>
         {can("BankProducts.Create") && banks[0] && products[0] ? (

@@ -46,6 +46,10 @@ def serialize_product(product: Product) -> dict[str, object]:
         "code": product.code,
         "name": product.name,
         "status": product.status,
+        "requestedAmountRequired": product.requested_amount_required,
+        "approvedAmountRequired": product.approved_amount_required,
+        "bookedAmountRequired": product.booked_amount_required,
+        "fundedAmountRequired": product.funded_amount_required,
         "createdAt": product.created_at.isoformat(),
         "updatedAt": product.updated_at.isoformat(),
     }
@@ -142,12 +146,20 @@ async def seed_catalog(session: AsyncSession) -> None:
     }
     for code, name in INITIAL_PRODUCTS:
         if code in products_by_code:
+            product = products_by_code[code]
+            if code == "PF":
+                product.requested_amount_required = True
+                product.approved_amount_required = True
             continue
         product = Product(
             id=new_uuid(),
             code=code,
             name=name,
             status=MasterStatus.ACTIVE,
+            requested_amount_required=code == "PF",
+            approved_amount_required=code == "PF",
+            booked_amount_required=False,
+            funded_amount_required=False,
             created_at=now,
             updated_at=now,
         )
@@ -282,6 +294,10 @@ async def create_product(session: AsyncSession, actor: User, name: str, code: st
         code=await _unique_code(session, Product, code, "product"),
         name=name.strip(),
         status=MasterStatus.ACTIVE,
+        requested_amount_required=code.strip().upper() == "PF",
+        approved_amount_required=code.strip().upper() == "PF",
+        booked_amount_required=False,
+        funded_amount_required=False,
         created_at=now,
         updated_at=now,
     )
@@ -353,6 +369,49 @@ async def set_product_status(
         entity_id=str(product.id),
         actor_id=actor.id,
         new_values={"status": status},
+    )
+    await session.commit()
+    return product
+
+
+async def update_product_field_rules(
+    session: AsyncSession,
+    actor: User,
+    product: Product,
+    *,
+    requested_amount_required: bool | None,
+    approved_amount_required: bool | None,
+    booked_amount_required: bool | None,
+    funded_amount_required: bool | None,
+) -> Product:
+    old = {
+        "requestedAmountRequired": product.requested_amount_required,
+        "approvedAmountRequired": product.approved_amount_required,
+        "bookedAmountRequired": product.booked_amount_required,
+        "fundedAmountRequired": product.funded_amount_required,
+    }
+    if requested_amount_required is not None:
+        product.requested_amount_required = requested_amount_required
+    if approved_amount_required is not None:
+        product.approved_amount_required = approved_amount_required
+    if booked_amount_required is not None:
+        product.booked_amount_required = booked_amount_required
+    if funded_amount_required is not None:
+        product.funded_amount_required = funded_amount_required
+    product.updated_at = utcnow()
+    await record_audit(
+        session,
+        action="product.field_rules",
+        entity_type="product",
+        entity_id=str(product.id),
+        actor_id=actor.id,
+        old_values=old,
+        new_values={
+            "requestedAmountRequired": product.requested_amount_required,
+            "approvedAmountRequired": product.approved_amount_required,
+            "bookedAmountRequired": product.booked_amount_required,
+            "fundedAmountRequired": product.funded_amount_required,
+        },
     )
     await session.commit()
     return product

@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, String, UniqueConstraint, Uuid
+from sqlalchemy import Boolean, DateTime, ForeignKey, String, UniqueConstraint, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from nexa_bos_api.db.base import Base
@@ -45,6 +45,10 @@ class Product(Base):
     code: Mapped[str] = mapped_column(String(32), unique=True, nullable=False)
     name: Mapped[str] = mapped_column(String(120), nullable=False)
     status: Mapped[str] = mapped_column(String(20), nullable=False)
+    requested_amount_required: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    approved_amount_required: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    booked_amount_required: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    funded_amount_required: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 

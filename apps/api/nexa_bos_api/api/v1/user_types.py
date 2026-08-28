@@ -19,6 +19,8 @@ from nexa_bos_api.identity.permissions import (
     USER_TYPES_VIEW,
 )
 from nexa_bos_api.identity.schemas import (
+    AssignApplicationScopeRequest,
+    AssignCaseOwnerRequest,
     AssignCustomerScopeRequest,
     AssignPermissionsRequest,
     AssignScopeRequest,
@@ -26,6 +28,8 @@ from nexa_bos_api.identity.schemas import (
     UserTypeUpdateRequest,
 )
 from nexa_bos_api.identity.user_types_service import (
+    assign_application_scope,
+    assign_case_owner_eligibility,
     assign_customer_scope,
     assign_permissions,
     assign_scope,
@@ -147,4 +151,30 @@ async def set_customer_scope(
 ) -> dict[str, object]:
     row = await load_user_type(session, user_type_id)
     updated = await assign_customer_scope(session, actor, row, payload.customer_visibility_scope)
+    return serialize_user_type(updated)
+
+
+@router.put("/user-types/{user_type_id}/application-scope")
+async def set_application_scope(
+    user_type_id: UUID,
+    payload: AssignApplicationScopeRequest,
+    session: SessionDep,
+    actor: Annotated[CurrentUser, Depends(require_permission(USER_TYPES_ASSIGN_SCOPE))],
+) -> dict[str, object]:
+    row = await load_user_type(session, user_type_id)
+    updated = await assign_application_scope(
+        session, actor, row, payload.application_visibility_scope
+    )
+    return serialize_user_type(updated)
+
+
+@router.put("/user-types/{user_type_id}/case-owner")
+async def set_case_owner_eligibility(
+    user_type_id: UUID,
+    payload: AssignCaseOwnerRequest,
+    session: SessionDep,
+    actor: Annotated[CurrentUser, Depends(require_permission(USER_TYPES_EDIT))],
+) -> dict[str, object]:
+    row = await load_user_type(session, user_type_id)
+    updated = await assign_case_owner_eligibility(session, actor, row, payload.can_be_case_owner)
     return serialize_user_type(updated)

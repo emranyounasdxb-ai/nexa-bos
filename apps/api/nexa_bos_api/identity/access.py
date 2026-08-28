@@ -55,14 +55,23 @@ def visibility_scope(user: User) -> VisibilityScope:
 
 
 def customer_visibility_scope(user: User) -> VisibilityScope | None:
-    """Customer directory scope. Independent of user-directory visibility_scope.
-
-    Office / Team / Own Customers are Application-derived (Case Owner) and are
-    not enforced until Applications exist. COMPANY is enforced now.
-    """
+    """Customer directory scope. Independent of user-directory visibility_scope."""
     if is_owner(user):
         return VisibilityScope.COMPANY
     raw = user.user_type.customer_visibility_scope if user.user_type else None
+    if not raw:
+        return None
+    try:
+        return VisibilityScope(raw)
+    except ValueError:
+        return None
+
+
+def application_visibility_scope(user: User) -> VisibilityScope | None:
+    """Application visibility. Independent of user-directory and customer scopes."""
+    if is_owner(user):
+        return VisibilityScope.COMPANY
+    raw = user.user_type.application_visibility_scope if user.user_type else None
     if not raw:
         return None
     try:

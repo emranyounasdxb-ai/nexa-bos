@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from nexa_bos_api.api.v1.router import api_v1_router
+from nexa_bos_api.applications import models as _application_models  # noqa: F401
 from nexa_bos_api.catalog import models as _catalog_models  # noqa: F401
 from nexa_bos_api.core.config import get_settings
 from nexa_bos_api.core.errors import register_exception_handlers
