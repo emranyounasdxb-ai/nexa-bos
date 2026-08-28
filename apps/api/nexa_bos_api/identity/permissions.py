@@ -57,6 +57,11 @@ WORKFLOW_STAGES_ACTIVATE = "WorkflowStages.Activate"
 WORKFLOW_STAGES_DEACTIVATE = "WorkflowStages.Deactivate"
 WORKFLOW_STAGES_CONFIGURE_TRANSITIONS = "WorkflowStages.ConfigureTransitions"
 WORKFLOWS_MIGRATE_APPLICATION = "Workflows.MigrateApplication"
+DASHBOARD_VIEW = "Dashboard.View"
+REPORTS_VIEW = "Reports.View"
+REPORTS_EXPORT_EXCEL = "Reports.ExportExcel"
+REPORTS_EXPORT_PDF = "Reports.ExportPDF"
+REPORTS_PRINT = "Reports.Print"
 
 PERMISSION_CATALOG: tuple[tuple[str, str], ...] = (
     (USERS_VIEW, "View users within assigned visibility scope"),
@@ -77,7 +82,7 @@ PERMISSION_CATALOG: tuple[tuple[str, str], ...] = (
     (USER_TYPES_ASSIGN_PERMISSIONS, "Assign permissions to user types"),
     (
         USER_TYPES_ASSIGN_SCOPE,
-        "Assign user-directory and customer visibility scopes to user types",
+        "Assign user-directory, customer, application, and reporting scopes to user types",
     ),
     (SECURITY_MANAGE_SETTINGS, "Configure setup-link expiry, lock duration, and session timeouts"),
     (OFFICES_MANAGE, "Create and maintain offices"),
@@ -119,6 +124,11 @@ PERMISSION_CATALOG: tuple[tuple[str, str], ...] = (
     (WORKFLOW_STAGES_DEACTIVATE, "Deactivate workflow stages"),
     (WORKFLOW_STAGES_CONFIGURE_TRANSITIONS, "Configure allowed stage transitions"),
     (WORKFLOWS_MIGRATE_APPLICATION, "Manually migrate an application to a new workflow version"),
+    (DASHBOARD_VIEW, "View the Performance / MIS dashboard within assigned reporting scope"),
+    (REPORTS_VIEW, "View reports, rankings, comparisons, and employee performance profiles"),
+    (REPORTS_EXPORT_EXCEL, "Export reports to Excel"),
+    (REPORTS_EXPORT_PDF, "Export reports to PDF"),
+    (REPORTS_PRINT, "Print reports"),
 )
 
 ALL_PERMISSION_CODES: tuple[str, ...] = tuple(code for code, _ in PERMISSION_CATALOG)

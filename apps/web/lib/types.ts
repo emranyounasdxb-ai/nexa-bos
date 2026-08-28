@@ -26,7 +26,8 @@ export type UserTypeSummary = {
   status: string;
   visibilityScope: string | null;
   customerVisibilityScope: string | null;
-  applicationVisibilityScope?: string | null;
+    applicationVisibilityScope?: string | null;
+    reportingVisibilityScope?: string | null;
   mfaRequired: boolean;
   canBeReportingManager?: boolean;
   canBeCaseOwner?: boolean;

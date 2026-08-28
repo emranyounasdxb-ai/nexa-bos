@@ -135,6 +135,7 @@ async def test_owner_customer_scope_is_company_and_locked(client: AsyncClient) -
     assert owner_type["visibilityScope"] == "company"
     assert owner_type["customerVisibilityScope"] == "company"
     assert owner_type["applicationVisibilityScope"] == "company"
+    assert owner_type["reportingVisibilityScope"] == "company"
     locked = await authed.put(
         f"/api/v1/user-types/{owner_type['id']}/customer-scope",
         json={"customer_visibility_scope": "own"},

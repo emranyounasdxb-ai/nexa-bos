@@ -80,6 +80,23 @@ def application_visibility_scope(user: User) -> VisibilityScope | None:
         return None
 
 
+def reporting_visibility_scope(user: User) -> VisibilityScope | None:
+    """Reporting / MIS scope. Independent of directory and application visibility.
+
+    None means the user type has Dashboard/Reports permission but no reporting
+    data may be returned. OWNER is always company-wide.
+    """
+    if is_owner(user):
+        return VisibilityScope.COMPANY
+    raw = user.user_type.reporting_visibility_scope if user.user_type else None
+    if not raw:
+        return None
+    try:
+        return VisibilityScope(raw)
+    except ValueError:
+        return None
+
+
 def has_company_customer_visibility(user: User) -> bool:
     return customer_visibility_scope(user) is VisibilityScope.COMPANY
 

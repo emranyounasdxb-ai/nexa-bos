@@ -37,6 +37,8 @@ function Shell({ children }: { children: ReactNode }) {
   }
 
   const links = [
+    { href: "/reports", label: "Dashboard", show: can("Dashboard.View") },
+    { href: "/reports/compare", label: "Reports", show: can("Reports.View") },
     { href: "/users", label: "Users", show: can("Users.View") },
     { href: "/users/new", label: "Create user", show: can("Users.Create") },
     { href: "/customers", label: "Customers", show: can("Customers.View") },

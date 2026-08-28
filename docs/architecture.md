@@ -26,6 +26,7 @@ PostgreSQL
 - User management routes under `/api/v1/auth`, `/api/v1/users`, `/api/v1/user-types`, `/api/v1/permissions`, `/api/v1/security-settings`, `/api/v1/offices`, `/api/v1/departments`, `/api/v1/designations`, `/api/v1/teams`.
 - Customer and catalog routes under `/api/v1/customers`, `/api/v1/banks`, `/api/v1/products`, `/api/v1/bank-products`.
 - Application and workflow routes under `/api/v1/applications` and `/api/v1/workflows`.
+- Performance / MIS reporting routes under `/api/v1/reports`.
 - Authentication is a server-side PostgreSQL session in an HttpOnly host-only cookie (`nexa_session`, SameSite=Lax, Secure in production). State-changing requests send `X-CSRF-Token`.
 - First-time OWNER setup is `POST /api/v1/auth/bootstrap` with `BOOTSTRAP_SECRET`. It is permanently disabled after OWNER creation.
 - OpenAPI is served at `/docs`, `/redoc`, and `/openapi.json` outside production.
@@ -62,7 +63,7 @@ Case Owner eligibility is a user-type flag that defaults to No. OWNER enables it
 ## Explicitly not in this foundation
 
 - HRMS integration
-- TAT, delay engine, finance, dashboards
+- Targets / KPI scoring, finance / commission, notifications
 - Redis / workers
 - Multi-tenancy
 - NexaHR IAM, packages, or database coupling

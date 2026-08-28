@@ -71,6 +71,10 @@ Deferred until Applications exist:
 - Customer deactivation blocked by active Applications
 - Merge relinking of Applications onto the primary customer
 
+## Task 8 reporting
+
+See `docs/reporting.md` for periods, event-time attribution, reporting scopes, permissions, endpoints, and export libraries (`openpyxl==3.1.5`, `fpdf2==2.8.8`).
+
 ## Host runtime notes
 
 Project files pin the approved versions. If the developer machine has a nearby 24.x / 3.14.x patch, use Docker and CI as the source of truth for the exact approved runtimes. Do not change the machine-wide default Node or Python unless you intend to.

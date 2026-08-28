@@ -23,6 +23,7 @@ from nexa_bos_api.identity.schemas import (
     AssignCaseOwnerRequest,
     AssignCustomerScopeRequest,
     AssignPermissionsRequest,
+    AssignReportingScopeRequest,
     AssignScopeRequest,
     UserTypeCreateRequest,
     UserTypeUpdateRequest,
@@ -32,6 +33,7 @@ from nexa_bos_api.identity.user_types_service import (
     assign_case_owner_eligibility,
     assign_customer_scope,
     assign_permissions,
+    assign_reporting_scope,
     assign_scope,
     create_custom_type,
     list_user_types,
@@ -165,6 +167,18 @@ async def set_application_scope(
     updated = await assign_application_scope(
         session, actor, row, payload.application_visibility_scope
     )
+    return serialize_user_type(updated)
+
+
+@router.put("/user-types/{user_type_id}/reporting-scope")
+async def set_reporting_scope(
+    user_type_id: UUID,
+    payload: AssignReportingScopeRequest,
+    session: SessionDep,
+    actor: Annotated[CurrentUser, Depends(require_permission(USER_TYPES_ASSIGN_SCOPE))],
+) -> dict[str, object]:
+    row = await load_user_type(session, user_type_id)
+    updated = await assign_reporting_scope(session, actor, row, payload.reporting_visibility_scope)
     return serialize_user_type(updated)
 
 

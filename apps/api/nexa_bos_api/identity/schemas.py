@@ -123,6 +123,10 @@ class AssignApplicationScopeRequest(BaseModel):
     application_visibility_scope: VisibilityScope | None = None
 
 
+class AssignReportingScopeRequest(BaseModel):
+    reporting_visibility_scope: VisibilityScope | None = None
+
+
 class AssignCaseOwnerRequest(BaseModel):
     can_be_case_owner: bool
 

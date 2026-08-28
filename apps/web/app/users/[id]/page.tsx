@@ -62,11 +62,18 @@ export default function UserProfilePage() {
         title={user.fullName}
         description={user.userCode}
         actions={
-          can("Users.Edit") ? (
-            <ButtonLink href={`/users/${user.id}/edit`} variant="secondary">
-              Edit
-            </ButtonLink>
-          ) : null
+          <div className="flex flex-wrap gap-2">
+            {can("Dashboard.View") || can("Reports.View") ? (
+              <ButtonLink href={`/reports/employees/${user.id}`} variant="secondary">
+                Performance profile
+              </ButtonLink>
+            ) : null}
+            {can("Users.Edit") ? (
+              <ButtonLink href={`/users/${user.id}/edit`} variant="secondary">
+                Edit
+              </ButtonLink>
+            ) : null}
+          </div>
         }
       />
       <dl className="grid gap-3 rounded-xl border border-slate-200 bg-white p-5 text-sm md:grid-cols-2">
