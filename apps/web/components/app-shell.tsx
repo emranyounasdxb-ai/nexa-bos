@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 
+import { Button, focusRing, cx } from "@/components/ui";
 import { apiGet, apiRequest, setCsrfToken } from "@/lib/api";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
 import { getBrowserApiUrl } from "@/lib/env";
@@ -18,6 +19,10 @@ function Shell({ children }: { children: ReactNode }) {
 
   async function logout() {
     try {
+      const current = await apiGet<UserRecord>("/api/v1/auth/me", getBrowserApiUrl());
+      if (current.csrfToken) {
+        setCsrfToken(current.csrfToken);
+      }
       await apiRequest("/api/v1/auth/logout", getBrowserApiUrl(), { method: "POST" });
     } catch {
       /* session already gone */
@@ -45,41 +50,39 @@ function Shell({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-screen flex-col">
       <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-4">
+        <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-4 sm:px-6">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">NEXA BOS</p>
             <h1 className="text-lg font-semibold text-slate-900">NEXA BOS</h1>
           </div>
           <div className="flex items-center gap-3 text-sm">
             <span className="text-slate-600">{user?.fullName}</span>
-            <button
-              type="button"
-              onClick={() => void logout()}
-              className="rounded-md border border-slate-300 px-3 py-1.5 text-slate-700"
-            >
+            <Button type="button" variant="secondary" onClick={() => void logout()}>
               Sign out
-            </button>
+            </Button>
           </div>
         </div>
-        <nav className="mx-auto flex w-full max-w-6xl gap-4 px-6 pb-3 text-sm">
+        <nav className="mx-auto flex w-full max-w-6xl flex-wrap gap-x-4 gap-y-2 px-4 pb-3 text-sm sm:px-6">
           {links
             .filter((link) => link.show)
             .map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
-                className={
+                className={cx(
+                  focusRing,
+                  "rounded-sm",
                   pathname === link.href || pathname.startsWith(`${link.href}/`)
                     ? "font-semibold text-slate-900"
-                    : "text-slate-500"
-                }
+                    : "text-slate-500",
+                )}
               >
                 {link.label}
               </Link>
             ))}
         </nav>
       </header>
-      <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-8">{children}</main>
+      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6">{children}</main>
     </div>
   );
 }

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import { Button, ErrorText, PublicScreen, TextInput, focusRing } from "@/components/ui";
 import { apiGet, apiRequest, setCsrfToken } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { getBrowserApiUrl } from "@/lib/env";
@@ -40,14 +41,14 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-6">
-      <h1 className="text-2xl font-semibold text-slate-900">Sign in to NEXA BOS</h1>
-      <p className="mt-2 text-sm text-slate-600">Email and password only. MFA is not enforced.</p>
+    <PublicScreen
+      title="Sign in to NEXA BOS"
+      description="Email and password only. MFA is not enforced."
+    >
       <form onSubmit={(event) => void onSubmit(event)} className="mt-6 space-y-4">
         <label className="block text-sm">
           Email
-          <input
-            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
+          <TextInput
             value={email}
             onChange={(event) => setEmail(event.target.value)}
             type="email"
@@ -56,30 +57,26 @@ export default function LoginPage() {
         </label>
         <label className="block text-sm">
           Password
-          <input
-            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
+          <TextInput
             value={password}
             onChange={(event) => setPassword(event.target.value)}
             type="password"
             required
           />
         </label>
-        {error ? <p className="text-sm text-red-700">{error}</p> : null}
-        <button
-          type="submit"
-          className="w-full rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white"
-        >
+        <ErrorText>{error}</ErrorText>
+        <Button type="submit" className="w-full font-medium">
           Sign in
-        </button>
+        </Button>
       </form>
       {bootstrapAvailable ? (
         <p className="mt-4 text-sm text-slate-600">
           First-time setup is available.{" "}
-          <Link className="font-medium text-slate-900" href="/bootstrap">
+          <Link className={`font-medium text-slate-900 ${focusRing}`} href="/bootstrap">
             Create the OWNER account
           </Link>
         </p>
       ) : null}
-    </main>
+    </PublicScreen>
   );
 }

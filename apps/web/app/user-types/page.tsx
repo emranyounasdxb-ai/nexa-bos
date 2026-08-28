@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
+import { Button, ErrorText, PageHeader, TextInput } from "@/components/ui";
 import { apiGet, apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { getBrowserApiUrl } from "@/lib/env";
@@ -42,25 +43,23 @@ export default function UserTypesPage() {
 
   return (
     <section className="space-y-6">
-      <h2 className="text-xl font-semibold">User types</h2>
+      <PageHeader title="User types" />
+      <ErrorText>{error}</ErrorText>
       {can("UserTypes.Create") ? (
-        <form onSubmit={(event) => void createType(event)} className="grid gap-2 rounded-xl border bg-white p-4 md:grid-cols-4">
-          <input
-            className="rounded-md border px-3 py-2 text-sm"
+        <form onSubmit={(event) => void createType(event)} className="grid gap-2 rounded-xl border border-slate-200 bg-white p-4 md:grid-cols-4">
+          <TextInput
             placeholder="Name"
             value={form.name}
             onChange={(event) => setForm({ ...form, name: event.target.value })}
             required
           />
-          <input
-            className="rounded-md border px-3 py-2 text-sm"
+          <TextInput
             placeholder="Unique code"
             value={form.code}
             onChange={(event) => setForm({ ...form, code: event.target.value })}
             required
           />
-          <input
-            className="rounded-md border px-3 py-2 text-sm"
+          <TextInput
             placeholder="Description"
             value={form.description}
             onChange={(event) => setForm({ ...form, description: event.target.value })}
@@ -73,13 +72,10 @@ export default function UserTypesPage() {
             />
             Can be reporting manager
           </label>
-          <button className="rounded-md bg-slate-900 px-3 py-2 text-sm text-white" type="submit">
-            Create custom type
-          </button>
+          <Button type="submit">Create custom type</Button>
         </form>
       ) : null}
-      {error ? <p className="text-sm text-red-700">{error}</p> : null}
-      <table className="min-w-full rounded-xl border bg-white text-sm">
+      <table className="min-w-full rounded-xl border border-slate-200 bg-white text-sm">
         <thead className="bg-slate-50">
           <tr>
             <th className="px-3 py-2 text-left">Code</th>

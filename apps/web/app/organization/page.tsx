@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 
+import { Button, ErrorText, PageHeader, controlClass } from "@/components/ui";
 import { apiGet, apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { getBrowserApiUrl } from "@/lib/env";
@@ -72,8 +73,8 @@ export default function OrganizationPage() {
 
   return (
     <section className="space-y-8">
-      <h2 className="text-xl font-semibold">Organization masters</h2>
-      {message ? <p className="text-sm text-red-700">{message}</p> : null}
+      <PageHeader title="Organization masters" />
+      <ErrorText>{message}</ErrorText>
       <MasterSection
         title="Offices"
         items={offices}
@@ -91,7 +92,7 @@ export default function OrganizationPage() {
         {can("Departments.Manage") && offices[0] ? (
           <CreateForm
             extra={
-              <select id="dept-office" className="rounded-md border px-3 py-2 text-sm" defaultValue={offices[0].id}>
+              <select id="dept-office" className={controlClass} defaultValue={offices[0].id}>
                 {offices.map((office) => (
                   <option key={office.id} value={office.id}>
                     {office.code}
@@ -113,7 +114,7 @@ export default function OrganizationPage() {
           <CreateForm
             extra={
               <>
-                <select id="team-office" className="rounded-md border px-3 py-2 text-sm" defaultValue={offices[0].id}>
+                <select id="team-office" className={controlClass} defaultValue={offices[0].id}>
                   {offices.map((office) => (
                     <option key={office.id} value={office.id}>
                       {office.code}
@@ -122,7 +123,7 @@ export default function OrganizationPage() {
                 </select>
                 <select
                   id="team-department"
-                  className="rounded-md border px-3 py-2 text-sm"
+                  className={controlClass}
                   defaultValue={departments[0].id}
                 >
                   {departments.map((department) => (
@@ -198,22 +199,20 @@ function CreateForm({
     >
       {extra}
       <input
-        className="rounded-md border px-3 py-2 text-sm"
+        className={controlClass}
         placeholder="Name"
         value={name}
         onChange={(event) => setName(event.target.value)}
         required
       />
       <input
-        className="rounded-md border px-3 py-2 text-sm"
+        className={controlClass}
         placeholder="Immutable code"
         value={code}
         onChange={(event) => setCode(event.target.value)}
         required
       />
-      <button className="rounded-md bg-slate-900 px-3 py-2 text-sm text-white" type="submit">
-        Create
-      </button>
+      <Button type="submit">Create</Button>
     </form>
   );
 }
@@ -274,7 +273,7 @@ function TeamTable({
                 {canManage ? (
                   <select
                     aria-label={`Team leader for ${item.code}`}
-                    className="rounded-md border px-2 py-1"
+                    className={`${controlClass} py-1`}
                     value={item.teamLeaderId ?? ""}
                     onChange={(event) => onAssign(item.id, event.target.value)}
                   >

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 
+import { ErrorText, PageHeader, controlClass, primaryButtonClass } from "@/components/ui";
 import { apiGet, apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { getBrowserApiUrl } from "@/lib/env";
@@ -45,8 +46,8 @@ export default function CatalogPage() {
 
   return (
     <section className="space-y-8">
-      <h2 className="text-xl font-semibold">Banks and products</h2>
-      {message ? <p className="text-sm text-red-700">{message}</p> : null}
+      <PageHeader title="Banks and products" />
+      <ErrorText>{message}</ErrorText>
       <MasterSection
         title="Banks"
         items={banks}
@@ -146,7 +147,7 @@ export default function CatalogPage() {
               void createMaster("/api/v1/bank-products", { bank_id: bankId, product_id: productId });
             }}
           >
-            <select id="map-bank" className="rounded-md border px-3 py-2 text-sm" defaultValue={banks[0].id}>
+            <select id="map-bank" className={controlClass} defaultValue={banks[0].id}>
               {banks.map((bank) => (
                 <option key={bank.id} value={bank.id}>
                   {bank.code}
@@ -155,7 +156,7 @@ export default function CatalogPage() {
             </select>
             <select
               id="map-product"
-              className="rounded-md border px-3 py-2 text-sm"
+              className={controlClass}
               defaultValue={products[0].id}
             >
               {products.map((product) => (
@@ -164,7 +165,7 @@ export default function CatalogPage() {
                 </option>
               ))}
             </select>
-            <button className="rounded-md bg-slate-900 px-3 py-2 text-sm text-white" type="submit">
+            <button className={primaryButtonClass} type="submit">
               Add mapping
             </button>
           </form>
@@ -310,20 +311,20 @@ function CreateForm({
     >
       {extra}
       <input
-        className="rounded-md border px-3 py-2 text-sm"
+        className={controlClass}
         placeholder="Name"
         value={name}
         onChange={(event) => setName(event.target.value)}
         required
       />
       <input
-        className="rounded-md border px-3 py-2 text-sm"
+        className={controlClass}
         placeholder="Immutable code"
         value={code}
         onChange={(event) => setCode(event.target.value)}
         required
       />
-      <button className="rounded-md bg-slate-900 px-3 py-2 text-sm text-white" type="submit">
+      <button className={primaryButtonClass} type="submit">
         Create
       </button>
     </form>
@@ -344,7 +345,7 @@ function RenameName({ value, onSave }: { value: string; onSave: (name: string) =
       }}
     >
       <input
-        className="w-full rounded-md border px-2 py-1"
+        className={`${controlClass} py-1`}
         value={name}
         onChange={(event) => setName(event.target.value)}
         aria-label="Name"

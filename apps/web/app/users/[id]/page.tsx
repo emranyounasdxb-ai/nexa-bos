@@ -1,9 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
+import { ButtonLink, PageHeader, controlClass, secondaryButtonClass } from "@/components/ui";
 import { apiGet, apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { getBrowserApiUrl } from "@/lib/env";
@@ -58,17 +58,17 @@ export default function UserProfilePage() {
 
   return (
     <section className="space-y-6">
-      <div className="flex items-start justify-between">
-        <div>
-          <h2 className="text-xl font-semibold">{user.fullName}</h2>
-          <p className="text-sm text-slate-500">{user.userCode}</p>
-        </div>
-        {can("Users.Edit") ? (
-          <Link className="rounded-md border px-3 py-2 text-sm" href={`/users/${user.id}/edit`}>
-            Edit
-          </Link>
-        ) : null}
-      </div>
+      <PageHeader
+        title={user.fullName}
+        description={user.userCode}
+        actions={
+          can("Users.Edit") ? (
+            <ButtonLink href={`/users/${user.id}/edit`} variant="secondary">
+              Edit
+            </ButtonLink>
+          ) : null
+        }
+      />
       <dl className="grid gap-3 rounded-xl border border-slate-200 bg-white p-5 text-sm md:grid-cols-2">
         <div>
           <dt className="text-slate-500">Employee code</dt>
@@ -126,7 +126,7 @@ export default function UserProfilePage() {
       <div className="flex flex-wrap gap-2 text-sm">
         {can("Users.AssignUserType") ? (
           <select
-            className="rounded-md border px-2 py-1"
+            className={controlClass}
             defaultValue=""
             onChange={(event) => {
               if (event.target.value) {
@@ -145,23 +145,23 @@ export default function UserProfilePage() {
           </select>
         ) : null}
         {can("Users.Activate") ? (
-          <button className="rounded-md border px-3 py-1" type="button" onClick={() => void action(`/api/v1/users/${user.id}/activate`)}>
+          <button className={secondaryButtonClass} type="button" onClick={() => void action(`/api/v1/users/${user.id}/activate`)}>
             Activate
           </button>
         ) : null}
         {can("Users.Deactivate") ? (
-          <button className="rounded-md border px-3 py-1" type="button" onClick={() => void action(`/api/v1/users/${user.id}/deactivate`)}>
+          <button className={secondaryButtonClass} type="button" onClick={() => void action(`/api/v1/users/${user.id}/deactivate`)}>
             Deactivate
           </button>
         ) : null}
         {can("Users.Unlock") ? (
-          <button className="rounded-md border px-3 py-1" type="button" onClick={() => void action(`/api/v1/users/${user.id}/unlock`)}>
+          <button className={secondaryButtonClass} type="button" onClick={() => void action(`/api/v1/users/${user.id}/unlock`)}>
             Unlock
           </button>
         ) : null}
         {can("Users.Edit") && user.accountStatus === "deactivated" ? (
           <button
-            className="rounded-md border px-3 py-1"
+            className={secondaryButtonClass}
             type="button"
             onClick={() =>
               void action(`/api/v1/users/${user.id}/rehire`, {
@@ -175,7 +175,7 @@ export default function UserProfilePage() {
         ) : null}
         {can("Users.GenerateSetupLink") ? (
           <button
-            className="rounded-md border px-3 py-1"
+            className={secondaryButtonClass}
             type="button"
             onClick={async () => {
               try {
@@ -195,7 +195,7 @@ export default function UserProfilePage() {
         ) : null}
         {can("Users.GenerateResetLink") ? (
           <button
-            className="rounded-md border px-3 py-1"
+            className={secondaryButtonClass}
             type="button"
             onClick={async () => {
               try {

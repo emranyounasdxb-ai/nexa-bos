@@ -1,13 +1,40 @@
 @import "tailwindcss";
 
+/* Approved visual baseline: first-time OWNER setup + existing :root tokens. */
 :root {
   --background: #f4f6f8;
   --foreground: #142033;
   --card: #ffffff;
   --accent: #0f4c81;
+  --bos-ink: #0f172a;
+  --bos-muted: #475569;
+  --bos-border: #cbd5e1;
+  --bos-line: #e2e8f0;
+  --bos-subtle: #f8fafc;
+  --bos-error: #b91c1c;
+  --bos-radius: 0.375rem;
+}
+
+@theme {
+  --color-bos-bg: #f4f6f8;
+  --color-bos-fg: #142033;
+  --color-bos-card: #ffffff;
+  --color-bos-navy: #0f4c81;
+  --color-bos-ink: #0f172a;
+  --color-bos-muted: #475569;
+  --color-bos-border: #cbd5e1;
+  --color-bos-line: #e2e8f0;
+  --color-bos-error: #b91c1c;
+  --font-sans: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
+  font-family: var(--font-sans);
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator {
+  display: none;
+  -webkit-appearance: none;
 }

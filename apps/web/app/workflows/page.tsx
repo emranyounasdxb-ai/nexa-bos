@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 
+import { ErrorText, PageHeader, controlClass, primaryButtonClass, secondaryButtonClass } from "@/components/ui";
 import { apiGet, apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { getBrowserApiUrl } from "@/lib/env";
@@ -60,12 +61,11 @@ export default function WorkflowsPage() {
 
   return (
     <section className="space-y-6">
-      <h2 className="text-xl font-semibold">Workflows</h2>
-      <p className="text-sm text-slate-600">
-        Workflows are versioned per Bank and Product. Application Created is the only globally
-        fixed entry stage. Other stages and transitions are configured here; they are not seeded.
-      </p>
-      {message ? <p className="text-sm text-red-700">{message}</p> : null}
+      <PageHeader
+        title="Workflows"
+        description="Workflows are versioned per Bank and Product. Application Created is the only globally fixed entry stage. Other stages and transitions are configured here; they are not seeded."
+      />
+      <ErrorText>{message}</ErrorText>
       {can("WorkflowStages.Create") ? (
         <form
           className="flex flex-wrap gap-2"
@@ -75,7 +75,7 @@ export default function WorkflowsPage() {
           }}
         >
           <select
-            className="rounded-md border px-3 py-2 text-sm"
+            className={controlClass}
             aria-label="Workflow bank"
             value={bankId}
             onChange={(event) => setBankId(event.target.value)}
@@ -89,7 +89,7 @@ export default function WorkflowsPage() {
             ))}
           </select>
           <select
-            className="rounded-md border px-3 py-2 text-sm"
+            className={controlClass}
             aria-label="Workflow product"
             value={productId}
             onChange={(event) => setProductId(event.target.value)}
@@ -102,13 +102,13 @@ export default function WorkflowsPage() {
               </option>
             ))}
           </select>
-          <button className="rounded-md bg-slate-900 px-3 py-2 text-sm text-white" type="submit">
+          <button className={primaryButtonClass} type="submit">
             Create new version
           </button>
         </form>
       ) : null}
       <select
-        className="rounded-md border px-3 py-2 text-sm"
+        className={controlClass}
         aria-label="Workflow version"
         value={selected?.id ?? ""}
         onChange={(event) => setSelectedId(event.target.value)}
@@ -162,7 +162,7 @@ export default function WorkflowsPage() {
               }}
             >
               <input
-                className="rounded-md border px-3 py-2 text-sm"
+                className={controlClass}
                 aria-label="Stage name"
                 placeholder="Stage name"
                 value={stageName}
@@ -170,14 +170,14 @@ export default function WorkflowsPage() {
                 required
               />
               <input
-                className="rounded-md border px-3 py-2 text-sm"
+                className={controlClass}
                 aria-label="Stage code"
                 placeholder="Stage code"
                 value={stageCode}
                 onChange={(event) => setStageCode(event.target.value)}
                 required
               />
-              <button className="rounded-md border px-3 py-2 text-sm" type="submit">
+              <button className={secondaryButtonClass} type="submit">
                 Add stage
               </button>
             </form>
@@ -214,7 +214,7 @@ export default function WorkflowsPage() {
               }}
             >
               <select
-                className="rounded-md border px-3 py-2 text-sm"
+                className={controlClass}
                 aria-label="From stage"
                 value={fromStage}
                 onChange={(event) => setFromStage(event.target.value)}
@@ -228,7 +228,7 @@ export default function WorkflowsPage() {
                 ))}
               </select>
               <select
-                className="rounded-md border px-3 py-2 text-sm"
+                className={controlClass}
                 aria-label="To stage"
                 value={toStage}
                 onChange={(event) => setToStage(event.target.value)}
@@ -241,7 +241,7 @@ export default function WorkflowsPage() {
                   </option>
                 ))}
               </select>
-              <button className="rounded-md border px-3 py-2 text-sm" type="submit">
+              <button className={secondaryButtonClass} type="submit">
                 Add transition
               </button>
             </form>

@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { Button, ErrorText, PageHeader, TextInput, secondaryButtonClass } from "@/components/ui";
 import { apiRequest, ApiClientError } from "@/lib/api";
 import { getBrowserApiUrl } from "@/lib/env";
 import type { CustomerRecord } from "@/lib/types";
@@ -70,7 +71,7 @@ export default function CreateCustomerPage() {
 
   return (
     <section className="max-w-2xl space-y-4">
-      <h2 className="text-xl font-semibold">Create customer</h2>
+      <PageHeader title="Create customer" />
       <form
         onSubmit={(event) => {
           event.preventDefault();
@@ -173,7 +174,7 @@ export default function CreateCustomerPage() {
             />
           </>
         )}
-        {error ? <p className="text-sm text-red-700">{error}</p> : null}
+        <ErrorText>{error}</ErrorText>
         {duplicates.length > 0 ? (
           <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm">
             <p className="font-medium">Possible duplicates</p>
@@ -184,18 +185,12 @@ export default function CreateCustomerPage() {
                 </li>
               ))}
             </ul>
-            <button
-              className="mt-3 rounded-md border border-slate-300 px-3 py-1.5"
-              type="button"
-              onClick={() => void submit(true)}
-            >
+            <button className={`mt-3 ${secondaryButtonClass}`} type="button" onClick={() => void submit(true)}>
               Create anyway
             </button>
           </div>
         ) : null}
-        <button className="rounded-md bg-slate-900 px-3 py-2 text-sm text-white" type="submit">
-          Create customer
-        </button>
+        <Button type="submit">Create customer</Button>
       </form>
     </section>
   );
@@ -217,8 +212,7 @@ function Field({
   return (
     <label className="block text-sm">
       {label}
-      <input
-        className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
+      <TextInput
         type={type}
         value={value}
         onChange={(event) => onChange(event.target.value)}

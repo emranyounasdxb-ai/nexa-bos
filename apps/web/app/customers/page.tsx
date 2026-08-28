@@ -3,6 +3,17 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
+import {
+  ButtonLink,
+  EmptyState,
+  ErrorText,
+  PageHeader,
+  TableHead,
+  TableShell,
+  Td,
+  TextInput,
+  Th,
+} from "@/components/ui";
 import { apiGet, ApiClientError } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { getBrowserApiUrl } from "@/lib/env";
@@ -32,49 +43,56 @@ export default function CustomersPage() {
 
   return (
     <section className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-xl font-semibold">Customers</h2>
-        {can("Customers.Create") ? (
-          <Link className="rounded-md bg-slate-900 px-3 py-2 text-sm text-white" href="/customers/new">
-            Create customer
-          </Link>
-        ) : null}
-      </div>
-      <input
-        className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+      <PageHeader
+        title="Customers"
+        actions={
+          can("Customers.Create") ? (
+            <ButtonLink href="/customers/new">Create customer</ButtonLink>
+          ) : null
+        }
+      />
+      <TextInput
+        className="mt-0"
         placeholder="Search code, name, company, mobile, email, Emirates ID, passport, trade license"
         value={query}
         onChange={(event) => setQuery(event.target.value)}
+        aria-label="Search customers"
       />
-      {error ? <p className="text-sm text-red-700">{error}</p> : null}
-      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
-        <table className="min-w-full text-left text-sm">
-          <thead className="bg-slate-50 text-slate-600">
+      <ErrorText>{error}</ErrorText>
+      <TableShell>
+        <TableHead>
+          <tr>
+            <Th>Customer code</Th>
+            <Th>Type</Th>
+            <Th>Name / company</Th>
+            <Th>Mobile</Th>
+            <Th>Status</Th>
+          </tr>
+        </TableHead>
+        <tbody>
+          {items.length === 0 ? (
             <tr>
-              <th className="px-3 py-2">Customer code</th>
-              <th className="px-3 py-2">Type</th>
-              <th className="px-3 py-2">Name / company</th>
-              <th className="px-3 py-2">Mobile</th>
-              <th className="px-3 py-2">Status</th>
+              <td colSpan={5}>
+                <EmptyState>No customers match the current search.</EmptyState>
+              </td>
             </tr>
-          </thead>
-          <tbody>
-            {items.map((customer) => (
+          ) : (
+            items.map((customer) => (
               <tr key={customer.id} className="border-t border-slate-100">
-                <td className="px-3 py-2">
+                <Td>
                   <Link className="font-medium text-slate-900" href={`/customers/${customer.id}`}>
                     {customer.customerCode}
                   </Link>
-                </td>
-                <td className="px-3 py-2">{customer.customerTypeLabel}</td>
-                <td className="px-3 py-2">{customer.companyName || customer.fullName}</td>
-                <td className="px-3 py-2">{customer.mobile}</td>
-                <td className="px-3 py-2">{customer.status}</td>
+                </Td>
+                <Td>{customer.customerTypeLabel}</Td>
+                <Td>{customer.companyName || customer.fullName}</Td>
+                <Td>{customer.mobile}</Td>
+                <Td>{customer.status}</Td>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            ))
+          )}
+        </tbody>
+      </TableShell>
     </section>
   );
 }

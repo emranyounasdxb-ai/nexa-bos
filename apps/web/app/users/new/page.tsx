@@ -3,6 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
+import { DatePicker } from "@/components/date-picker";
+import { Button, ErrorText, PageHeader, Select, TextInput } from "@/components/ui";
 import { apiGet, apiRequest } from "@/lib/api";
 import { getBrowserApiUrl } from "@/lib/env";
 import type { ManagerOption, OrgRef, UserTypeSummary } from "@/lib/types";
@@ -93,7 +95,7 @@ export default function CreateUserPage() {
 
   return (
     <section className="max-w-2xl space-y-4">
-      <h2 className="text-xl font-semibold">Create user</h2>
+      <PageHeader title="Create user" />
       <form onSubmit={(event) => void onSubmit(event)} className="grid gap-3">
         {[
           ["full_name", "Full name"],
@@ -103,8 +105,7 @@ export default function CreateUserPage() {
         ].map(([name, label]) => (
           <label key={name} className="block text-sm">
             {label}
-            <input
-              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
+            <TextInput
               type={name === "email" ? "email" : "text"}
               value={form[name as keyof typeof form]}
               onChange={(event) => setForm({ ...form, [name]: event.target.value })}
@@ -114,8 +115,7 @@ export default function CreateUserPage() {
         ))}
         <label className="block text-sm">
           Designation
-          <select
-            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
+          <Select
             value={form.designation_id}
             onChange={(event) => setForm({ ...form, designation_id: event.target.value })}
             required
@@ -126,46 +126,42 @@ export default function CreateUserPage() {
                 {item.code} — {item.name}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
         <label className="block text-sm">
           Joining date
-          <input
-            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
-            type="date"
+          <DatePicker
             value={form.joining_date}
-            onChange={(event) => setForm({ ...form, joining_date: event.target.value })}
+            onChange={(joining_date) => setForm({ ...form, joining_date })}
             required
+            aria-label="Joining date"
           />
         </label>
         <label className="block text-sm">
           Employment status
-          <select
-            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
+          <Select
             value={form.employment_status}
             onChange={(event) => setForm({ ...form, employment_status: event.target.value })}
           >
             {STATUSES.map((status) => (
               <option key={status}>{status}</option>
             ))}
-          </select>
+          </Select>
         </label>
         {["Resigned", "Terminated"].includes(form.employment_status) ? (
           <label className="block text-sm">
             Last working date
-            <input
-              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
-              type="date"
+            <DatePicker
               value={form.last_working_date}
-              onChange={(event) => setForm({ ...form, last_working_date: event.target.value })}
+              onChange={(last_working_date) => setForm({ ...form, last_working_date })}
               required
+              aria-label="Last working date"
             />
           </label>
         ) : null}
         <label className="block text-sm">
           Office
-          <select
-            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
+          <Select
             value={form.office_id}
             onChange={(event) =>
               setForm({ ...form, office_id: event.target.value, department_id: "", team_id: "" })
@@ -177,12 +173,11 @@ export default function CreateUserPage() {
                 {item.code} — {item.name}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
         <label className="block text-sm">
           Department
-          <select
-            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
+          <Select
             value={form.department_id}
             onChange={(event) => setForm({ ...form, department_id: event.target.value, team_id: "" })}
           >
@@ -192,12 +187,11 @@ export default function CreateUserPage() {
                 {item.code} — {item.name}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
         <label className="block text-sm">
           Team
-          <select
-            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
+          <Select
             value={form.team_id}
             onChange={(event) => setForm({ ...form, team_id: event.target.value })}
           >
@@ -207,12 +201,11 @@ export default function CreateUserPage() {
                 {item.code} — {item.name}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
         <label className="block text-sm">
           User type (optional)
-          <select
-            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
+          <Select
             value={form.user_type_id}
             onChange={(event) => setForm({ ...form, user_type_id: event.target.value })}
           >
@@ -222,12 +215,11 @@ export default function CreateUserPage() {
                 {item.code} — {item.name}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
         <label className="block text-sm">
           Reporting manager
-          <select
-            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
+          <Select
             value={form.reporting_manager_id}
             onChange={(event) => setForm({ ...form, reporting_manager_id: event.target.value })}
           >
@@ -237,12 +229,10 @@ export default function CreateUserPage() {
                 {item.userCode} — {item.fullName}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
-        {error ? <p className="text-sm text-red-700">{error}</p> : null}
-        <button className="rounded-md bg-slate-900 px-3 py-2 text-sm text-white" type="submit">
-          Create
-        </button>
+        <ErrorText>{error}</ErrorText>
+        <Button type="submit">Create</Button>
       </form>
     </section>
   );
