@@ -3,6 +3,20 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
+import { DatePicker } from "@/components/date-picker";
+import {
+  Button,
+  ButtonLink,
+  EmptyState,
+  ErrorText,
+  PageHeader,
+  Select,
+  TableHead,
+  TableShell,
+  Td,
+  TextInput,
+  Th,
+} from "@/components/ui";
 import { apiGet, ApiClientError } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { getBrowserApiUrl } from "@/lib/env";
@@ -122,33 +136,30 @@ export default function ApplicationsPage() {
 
   return (
     <section className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-xl font-semibold">Applications</h2>
-        {can("Applications.Create") ? (
-          <Link
-            className="rounded-md bg-slate-900 px-3 py-2 text-sm text-white"
-            href="/applications/new"
-          >
-            Create application
-          </Link>
-        ) : null}
-      </div>
-      <input
-        className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+      <PageHeader
+        title="Applications"
+        actions={
+          can("Applications.Create") ? (
+            <ButtonLink href="/applications/new">Create application</ButtonLink>
+          ) : null
+        }
+      />
+      <TextInput
+        className="mt-0"
         placeholder="Search application ID, bank file, customer code, name, or mobile"
         value={query}
         onChange={(event) => setQuery(event.target.value)}
         aria-label="Search applications"
       />
       <form
-        className="grid gap-3 rounded-xl border bg-white p-4 md:grid-cols-3"
+        className="grid gap-3 rounded-xl border border-slate-200 bg-white p-4 md:grid-cols-3"
         onSubmit={(event) => {
           event.preventDefault();
           setApplied({ ...filters });
         }}
       >
-        <select
-          className="rounded-md border px-3 py-2 text-sm"
+        <Select
+          className="mt-0"
           aria-label="Filter by bank"
           value={filters.bank_id}
           onChange={(event) => setFilters({ ...filters, bank_id: event.target.value })}
@@ -159,9 +170,9 @@ export default function ApplicationsPage() {
               {item.code}
             </option>
           ))}
-        </select>
-        <select
-          className="rounded-md border px-3 py-2 text-sm"
+        </Select>
+        <Select
+          className="mt-0"
           aria-label="Filter product"
           value={filters.product_id}
           onChange={(event) => setFilters({ ...filters, product_id: event.target.value })}
@@ -172,9 +183,9 @@ export default function ApplicationsPage() {
               {item.code}
             </option>
           ))}
-        </select>
-        <select
-          className="rounded-md border px-3 py-2 text-sm"
+        </Select>
+        <Select
+          className="mt-0"
           aria-label="Filter case owner"
           value={filters.case_owner_id}
           onChange={(event) => setFilters({ ...filters, case_owner_id: event.target.value })}
@@ -185,9 +196,9 @@ export default function ApplicationsPage() {
               {item.fullName}
             </option>
           ))}
-        </select>
-        <select
-          className="rounded-md border px-3 py-2 text-sm"
+        </Select>
+        <Select
+          className="mt-0"
           aria-label="Filter office"
           value={filters.office_id}
           onChange={(event) =>
@@ -200,9 +211,9 @@ export default function ApplicationsPage() {
               {item.code} — {item.name}
             </option>
           ))}
-        </select>
-        <select
-          className="rounded-md border px-3 py-2 text-sm"
+        </Select>
+        <Select
+          className="mt-0"
           aria-label="Filter department"
           value={filters.department_id}
           onChange={(event) =>
@@ -215,9 +226,9 @@ export default function ApplicationsPage() {
               {item.code} — {item.name}
             </option>
           ))}
-        </select>
-        <select
-          className="rounded-md border px-3 py-2 text-sm"
+        </Select>
+        <Select
+          className="mt-0"
           aria-label="Filter team"
           value={filters.team_id}
           onChange={(event) => setFilters({ ...filters, team_id: event.target.value })}
@@ -228,9 +239,9 @@ export default function ApplicationsPage() {
               {item.code} — {item.name}
             </option>
           ))}
-        </select>
-        <select
-          className="rounded-md border px-3 py-2 text-sm"
+        </Select>
+        <Select
+          className="mt-0"
           aria-label="Filter current stage"
           value={filters.current_stage_id}
           onChange={(event) => setFilters({ ...filters, current_stage_id: event.target.value })}
@@ -241,9 +252,9 @@ export default function ApplicationsPage() {
               {item.label}
             </option>
           ))}
-        </select>
-        <select
-          className="rounded-md border px-3 py-2 text-sm"
+        </Select>
+        <Select
+          className="mt-0"
           aria-label="Filter terminal outcome"
           value={filters.terminal_outcome}
           onChange={(event) => setFilters({ ...filters, terminal_outcome: event.target.value })}
@@ -254,65 +265,59 @@ export default function ApplicationsPage() {
               {item}
             </option>
           ))}
-        </select>
+        </Select>
         <label className="text-sm">
           Submission from
-          <input
-            className="mt-1 w-full rounded-md border px-3 py-2"
-            type="date"
+          <DatePicker
+            optional
             aria-label="Filter submission from"
             value={filters.submission_from}
-            onChange={(event) => setFilters({ ...filters, submission_from: event.target.value })}
+            onChange={(submission_from) => setFilters({ ...filters, submission_from })}
           />
         </label>
         <label className="text-sm">
           Submission to
-          <input
-            className="mt-1 w-full rounded-md border px-3 py-2"
-            type="date"
+          <DatePicker
+            optional
             aria-label="Filter submission to"
             value={filters.submission_to}
-            onChange={(event) => setFilters({ ...filters, submission_to: event.target.value })}
+            onChange={(submission_to) => setFilters({ ...filters, submission_to })}
           />
         </label>
         <label className="text-sm">
           Bank stage from
-          <input
-            className="mt-1 w-full rounded-md border px-3 py-2"
-            type="date"
+          <DatePicker
+            optional
             aria-label="Bank stage date from"
             value={filters.bank_stage_from}
-            onChange={(event) => setFilters({ ...filters, bank_stage_from: event.target.value })}
+            onChange={(bank_stage_from) => setFilters({ ...filters, bank_stage_from })}
           />
         </label>
         <label className="text-sm">
           Bank stage to
-          <input
-            className="mt-1 w-full rounded-md border px-3 py-2"
-            type="date"
+          <DatePicker
+            optional
             aria-label="Bank stage date to"
             value={filters.bank_stage_to}
-            onChange={(event) => setFilters({ ...filters, bank_stage_to: event.target.value })}
+            onChange={(bank_stage_to) => setFilters({ ...filters, bank_stage_to })}
           />
         </label>
         <label className="text-sm">
           Created from
-          <input
-            className="mt-1 w-full rounded-md border px-3 py-2"
-            type="date"
+          <DatePicker
+            optional
             aria-label="Filter created from"
             value={filters.created_from}
-            onChange={(event) => setFilters({ ...filters, created_from: event.target.value })}
+            onChange={(created_from) => setFilters({ ...filters, created_from })}
           />
         </label>
         <label className="text-sm">
           Created to
-          <input
-            className="mt-1 w-full rounded-md border px-3 py-2"
-            type="date"
+          <DatePicker
+            optional
             aria-label="Filter created to"
             value={filters.created_to}
-            onChange={(event) => setFilters({ ...filters, created_to: event.target.value })}
+            onChange={(created_to) => setFilters({ ...filters, created_to })}
           />
         </label>
         {(
@@ -329,8 +334,8 @@ export default function ApplicationsPage() {
         ).map(([key, label]) => (
           <label key={key} className="text-sm">
             {label}
-            <input
-              className="mt-1 w-full rounded-md border px-3 py-2"
+            <TextInput
+              className="mt-1"
               type="number"
               min="0"
               step="0.01"
@@ -340,12 +345,10 @@ export default function ApplicationsPage() {
             />
           </label>
         ))}
-        <div className="flex items-end gap-2 md:col-span-3">
-          <button className="rounded-md bg-slate-900 px-3 py-2 text-sm text-white" type="submit">
-            Apply filters
-          </button>
-          <button
-            className="rounded-md border px-3 py-2 text-sm"
+        <div className="flex flex-wrap items-end gap-2 md:col-span-3">
+          <Button type="submit">Apply filters</Button>
+          <Button
+            variant="secondary"
             type="button"
             onClick={() => {
               setFilters(emptyFilters);
@@ -353,44 +356,50 @@ export default function ApplicationsPage() {
             }}
           >
             Clear filters
-          </button>
+          </Button>
         </div>
       </form>
-      {error ? <p className="text-sm text-red-700">{error}</p> : null}
-      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
-        <table className="min-w-full text-left text-sm">
-          <thead className="bg-slate-50 text-slate-600">
+      <ErrorText>{error}</ErrorText>
+      <TableShell>
+        <TableHead>
+          <tr>
+            <Th>Application ID</Th>
+            <Th>Customer</Th>
+            <Th>Bank / Product</Th>
+            <Th>Case Owner</Th>
+            <Th>Stage</Th>
+            <Th>Outcome</Th>
+          </tr>
+        </TableHead>
+        <tbody>
+          {items.length === 0 ? (
             <tr>
-              <th className="px-3 py-2">Application ID</th>
-              <th className="px-3 py-2">Customer</th>
-              <th className="px-3 py-2">Bank / Product</th>
-              <th className="px-3 py-2">Case Owner</th>
-              <th className="px-3 py-2">Stage</th>
-              <th className="px-3 py-2">Outcome</th>
+              <td colSpan={6}>
+                <EmptyState>No applications match the current filters.</EmptyState>
+              </td>
             </tr>
-          </thead>
-          <tbody>
-            {items.map((item) => (
+          ) : (
+            items.map((item) => (
               <tr key={item.id} className="border-t border-slate-100">
-                <td className="px-3 py-2">
+                <Td>
                   <Link className="font-medium text-slate-900" href={`/applications/${item.id}`}>
                     {item.applicationCode}
                   </Link>
-                </td>
-                <td className="px-3 py-2">
+                </Td>
+                <Td>
                   {item.customerCode} · {item.customerName}
-                </td>
-                <td className="px-3 py-2">
+                </Td>
+                <Td>
                   {item.bankCode} / {item.productCode}
-                </td>
-                <td className="px-3 py-2">{item.caseOwnerName}</td>
-                <td className="px-3 py-2">{item.currentStage}</td>
-                <td className="px-3 py-2">{item.terminalOutcome ?? "Open"}</td>
+                </Td>
+                <Td>{item.caseOwnerName}</Td>
+                <Td>{item.currentStage}</Td>
+                <Td>{item.terminalOutcome ?? "Open"}</Td>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            ))
+          )}
+        </tbody>
+      </TableShell>
     </section>
   );
 }

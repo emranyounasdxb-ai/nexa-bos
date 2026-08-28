@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
+import { Button, ErrorText, PageHeader, TextInput, controlClass, secondaryButtonClass } from "@/components/ui";
 import { apiGet, apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { getBrowserApiUrl } from "@/lib/env";
@@ -119,12 +120,11 @@ export default function CustomerDetailPage() {
 
   return (
     <section className="max-w-2xl space-y-4">
-      <h2 className="text-xl font-semibold">{customer.customerCode}</h2>
-      <p className="text-sm text-slate-600">
-        {customer.customerTypeLabel} · {customer.status}
-        {customer.mergedIntoId ? ` · merged into ${customer.mergedIntoId}` : ""}
-      </p>
-      {message ? <p className="text-sm text-red-700">{message}</p> : null}
+      <PageHeader
+        title={customer.customerCode}
+        description={`${customer.customerTypeLabel} · ${customer.status}${customer.mergedIntoId ? ` · merged into ${customer.mergedIntoId}` : ""}`}
+      />
+      <ErrorText>{message}</ErrorText>
       <form
         className="grid gap-3"
         onSubmit={(event) => {
@@ -151,15 +151,13 @@ export default function CustomerDetailPage() {
           </>
         )}
         {can("Customers.Edit") && !merged ? (
-          <button className="rounded-md bg-slate-900 px-3 py-2 text-sm text-white" type="submit">
-            Save
-          </button>
+          <Button type="submit">Save</Button>
         ) : null}
       </form>
       <div className="flex gap-2 text-sm">
         {can("Customers.Deactivate") && customer.status === "Active" ? (
           <button
-            className="rounded-md border px-3 py-1.5"
+            className={secondaryButtonClass}
             type="button"
             onClick={() =>
               void apiRequest(`/api/v1/customers/${customer.id}/deactivate`, api, { method: "POST" })
@@ -172,7 +170,7 @@ export default function CustomerDetailPage() {
         ) : null}
         {can("Customers.Activate") && customer.status === "Inactive" ? (
           <button
-            className="rounded-md border px-3 py-1.5"
+            className={secondaryButtonClass}
             type="button"
             onClick={() =>
               void apiRequest(`/api/v1/customers/${customer.id}/activate`, api, { method: "POST" })
@@ -210,7 +208,7 @@ export default function CustomerDetailPage() {
             Irreversible. This customer code is retired and never reused. History is preserved.
           </p>
           <select
-            className="w-full rounded-md border px-3 py-2 text-sm"
+            className={controlClass}
             value={primaryId}
             onChange={(event) => setPrimaryId(event.target.value)}
             aria-label="Primary customer"
@@ -222,9 +220,9 @@ export default function CustomerDetailPage() {
               </option>
             ))}
           </select>
-          <button className="rounded-md bg-slate-900 px-3 py-2 text-sm text-white" type="button" onClick={() => void merge()}>
+          <Button type="button" onClick={() => void merge()}>
             Merge
-          </button>
+          </Button>
         </div>
       ) : null}
     </section>
@@ -245,8 +243,7 @@ function Field({
   return (
     <label className="block text-sm">
       {label}
-      <input
-        className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 disabled:bg-slate-50"
+      <TextInput
         value={value}
         onChange={(event) => onChange(event.target.value)}
         disabled={disabled}

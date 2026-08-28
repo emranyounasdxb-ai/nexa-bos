@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 
+import { Button, Card, PageHeader, TextInput } from "@/components/ui";
 import { apiGet, apiRequest } from "@/lib/api";
 import { getBrowserApiUrl } from "@/lib/env";
 
@@ -19,7 +20,11 @@ export default function SecurityPage() {
   const api = getBrowserApiUrl();
 
   useEffect(() => {
-    void apiGet<Settings>("/api/v1/security-settings", api).then(setSettings);
+    void apiGet<Settings>("/api/v1/security-settings", api)
+      .then(setSettings)
+      .catch((err: unknown) =>
+        setMessage(err instanceof Error ? err.message : "Unable to load security settings"),
+      );
   }, [api]);
 
   async function save(event: React.FormEvent) {
@@ -41,67 +46,68 @@ export default function SecurityPage() {
   }
 
   if (!settings) {
-    return <p className="text-sm">Loading…</p>;
+    return (
+      <section className="max-w-lg space-y-4">
+        <PageHeader title="Security settings" />
+        {message ? <p className="text-sm text-red-700">{message}</p> : <p className="text-sm text-slate-500">Loading…</p>}
+      </section>
+    );
   }
 
   return (
     <section className="max-w-lg space-y-4">
-      <h2 className="text-xl font-semibold">Security settings</h2>
-      <form onSubmit={(event) => void save(event)} className="grid gap-3 rounded-xl border bg-white p-5">
-        <label className="text-sm">
-          Setup/reset link expiry (hours)
-          <input
-            className="mt-1 w-full rounded-md border px-3 py-2"
-            type="number"
-            min={1}
-            value={settings.setupLinkExpiryHours}
-            onChange={(event) =>
-              setSettings({ ...settings, setupLinkExpiryHours: Number(event.target.value) })
-            }
-          />
-        </label>
-        <label className="text-sm">
-          Lockout duration (minutes)
-          <input
-            className="mt-1 w-full rounded-md border px-3 py-2"
-            type="number"
-            min={1}
-            value={settings.lockoutMinutes}
-            onChange={(event) =>
-              setSettings({ ...settings, lockoutMinutes: Number(event.target.value) })
-            }
-          />
-        </label>
-        <label className="text-sm">
-          Inactivity timeout (minutes)
-          <input
-            className="mt-1 w-full rounded-md border px-3 py-2"
-            type="number"
-            min={1}
-            value={settings.inactivityTimeoutMinutes}
-            onChange={(event) =>
-              setSettings({ ...settings, inactivityTimeoutMinutes: Number(event.target.value) })
-            }
-          />
-        </label>
-        <label className="text-sm">
-          Absolute session lifetime (hours)
-          <input
-            className="mt-1 w-full rounded-md border px-3 py-2"
-            type="number"
-            min={1}
-            value={settings.absoluteSessionHours}
-            onChange={(event) =>
-              setSettings({ ...settings, absoluteSessionHours: Number(event.target.value) })
-            }
-          />
-        </label>
-        <p className="text-xs text-slate-500">Failed login limit is fixed at {settings.failedLoginLimit}.</p>
-        <button className="rounded-md bg-slate-900 px-3 py-2 text-sm text-white" type="submit">
-          Save
-        </button>
-        {message ? <p className="text-sm">{message}</p> : null}
-      </form>
+      <PageHeader title="Security settings" />
+      <Card>
+        <form onSubmit={(event) => void save(event)} className="grid gap-3">
+          <label className="text-sm">
+            Setup/reset link expiry (hours)
+            <TextInput
+              type="number"
+              min={1}
+              value={settings.setupLinkExpiryHours}
+              onChange={(event) =>
+                setSettings({ ...settings, setupLinkExpiryHours: Number(event.target.value) })
+              }
+            />
+          </label>
+          <label className="text-sm">
+            Lockout duration (minutes)
+            <TextInput
+              type="number"
+              min={1}
+              value={settings.lockoutMinutes}
+              onChange={(event) =>
+                setSettings({ ...settings, lockoutMinutes: Number(event.target.value) })
+              }
+            />
+          </label>
+          <label className="text-sm">
+            Inactivity timeout (minutes)
+            <TextInput
+              type="number"
+              min={1}
+              value={settings.inactivityTimeoutMinutes}
+              onChange={(event) =>
+                setSettings({ ...settings, inactivityTimeoutMinutes: Number(event.target.value) })
+              }
+            />
+          </label>
+          <label className="text-sm">
+            Absolute session lifetime (hours)
+            <TextInput
+              type="number"
+              min={1}
+              value={settings.absoluteSessionHours}
+              onChange={(event) =>
+                setSettings({ ...settings, absoluteSessionHours: Number(event.target.value) })
+              }
+            />
+          </label>
+          <p className="text-xs text-slate-500">Failed login limit is fixed at {settings.failedLoginLimit}.</p>
+          <Button type="submit">Save</Button>
+          {message ? <p className="text-sm text-slate-700">{message}</p> : null}
+        </form>
+      </Card>
     </section>
   );
 }

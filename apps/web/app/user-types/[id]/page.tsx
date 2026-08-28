@@ -3,6 +3,7 @@
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
+import { PageHeader, controlClass, primaryButtonClass, secondaryButtonClass } from "@/components/ui";
 import { apiGet, apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { getBrowserApiUrl } from "@/lib/env";
@@ -49,10 +50,7 @@ export default function UserTypeDetailPage() {
 
   return (
     <section className="space-y-4">
-      <h2 className="text-xl font-semibold">
-        {item.code} — {item.name}
-      </h2>
-      <p className="text-sm text-slate-600">{item.description || "No description"}</p>
+      <PageHeader title={`${item.code} — ${item.name}`} description={item.description || "No description"} />
       <p className="text-sm">
         Status: {item.status} · User directory scope: {item.visibilityScope ?? "none"} · Customer
         scope: {item.customerVisibilityScope ?? "none"} · Application scope:{" "}
@@ -100,7 +98,7 @@ export default function UserTypeDetailPage() {
       <div className="flex gap-2 text-sm">
         {can("UserTypes.Activate") ? (
           <button
-            className="rounded-md border px-3 py-1"
+            className={secondaryButtonClass}
             type="button"
             onClick={() =>
               void apiRequest(`/api/v1/user-types/${item.id}/activate`, api, { method: "POST" }).then(
@@ -113,7 +111,7 @@ export default function UserTypeDetailPage() {
         ) : null}
         {can("UserTypes.Deactivate") ? (
           <button
-            className="rounded-md border px-3 py-1"
+            className={secondaryButtonClass}
             type="button"
             onClick={() =>
               void apiRequest(`/api/v1/user-types/${item.id}/deactivate`, api, { method: "POST" }).then(
@@ -129,7 +127,7 @@ export default function UserTypeDetailPage() {
             <label className="flex items-center gap-2 text-sm">
               User directory scope
               <select
-                className="rounded-md border px-2 py-1"
+                className={controlClass}
                 aria-label="User directory scope"
                 value={item.visibilityScope ?? ""}
                 onChange={(event) =>
@@ -152,7 +150,7 @@ export default function UserTypeDetailPage() {
             <label className="flex items-center gap-2 text-sm">
               Customer scope
               <select
-                className="rounded-md border px-2 py-1"
+                className={controlClass}
                 aria-label="Customer scope"
                 value={item.customerVisibilityScope ?? ""}
                 onChange={(event) =>
@@ -175,7 +173,7 @@ export default function UserTypeDetailPage() {
             <label className="flex items-center gap-2 text-sm">
               Application scope
               <select
-                className="rounded-md border px-2 py-1"
+                className={controlClass}
                 aria-label="Application scope"
                 value={item.applicationVisibilityScope ?? ""}
                 onChange={(event) =>
@@ -223,7 +221,7 @@ export default function UserTypeDetailPage() {
             ))}
           </div>
           <button
-            className="mt-4 rounded-md bg-slate-900 px-3 py-2 text-sm text-white"
+            className={`mt-4 ${primaryButtonClass}`}
             type="button"
             onClick={() => void savePermissions()}
           >

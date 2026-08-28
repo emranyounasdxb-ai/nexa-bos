@@ -3,6 +3,8 @@
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import { DatePicker } from "@/components/date-picker";
+import { Button, ErrorText, PageHeader, Select, TextInput, controlClass } from "@/components/ui";
 import { apiGet, apiRequest } from "@/lib/api";
 import { getBrowserApiUrl } from "@/lib/env";
 import type { ManagerOption, OrgRef, UserRecord } from "@/lib/types";
@@ -170,13 +172,12 @@ export default function EditUserPage() {
 
   return (
     <section className="max-w-2xl space-y-4">
-      <h2 className="text-xl font-semibold">Edit user</h2>
+      <PageHeader title="Edit user" />
       <form onSubmit={(event) => void onSubmit(event)} className="grid gap-3">
         {["full_name", "employee_code", "email", "mobile"].map((name) => (
           <label key={name} className="block text-sm">
             {name.replace("_", " ")}
-            <input
-              className="mt-1 w-full rounded-md border px-3 py-2"
+            <TextInput
               value={form[name] ?? ""}
               onChange={(event) => setForm({ ...form, [name]: event.target.value })}
             />
@@ -184,8 +185,7 @@ export default function EditUserPage() {
         ))}
         <label className="block text-sm">
           Designation
-          <select
-            className="mt-1 w-full rounded-md border px-3 py-2"
+          <Select
             value={form.designation_id}
             onChange={(event) => setForm({ ...form, designation_id: event.target.value })}
           >
@@ -194,15 +194,15 @@ export default function EditUserPage() {
                 {item.code} — {item.name}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
         <label className="block text-sm">
           Joining date
-          <input
-            className="mt-1 w-full rounded-md border px-3 py-2"
-            type="date"
+          <DatePicker
             value={form.joining_date}
-            onChange={(event) => setForm({ ...form, joining_date: event.target.value })}
+            onChange={(joining_date) => setForm({ ...form, joining_date })}
+            required
+            aria-label="Joining date"
           />
         </label>
         <label className="block text-sm" htmlFor="edit-office">
@@ -210,7 +210,7 @@ export default function EditUserPage() {
         </label>
         <select
           id="edit-office"
-          className="mt-1 w-full rounded-md border px-3 py-2"
+          className={`${controlClass} mt-1`}
           value={form.office_id}
           onChange={(event) => {
             orgDirty.current = true;
@@ -229,7 +229,7 @@ export default function EditUserPage() {
         </label>
         <select
           id="edit-department"
-          className="mt-1 w-full rounded-md border px-3 py-2"
+          className={`${controlClass} mt-1`}
           value={form.department_id ?? ""}
           onChange={(event) => {
             orgDirty.current = true;
@@ -249,7 +249,7 @@ export default function EditUserPage() {
         </label>
         <select
           id="edit-team"
-          className="mt-1 w-full rounded-md border px-3 py-2"
+          className={`${controlClass} mt-1`}
           value={form.team_id ?? ""}
           onChange={(event) => {
             orgDirty.current = true;
@@ -269,7 +269,7 @@ export default function EditUserPage() {
         <label className="block text-sm">
           Employment status
           <select
-            className="mt-1 w-full rounded-md border px-3 py-2"
+            className={`${controlClass} mt-1`}
             value={form.employment_status}
             onChange={(event) => setForm({ ...form, employment_status: event.target.value })}
           >
@@ -280,18 +280,18 @@ export default function EditUserPage() {
         </label>
         <label className="block text-sm">
           Last working date
-          <input
-            className="mt-1 w-full rounded-md border px-3 py-2"
-            type="date"
+          <DatePicker
             value={form.last_working_date}
-            onChange={(event) => setForm({ ...form, last_working_date: event.target.value })}
+            onChange={(last_working_date) => setForm({ ...form, last_working_date })}
+            optional
+            aria-label="Last working date"
           />
         </label>
         {isOwner ? null : (
           <label className="block text-sm">
             Reporting manager
             <select
-              className="mt-1 w-full rounded-md border px-3 py-2"
+              className={`${controlClass} mt-1`}
               value={form.reporting_manager_id ?? ""}
               onChange={(event) => setForm({ ...form, reporting_manager_id: event.target.value })}
             >
@@ -311,14 +311,10 @@ export default function EditUserPage() {
             ))}
           </ul>
         ) : null}
-        {error ? <p className="text-sm text-red-700">{error}</p> : null}
-        <button
-          className="rounded-md bg-slate-900 px-3 py-2 text-sm text-white disabled:opacity-50"
-          type="submit"
-          disabled={assignmentIssues.length > 0}
-        >
+        <ErrorText>{error}</ErrorText>
+        <Button type="submit" disabled={assignmentIssues.length > 0}>
           Save
-        </button>
+        </Button>
       </form>
     </section>
   );

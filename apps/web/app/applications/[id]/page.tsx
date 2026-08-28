@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
+import { DatePicker } from "@/components/date-picker";
+import { ErrorText, PageHeader, controlClass, primaryButtonClass, secondaryButtonClass } from "@/components/ui";
 import { apiGet, apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { getBrowserApiUrl } from "@/lib/env";
@@ -107,18 +109,14 @@ export default function ApplicationDetailPage() {
 
   return (
     <section className="space-y-6">
-      <div>
-        <h2 className="text-xl font-semibold">{item.applicationCode}</h2>
-        <p className="text-sm text-slate-600">
-          {item.customerCode} · {item.customerName} · {item.bankCode} / {item.productCode} · Case
-          Owner {item.caseOwnerName}
-          {item.terminalOutcome ? ` · ${item.terminalOutcome}` : ""}
-        </p>
-        <p className="text-sm text-slate-500">
-          Bank and Product are immutable. Workflow version {item.workflowVersion}.
-        </p>
-      </div>
-      {message ? <p className="text-sm text-red-700">{message}</p> : null}
+      <PageHeader
+        title={item.applicationCode}
+        description={`${item.customerCode} · ${item.customerName} · ${item.bankCode} / ${item.productCode} · Case Owner ${item.caseOwnerName}${item.terminalOutcome ? ` · ${item.terminalOutcome}` : ""}`}
+      />
+      <p className="text-sm text-slate-500">
+        Bank and Product are immutable. Workflow version {item.workflowVersion}.
+      </p>
+      <ErrorText>{message}</ErrorText>
 
       <div>
         <h3 className="font-semibold">Progress</h3>
@@ -161,7 +159,7 @@ export default function ApplicationDetailPage() {
         >
           <h3 className="font-semibold">Bank File / Case Number</h3>
           <input
-            className="w-full rounded-md border px-3 py-2 text-sm"
+            className={controlClass}
             aria-label="Bank File / Case Number"
             value={caseNumber}
             onChange={(event) => setCaseNumber(event.target.value)}
@@ -169,7 +167,7 @@ export default function ApplicationDetailPage() {
           />
           {item.submitted ? (
             <input
-              className="w-full rounded-md border px-3 py-2 text-sm"
+              className={controlClass}
               aria-label="Case number correction reason"
               placeholder="Correction reason"
               value={caseReason}
@@ -177,7 +175,7 @@ export default function ApplicationDetailPage() {
               required
             />
           ) : null}
-          <button className="rounded-md bg-slate-900 px-3 py-2 text-sm text-white" type="submit">
+          <button className={primaryButtonClass} type="submit">
             {item.submitted ? "Correct case number" : "Save and submit"}
           </button>
         </form>
@@ -201,7 +199,7 @@ export default function ApplicationDetailPage() {
         >
           <h3 className="font-semibold">Update stage</h3>
           <select
-            className="w-full rounded-md border px-3 py-2 text-sm"
+            className={controlClass}
             aria-label="Next stage"
             value={stageId}
             onChange={(event) => setStageId(event.target.value)}
@@ -214,16 +212,14 @@ export default function ApplicationDetailPage() {
               </option>
             ))}
           </select>
-          <input
-            className="w-full rounded-md border px-3 py-2 text-sm"
-            type="date"
+          <DatePicker
+            required
             aria-label="Bank Stage Date"
             value={bankDate}
-            onChange={(event) => setBankDate(event.target.value)}
-            required
+            onChange={setBankDate}
           />
           <input
-            className="w-full rounded-md border px-3 py-2 text-sm"
+            className={controlClass}
             aria-label="Stage note"
             placeholder="Stage note (optional)"
             value={stageNote}
@@ -231,7 +227,7 @@ export default function ApplicationDetailPage() {
           />
           {selectedNext?.systemKey === "returned_requirement_pending" ? (
             <textarea
-              className="w-full rounded-md border px-3 py-2 text-sm"
+              className={controlClass}
               aria-label="Requirement reason"
               placeholder="Requirement / query (required)"
               value={requirement}
@@ -241,7 +237,7 @@ export default function ApplicationDetailPage() {
           ) : null}
           {selectedNext?.systemKey === "approved" ? (
             <input
-              className="w-full rounded-md border px-3 py-2 text-sm"
+              className={controlClass}
               aria-label="Approved amount"
               placeholder="Approved amount"
               value={approvedAmount}
@@ -250,7 +246,7 @@ export default function ApplicationDetailPage() {
           ) : null}
           {selectedNext?.systemKey === "booked" ? (
             <input
-              className="w-full rounded-md border px-3 py-2 text-sm"
+              className={controlClass}
               aria-label="Booked amount"
               placeholder="Booked amount"
               value={bookedAmount}
@@ -259,14 +255,14 @@ export default function ApplicationDetailPage() {
           ) : null}
           {selectedNext?.systemKey === "fund_released" ? (
             <input
-              className="w-full rounded-md border px-3 py-2 text-sm"
+              className={controlClass}
               aria-label="Funded amount"
               placeholder="Funded amount"
               value={fundedAmount}
               onChange={(event) => setFundedAmount(event.target.value)}
             />
           ) : null}
-          <button className="rounded-md bg-slate-900 px-3 py-2 text-sm text-white" type="submit">
+          <button className={primaryButtonClass} type="submit">
             Save stage
           </button>
         </form>
@@ -288,7 +284,7 @@ export default function ApplicationDetailPage() {
           <h3 className="font-semibold">Correct stage</h3>
           <p className="text-xs text-slate-500">Original history is preserved. Reason is mandatory.</p>
           <select
-            className="w-full rounded-md border px-3 py-2 text-sm"
+            className={controlClass}
             aria-label="Corrected stage"
             value={stageId}
             onChange={(event) => setStageId(event.target.value)}
@@ -304,14 +300,14 @@ export default function ApplicationDetailPage() {
               ))}
           </select>
           <input
-            className="w-full rounded-md border px-3 py-2 text-sm"
+            className={controlClass}
             aria-label="Stage correction reason"
             placeholder="Correction reason"
             value={correctReason}
             onChange={(event) => setCorrectReason(event.target.value)}
             required
           />
-          <button className="rounded-md border px-3 py-2 text-sm" type="submit">
+          <button className={secondaryButtonClass} type="submit">
             Append correction
           </button>
         </form>
@@ -330,21 +326,21 @@ export default function ApplicationDetailPage() {
         >
           <h3 className="font-semibold">Correct submitted data</h3>
           <input
-            className="w-full rounded-md border px-3 py-2 text-sm"
+            className={controlClass}
             aria-label="Corrected requested amount"
             placeholder="Requested amount"
             value={correctionAmount}
             onChange={(event) => setCorrectionAmount(event.target.value)}
           />
           <input
-            className="w-full rounded-md border px-3 py-2 text-sm"
+            className={controlClass}
             aria-label="Submitted data correction reason"
             placeholder="Correction reason"
             value={correctReason}
             onChange={(event) => setCorrectReason(event.target.value)}
             required
           />
-          <button className="rounded-md border px-3 py-2 text-sm" type="submit">
+          <button className={secondaryButtonClass} type="submit">
             Correct submitted data
           </button>
         </form>
@@ -363,7 +359,7 @@ export default function ApplicationDetailPage() {
         >
           <h3 className="font-semibold">Reassign Case Owner</h3>
           <select
-            className="w-full rounded-md border px-3 py-2 text-sm"
+            className={controlClass}
             aria-label="New Case Owner"
             value={ownerId}
             onChange={(event) => setOwnerId(event.target.value)}
@@ -377,13 +373,13 @@ export default function ApplicationDetailPage() {
             ))}
           </select>
           <input
-            className="w-full rounded-md border px-3 py-2 text-sm"
+            className={controlClass}
             aria-label="Reassignment reason"
             placeholder="Reason (optional)"
             value={ownerReason}
             onChange={(event) => setOwnerReason(event.target.value)}
           />
-          <button className="rounded-md border px-3 py-2 text-sm" type="submit">
+          <button className={secondaryButtonClass} type="submit">
             Reassign
           </button>
         </form>
@@ -402,7 +398,7 @@ export default function ApplicationDetailPage() {
         >
           <h3 className="font-semibold">Terminal outcome</h3>
           <select
-            className="w-full rounded-md border px-3 py-2 text-sm"
+            className={controlClass}
             aria-label="Terminal outcome"
             value={outcome}
             onChange={(event) => setOutcome(event.target.value)}
@@ -412,14 +408,14 @@ export default function ApplicationDetailPage() {
             <option>Withdrawn</option>
           </select>
           <textarea
-            className="w-full rounded-md border px-3 py-2 text-sm"
+            className={controlClass}
             aria-label="Outcome reason"
             placeholder="Reason (mandatory)"
             value={outcomeReason}
             onChange={(event) => setOutcomeReason(event.target.value)}
             required
           />
-          <button className="rounded-md border px-3 py-2 text-sm" type="submit">
+          <button className={secondaryButtonClass} type="submit">
             Close application
           </button>
         </form>
@@ -439,7 +435,7 @@ export default function ApplicationDetailPage() {
         >
           <h3 className="font-semibold">Migrate workflow version</h3>
           <select
-            className="w-full rounded-md border px-3 py-2 text-sm"
+            className={controlClass}
             aria-label="Target workflow"
             value={migrateWorkflowId}
             onChange={(event) => setMigrateWorkflowId(event.target.value)}
@@ -455,7 +451,7 @@ export default function ApplicationDetailPage() {
               ))}
           </select>
           <select
-            className="w-full rounded-md border px-3 py-2 text-sm"
+            className={controlClass}
             aria-label="Migration target stage"
             value={migrateStageId}
             onChange={(event) => setMigrateStageId(event.target.value)}
@@ -471,14 +467,14 @@ export default function ApplicationDetailPage() {
               ))}
           </select>
           <input
-            className="w-full rounded-md border px-3 py-2 text-sm"
+            className={controlClass}
             aria-label="Migration reason"
             placeholder="Reason"
             value={migrateReason}
             onChange={(event) => setMigrateReason(event.target.value)}
             required
           />
-          <button className="rounded-md border px-3 py-2 text-sm" type="submit">
+          <button className={secondaryButtonClass} type="submit">
             Migrate this application
           </button>
         </form>

@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import { Button, ErrorText, PageHeader, Select, TextInput } from "@/components/ui";
 import { apiGet, apiRequest, ApiClientError } from "@/lib/api";
 import { getBrowserApiUrl } from "@/lib/env";
 import type {
@@ -75,12 +76,11 @@ export default function CreateApplicationPage() {
 
   return (
     <section className="max-w-2xl space-y-4">
-      <h2 className="text-xl font-semibold">Create application</h2>
-      <p className="text-sm text-slate-600">
-        There is no draft. The application is created immediately with ID{" "}
-        <code>PRODUCT-BANK-YEAR-SEQUENCE</code> and enters Application Created.
-      </p>
-      {error ? <p className="text-sm text-red-700">{error}</p> : null}
+      <PageHeader
+        title="Create application"
+        description="There is no draft. The application is created immediately with ID PRODUCT-BANK-YEAR-SEQUENCE and enters Application Created."
+      />
+      <ErrorText>{error}</ErrorText>
       <form
         className="grid gap-3"
         onSubmit={(event) => {
@@ -90,8 +90,7 @@ export default function CreateApplicationPage() {
       >
         <label className="block text-sm">
           Customer
-          <select
-            className="mt-1 w-full rounded-md border px-3 py-2"
+          <Select
             required
             aria-label="Customer"
             value={form.customer_id}
@@ -103,12 +102,11 @@ export default function CreateApplicationPage() {
                 {item.customerCode} — {item.companyName || item.fullName}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
         <label className="block text-sm">
           Bank and product
-          <select
-            className="mt-1 w-full rounded-md border px-3 py-2"
+          <Select
             required
             aria-label="Bank and product"
             value={form.mapping_id}
@@ -120,12 +118,11 @@ export default function CreateApplicationPage() {
                 {item.bank?.code} / {item.product?.code}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
         <label className="block text-sm">
           Case Owner
-          <select
-            className="mt-1 w-full rounded-md border px-3 py-2"
+          <Select
             required
             aria-label="Case Owner"
             value={form.case_owner_id}
@@ -137,12 +134,11 @@ export default function CreateApplicationPage() {
                 {item.fullName} ({item.userCode})
               </option>
             ))}
-          </select>
+          </Select>
         </label>
         <label className="block text-sm">
           Requested amount{requestedRequired ? " (required)" : " (optional)"}
-          <input
-            className="mt-1 w-full rounded-md border px-3 py-2"
+          <TextInput
             type="number"
             min="0"
             step="0.01"
@@ -154,16 +150,13 @@ export default function CreateApplicationPage() {
         </label>
         <label className="block text-sm">
           Bank File / Case Number (optional)
-          <input
-            className="mt-1 w-full rounded-md border px-3 py-2"
+          <TextInput
             aria-label="Bank File / Case Number"
             value={form.bank_case_number}
             onChange={(event) => setForm({ ...form, bank_case_number: event.target.value })}
           />
         </label>
-        <button className="rounded-md bg-slate-900 px-3 py-2 text-sm text-white" type="submit">
-          Create application
-        </button>
+        <Button type="submit">Create application</Button>
       </form>
     </section>
   );
