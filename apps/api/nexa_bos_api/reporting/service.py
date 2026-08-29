@@ -889,6 +889,37 @@ async def resolve_window(
     return resolve_period(period, date_from=date_from, date_to=date_to, joining_date=joining)
 
 
+async def _profile_targets_kpi(
+    session: AsyncSession,
+    actor: User,
+    employee_id: UUID,
+    *,
+    window: PeriodWindow,
+    facts: list[AppFact],
+    access: ReportingAccess,
+) -> dict[str, object] | None:
+    from nexa_bos_api.targets.service import profile_targets_kpi
+
+    return await profile_targets_kpi(
+        session, actor, employee_id, window=window, facts=facts, access=access
+    )
+
+
+async def _dashboard_targets(
+    session: AsyncSession,
+    actor: User,
+    *,
+    window: PeriodWindow,
+    facts: list[AppFact],
+    access: ReportingAccess,
+) -> dict[str, object] | None:
+    from nexa_bos_api.targets.service import dashboard_targets_summary
+
+    return await dashboard_targets_summary(
+        session, actor, window=window, facts=facts, access=access
+    )
+
+
 async def dashboard_payload(
     session: AsyncSession,
     actor: User,
@@ -925,6 +956,9 @@ async def dashboard_payload(
         "activeDelays": engine.delay_breakdown(),
         "rankings": build_rankings(engine, users, offices, teams, ranking_metric),
         "trend": trend_points(facts, access, filters),
+        "targetsSummary": await _dashboard_targets(
+            session, actor, window=window, facts=facts, access=access
+        ),
         "generatedAt": datetime.now(UTC).isoformat(),
     }
 
@@ -1216,6 +1250,9 @@ async def employee_profile_payload(
         "ranking": rank_row,
         "applications": [serialize_application(item) for item in engine.owned()],
         "attendanceSummary": attendance_summary,
+        "targetsKpi": await _profile_targets_kpi(
+            session, actor, employee_id, window=window, facts=facts, access=access
+        ),
         "generatedAt": datetime.now(UTC).isoformat(),
     }
 

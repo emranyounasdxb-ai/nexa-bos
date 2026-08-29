@@ -381,6 +381,25 @@ export function DashboardInner() {
             <KpiButton label="PF Count / Value" count={data.kpis.personalFinance.count} value={data.kpis.personalFinance.value} href={drill("pf_value")} />
             <KpiButton label="CC Count" count={data.kpis.creditCard.count} href={drill("cc_count")} />
           </div>
+          {data.targetsSummary && data.targetsSummary.items.length > 0 ? (
+            <Card>
+              <h3 className="text-sm font-semibold text-slate-900">Targets</h3>
+              <ul className="mt-3 space-y-2 text-sm">
+                {data.targetsSummary.items.slice(0, 8).map((item) => (
+                  <li key={item.id}>
+                    {item.level} {item.entityName} · {item.productCode}
+                    {item.bankCode ? ` / ${item.bankCode}` : ""} · actual {item.result?.actual} · achievement{" "}
+                    {formatPct(item.result?.achievementPct)}
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-3 text-sm">
+                <Link className="underline" href="/targets">
+                  Open targets
+                </Link>
+              </p>
+            </Card>
+          ) : null}
           <div className="grid gap-4 lg:grid-cols-2">
             <Card>
               <h3 className="text-sm font-semibold text-slate-900">Conversions</h3>

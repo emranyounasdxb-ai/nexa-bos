@@ -68,6 +68,39 @@ type Profile = {
     attendanceScore: number;
     attendanceImpact: number;
   } | null;
+  targetsKpi: {
+    currency: string;
+    targets: {
+      id: string;
+      productCode: string | null;
+      bankCode: string | null;
+      milestone: string;
+      measurement: string;
+      prorate: boolean;
+      result: {
+        target: string;
+        effectiveTarget: string;
+        actual: string;
+        achievementPct: number | null;
+        gap: string;
+        dailyRequiredRunRate: string | null;
+      } | null;
+    }[];
+    kpi: {
+      scorecardName: string;
+      score: string;
+      components: {
+        metric: string;
+        label: string;
+        weightPercent: string;
+        actual: string | null;
+        baseline: string | null;
+        achievementPct: number | null;
+        weightedContribution: string;
+        direction: string;
+      }[];
+    } | null;
+  } | null;
 };
 
 function ProfileInner() {
@@ -277,6 +310,44 @@ function ProfileInner() {
             <p className="text-sm">Approved → Booked {formatPct(data.conversions.approvedToBooked)}</p>
             <p className="text-sm">Booked → Funded {formatPct(data.conversions.bookedToFunded)}</p>
           </Card>
+          {data.targetsKpi ? (
+            <Card>
+              <h3 className="text-sm font-semibold">Targets / KPI</h3>
+              {data.targetsKpi.targets.length === 0 ? (
+                <EmptyState>No active targets for this period.</EmptyState>
+              ) : (
+                <ul className="mt-3 space-y-2 text-sm">
+                  {data.targetsKpi.targets.map((item) => (
+                    <li key={item.id}>
+                      {item.productCode}
+                      {item.bankCode ? ` / ${item.bankCode}` : " overall"} · {item.milestone} · target{" "}
+                      {item.measurement === "amount"
+                        ? formatAed(item.result?.effectiveTarget)
+                        : item.result?.effectiveTarget}{" "}
+                      · actual {item.measurement === "amount" ? formatAed(item.result?.actual) : item.result?.actual} ·
+                      achievement {formatPct(item.result?.achievementPct)} · gap {item.result?.gap} · daily run-rate{" "}
+                      {item.result?.dailyRequiredRunRate ?? "—"}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {data.targetsKpi.kpi ? (
+                <div className="mt-4 text-sm">
+                  <p className="font-semibold">
+                    KPI score {data.targetsKpi.kpi.score} ({data.targetsKpi.kpi.scorecardName})
+                  </p>
+                  <ul className="mt-2 space-y-1">
+                    {data.targetsKpi.kpi.components.map((row) => (
+                      <li key={row.metric}>
+                        {row.label}: actual {row.actual ?? "—"} · achievement {formatPct(row.achievementPct)} · weight{" "}
+                        {row.weightPercent}% · contribution {row.weightedContribution}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+            </Card>
+          ) : null}
           <Card>
             <h3 className="text-sm font-semibold">Current stage breakdown</h3>
             {data.stageBreakdown.length === 0 ? (

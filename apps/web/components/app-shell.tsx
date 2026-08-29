@@ -89,6 +89,8 @@ function Shell({ children }: { children: ReactNode }) {
   const links = [
     { href: "/reports", label: "Dashboard", show: can("Dashboard.View") },
     { href: "/reports/compare", label: "Reports", show: can("Reports.View") },
+    { href: "/targets", label: "Targets", show: can("Targets.View") },
+    { href: "/targets/kpi", label: "KPI scorecards", show: can("Targets.View") },
     { href: "/attendance", label: "Attendance", show: can("Attendance.View") },
     { href: "/attendance/reports", label: "Attendance reports", show: can("Attendance.Reports") },
     { href: "/users", label: "Users", show: can("Users.View") },

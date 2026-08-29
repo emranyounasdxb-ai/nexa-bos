@@ -41,6 +41,24 @@ export type DashboardPayload = {
     bankProducts: RankingRow[];
   };
   trend: { month: string; submitted: number; funded: number; fundedValue: string }[];
+  targetsSummary?: {
+    currency: string;
+    count: number;
+    items: {
+      id: string;
+      level: string;
+      entityName: string | null;
+      productCode: string | null;
+      bankCode: string | null;
+      result: {
+        actual: string;
+        achievementPct: number | null;
+        gap: string;
+        dailyRequiredRunRate: string | null;
+        effectiveTarget: string;
+      } | null;
+    }[];
+  } | null;
 };
 
 export type RankingRow = {

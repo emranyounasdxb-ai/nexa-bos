@@ -77,7 +77,9 @@ See `docs/reporting.md` for periods, event-time attribution, reporting scopes, p
 
 ## Task 9 attendance
 
-See `docs/attendance.md` for statuses, schedules, Ramadan configuration, Late/Early/Incomplete rules, corrections, leave types, Official Holidays, in-app holiday reminders, permissions, Attendance Score/Impact, and migration `0008_attendance_holidays`.
+## Task 10 targets and KPI
+
+See `docs/targets-kpi.md` for employee/team/office targets, monthly records with QTD/HY/YTD aggregation, product measurement, milestones, run-rate, proration, bank breakdowns, KPI scorecards, permissions, and migration `0009_targets_kpi`.
 
 ## Host runtime notes
 
