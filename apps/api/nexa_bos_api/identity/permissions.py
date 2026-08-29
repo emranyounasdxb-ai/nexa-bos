@@ -62,6 +62,10 @@ REPORTS_VIEW = "Reports.View"
 REPORTS_EXPORT_EXCEL = "Reports.ExportExcel"
 REPORTS_EXPORT_PDF = "Reports.ExportPDF"
 REPORTS_PRINT = "Reports.Print"
+ATTENDANCE_VIEW = "Attendance.View"
+ATTENDANCE_MANAGE = "Attendance.Manage"
+ATTENDANCE_CORRECT = "Attendance.Correct"
+ATTENDANCE_REPORTS = "Attendance.Reports"
 
 PERMISSION_CATALOG: tuple[tuple[str, str], ...] = (
     (USERS_VIEW, "View users within assigned visibility scope"),
@@ -129,6 +133,19 @@ PERMISSION_CATALOG: tuple[tuple[str, str], ...] = (
     (REPORTS_EXPORT_EXCEL, "Export reports to Excel"),
     (REPORTS_EXPORT_PDF, "Export reports to PDF"),
     (REPORTS_PRINT, "Print reports"),
+    (
+        ATTENDANCE_VIEW,
+        "View attendance, schedules, holidays, and in-app holiday reminders in scope",
+    ),
+    (
+        ATTENDANCE_MANAGE,
+        "Record attendance and configure schedules, holidays, leave types, and impact rules",
+    ),
+    (
+        ATTENDANCE_CORRECT,
+        "Correct attendance records with a mandatory reason and immutable history",
+    ),
+    (ATTENDANCE_REPORTS, "View attendance reports and attendance score summaries"),
 )
 
 ALL_PERMISSION_CODES: tuple[str, ...] = tuple(code for code, _ in PERMISSION_CATALOG)

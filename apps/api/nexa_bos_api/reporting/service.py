@@ -17,10 +17,13 @@ from nexa_bos_api.applications.models import (
     ApplicationStageOccupancy,
     WorkflowStage,
 )
+from nexa_bos_api.attendance.service import employee_attendance_summary
 from nexa_bos_api.catalog.models import Bank, Product
 from nexa_bos_api.core.exceptions import AppError
 from nexa_bos_api.customers.models import Customer
+from nexa_bos_api.identity.access import has_permission
 from nexa_bos_api.identity.models import Department, Office, Team, User
+from nexa_bos_api.identity.permissions import ATTENDANCE_REPORTS, ATTENDANCE_VIEW
 from nexa_bos_api.reporting.periods import PeriodWindow, in_window, resolve_period
 from nexa_bos_api.reporting.scope import ReportingAccess, empty_payload, load_reporting_access
 
@@ -1181,6 +1184,15 @@ async def employee_profile_payload(
     )
     rank_row = next((row for row in rankings["employees"] if row["id"] == str(employee_id)), None)
     manager = users.get(employee.reporting_manager_id) if employee.reporting_manager_id else None
+    attendance_summary = None
+    if has_permission(actor, ATTENDANCE_VIEW) or has_permission(actor, ATTENDANCE_REPORTS):
+        attendance_summary = await employee_attendance_summary(
+            session,
+            actor,
+            employee_id,
+            date_from=window.date_from,
+            date_to=window.date_to,
+        )
     return {
         "reportingScope": access.label,
         "currency": "AED",
@@ -1203,6 +1215,7 @@ async def employee_profile_payload(
         "stageBreakdown": engine.stage_breakdown(),
         "ranking": rank_row,
         "applications": [serialize_application(item) for item in engine.owned()],
+        "attendanceSummary": attendance_summary,
         "generatedAt": datetime.now(UTC).isoformat(),
     }
 

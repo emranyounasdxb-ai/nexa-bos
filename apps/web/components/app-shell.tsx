@@ -12,6 +12,56 @@ import type { UserRecord } from "@/lib/types";
 
 const PUBLIC_PATHS = ["/login", "/setup", "/reset", "/status", "/bootstrap"];
 
+type Reminder = {
+  id: string;
+  kind: string;
+  holiday: { name: string; holidayDate: string } | null;
+  daysUntil: number | null;
+};
+
+function HolidayReminders() {
+  const [items, setItems] = useState<Reminder[]>([]);
+  const api = getBrowserApiUrl();
+
+  useEffect(() => {
+    void apiGet<{ items: Reminder[] }>("/api/v1/attendance/reminders", api)
+      .then((data) => setItems(data.items))
+      .catch(() => setItems([]));
+  }, [api]);
+
+  if (items.length === 0) {
+    return null;
+  }
+
+  async function dismiss(id: string) {
+    try {
+      await apiRequest(`/api/v1/attendance/reminders/${id}/dismiss`, api, { method: "POST" });
+      setItems((current) => current.filter((item) => item.id !== id));
+    } catch {
+      /* keep banner */
+    }
+  }
+
+  return (
+    <div className="border-b border-slate-200 bg-slate-50">
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-2 px-4 py-3 text-sm sm:px-6">
+        {items.map((item) => (
+          <div key={item.id} className="flex flex-wrap items-center justify-between gap-2">
+            <p>
+              {item.kind === "urgent" ? "Urgent holiday reminder: " : "Holiday reminder: "}
+              {item.holiday?.name} on {item.holiday?.holidayDate}
+              {item.daysUntil != null ? ` (${item.daysUntil} day(s))` : ""}
+            </p>
+            <Button type="button" variant="secondary" onClick={() => void dismiss(item.id)}>
+              Dismiss
+            </Button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function Shell({ children }: { children: ReactNode }) {
   const { user, can, setUser } = useAuth();
   const router = useRouter();
@@ -39,6 +89,8 @@ function Shell({ children }: { children: ReactNode }) {
   const links = [
     { href: "/reports", label: "Dashboard", show: can("Dashboard.View") },
     { href: "/reports/compare", label: "Reports", show: can("Reports.View") },
+    { href: "/attendance", label: "Attendance", show: can("Attendance.View") },
+    { href: "/attendance/reports", label: "Attendance reports", show: can("Attendance.Reports") },
     { href: "/users", label: "Users", show: can("Users.View") },
     { href: "/users/new", label: "Create user", show: can("Users.Create") },
     { href: "/customers", label: "Customers", show: can("Customers.View") },
@@ -88,6 +140,7 @@ function Shell({ children }: { children: ReactNode }) {
             ))}
         </nav>
       </header>
+      {can("Attendance.View") ? <HolidayReminders /> : null}
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6">{children}</main>
     </div>
   );

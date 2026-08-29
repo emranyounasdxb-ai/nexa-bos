@@ -54,6 +54,20 @@ type Profile = {
   stageBreakdown: { name: string; count: number }[];
   ranking: { rank: number; value: string | number } | null;
   applications: { id: string; applicationCode: string; currentStage: string; productCode: string }[];
+  attendanceSummary: {
+    presentCount: number;
+    absentCount: number;
+    leaveCount: number;
+    lateCount: number;
+    averageLateMinutes: number;
+    averageTimeIn: string | null;
+    averageTimeOut: string | null;
+    earlyExitCount: number;
+    earlyExitMinutes: number;
+    attendancePercent: number | null;
+    attendanceScore: number;
+    attendanceImpact: number;
+  } | null;
 };
 
 function ProfileInner() {
@@ -165,6 +179,59 @@ function ProfileInner() {
               <dd>{data.ranking ? `#${data.ranking.rank}` : "—"}</dd>
             </div>
           </dl>
+          {data.attendanceSummary ? (
+            <Card>
+              <h3 className="text-sm font-semibold">Attendance summary</h3>
+              <dl className="mt-3 grid gap-3 text-sm md:grid-cols-3">
+                <div>
+                  <dt className="text-slate-500">Present</dt>
+                  <dd>{data.attendanceSummary.presentCount}</dd>
+                </div>
+                <div>
+                  <dt className="text-slate-500">Absent</dt>
+                  <dd>{data.attendanceSummary.absentCount}</dd>
+                </div>
+                <div>
+                  <dt className="text-slate-500">Leave</dt>
+                  <dd>{data.attendanceSummary.leaveCount}</dd>
+                </div>
+                <div>
+                  <dt className="text-slate-500">Late</dt>
+                  <dd>
+                    {data.attendanceSummary.lateCount} (avg {data.attendanceSummary.averageLateMinutes} min)
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-slate-500">Average time in</dt>
+                  <dd>{data.attendanceSummary.averageTimeIn ?? "—"}</dd>
+                </div>
+                <div>
+                  <dt className="text-slate-500">Average time out</dt>
+                  <dd>{data.attendanceSummary.averageTimeOut ?? "—"}</dd>
+                </div>
+                <div>
+                  <dt className="text-slate-500">Early exit</dt>
+                  <dd>
+                    {data.attendanceSummary.earlyExitCount} ({data.attendanceSummary.earlyExitMinutes} min)
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-slate-500">Attendance %</dt>
+                  <dd>
+                    {data.attendanceSummary.attendancePercent == null
+                      ? "—"
+                      : `${data.attendanceSummary.attendancePercent}%`}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-slate-500">Attendance score / impact</dt>
+                  <dd>
+                    {data.attendanceSummary.attendanceScore} / {data.attendanceSummary.attendanceImpact}
+                  </dd>
+                </div>
+              </dl>
+            </Card>
+          ) : null}
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <Card>
               <p className="text-xs uppercase text-slate-500">Submitted</p>
