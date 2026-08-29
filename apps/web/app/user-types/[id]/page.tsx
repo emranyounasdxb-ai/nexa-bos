@@ -193,6 +193,29 @@ export default function UserTypeDetailPage() {
                 ))}
               </select>
             </label>
+            <label className="flex items-center gap-2 text-sm">
+              Reporting scope
+              <select
+                className={controlClass}
+                aria-label="Reporting scope"
+                value={item.reportingVisibilityScope ?? ""}
+                onChange={(event) =>
+                  void apiRequest(`/api/v1/user-types/${item.id}/reporting-scope`, api, {
+                    method: "PUT",
+                    body: JSON.stringify({
+                      reporting_visibility_scope: event.target.value || null,
+                    }),
+                  }).then(refresh)
+                }
+              >
+                <option value="">No scope</option>
+                {SCOPES.map((scope) => (
+                  <option key={scope} value={scope}>
+                    {scope}
+                  </option>
+                ))}
+              </select>
+            </label>
           </>
         ) : null}
       </div>

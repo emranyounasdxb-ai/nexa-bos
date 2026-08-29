@@ -63,6 +63,38 @@ export async function apiRequest<T>(
   return body as T;
 }
 
+export async function apiDownload(
+  path: string,
+  baseUrl: string,
+  init: RequestInit = {},
+): Promise<{ blob: Blob; contentType: string; filename: string | null }> {
+  const headers = new Headers(init.headers);
+  const method = (init.method ?? "GET").toUpperCase();
+  if (csrfToken && !["GET", "HEAD", "OPTIONS"].includes(method)) {
+    headers.set("X-CSRF-Token", csrfToken);
+  }
+  if (init.body && !(init.body instanceof FormData) && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
+  const url = `${baseUrl}${path.startsWith("/") ? path : `/${path}`}`;
+  const response = await fetch(url, { ...init, headers, cache: "no-store", credentials: "include" });
+  if (!response.ok) {
+    const errorBody = (await response.json().catch(() => null)) as ApiErrorBody | null;
+    throw new ApiClientError(
+      errorBody?.error?.message ?? `API request failed (${response.status})`,
+      response.status,
+      errorBody,
+    );
+  }
+  const disposition = response.headers.get("Content-Disposition");
+  const filenameMatch = disposition?.match(/filename="([^"]+)"/);
+  return {
+    blob: await response.blob(),
+    contentType: response.headers.get("Content-Type") ?? "application/octet-stream",
+    filename: filenameMatch?.[1] ?? null,
+  };
+}
+
 export async function apiGet<T>(path: string, baseUrl: string): Promise<T> {
   return apiRequest<T>(path, baseUrl, { method: "GET" });
 }

@@ -64,6 +64,7 @@ async def _seed_user_types(session: AsyncSession) -> None:
                 row.visibility_scope = VisibilityScope.COMPANY
                 row.customer_visibility_scope = VisibilityScope.COMPANY
                 row.application_visibility_scope = VisibilityScope.COMPANY
+                row.reporting_visibility_scope = VisibilityScope.COMPANY
             continue
         user_type = UserType(
             id=new_uuid(),
@@ -75,6 +76,7 @@ async def _seed_user_types(session: AsyncSession) -> None:
             visibility_scope=VisibilityScope.COMPANY if code == "OWNER" else None,
             customer_visibility_scope=VisibilityScope.COMPANY if code == "OWNER" else None,
             application_visibility_scope=VisibilityScope.COMPANY if code == "OWNER" else None,
+            reporting_visibility_scope=VisibilityScope.COMPANY if code == "OWNER" else None,
             mfa_required=False,
             can_be_reporting_manager=can_manage,
             can_be_case_owner=False,

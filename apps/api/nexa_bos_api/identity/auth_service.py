@@ -317,6 +317,7 @@ def public_user(user: User, *, csrf_token: str | None = None) -> dict[str, objec
             "visibilityScope": user.user_type.visibility_scope,
             "customerVisibilityScope": user.user_type.customer_visibility_scope,
             "applicationVisibilityScope": user.user_type.application_visibility_scope,
+            "reportingVisibilityScope": user.user_type.reporting_visibility_scope,
             "mfaRequired": user.user_type.mfa_required,
             "canBeReportingManager": user.user_type.can_be_reporting_manager,
             "canBeCaseOwner": user.user_type.can_be_case_owner,

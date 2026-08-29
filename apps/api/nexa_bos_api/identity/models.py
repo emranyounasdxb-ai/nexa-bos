@@ -44,6 +44,7 @@ class UserType(Base):
     visibility_scope: Mapped[str | None] = mapped_column(String(20))
     customer_visibility_scope: Mapped[str | None] = mapped_column(String(20))
     application_visibility_scope: Mapped[str | None] = mapped_column(String(20))
+    reporting_visibility_scope: Mapped[str | None] = mapped_column(String(20))
     mfa_required: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     can_be_reporting_manager: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     can_be_case_owner: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)

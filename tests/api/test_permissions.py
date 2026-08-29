@@ -38,6 +38,7 @@ async def test_custom_type_starts_inactive_without_permissions(client: AsyncClie
     assert body["visibilityScope"] is None
     assert body["customerVisibilityScope"] is None
     assert body["applicationVisibilityScope"] is None
+    assert body["reportingVisibilityScope"] is None
     assert body["mfaRequired"] is False
     assert body["canBeReportingManager"] is False
     assert body["canBeCaseOwner"] is False
