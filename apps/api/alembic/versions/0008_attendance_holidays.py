@@ -32,6 +32,7 @@ _PERMISSIONS = (
         "Correct attendance records with a mandatory reason and immutable history",
     ),
     ("Attendance.Reports", "View attendance reports and attendance score summaries"),
+    ("Notifications.SendUrgent", "Send urgent in-app notifications"),
 )
 
 

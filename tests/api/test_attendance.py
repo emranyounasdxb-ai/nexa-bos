@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from httpx import AsyncClient
@@ -15,7 +15,9 @@ from helpers import (
     unique_tag,
 )
 from nexa_bos_api.attendance.enums import BUSINESS_TZ
-from nexa_bos_api.identity.models import AuditEvent
+from nexa_bos_api.attendance.models import LeaveType
+from nexa_bos_api.identity.enums import MasterStatus
+from nexa_bos_api.identity.models import AuditEvent, new_uuid
 from nexa_bos_api.main import app
 
 
@@ -216,11 +218,20 @@ async def test_daily_attendance_calculations_and_duplicate_prevention(client: As
         authed, workday, employee["id"], status="Present", time_in="18:00", time_out="09:00"
     )
     assert invalid.status_code == 422
+    cleared = await authed.put("/api/v1/attendance/working-days", json={"weekdays": []})
+    assert cleared.status_code == 200, cleared.text
+    assert cleared.json()["weekdays"] == []
+    unconfigured = await authed.get("/api/v1/attendance/day?attendance_date=2026-08-07")
+    assert unconfigured.json()["isWeeklyOff"] is False
+    assert unconfigured.json()["suggestedStatus"] is None
+    configured = await authed.put(
+        "/api/v1/attendance/working-days", json={"weekdays": [6, 0, 1, 2, 3]}
+    )
+    assert configured.status_code == 200, configured.text
+    assert set(configured.json()["weekdays"]) == {6, 0, 1, 2, 3}
     friday = await _save(authed, "2026-08-07", employee["id"], status="Weekly Off")
     assert friday.status_code == 200
     assert friday.json()["isWeeklyOff"] is True
-    working = (await authed.get("/api/v1/attendance/working-days")).json()
-    assert set(working["weekdays"]) == {6, 0, 1, 2, 3}
 
 
 @pytest.mark.asyncio
@@ -265,23 +276,38 @@ async def test_corrections_leave_holiday_and_ramadan(client: AsyncClient) -> Non
     assert body["corrections"][0]["newValues"]["earlyExitMinutes"] == 0
     assert body["corrections"][0]["reason"] == "Clock-out missed"
     types = (await authed.get("/api/v1/attendance/leave-types")).json()["items"]
-    annual = next(item for item in types if item["code"] == "ANNUAL")
-    system_locked = await authed.patch(
-        f"/api/v1/attendance/leave-types/{annual['id']}",
-        json={"status": "inactive"},
-    )
-    assert system_locked.status_code == 403
+    assert isinstance(types, list)
     custom = await authed.post(
         "/api/v1/attendance/leave-types",
         json={"code": f"C{unique_tag()[:6]}", "name": "Study leave"},
     )
-    assert custom.status_code == 200
+    assert custom.status_code == 200, custom.text
+    assert custom.json()["isSystem"] is False
+    now = datetime.now(UTC)
+    async with app.state.session_factory() as session:
+        system_type = LeaveType(
+            id=new_uuid(),
+            code=f"S{unique_tag()[:6].upper()}",
+            name="Locked system type",
+            is_system=True,
+            status=MasterStatus.ACTIVE,
+            created_at=now,
+            updated_at=now,
+        )
+        session.add(system_type)
+        await session.commit()
+        system_id = str(system_type.id)
+    system_locked = await authed.patch(
+        f"/api/v1/attendance/leave-types/{system_id}",
+        json={"status": "inactive"},
+    )
+    assert system_locked.status_code == 403
     leave = await _save(
         authed,
         "2026-08-04",
         employee["id"],
         status="Leave",
-        leave_type_id=annual["id"],
+        leave_type_id=custom.json()["id"],
     )
     assert leave.status_code == 200, leave.text
     stamp = int(unique_tag()[:6], 16)
@@ -325,9 +351,18 @@ async def test_impact_score_reports_reminders_and_business_metrics_untouched(
     authed, owner = await owner_client(client)
     dxb = await office_id(authed, "DXB")
     employee = await create_activated_user(authed, office_id=dxb)
-    types = (await authed.get("/api/v1/attendance/leave-types")).json()["items"]
-    unpaid = next(item for item in types if item["code"] == "UNPAID")
-    annual = next(item for item in types if item["code"] == "ANNUAL")
+    paid = await authed.post(
+        "/api/v1/attendance/leave-types",
+        json={"code": f"P{unique_tag()[:6]}", "name": "Zero-impact leave"},
+    )
+    other = await authed.post(
+        "/api/v1/attendance/leave-types",
+        json={"code": f"U{unique_tag()[:6]}", "name": "Impact leave"},
+    )
+    assert paid.status_code == 200, paid.text
+    assert other.status_code == 200, other.text
+    paid_id = paid.json()["id"]
+    other_id = other.json()["id"]
     absence = await authed.put(
         "/api/v1/attendance/impact-rules",
         json={"condition": "absence", "method": "points", "value": 5},
@@ -342,7 +377,7 @@ async def test_impact_score_reports_reminders_and_business_metrics_untouched(
         "/api/v1/attendance/impact-rules",
         json={
             "condition": "leave",
-            "leave_type_id": annual["id"],
+            "leave_type_id": paid_id,
             "method": "points",
             "value": 0,
         },
@@ -352,7 +387,7 @@ async def test_impact_score_reports_reminders_and_business_metrics_untouched(
         "/api/v1/attendance/impact-rules",
         json={
             "condition": "leave",
-            "leave_type_id": unpaid["id"],
+            "leave_type_id": other_id,
             "method": "points",
             "value": 3,
         },
@@ -370,14 +405,14 @@ async def test_impact_score_reports_reminders_and_business_metrics_untouched(
         "2026-08-05",
         employee["id"],
         status="Leave",
-        leave_type_id=annual["id"],
+        leave_type_id=paid_id,
     )
     await _save(
         authed,
         "2026-08-06",
         employee["id"],
         status="Leave",
-        leave_type_id=unpaid["id"],
+        leave_type_id=other_id,
     )
     report = await authed.get(
         "/api/v1/attendance/reports"
@@ -415,6 +450,7 @@ async def test_impact_score_reports_reminders_and_business_metrics_untouched(
         item["holiday"]["id"] == holiday_id for item in reminders.json()["items"] if item["holiday"]
     )
     viewer = await _attendance_user(authed, permissions=["Attendance.View"], office_id=dxb)
+    manager_only = await _attendance_user(authed, permissions=["Attendance.Manage"], office_id=dxb)
     async with await spawned_client() as other:
         await authenticate(other, viewer["email"], "UserPass1!")
         urgent = await other.post(f"/api/v1/attendance/holidays/{holiday_id}/urgent-reminder")
@@ -423,6 +459,12 @@ async def test_impact_score_reports_reminders_and_business_metrics_untouched(
             "/api/v1/attendance/reports?date_from=2026-08-01&date_to=2026-08-31"
         )
         assert reports.status_code == 403
+    async with await spawned_client() as manager_client:
+        await authenticate(manager_client, manager_only["email"], "UserPass1!")
+        manage_urgent = await manager_client.post(
+            f"/api/v1/attendance/holidays/{holiday_id}/urgent-reminder"
+        )
+        assert manage_urgent.status_code == 403
     urgent_ok = await authed.post(f"/api/v1/attendance/holidays/{holiday_id}/urgent-reminder")
     assert urgent_ok.status_code == 200
     async with app.state.session_factory() as session:

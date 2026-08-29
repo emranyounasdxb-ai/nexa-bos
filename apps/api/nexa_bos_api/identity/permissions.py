@@ -66,6 +66,7 @@ ATTENDANCE_VIEW = "Attendance.View"
 ATTENDANCE_MANAGE = "Attendance.Manage"
 ATTENDANCE_CORRECT = "Attendance.Correct"
 ATTENDANCE_REPORTS = "Attendance.Reports"
+NOTIFICATIONS_SEND_URGENT = "Notifications.SendUrgent"
 
 PERMISSION_CATALOG: tuple[tuple[str, str], ...] = (
     (USERS_VIEW, "View users within assigned visibility scope"),
@@ -146,6 +147,7 @@ PERMISSION_CATALOG: tuple[tuple[str, str], ...] = (
         "Correct attendance records with a mandatory reason and immutable history",
     ),
     (ATTENDANCE_REPORTS, "View attendance reports and attendance score summaries"),
+    (NOTIFICATIONS_SEND_URGENT, "Send urgent in-app notifications"),
 )
 
 ALL_PERMISSION_CODES: tuple[str, ...] = tuple(code for code, _ in PERMISSION_CATALOG)

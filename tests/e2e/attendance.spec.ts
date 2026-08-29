@@ -95,6 +95,11 @@ test("owner attendance bulk entry, calculations, correction, holiday, schedule, 
     data: { user_type_id: se!.id },
   });
   await request.post(`${apiOrigin}/api/v1/users/${user.id}/activate`, { headers });
+  const leaveType = await request.post(`${apiOrigin}/api/v1/attendance/leave-types`, {
+    headers,
+    data: { code: `LT${tag.slice(-6).toUpperCase()}`, name: `Study leave ${tag}` },
+  });
+  expect(leaveType.ok()).toBeTruthy();
   const schedule = await request.post(`${apiOrigin}/api/v1/attendance/schedules`, {
     headers,
     data: {
@@ -178,7 +183,7 @@ test("owner attendance bulk entry, calculations, correction, holiday, schedule, 
   await page.getByRole("button", { name: "Save correction" }).click();
   await expect(page.getByText("Incomplete Attendance")).toBeVisible({ timeout: 20_000 });
   await page.getByLabel(`${user.fullName} status`).selectOption("Leave");
-  await page.getByLabel(`${user.fullName} leave type`).selectOption({ label: "Annual Leave" });
+  await page.getByLabel(`${user.fullName} leave type`).selectOption({ label: `Study leave ${tag}` });
   await page.getByRole("button", { name: `${user.fullName} correct` }).click();
   await page.getByLabel("Correction reason").fill("Marked leave");
   await page.getByRole("button", { name: "Save correction" }).click();

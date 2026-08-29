@@ -226,9 +226,17 @@ def suggested_status(
 ) -> AttendanceStatus | None:
     if on_date in holidays:
         return AttendanceStatus.OFFICIAL_HOLIDAY
-    if on_date.weekday() not in working_days:
+    if working_days and on_date.weekday() not in working_days:
         return AttendanceStatus.WEEKLY_OFF
     return None
+
+
+def date_is_weekly_off(
+    on_date: date, working_days: set[int], *, holiday: OfficialHoliday | None = None
+) -> bool:
+    if holiday is not None or not working_days:
+        return False
+    return on_date.weekday() not in working_days
 
 
 def _validate_times(time_in: time | None, time_out: time | None) -> None:
@@ -836,7 +844,7 @@ async def day_roster(
         "date": on_date.isoformat(),
         "timezone": "Asia/Dubai",
         "officialHoliday": serialize_holiday(holiday) if holiday else None,
-        "isWeeklyOff": on_date.weekday() not in working_days and holiday is None,
+        "isWeeklyOff": date_is_weekly_off(on_date, working_days, holiday=holiday),
         "suggestedStatus": suggested,
         "items": items,
     }
@@ -944,8 +952,9 @@ async def save_attendance(
     )
     return {
         "date": attendance_date.isoformat(),
-        "isWeeklyOff": attendance_date.weekday() not in working_days
-        and attendance_date not in holidays,
+        "isWeeklyOff": date_is_weekly_off(
+            attendance_date, working_days, holiday=holidays.get(attendance_date)
+        ),
         "officialHoliday": serialize_holiday(holidays[attendance_date])
         if attendance_date in holidays
         else None,

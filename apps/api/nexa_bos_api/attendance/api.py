@@ -52,6 +52,7 @@ from nexa_bos_api.identity.permissions import (
     ATTENDANCE_MANAGE,
     ATTENDANCE_REPORTS,
     ATTENDANCE_VIEW,
+    NOTIFICATIONS_SEND_URGENT,
 )
 
 router = APIRouter(prefix="/attendance", tags=["attendance"])
@@ -160,7 +161,7 @@ async def holidays_update(
 async def holidays_urgent_reminder(
     holiday_id: UUID,
     session: SessionDep,
-    actor: Annotated[CurrentUser, Depends(require_permission(ATTENDANCE_MANAGE))],
+    actor: Annotated[CurrentUser, Depends(require_permission(NOTIFICATIONS_SEND_URGENT))],
 ) -> dict[str, object]:
     return await send_urgent_reminder(session, actor, holiday_id)
 

@@ -5,9 +5,7 @@ from enum import StrEnum
 
 BUSINESS_TZ = timezone(timedelta(hours=4), name="Asia/Dubai")
 
-# Python datetime.weekday(): Monday=0 … Sunday=6. UAE default working week Sun–Thu.
-DEFAULT_WORKING_WEEKDAYS: tuple[int, ...] = (6, 0, 1, 2, 3)
-
+# Python datetime.weekday(): Monday=0 … Sunday=6. No default working week is encoded.
 WEEKDAY_NAMES: tuple[str, ...] = (
     "Monday",
     "Tuesday",
@@ -16,16 +14,6 @@ WEEKDAY_NAMES: tuple[str, ...] = (
     "Friday",
     "Saturday",
     "Sunday",
-)
-
-SYSTEM_LEAVE_TYPES: tuple[tuple[str, str], ...] = (
-    ("ANNUAL", "Annual Leave"),
-    ("SICK", "Sick Leave"),
-    ("MATERNITY", "Maternity Leave"),
-    ("PATERNITY", "Paternity Leave"),
-    ("COMPASSIONATE", "Compassionate Leave"),
-    ("HAJJ", "Hajj Leave"),
-    ("UNPAID", "Unpaid Leave"),
 )
 
 

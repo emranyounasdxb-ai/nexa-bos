@@ -38,6 +38,7 @@ export default function HolidaysPage() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const canManage = can("Attendance.Manage");
+  const canSendUrgent = can("Notifications.SendUrgent");
 
   const load = useCallback(async () => {
     try {
@@ -194,29 +195,30 @@ export default function HolidaysPage() {
                 </Td>
                 <Td>
                   {item.automaticReminderDue ? <span className="text-sm">Automatic window</span> : null}
-                  {canManage ? (
-                    <div className="mt-1 flex flex-wrap gap-2">
-                      {editingId === item.id ? (
-                        <>
-                          <Button type="button" onClick={() => void saveHolidayEdit(item)}>
-                            Save
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="secondary"
-                            onClick={() => {
-                              setEditingId(null);
-                              void load();
-                            }}
-                          >
-                            Cancel
-                          </Button>
-                        </>
-                      ) : (
-                        <Button type="button" variant="secondary" onClick={() => setEditingId(item.id)}>
-                          Edit
+                  <div className="mt-1 flex flex-wrap gap-2">
+                    {canManage && editingId === item.id ? (
+                      <>
+                        <Button type="button" onClick={() => void saveHolidayEdit(item)}>
+                          Save
                         </Button>
-                      )}
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          onClick={() => {
+                            setEditingId(null);
+                            void load();
+                          }}
+                        >
+                          Cancel
+                        </Button>
+                      </>
+                    ) : null}
+                    {canManage && editingId !== item.id ? (
+                      <Button type="button" variant="secondary" onClick={() => setEditingId(item.id)}>
+                        Edit
+                      </Button>
+                    ) : null}
+                    {canSendUrgent ? (
                       <Button
                         type="button"
                         variant="secondary"
@@ -224,8 +226,8 @@ export default function HolidaysPage() {
                       >
                         Urgent reminder
                       </Button>
-                    </div>
-                  ) : null}
+                    ) : null}
+                  </div>
                 </Td>
               </tr>
             ))

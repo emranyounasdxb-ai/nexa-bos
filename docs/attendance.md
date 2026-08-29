@@ -18,7 +18,7 @@ One active record per employee per date.
 
 ## Schedules and working days
 
-Working days are company-wide (default Sunday–Thursday). They are configurable; the default is a starting configuration, not a legal constant.
+Working days are company-wide and must be configured explicitly. There is no seeded default week. Until working days are saved, Weekly Off is not suggested. Official Holiday still takes precedence when a holiday exists.
 
 Schedules are Office-wide or Department-within-Office. Each has start time, end time, and grace minutes. Department schedules take precedence over office schedules for employees in that department.
 
@@ -44,7 +44,7 @@ Official Holiday Present (worked on holiday) does not apply normal late/absence 
 
 ## Leave types
 
-UAE statutory leave **type names** are system-defined and non-deletable: Annual, Sick, Maternity, Paternity, Compassionate, Hajj, Unpaid. No statutory day entitlements or legal policy numbers are encoded. Company custom leave types are allowed. Leave is marked manually; there is no leave-request workflow or NexaHR integration.
+Leave types may be company-custom (`isSystem=false`) or system-defined (`isSystem=true`). System types cannot be deactivated or deleted. Task 9 does not ship a statutory leave-name catalog; an approved legal list is required before any system types are seeded. Leave is marked manually; there is no leave-request workflow or NexaHR integration.
 
 ## Official Holidays
 
@@ -54,7 +54,7 @@ Weekly Off comes from company working days. Official Holiday takes precedence fo
 
 ## Holiday reminders
 
-No Redis, workers, or queues. On `GET /api/v1/attendance/reminders` the API materializes an automatic in-app reminder when an Official Holiday is 0–7 Dubai days away. Authorized users (`Attendance.Manage`) can send an urgent in-app reminder. Email/SMS/WhatsApp are not implemented. Reminder rows are stored so a later Notifications module can consume them.
+No Redis, workers, or queues. On `GET /api/v1/attendance/reminders` the API materializes an automatic in-app reminder when an Official Holiday is 0–7 Dubai days away. Urgent in-app holiday reminders require `Notifications.SendUrgent` (not `Attendance.Manage`). Email/SMS/WhatsApp are not implemented. Reminder rows are stored so a later Notifications module can consume them without rewriting holiday data.
 
 ## Permissions
 
@@ -65,7 +65,9 @@ User Type only:
 - `Attendance.Correct`
 - `Attendance.Reports`
 
-OWNER has all. OM/HR are not implied. Visibility uses existing user-directory scope (`visible_user_ids`). `Attendance.Reports` does not grant `Reports.View`, and `Reports.View` does not grant attendance reports.
+Urgent holiday send uses the locked future Notifications permission `Notifications.SendUrgent`. The Notifications module is not implemented.
+
+OWNER has all catalog permissions. OM/HR are not implied. Visibility uses existing user-directory scope (`visible_user_ids`). `Attendance.Reports` does not grant `Reports.View`, and `Reports.View` does not grant attendance reports.
 
 ## Attendance Score / Impact
 
@@ -89,6 +91,6 @@ Employee Performance Profile (`GET /api/v1/reports/employees/{id}`) includes `at
 
 ## Migration
 
-`0008_attendance_holidays` adds attendance tables, working days, leave types, schedules, holidays, reminders, impact rules, corrections, and the four permission rows.
+`0008_attendance_holidays` adds attendance tables, working days, leave types, schedules, holidays, reminders, impact rules, corrections, the four attendance permission rows, and `Notifications.SendUrgent`.
 
 No new Python/JS dependencies.
