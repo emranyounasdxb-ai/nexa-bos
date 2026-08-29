@@ -19,9 +19,9 @@ class StrictRequest(BaseModel):
 
 
 class CommissionSlabInput(StrictRequest):
-    minimum_eligible: Decimal = Field(ge=0)
-    maximum_eligible: Decimal | None = Field(default=None, ge=0)
-    payout_amount: Decimal = Field(ge=0)
+    minimum_eligible: Decimal = Field(ge=0, decimal_places=2)
+    maximum_eligible: Decimal | None = Field(default=None, ge=0, decimal_places=2)
+    payout_amount: Decimal = Field(ge=0, decimal_places=2)
     sort_order: int = Field(ge=0)
 
 
@@ -31,11 +31,11 @@ class CommissionRecipientInput(StrictRequest):
     recipient_source: RecipientSource
     hierarchy_level: int | None = Field(default=None, ge=1, le=20)
     sort_order: int = Field(ge=0)
-    split_percent: Decimal | None = Field(default=None, gt=0, le=100)
+    split_percent: Decimal | None = Field(default=None, gt=0, le=100, decimal_places=4)
     calculation_method: CalculationMethod | None = None
-    fixed_amount: Decimal | None = Field(default=None, ge=0)
-    percentage_rate: Decimal | None = Field(default=None, ge=0)
-    flat_amount: Decimal | None = Field(default=None, ge=0)
+    fixed_amount: Decimal | None = Field(default=None, ge=0, decimal_places=2)
+    percentage_rate: Decimal | None = Field(default=None, ge=0, decimal_places=6)
+    flat_amount: Decimal | None = Field(default=None, ge=0, decimal_places=2)
     slabs: list[CommissionSlabInput] = Field(default_factory=list)
 
 
@@ -47,17 +47,17 @@ class CommissionRuleCreateRequest(StrictRequest):
     effective_to: date | None = None
     payout_mode: RecipientPayoutMode
     calculation_method: CalculationMethod | None = None
-    fixed_amount: Decimal | None = Field(default=None, ge=0)
-    percentage_rate: Decimal | None = Field(default=None, ge=0)
-    flat_amount: Decimal | None = Field(default=None, ge=0)
+    fixed_amount: Decimal | None = Field(default=None, ge=0, decimal_places=2)
+    percentage_rate: Decimal | None = Field(default=None, ge=0, decimal_places=6)
+    flat_amount: Decimal | None = Field(default=None, ge=0, decimal_places=2)
     recipients: list[CommissionRecipientInput] = Field(min_length=1)
     slabs: list[CommissionSlabInput] = Field(default_factory=list)
 
 
 class IncentiveSlabInput(StrictRequest):
-    minimum_production: Decimal = Field(ge=0)
-    maximum_production: Decimal | None = Field(default=None, ge=0)
-    payout_amount: Decimal = Field(ge=0)
+    minimum_production: Decimal = Field(ge=0, decimal_places=2)
+    maximum_production: Decimal | None = Field(default=None, ge=0, decimal_places=2)
+    payout_amount: Decimal = Field(ge=0, decimal_places=2)
     sort_order: int = Field(ge=0)
 
 

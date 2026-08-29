@@ -4,7 +4,7 @@ import asyncio
 from datetime import UTC, date, datetime
 from decimal import Decimal
 from io import BytesIO
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import pytest
 from helpers import authenticate, owner_client, spawned_client, unique_tag
@@ -148,6 +148,13 @@ _PLAN_BODY = {
         }
     ],
 }
+
+
+def _error_signature(response) -> tuple[int, dict[str, object]]:
+    error = dict(response.json()["error"])
+    error.pop("requestId", None)
+    return response.status_code, error
+
 
 _ROUTE_MATRIX = (
     ("GET", "/api/v1/finance/options", None, "Finance.ViewCommissionRules"),
@@ -545,7 +552,7 @@ async def test_server_scope_blocks_idor_tampering_and_export_leakage(
             },
         )
         assert hidden_adjustment.status_code == 404
-        assert hidden_adjustment.json()["error"]["code"] == "APPLICATION_NOT_FOUND"
+        assert hidden_adjustment.json()["error"]["code"] == "FINANCE_OBJECT_NOT_FOUND"
         tampered_recipient = await scoped.post(
             f"/api/v1/finance/periods/{period.isoformat()}/adjustments",
             json={
@@ -555,8 +562,8 @@ async def test_server_scope_blocks_idor_tampering_and_export_leakage(
                 "reason": "Recipient tampering attempt",
             },
         )
-        assert tampered_recipient.status_code == 422
-        assert tampered_recipient.json()["error"]["code"] == "FINANCE_ATTRIBUTION_MISMATCH"
+        assert tampered_recipient.status_code == 404
+        assert tampered_recipient.json()["error"]["code"] == "FINANCE_OBJECT_NOT_FOUND"
         hidden_clawback = await scoped.post(
             f"/api/v1/finance/periods/{period.isoformat()}/clawbacks",
             json={
@@ -566,7 +573,27 @@ async def test_server_scope_blocks_idor_tampering_and_export_leakage(
             },
         )
         assert hidden_clawback.status_code == 404
-        assert hidden_clawback.json()["error"]["code"] == "APPLICATION_NOT_FOUND"
+        assert hidden_clawback.json()["error"]["code"] == "FINANCE_OBJECT_NOT_FOUND"
+        random_adjustment = await scoped.post(
+            f"/api/v1/finance/periods/{period.isoformat()}/adjustments",
+            json={
+                "application_id": str(uuid4()),
+                "recipient_id": str(uuid4()),
+                "amount": "1.00",
+                "reason": "Random object probe",
+            },
+        )
+        random_clawback = await scoped.post(
+            f"/api/v1/finance/periods/{period.isoformat()}/clawbacks",
+            json={
+                "original_component_id": str(uuid4()),
+                "amount": "1.00",
+                "reason": "Random component probe",
+            },
+        )
+        assert _error_signature(hidden_adjustment) == _error_signature(random_adjustment)
+        assert _error_signature(tampered_recipient) == _error_signature(random_adjustment)
+        assert _error_signature(hidden_clawback) == _error_signature(random_clawback)
         visible_drill = await scoped.get(
             f"/api/v1/finance/payouts/{visible_payout['id']}/components"
         )

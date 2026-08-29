@@ -7,6 +7,7 @@ from nexa_bos_api.finance.enums import CalculationMethod
 ZERO = Decimal("0.00")
 HUNDRED = Decimal("100")
 CENT = Decimal("0.01")
+SPLIT_QUANTUM = Decimal("0.0001")
 
 
 def decimal_value(value: Decimal | int | str) -> Decimal:
@@ -17,6 +18,10 @@ def decimal_value(value: Decimal | int | str) -> Decimal:
 
 def round_money(value: Decimal | int | str) -> Decimal:
     return decimal_value(value).quantize(CENT, rounding=ROUND_HALF_UP)
+
+
+def normalize_split_percent(value: Decimal | int | str) -> Decimal:
+    return decimal_value(value).quantize(SPLIT_QUANTUM, rounding=ROUND_HALF_UP)
 
 
 def money(value: Decimal | int | str) -> str:

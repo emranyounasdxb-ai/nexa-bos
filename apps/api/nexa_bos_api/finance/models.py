@@ -34,6 +34,23 @@ class CommissionRule(Base):
             "effective_to IS NULL OR effective_to >= effective_from",
             name="commission_rules_check",
         ),
+        CheckConstraint(
+            "eligibility_milestone IN ('booked', 'funded')",
+            name="commission_rules_eligibility_milestone_check",
+        ),
+        CheckConstraint(
+            "status IN ('draft', 'active', 'inactive')",
+            name="commission_rules_status_check",
+        ),
+        CheckConstraint(
+            "payout_mode IN ('percentage_split', 'independent_role_rate')",
+            name="commission_rules_payout_mode_check",
+        ),
+        CheckConstraint(
+            "calculation_method IS NULL OR calculation_method IN "
+            "('fixed', 'percentage', 'slab', 'flat_percentage')",
+            name="commission_rules_calculation_method_check",
+        ),
         Index(
             "ix_commission_rules_resolution",
             "bank_id",
@@ -83,6 +100,15 @@ class CommissionRuleRecipient(Base):
             "(recipient_source = 'case_owner' AND hierarchy_level IS NULL) OR "
             "(recipient_source = 'reporting_manager' AND hierarchy_level >= 1)",
             name="commission_rule_recipients_check",
+        ),
+        CheckConstraint(
+            "recipient_source IN ('case_owner', 'reporting_manager')",
+            name="commission_rule_recipients_source_check",
+        ),
+        CheckConstraint(
+            "calculation_method IS NULL OR calculation_method IN "
+            "('fixed', 'percentage', 'slab', 'flat_percentage')",
+            name="commission_rule_recipients_calculation_method_check",
         ),
     )
 
@@ -145,6 +171,10 @@ class IncentivePlan(Base):
             "effective_to IS NULL OR effective_to >= effective_from",
             name="incentive_plans_check",
         ),
+        CheckConstraint(
+            "status IN ('draft', 'active', 'inactive')",
+            name="incentive_plans_status_check",
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_uuid)
@@ -189,6 +219,16 @@ class IncentiveSlab(Base):
 
 class FinancePayoutPeriod(Base):
     __tablename__ = "finance_payout_periods"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('draft', 'review', 'finalized')",
+            name="finance_payout_periods_status_check",
+        ),
+        CheckConstraint(
+            "EXTRACT(DAY FROM period_month) = 1",
+            name="finance_payout_periods_month_start_check",
+        ),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_uuid)
     period_month: Mapped[date] = mapped_column(Date, unique=True, nullable=False)
@@ -207,6 +247,23 @@ class FinanceComponent(Base):
         CheckConstraint("amount = round(amount, 2)", name="finance_components_amount_check"),
         CheckConstraint(
             "component_type <> 'clawback' OR amount < 0", name="finance_components_check"
+        ),
+        CheckConstraint(
+            "component_type IN ('commission', 'incentive', 'clawback', 'adjustment')",
+            name="finance_components_type_check",
+        ),
+        CheckConstraint(
+            "component_type NOT IN ('commission', 'incentive') OR amount >= 0",
+            name="finance_components_non_negative_earned_check",
+        ),
+        CheckConstraint(
+            "eligibility_milestone IS NULL OR eligibility_milestone IN ('booked', 'funded')",
+            name="finance_components_eligibility_milestone_check",
+        ),
+        CheckConstraint(
+            "calculation_method IS NULL OR calculation_method IN "
+            "('fixed', 'percentage', 'slab', 'flat_percentage')",
+            name="finance_components_calculation_method_check",
         ),
         Index("ix_finance_components_period_recipient", "period_id", "recipient_id"),
         Index(
@@ -287,6 +344,16 @@ class FinancePayout(Base):
 
 class FinancePeriodTransition(Base):
     __tablename__ = "finance_period_transitions"
+    __table_args__ = (
+        CheckConstraint(
+            "from_status IS NULL OR from_status IN ('draft', 'review', 'finalized')",
+            name="finance_period_transitions_from_status_check",
+        ),
+        CheckConstraint(
+            "to_status IN ('draft', 'review', 'finalized')",
+            name="finance_period_transitions_to_status_check",
+        ),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_uuid)
     period_id: Mapped[uuid.UUID] = mapped_column(

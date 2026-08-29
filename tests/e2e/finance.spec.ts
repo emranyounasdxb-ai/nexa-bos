@@ -24,6 +24,16 @@ async function ensureOwner(request: APIRequestContext) {
   expect(created.ok()).toBeTruthy();
 }
 
+async function ownerHeaders(request: APIRequestContext) {
+  await ensureOwner(request);
+  const login = await request.post(`${apiOrigin}/api/v1/auth/login`, {
+    data: { email: "owner@example.com", password: "OwnerPass1!" },
+  });
+  expect(login.ok()).toBeTruthy();
+  const body = (await login.json()) as { csrfToken: string };
+  return { "X-CSRF-Token": body.csrfToken };
+}
+
 async function signIn(page: Page, request: APIRequestContext) {
   await ensureOwner(request);
   await page.goto("/login");
@@ -81,4 +91,101 @@ test("Finance exposes only the approved Task 11 workflows and calculation modes"
   await incentiveCard.getByRole("button", { name: "Add slab" }).click();
   await expect(incentiveCard.getByLabel("Minimum production").first()).toBeVisible();
   await expect(incentiveCard.getByRole("button", { name: "Create draft plan version" })).toBeVisible();
+});
+
+test("Finance view-only user cannot access privileged Finance controls", async ({ page, request }) => {
+  test.setTimeout(120_000);
+  const headers = await ownerHeaders(request);
+  const suffix = Date.now().toString().slice(-6);
+  const createdType = await request.post(`${apiOrigin}/api/v1/user-types`, {
+    headers,
+    data: { name: `Finance Viewer ${suffix}`, code: `FV${suffix}` },
+  });
+  expect(createdType.ok()).toBeTruthy();
+  const typeBody = (await createdType.json()) as { id: string };
+  expect(
+    (await request.post(`${apiOrigin}/api/v1/user-types/${typeBody.id}/activate`, { headers })).ok(),
+  ).toBeTruthy();
+  expect(
+    (
+      await request.put(`${apiOrigin}/api/v1/user-types/${typeBody.id}/permissions`, {
+        headers,
+        data: { permissions: ["Finance.View"] },
+      })
+    ).ok(),
+  ).toBeTruthy();
+  expect(
+    (
+      await request.put(`${apiOrigin}/api/v1/user-types/${typeBody.id}/reporting-scope`, {
+        headers,
+        data: { reporting_visibility_scope: "own" },
+      })
+    ).ok(),
+  ).toBeTruthy();
+  const offices = (
+    (await (await request.get(`${apiOrigin}/api/v1/offices`)).json()) as {
+      items: { id: string }[];
+    }
+  ).items;
+  const designations = (
+    (await (await request.get(`${apiOrigin}/api/v1/designations`)).json()) as {
+      items: { id: string }[];
+    }
+  ).items;
+  const email = `finance-view-${suffix}@example.com`;
+  const createdUser = await request.post(`${apiOrigin}/api/v1/users`, {
+    headers,
+    data: {
+      full_name: `Finance Viewer ${suffix}`,
+      employee_code: `EMP-FV${suffix}`,
+      email,
+      mobile: `+97157${suffix}`,
+      designation_id: designations[0].id,
+      employment_status: "Active",
+      joining_date: "2026-02-01",
+      office_id: offices[0].id,
+    },
+  });
+  expect(createdUser.ok()).toBeTruthy();
+  const userBody = (await createdUser.json()) as { id: string };
+  expect(
+    (
+      await request.post(`${apiOrigin}/api/v1/users/${userBody.id}/assign-type`, {
+        headers,
+        data: { user_type_id: typeBody.id },
+      })
+    ).ok(),
+  ).toBeTruthy();
+  expect(
+    (await request.post(`${apiOrigin}/api/v1/users/${userBody.id}/activate`, { headers })).ok(),
+  ).toBeTruthy();
+  const setup = await request.post(`${apiOrigin}/api/v1/auth/users/${userBody.id}/setup-link`, {
+    headers,
+  });
+  expect(setup.ok()).toBeTruthy();
+  const token = ((await setup.json()) as { token: string }).token;
+  expect(
+    (
+      await request.post(`${apiOrigin}/api/v1/auth/setup`, {
+        data: { token, password: "UserPass1!" },
+      })
+    ).ok(),
+  ).toBeTruthy();
+
+  await page.goto("/login");
+  await page.getByLabel("Email").fill(email);
+  await page.getByLabel("Password").fill("UserPass1!");
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await expect(page.getByRole("link", { name: "Finance", exact: true })).toBeVisible({
+    timeout: 30_000,
+  });
+  await page.getByRole("link", { name: "Finance", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Finance", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Excel" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "PDF" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Print" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Generate payout/i })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /Review|Finalize|Reopen/i })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "New commission rule version" })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: /adjustment|clawback/i })).toHaveCount(0);
 });

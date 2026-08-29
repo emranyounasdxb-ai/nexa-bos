@@ -4,6 +4,7 @@ from calendar import monthrange
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from decimal import Decimal
+from types import SimpleNamespace
 from uuid import UUID
 
 from sqlalchemy import and_, func, or_, select
@@ -19,6 +20,7 @@ from nexa_bos_api.finance.calc import (
     calculate_component,
     largest_remainder_allocate,
     money,
+    normalize_split_percent,
     ranges_overlap,
     round_money,
     single_matching_slab,
@@ -53,7 +55,10 @@ from nexa_bos_api.finance.schemas import (
 from nexa_bos_api.identity.audit import record_audit
 from nexa_bos_api.identity.enums import AssignmentField, MasterStatus, VisibilityScope
 from nexa_bos_api.identity.models import Permission, User, UserAssignmentHistory, new_uuid
-from nexa_bos_api.identity.permissions import FINANCE_MANAGE_COMMISSION_RULES
+from nexa_bos_api.identity.permissions import (
+    FINANCE_GENERATE_PAYOUT,
+    FINANCE_MANAGE_COMMISSION_RULES,
+)
 from nexa_bos_api.reporting.scope import ReportingAccess, load_reporting_access
 
 
@@ -97,9 +102,9 @@ def _validate_slab_ranges(
     orders: set[int] = set()
     ranges: list[tuple[Decimal, Decimal | None]] = []
     for slab in slabs:
-        minimum = Decimal(getattr(slab, minimum_attr))
+        minimum = round_money(Decimal(getattr(slab, minimum_attr)))
         maximum_value = getattr(slab, maximum_attr)
-        maximum = Decimal(maximum_value) if maximum_value is not None else None
+        maximum = round_money(Decimal(maximum_value)) if maximum_value is not None else None
         sort_order = int(slab.sort_order)
         if sort_order in orders:
             raise AppError(
@@ -201,7 +206,7 @@ def _validate_rule_payload(payload: CommissionRuleCreateRequest) -> None:
                     code="FINANCE_PAYOUT_MODE_MIXED",
                     message="Percentage Split cannot include independent role rates",
                 )
-            total += recipient.split_percent
+            total += normalize_split_percent(recipient.split_percent)
         if total != Decimal("100"):
             raise AppError(
                 status_code=422,
@@ -270,6 +275,46 @@ def _validate_rule_payload(payload: CommissionRuleCreateRequest) -> None:
             )
         role_codes.add(role_code)
         sort_orders.add(recipient.sort_order)
+
+
+def _validate_persisted_rule(rule: CommissionRule) -> None:
+    recipients = [
+        SimpleNamespace(
+            role_code=row.role_code,
+            role_name=row.role_name,
+            recipient_source=row.recipient_source,
+            hierarchy_level=row.hierarchy_level,
+            sort_order=row.sort_order,
+            split_percent=row.split_percent,
+            calculation_method=row.calculation_method,
+            fixed_amount=row.fixed_amount,
+            percentage_rate=row.percentage_rate,
+            flat_amount=row.flat_amount,
+            slabs=list(row.slabs),
+        )
+        for row in rule.recipients
+    ]
+    payload = SimpleNamespace(
+        effective_from=rule.effective_from,
+        effective_to=rule.effective_to,
+        payout_mode=rule.payout_mode,
+        calculation_method=rule.calculation_method,
+        fixed_amount=rule.fixed_amount,
+        percentage_rate=rule.percentage_rate,
+        flat_amount=rule.flat_amount,
+        recipients=recipients,
+        slabs=[row for row in rule.slabs if row.recipient_id is None],
+    )
+    _validate_rule_payload(payload)
+
+
+def _validate_persisted_plan(plan: IncentivePlan) -> None:
+    _date_range_valid(plan.effective_from, plan.effective_to)
+    _validate_slab_ranges(
+        list(plan.slabs),
+        minimum_attr="minimum_production",
+        maximum_attr="maximum_production",
+    )
 
 
 async def _bank_product(
@@ -410,7 +455,11 @@ async def create_rule(
             recipient_source=item.recipient_source.value,
             hierarchy_level=item.hierarchy_level,
             sort_order=item.sort_order,
-            split_percent=item.split_percent,
+            split_percent=(
+                normalize_split_percent(item.split_percent)
+                if item.split_percent is not None
+                else None
+            ),
             calculation_method=item.calculation_method and item.calculation_method.value,
             fixed_amount=(
                 round_money(item.fixed_amount) if item.fixed_amount is not None else None
@@ -502,6 +551,7 @@ async def set_rule_status(
     if rule.status == target:
         return await serialize_rule(session, rule)
     if active:
+        _validate_persisted_rule(rule)
         await _bank_product(session, rule.bank_id, rule.product_id, lock=True)
         end = rule.effective_to or date.max
         conflict = (
@@ -671,6 +721,7 @@ async def set_incentive_plan_status(
     if plan.status == target:
         return serialize_plan(plan)
     if active:
+        _validate_persisted_plan(plan)
         await session.execute(
             select(Permission)
             .where(Permission.code == FINANCE_MANAGE_COMMISSION_RULES)
@@ -768,26 +819,29 @@ class PreparedComponent:
 async def _owner_history_at(
     session: AsyncSession, application: Application, at: datetime
 ) -> ApplicationOwnerHistory:
-    row = (
-        await session.execute(
-            select(ApplicationOwnerHistory)
-            .where(
-                ApplicationOwnerHistory.application_id == application.id,
-                ApplicationOwnerHistory.effective_from <= at,
-                or_(
-                    ApplicationOwnerHistory.effective_to.is_(None),
-                    ApplicationOwnerHistory.effective_to > at,
-                ),
+    rows = list(
+        (
+            await session.execute(
+                select(ApplicationOwnerHistory)
+                .where(
+                    ApplicationOwnerHistory.application_id == application.id,
+                    ApplicationOwnerHistory.effective_from <= at,
+                    or_(
+                        ApplicationOwnerHistory.effective_to.is_(None),
+                        ApplicationOwnerHistory.effective_to > at,
+                    ),
+                )
+                .order_by(ApplicationOwnerHistory.effective_from.desc())
             )
-            .order_by(ApplicationOwnerHistory.effective_from.desc())
-        )
-    ).scalar_one_or_none()
-    if row is None:
+        ).scalars()
+    )
+    if len(rows) != 1:
+        reason = "no" if not rows else "multiple overlapping"
         raise AppError(
             status_code=422,
             code="FINANCE_RECIPIENT_UNRESOLVED",
             message=(
-                f"Application {application.application_code} has no authoritative Case Owner "
+                f"Application {application.application_code} has {reason} authoritative Case Owner "
                 "history at the eligibility event"
             ),
             details=[
@@ -795,31 +849,49 @@ async def _owner_history_at(
                     "applicationId": str(application.id),
                     "applicationCode": application.application_code,
                     "source": RecipientSource.CASE_OWNER,
+                    **({"matchCount": len(rows)} if rows else {}),
                     "eligibilityEventAt": at.isoformat(),
                 }
             ],
         )
-    return row
+    return rows[0]
 
 
 async def _assignment_at(
     session: AsyncSession, user_id: UUID, field: AssignmentField, at: datetime
 ) -> UserAssignmentHistory | None:
-    return (
-        await session.execute(
-            select(UserAssignmentHistory)
-            .where(
-                UserAssignmentHistory.user_id == user_id,
-                UserAssignmentHistory.field == field,
-                UserAssignmentHistory.effective_from <= at,
-                or_(
-                    UserAssignmentHistory.effective_to.is_(None),
-                    UserAssignmentHistory.effective_to > at,
-                ),
+    rows = list(
+        (
+            await session.execute(
+                select(UserAssignmentHistory)
+                .where(
+                    UserAssignmentHistory.user_id == user_id,
+                    UserAssignmentHistory.field == field,
+                    UserAssignmentHistory.effective_from <= at,
+                    or_(
+                        UserAssignmentHistory.effective_to.is_(None),
+                        UserAssignmentHistory.effective_to > at,
+                    ),
+                )
+                .order_by(UserAssignmentHistory.effective_from.desc())
             )
-            .order_by(UserAssignmentHistory.effective_from.desc())
+        ).scalars()
+    )
+    if len(rows) > 1:
+        raise AppError(
+            status_code=422,
+            code="FINANCE_RECIPIENT_UNRESOLVED",
+            message="Authoritative assignment history is ambiguous at the eligibility event",
+            details=[
+                {
+                    "userId": str(user_id),
+                    "assignmentField": field,
+                    "matchCount": len(rows),
+                    "eligibilityEventAt": at.isoformat(),
+                }
+            ],
         )
-    ).scalar_one_or_none()
+    return rows[0] if rows else None
 
 
 async def _recipient_org_snapshot(
@@ -854,12 +926,14 @@ def _unresolved_recipient_error(
     *,
     level: int,
     at: datetime,
+    match_count: int = 0,
 ) -> AppError:
+    reason = "cannot resolve" if match_count == 0 else "has ambiguous authoritative history for"
     return AppError(
         status_code=422,
         code="FINANCE_RECIPIENT_UNRESOLVED",
         message=(
-            f"Application {application.application_code} cannot resolve REPORTING_MANAGER "
+            f"Application {application.application_code} {reason} REPORTING_MANAGER "
             f"level {level} from authoritative history"
         ),
         details=[
@@ -868,6 +942,7 @@ def _unresolved_recipient_error(
                 "applicationCode": application.application_code,
                 "source": RecipientSource.REPORTING_MANAGER,
                 "hierarchyLevel": level,
+                **({"matchCount": match_count} if match_count else {}),
                 "eligibilityEventAt": at.isoformat(),
             }
         ],
@@ -900,10 +975,29 @@ async def _resolve_recipient(
     if config.recipient_source == RecipientSource.REPORTING_MANAGER:
         required_level = config.hierarchy_level or 0
         for level in range(1, required_level + 1):
-            assignment = await _assignment_at(
-                session, recipient_id, AssignmentField.REPORTING_MANAGER, at
+            assignments = list(
+                (
+                    await session.execute(
+                        select(UserAssignmentHistory)
+                        .where(
+                            UserAssignmentHistory.user_id == recipient_id,
+                            UserAssignmentHistory.field == AssignmentField.REPORTING_MANAGER,
+                            UserAssignmentHistory.effective_from <= at,
+                            or_(
+                                UserAssignmentHistory.effective_to.is_(None),
+                                UserAssignmentHistory.effective_to > at,
+                            ),
+                        )
+                        .order_by(UserAssignmentHistory.effective_from.desc())
+                    )
+                ).scalars()
             )
-            if assignment is None or assignment.value_id is None:
+            if len(assignments) != 1:
+                raise _unresolved_recipient_error(
+                    application, level=level, at=at, match_count=len(assignments)
+                )
+            assignment = assignments[0]
+            if assignment.value_id is None:
                 raise _unresolved_recipient_error(application, level=level, at=at)
             try:
                 manager_id = UUID(assignment.value_id)
@@ -1254,6 +1348,54 @@ def _required_reason(value: str) -> str:
     return reason
 
 
+async def _lock_payout_sequence(session: AsyncSession) -> None:
+    await session.execute(
+        select(Permission).where(Permission.code == FINANCE_GENERATE_PAYOUT).with_for_update()
+    )
+
+
+async def _assert_generation_order(session: AsyncSession, period_month: date) -> None:
+    later = await session.scalar(
+        select(FinancePayoutPeriod.id)
+        .where(FinancePayoutPeriod.period_month > period_month)
+        .limit(1)
+    )
+    if later is not None:
+        raise AppError(
+            status_code=409,
+            code="FINANCE_PERIOD_BACKDATED",
+            message="An earlier Finance payout period cannot be generated after a later period",
+        )
+    unfinished_prior = await session.scalar(
+        select(FinancePayoutPeriod.id)
+        .where(
+            FinancePayoutPeriod.period_month < period_month,
+            FinancePayoutPeriod.status != PayoutPeriodStatus.FINALIZED,
+        )
+        .limit(1)
+    )
+    if unfinished_prior is not None:
+        raise AppError(
+            status_code=409,
+            code="FINANCE_PREVIOUS_PERIOD_NOT_FINALIZED",
+            message="All earlier Finance payout periods must be finalized first",
+        )
+
+
+async def _assert_no_downstream_period(session: AsyncSession, period_month: date) -> None:
+    later = await session.scalar(
+        select(FinancePayoutPeriod.id)
+        .where(FinancePayoutPeriod.period_month > period_month)
+        .limit(1)
+    )
+    if later is not None:
+        raise AppError(
+            status_code=409,
+            code="FINANCE_PERIOD_HAS_DOWNSTREAM",
+            message="A finalized Finance period cannot be reopened while a later period exists",
+        )
+
+
 async def _refresh_payout(
     session: AsyncSession, period: FinancePayoutPeriod, recipient_id: UUID
 ) -> FinancePayout:
@@ -1336,6 +1478,7 @@ async def generate_period(
     session: AsyncSession, actor: User, requested_month: date
 ) -> dict[str, object]:
     period_month = month_start(requested_month)
+    await _lock_payout_sequence(session)
     existing = (
         await session.execute(
             select(FinancePayoutPeriod).where(FinancePayoutPeriod.period_month == period_month)
@@ -1347,9 +1490,17 @@ async def generate_period(
             code="FINANCE_PERIOD_ALREADY_GENERATED",
             message="This Finance payout period has already been generated",
         )
+    await _assert_generation_order(session, period_month)
     # Pre-validation is deliberately complete before the first persistent object is added.
-    commission = await _prepare_commission_components(session, period_month)
-    incentive = await _prepare_incentive_components(session, period_month, commission)
+    try:
+        commission = await _prepare_commission_components(session, period_month)
+        incentive = await _prepare_incentive_components(session, period_month, commission)
+    except ValueError as exc:
+        raise AppError(
+            status_code=422,
+            code="FINANCE_CONFIGURATION_INVALID",
+            message="Active Finance configuration is invalid for payout generation",
+        ) from exc
     prepared = [*commission, *incentive]
     now = utcnow()
     period = FinancePayoutPeriod(
@@ -1582,6 +1733,29 @@ async def _assert_recipient_visible(
         )
 
 
+def _finance_object_not_found() -> AppError:
+    return AppError(
+        status_code=404,
+        code="FINANCE_OBJECT_NOT_FOUND",
+        message="Finance object was not found",
+    )
+
+
+async def _authorize_finance_mutation(
+    session: AsyncSession,
+    actor: User,
+    period: FinancePayoutPeriod,
+    application: Application,
+    recipient_id: UUID,
+    at: datetime,
+) -> None:
+    try:
+        await _assert_application_visible(session, actor, application, at)
+        await _assert_recipient_visible(session, actor, period, recipient_id)
+    except AppError as exc:
+        raise _finance_object_not_found() from exc
+
+
 async def _payout_for_recipient(
     session: AsyncSession, period_id: UUID, recipient_id: UUID
 ) -> FinancePayout:
@@ -1613,11 +1787,7 @@ async def add_adjustment(
     application = await session.get(Application, payload.application_id)
     recipient = await session.get(User, payload.recipient_id)
     if application is None or recipient is None:
-        raise AppError(
-            status_code=404,
-            code="FINANCE_ATTRIBUTION_NOT_FOUND",
-            message="Application or recipient was not found",
-        )
+        raise _finance_object_not_found()
     related = (
         await session.execute(
             select(FinanceComponent)
@@ -1631,16 +1801,9 @@ async def add_adjustment(
         )
     ).scalar_one_or_none()
     if related is None:
-        raise AppError(
-            status_code=422,
-            code="FINANCE_ATTRIBUTION_MISMATCH",
-            message=(
-                "Adjustment recipient must match frozen Finance attribution for the Application"
-            ),
-        )
+        raise _finance_object_not_found()
     event_at = related.eligibility_event_at or period.generated_at
-    await _assert_application_visible(session, actor, application, event_at)
-    await _assert_recipient_visible(session, actor, period, recipient.id)
+    await _authorize_finance_mutation(session, actor, period, application, recipient.id, event_at)
     amount = round_money(payload.amount)
     if amount == ZERO:
         raise AppError(
@@ -1707,22 +1870,18 @@ async def add_clawback(
         or original.component_type != FinanceComponentType.COMMISSION
         or original.application_id is None
     ):
-        raise AppError(
-            status_code=404,
-            code="FINANCE_ORIGINAL_COMPONENT_NOT_FOUND",
-            message="The original Application commission component was not found",
-        )
+        raise _finance_object_not_found()
     application = await session.get(Application, original.application_id)
     if application is None:
-        raise AppError(
-            status_code=404,
-            code="APPLICATION_NOT_FOUND",
-            message="Application was not found",
-        )
-    await _assert_application_visible(
-        session, actor, application, original.eligibility_event_at or original.created_at
+        raise _finance_object_not_found()
+    await _authorize_finance_mutation(
+        session,
+        actor,
+        period,
+        application,
+        original.recipient_id,
+        original.eligibility_event_at or original.created_at,
     )
-    await _assert_recipient_visible(session, actor, period, original.recipient_id)
     amount = -round_money(payload.amount)
     reason = _required_reason(payload.reason)
     component = FinanceComponent(
@@ -1782,6 +1941,11 @@ async def _transition_period(
     target: str,
     reason: str | None = None,
 ) -> dict[str, object]:
+    sequence_sensitive = target == PayoutPeriodStatus.FINALIZED or (
+        expected == PayoutPeriodStatus.FINALIZED and target == PayoutPeriodStatus.REVIEW
+    )
+    if sequence_sensitive:
+        await _lock_payout_sequence(session)
     period = await _get_period(session, requested_month, lock=True)
     if period.status != expected:
         raise AppError(
@@ -1800,6 +1964,8 @@ async def _transition_period(
             code="REASON_REQUIRED",
             message="A reason is required to reopen a finalized Finance period",
         )
+    if expected == PayoutPeriodStatus.FINALIZED and target == PayoutPeriodStatus.REVIEW:
+        await _assert_no_downstream_period(session, period.period_month)
     now = utcnow()
     old = period.status
     period.status = target
