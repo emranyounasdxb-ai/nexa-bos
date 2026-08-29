@@ -19,6 +19,7 @@ from nexa_bos_api.identity.audit import record_audit
 from nexa_bos_api.identity.enums import (
     INITIAL_BANK_PRODUCTS,
     INITIAL_BANKS,
+    INITIAL_PRODUCT_TARGET_MEASUREMENT,
     INITIAL_PRODUCTS,
     MasterStatus,
 )
@@ -50,6 +51,7 @@ def serialize_product(product: Product) -> dict[str, object]:
         "approvedAmountRequired": product.approved_amount_required,
         "bookedAmountRequired": product.booked_amount_required,
         "fundedAmountRequired": product.funded_amount_required,
+        "targetMeasurement": product.target_measurement,
         "createdAt": product.created_at.isoformat(),
         "updatedAt": product.updated_at.isoformat(),
     }
@@ -97,29 +99,6 @@ async def seed_catalog(session: AsyncSession) -> None:
     }
     for code, name in INITIAL_BANKS:
         if code in banks_by_code:
-            bank = banks_by_code[code]
-            if bank.name != name:
-                current = (
-                    await session.execute(
-                        select(BankNameHistory).where(
-                            BankNameHistory.bank_id == bank.id,
-                            BankNameHistory.effective_to.is_(None),
-                        )
-                    )
-                ).scalar_one_or_none()
-                if current:
-                    current.effective_to = now
-                session.add(
-                    BankNameHistory(
-                        id=new_uuid(),
-                        bank_id=bank.id,
-                        name=name,
-                        effective_from=now,
-                        effective_to=None,
-                    )
-                )
-                bank.name = name
-                bank.updated_at = now
             continue
         bank = Bank(
             id=new_uuid(),
@@ -146,10 +125,6 @@ async def seed_catalog(session: AsyncSession) -> None:
     }
     for code, name in INITIAL_PRODUCTS:
         if code in products_by_code:
-            product = products_by_code[code]
-            if code == "PF":
-                product.requested_amount_required = True
-                product.approved_amount_required = True
             continue
         product = Product(
             id=new_uuid(),
@@ -160,6 +135,7 @@ async def seed_catalog(session: AsyncSession) -> None:
             approved_amount_required=code == "PF",
             booked_amount_required=False,
             funded_amount_required=False,
+            target_measurement=INITIAL_PRODUCT_TARGET_MEASUREMENT.get(code, "count"),
             created_at=now,
             updated_at=now,
         )
@@ -298,6 +274,7 @@ async def create_product(session: AsyncSession, actor: User, name: str, code: st
         approved_amount_required=code.strip().upper() == "PF",
         booked_amount_required=False,
         funded_amount_required=False,
+        target_measurement="count",
         created_at=now,
         updated_at=now,
     )
@@ -383,12 +360,14 @@ async def update_product_field_rules(
     approved_amount_required: bool | None,
     booked_amount_required: bool | None,
     funded_amount_required: bool | None,
+    target_measurement: str | None = None,
 ) -> Product:
     old = {
         "requestedAmountRequired": product.requested_amount_required,
         "approvedAmountRequired": product.approved_amount_required,
         "bookedAmountRequired": product.booked_amount_required,
         "fundedAmountRequired": product.funded_amount_required,
+        "targetMeasurement": product.target_measurement,
     }
     if requested_amount_required is not None:
         product.requested_amount_required = requested_amount_required
@@ -398,6 +377,15 @@ async def update_product_field_rules(
         product.booked_amount_required = booked_amount_required
     if funded_amount_required is not None:
         product.funded_amount_required = funded_amount_required
+    if target_measurement is not None:
+        measurement = target_measurement.strip().lower()
+        if measurement not in {"count", "amount"}:
+            raise AppError(
+                status_code=422,
+                code="TARGET_MEASUREMENT_INVALID",
+                message="Product target measurement must be count or amount",
+            )
+        product.target_measurement = measurement
     product.updated_at = utcnow()
     await record_audit(
         session,
@@ -411,6 +399,7 @@ async def update_product_field_rules(
             "approvedAmountRequired": product.approved_amount_required,
             "bookedAmountRequired": product.booked_amount_required,
             "fundedAmountRequired": product.funded_amount_required,
+            "targetMeasurement": product.target_measurement,
         },
     )
     await session.commit()

@@ -127,7 +127,7 @@ export default function UserProfilePage() {
         </div>
         <div>
           <dt className="text-slate-500">MFA enabled</dt>
-          <dd>{user.mfaEnabled ? "Yes (not enforced)" : "No"}</dd>
+          <dd>{user.mfaEnabled ? "Yes" : "No"}</dd>
         </div>
       </dl>
       <div className="flex flex-wrap gap-2 text-sm">

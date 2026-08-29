@@ -4,6 +4,7 @@ import hmac
 from datetime import UTC, datetime
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -20,6 +21,7 @@ from nexa_bos_api.identity.enums import (
 )
 from nexa_bos_api.identity.models import (
     EmploymentPeriod,
+    OwnerSingleton,
     PasswordHistory,
     SecuritySettings,
     User,
@@ -36,6 +38,8 @@ from nexa_bos_api.identity.users_service import (
     assert_unique_employee_code,
     next_user_code,
     reload_user,
+    reserve_email,
+    reserve_employee_code,
 )
 
 
@@ -48,13 +52,6 @@ async def bootstrap_status(session: AsyncSession) -> dict[str, bool]:
 
 async def complete_owner_bootstrap(session: AsyncSession, payload: OwnerBootstrapRequest) -> User:
     settings = get_settings()
-    status = await bootstrap_status(session)
-    if not status["available"]:
-        raise AppError(
-            status_code=409,
-            code="BOOTSTRAP_DISABLED",
-            message="Initial OWNER setup is no longer available",
-        )
     if not settings.bootstrap_secret:
         raise AppError(
             status_code=503,
@@ -68,6 +65,33 @@ async def complete_owner_bootstrap(session: AsyncSession, payload: OwnerBootstra
             status_code=403,
             code="BOOTSTRAP_SECRET_INVALID",
             message="Bootstrap secret is invalid",
+        )
+    settings_row = (
+        await session.execute(
+            select(SecuritySettings).where(SecuritySettings.id == 1).with_for_update()
+        )
+    ).scalar_one_or_none()
+    if settings_row is None:
+        settings_row = SecuritySettings(
+            id=1,
+            setup_link_expiry_hours=24,
+            lockout_minutes=30,
+            inactivity_timeout_minutes=30,
+            absolute_session_hours=12,
+        )
+        session.add(settings_row)
+        await session.flush()
+        settings_row = (
+            await session.execute(
+                select(SecuritySettings).where(SecuritySettings.id == 1).with_for_update()
+            )
+        ).scalar_one()
+    exists = await owner_exists(session)
+    if settings_row.bootstrap_completed_at is not None or exists:
+        raise AppError(
+            status_code=409,
+            code="BOOTSTRAP_DISABLED",
+            message="Initial OWNER setup is no longer available",
         )
     if (
         payload.employment_status in OWNER_FORBIDDEN_EMPLOYMENT
@@ -131,6 +155,9 @@ async def complete_owner_bootstrap(session: AsyncSession, payload: OwnerBootstra
     )
     session.add(user)
     await session.flush()
+    await reserve_email(session, user.email, user.id)
+    await reserve_employee_code(session, user.employee_code, user.id)
+    session.add(OwnerSingleton(slot=1, user_id=user.id))
     session.add(
         EmploymentPeriod(
             id=new_uuid(),
@@ -151,8 +178,6 @@ async def complete_owner_bootstrap(session: AsyncSession, payload: OwnerBootstra
         )
     )
     await _initial_assignments(session, user, None, None, None, designation)
-    settings_row = await session.get(SecuritySettings, 1)
-    assert settings_row is not None
     settings_row.bootstrap_completed_at = now
     await record_audit(
         session,
@@ -162,5 +187,13 @@ async def complete_owner_bootstrap(session: AsyncSession, payload: OwnerBootstra
         target_user_id=user.id,
         new_values={"userCode": user.user_code, "email": user.email},
     )
-    await session.commit()
+    try:
+        await session.commit()
+    except IntegrityError as exc:
+        await session.rollback()
+        raise AppError(
+            status_code=409,
+            code="BOOTSTRAP_DISABLED",
+            message="Initial OWNER setup is no longer available",
+        ) from exc
     return await reload_user(session, user.id)

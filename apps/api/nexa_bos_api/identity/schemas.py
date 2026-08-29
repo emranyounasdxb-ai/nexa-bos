@@ -22,6 +22,11 @@ class MfaConfirmRequest(BaseModel):
     code: str
 
 
+class MfaLoginRequest(BaseModel):
+    token: str = Field(min_length=1)
+    code: str = Field(min_length=1, max_length=16)
+
+
 class OwnerBootstrapRequest(BaseModel):
     secret: str = Field(min_length=1)
     full_name: str = Field(min_length=1, max_length=200)

@@ -6,7 +6,7 @@ from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from nexa_bos_api.identity.enums import VisibilityScope
+from nexa_bos_api.identity.enums import UserTypeStatus, VisibilityScope
 from nexa_bos_api.identity.models import User, UserType
 from nexa_bos_api.identity.permissions import ALL_PERMISSION_CODES
 
@@ -35,7 +35,7 @@ def is_owner(user: User) -> bool:
 def permission_set(user: User) -> set[str]:
     if is_owner(user):
         return set(ALL_PERMISSION_CODES)
-    if user.user_type is None:
+    if user.user_type is None or user.user_type.status != UserTypeStatus.ACTIVE:
         return set()
     return {row.permission_code for row in user.user_type.permissions}
 

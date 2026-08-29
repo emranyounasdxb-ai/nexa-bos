@@ -143,6 +143,7 @@ def empty_payload(access: ReportingAccess, period: dict[str, object]) -> dict[st
         "activeDelays": _empty_delays(),
         "rankings": {"employees": [], "teams": [], "offices": [], "bankProducts": []},
         "trend": [],
+        "targetsSummary": None,
         "items": [],
         "total": 0,
     }

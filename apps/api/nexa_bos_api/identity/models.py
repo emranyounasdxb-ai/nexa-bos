@@ -9,6 +9,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Integer,
+    SmallInteger,
     String,
     Text,
     UniqueConstraint,
@@ -280,6 +281,29 @@ class UserEmailHistory(Base):
     )
     email: Mapped[str] = mapped_column(String(320), nullable=False)
     changed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class ReservedEmail(Base):
+    __tablename__ = "reserved_emails"
+
+    email_normalized: Mapped[str] = mapped_column(String(320), primary_key=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("users.id"), nullable=False)
+
+
+class ReservedEmployeeCode(Base):
+    __tablename__ = "reserved_employee_codes"
+
+    employee_code: Mapped[str] = mapped_column(String(64), primary_key=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("users.id"), nullable=False)
+
+
+class OwnerSingleton(Base):
+    __tablename__ = "owner_singleton"
+
+    slot: Mapped[int] = mapped_column(SmallInteger, primary_key=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("users.id"), nullable=False, unique=True
+    )
 
 
 class UserAssignmentHistory(Base):

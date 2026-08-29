@@ -38,6 +38,7 @@ class VisibilityScope(StrEnum):
 class TokenPurpose(StrEnum):
     SETUP = "setup"
     RESET = "reset"
+    MFA_LOGIN = "mfa_login"
 
 
 class AssignmentField(StrEnum):
@@ -146,6 +147,11 @@ INITIAL_PRODUCTS: tuple[tuple[str, str], ...] = (
     ("PF", "Personal Finance"),
     ("CC", "Credit Card"),
 )
+
+INITIAL_PRODUCT_TARGET_MEASUREMENT: dict[str, str] = {
+    "PF": "amount",
+    "CC": "count",
+}
 
 # Bank code → product codes. Additional combinations remain configurable.
 INITIAL_BANK_PRODUCTS: tuple[tuple[str, str], ...] = (

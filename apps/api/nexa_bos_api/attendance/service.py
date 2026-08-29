@@ -17,6 +17,7 @@ from nexa_bos_api.attendance.enums import (
     WEEKDAY_NAMES,
     AttendanceStatus,
     ImpactCondition,
+    ImpactMethod,
     ReminderKind,
     ScheduleKind,
 )
@@ -1126,11 +1127,21 @@ async def list_reminders(session: AsyncSession, actor: User) -> dict[str, object
         .scalars()
         .all()
     }
+    today = business_today()
+    window_end = today + timedelta(days=7)
     rows = (
         (
             await session.execute(
                 select(HolidayReminder)
+                .join(OfficialHoliday, HolidayReminder.holiday_id == OfficialHoliday.id)
                 .options(selectinload(HolidayReminder.holiday))
+                .where(
+                    or_(
+                        OfficialHoliday.holiday_date.between(today, window_end),
+                        (HolidayReminder.kind == ReminderKind.URGENT)
+                        & (OfficialHoliday.holiday_date >= today),
+                    )
+                )
                 .order_by(HolidayReminder.created_at.desc())
             )
         )
@@ -1138,17 +1149,21 @@ async def list_reminders(session: AsyncSession, actor: User) -> dict[str, object
         .all()
     )
     items = []
+    seen_holidays: set[UUID] = set()
     for row in rows:
         if row.id in dismissed:
             continue
         holiday = row.holiday
+        if holiday is None or holiday.id in seen_holidays:
+            continue
+        seen_holidays.add(holiday.id)
         items.append(
             {
                 "id": str(row.id),
                 "kind": row.kind,
                 "createdAt": row.created_at.isoformat(),
-                "holiday": serialize_holiday(holiday) if holiday else None,
-                "daysUntil": (holiday.holiday_date - business_today()).days if holiday else None,
+                "holiday": serialize_holiday(holiday),
+                "daysUntil": (holiday.holiday_date - today).days,
             }
         )
     return {"items": items, "timezone": "Asia/Dubai"}
@@ -1207,32 +1222,25 @@ async def dismiss_reminder(
     return {"ok": True}
 
 
-def _match_rule(
+def _matching_rules(
     record: AttendanceRecord, rules: list[AttendanceImpactRule]
-) -> AttendanceImpactRule | None:
+) -> list[AttendanceImpactRule]:
+    matched: list[AttendanceImpactRule] = []
     if record.status == AttendanceStatus.ABSENT:
-        return next((row for row in rules if row.condition == ImpactCondition.ABSENCE), None)
+        return [row for row in rules if row.condition == ImpactCondition.ABSENCE]
     if record.status == AttendanceStatus.LEAVE:
-        return next(
-            (
-                row
-                for row in rules
-                if row.condition == ImpactCondition.LEAVE
-                and row.leave_type_id == record.leave_type_id
-            ),
-            None,
-        )
+        return [
+            row
+            for row in rules
+            if row.condition == ImpactCondition.LEAVE and row.leave_type_id == record.leave_type_id
+        ]
     if record.is_incomplete:
-        found = next((row for row in rules if row.condition == ImpactCondition.INCOMPLETE), None)
-        if found:
-            return found
+        matched.extend(row for row in rules if row.condition == ImpactCondition.INCOMPLETE)
     if record.is_late:
-        found = next((row for row in rules if row.condition == ImpactCondition.LATE), None)
-        if found:
-            return found
+        matched.extend(row for row in rules if row.condition == ImpactCondition.LATE)
     if record.is_early_exit:
-        return next((row for row in rules if row.condition == ImpactCondition.EARLY_EXIT), None)
-    return None
+        matched.extend(row for row in rules if row.condition == ImpactCondition.EARLY_EXIT)
+    return matched
 
 
 def compute_score(
@@ -1241,20 +1249,25 @@ def compute_score(
     score = 100.0
     applied: list[dict[str, object]] = []
     for record in records:
-        rule = _match_rule(record, rules)
-        if rule is None:
-            continue
-        deduction = _decimal_value(rule.value)
-        score -= deduction
-        applied.append(
-            {
-                "attendanceId": str(record.id),
-                "date": record.attendance_date.isoformat(),
-                "condition": rule.condition,
-                "method": rule.method,
-                "value": deduction,
-            }
-        )
+        for rule in _matching_rules(record, rules):
+            value = float(_decimal_value(rule.value))
+            before = score
+            if rule.method == ImpactMethod.PERCENTAGE:
+                score -= score * (value / 100.0)
+            else:
+                score -= value
+            score = max(0.0, score)
+            applied.append(
+                {
+                    "attendanceId": str(record.id),
+                    "date": record.attendance_date.isoformat(),
+                    "condition": rule.condition,
+                    "method": rule.method,
+                    "value": value,
+                    "scoreBefore": round(before, 2),
+                    "scoreAfter": round(score, 2),
+                }
+            )
     score = max(0.0, round(score, 2))
     return {"score": score, "impact": round(100.0 - score, 2), "applied": applied}
 

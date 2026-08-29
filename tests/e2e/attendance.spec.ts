@@ -145,6 +145,9 @@ test("owner attendance bulk entry, calculations, correction, holiday, schedule, 
     data: { holiday_date: reminderDate, name: `Reminder Holiday ${tag}` },
   });
   expect(reminderHoliday.ok() || reminderHoliday.status() === 409).toBeTruthy();
+  let reminderHolidayId = reminderHoliday.ok()
+    ? ((await reminderHoliday.json()) as { id: string }).id
+    : "";
   if (reminderHoliday.status() === 409) {
     const holidays = (
       (await (await request.get(`${apiOrigin}/api/v1/attendance/holidays`)).json()) as {
@@ -153,15 +156,23 @@ test("owner attendance bulk entry, calculations, correction, holiday, schedule, 
     ).items;
     const existing = holidays.find((item) => item.holidayDate === reminderDate);
     expect(existing).toBeTruthy();
+    reminderHolidayId = existing!.id;
     const renamed = await request.patch(`${apiOrigin}/api/v1/attendance/holidays/${existing!.id}`, {
       headers,
       data: { name: `Reminder Holiday ${tag}` },
     });
     expect(renamed.ok()).toBeTruthy();
   }
+  const urgent = await request.post(
+    `${apiOrigin}/api/v1/attendance/holidays/${reminderHolidayId}/urgent-reminder`,
+    { headers },
+  );
+  expect(urgent.ok()).toBeTruthy();
 
   await signIn(page);
-  await expect(page.getByText(new RegExp(`Holiday reminder:.*Reminder Holiday ${tag}`))).toBeVisible({
+  await expect(
+    page.getByText(new RegExp(`Holiday reminder:.*Reminder Holiday ${tag}`, "i")).first(),
+  ).toBeVisible({
     timeout: 20_000,
   });
   await page.getByRole("navigation").getByRole("link", { name: "Attendance", exact: true }).click();
@@ -175,6 +186,16 @@ test("owner attendance bulk entry, calculations, correction, holiday, schedule, 
   await page.getByLabel(`${user.fullName} time out`).fill("17:45");
   await page.getByRole("button", { name: `${user.fullName} save` }).click();
   await expect(page.getByText("Attendance saved.")).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText(/Late 10m/)).toBeVisible();
+  await expect(page.getByText(/Early 15m/)).toBeVisible();
+  await expect(page.getByLabel(`${user.fullName} time in`)).toHaveValue("09:20");
+  await expect(page.getByLabel(`${user.fullName} time out`)).toHaveValue("17:45");
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "Attendance" })).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByLabel("Attendance date")).toHaveValue("2026-08-03");
+  await expect(page.getByText(user.fullName)).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByLabel(`${user.fullName} time in`)).toHaveValue("09:20");
+  await expect(page.getByLabel(`${user.fullName} time out`)).toHaveValue("17:45");
   await expect(page.getByText(/Late 10m/)).toBeVisible();
   await expect(page.getByText(/Early 15m/)).toBeVisible();
   await page.getByLabel(`${user.fullName} time out`).fill("");

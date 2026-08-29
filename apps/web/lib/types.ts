@@ -59,8 +59,11 @@ export type UserRecord = {
 };
 
 export type AuthResponse = {
-  csrfToken: string;
-  user: UserRecord;
+  csrfToken?: string;
+  user?: UserRecord;
+  mfaRequired?: boolean;
+  mfaToken?: string;
+  userId?: string;
 };
 
 export type BootstrapStatus = {
@@ -95,6 +98,7 @@ export type CatalogItem = {
   approvedAmountRequired?: boolean;
   bookedAmountRequired?: boolean;
   fundedAmountRequired?: boolean;
+  targetMeasurement?: string;
 };
 
 export type BankProductRecord = {

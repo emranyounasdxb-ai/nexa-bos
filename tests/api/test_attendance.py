@@ -423,14 +423,14 @@ async def test_impact_score_reports_reminders_and_business_metrics_untouched(
     assert summary["absentCount"] == 1
     assert summary["lateCount"] == 1
     assert summary["leaveCount"] == 2
-    assert summary["attendanceScore"] == 90
-    assert summary["attendanceImpact"] == 10
+    assert summary["attendanceScore"] == 90.1
+    assert summary["attendanceImpact"] == 9.9
     profile = await authed.get(
         f"/api/v1/reports/employees/{employee['id']}?period=custom&date_from=2026-08-03&date_to=2026-08-06"
     )
     assert profile.status_code == 200, profile.text
     assert profile.json()["kpis"]["submitted"]["count"] == 0
-    assert profile.json()["attendanceSummary"]["attendanceScore"] == 90
+    assert profile.json()["attendanceSummary"]["attendanceScore"] == 90.1
     holiday_date = datetime.now(BUSINESS_TZ).date() + timedelta(days=7)
     created = await authed.post(
         "/api/v1/attendance/holidays",

@@ -67,6 +67,12 @@ ATTENDANCE_MANAGE = "Attendance.Manage"
 ATTENDANCE_CORRECT = "Attendance.Correct"
 ATTENDANCE_REPORTS = "Attendance.Reports"
 NOTIFICATIONS_SEND_URGENT = "Notifications.SendUrgent"
+TARGETS_VIEW = "Targets.View"
+TARGETS_CREATE = "Targets.Create"
+TARGETS_EDIT = "Targets.Edit"
+TARGETS_ACTIVATE = "Targets.Activate"
+TARGETS_DEACTIVATE = "Targets.Deactivate"
+TARGETS_REOPEN_PERIOD = "Targets.ReopenPeriod"
 
 PERMISSION_CATALOG: tuple[tuple[str, str], ...] = (
     (USERS_VIEW, "View users within assigned visibility scope"),
@@ -148,6 +154,12 @@ PERMISSION_CATALOG: tuple[tuple[str, str], ...] = (
     ),
     (ATTENDANCE_REPORTS, "View attendance reports and attendance score summaries"),
     (NOTIFICATIONS_SEND_URGENT, "Send urgent in-app notifications"),
+    (TARGETS_VIEW, "View targets, KPI scorecards, and target results in reporting scope"),
+    (TARGETS_CREATE, "Create targets and KPI scorecards"),
+    (TARGETS_EDIT, "Edit targets and KPI scorecards, and lock target periods"),
+    (TARGETS_ACTIVATE, "Activate targets and KPI scorecards"),
+    (TARGETS_DEACTIVATE, "Deactivate targets and KPI scorecards"),
+    (TARGETS_REOPEN_PERIOD, "Reopen a locked target period with a mandatory reason"),
 )
 
 ALL_PERMISSION_CODES: tuple[str, ...] = tuple(code for code, _ in PERMISSION_CATALOG)

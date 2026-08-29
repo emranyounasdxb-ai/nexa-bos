@@ -14,6 +14,7 @@ from nexa_bos_api.identity.models import Session, User
 SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
 CSRF_EXEMPT_PATHS = {
     "/api/v1/auth/login",
+    "/api/v1/auth/mfa/login",
     "/api/v1/auth/setup",
     "/api/v1/auth/reset",
     "/api/v1/auth/bootstrap",
