@@ -12,6 +12,7 @@ from nexa_bos_api.catalog import models as _catalog_models  # noqa: F401
 from nexa_bos_api.core.config import get_settings
 from nexa_bos_api.customers import models as _customer_models  # noqa: F401
 from nexa_bos_api.db.base import Base
+from nexa_bos_api.finance import models as _finance_models  # noqa: F401
 from nexa_bos_api.identity import models as _identity_models  # noqa: F401
 from nexa_bos_api.targets import models as _target_models  # noqa: F401
 from sqlalchemy import pool

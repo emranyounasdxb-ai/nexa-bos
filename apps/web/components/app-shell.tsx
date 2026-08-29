@@ -88,6 +88,11 @@ function Shell({ children }: { children: ReactNode }) {
     { href: "/reports/compare", label: "Reports", show: can("Reports.View") },
     { href: "/targets", label: "Targets", show: can("Targets.View") },
     { href: "/targets/kpi", label: "KPI scorecards", show: can("Targets.View") },
+    {
+      href: "/finance",
+      label: "Finance",
+      show: can("Finance.View") || can("Finance.ViewCommissionRules"),
+    },
     { href: "/attendance", label: "Attendance", show: can("Attendance.View") },
     { href: "/attendance/reports", label: "Attendance reports", show: can("Attendance.Reports") },
     { href: "/users", label: "Users", show: can("Users.View") },

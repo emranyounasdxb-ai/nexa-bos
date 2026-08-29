@@ -73,6 +73,14 @@ TARGETS_EDIT = "Targets.Edit"
 TARGETS_ACTIVATE = "Targets.Activate"
 TARGETS_DEACTIVATE = "Targets.Deactivate"
 TARGETS_REOPEN_PERIOD = "Targets.ReopenPeriod"
+FINANCE_VIEW = "Finance.View"
+FINANCE_GENERATE_PAYOUT = "Finance.GeneratePayout"
+FINANCE_EDIT_ADJUSTMENT = "Finance.EditAdjustment"
+FINANCE_REVIEW = "Finance.Review"
+FINANCE_FINALIZE = "Finance.Finalize"
+FINANCE_REOPEN_PERIOD = "Finance.ReopenPeriod"
+FINANCE_VIEW_COMMISSION_RULES = "Finance.ViewCommissionRules"
+FINANCE_MANAGE_COMMISSION_RULES = "Finance.ManageCommissionRules"
 
 PERMISSION_CATALOG: tuple[tuple[str, str], ...] = (
     (USERS_VIEW, "View users within assigned visibility scope"),
@@ -160,6 +168,14 @@ PERMISSION_CATALOG: tuple[tuple[str, str], ...] = (
     (TARGETS_ACTIVATE, "Activate targets and KPI scorecards"),
     (TARGETS_DEACTIVATE, "Deactivate targets and KPI scorecards"),
     (TARGETS_REOPEN_PERIOD, "Reopen a locked target period with a mandatory reason"),
+    (FINANCE_VIEW, "View Finance payout periods, statements, and drill-down in reporting scope"),
+    (FINANCE_GENERATE_PAYOUT, "Generate monthly Finance payout periods"),
+    (FINANCE_EDIT_ADJUSTMENT, "Create audited Finance adjustments and clawbacks"),
+    (FINANCE_REVIEW, "Move a Finance payout period to Review"),
+    (FINANCE_FINALIZE, "Finalize and lock a reviewed Finance payout period"),
+    (FINANCE_REOPEN_PERIOD, "Reopen a finalized Finance payout period with a reason"),
+    (FINANCE_VIEW_COMMISSION_RULES, "View commission and incentive configuration versions"),
+    (FINANCE_MANAGE_COMMISSION_RULES, "Create and activate Finance configuration versions"),
 )
 
 ALL_PERMISSION_CODES: tuple[str, ...] = tuple(code for code, _ in PERMISSION_CATALOG)
