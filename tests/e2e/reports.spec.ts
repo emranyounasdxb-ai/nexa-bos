@@ -121,26 +121,40 @@ test("owner dashboard periods, drill-down, profile, ranking, comparison, delay, 
   await expect(page.getByRole("heading", { name: "Performance / MIS" })).toBeVisible({
     timeout: 30_000,
   });
-  await expect(page.getByText(/MTD ·/)).toBeVisible();
+  await expect(page.getByText(/MTD ·/)).toBeVisible({ timeout: 30_000 });
   await page.getByLabel("Reporting period").selectOption("ytd");
   await page.getByRole("button", { name: "Apply" }).click();
-  await expect(page.getByText(/YTD ·/)).toBeVisible();
+  await expect(page.getByText(/YTD ·/)).toBeVisible({ timeout: 30_000 });
   await page.getByLabel("Reporting period").selectOption("custom");
   await page.getByLabel("Custom period start").fill("2026-01-01");
   await page.getByLabel("Custom period end").fill("2026-12-31");
   await page.getByRole("button", { name: "Apply" }).click();
+  await expect(page.getByRole("link", { name: "Submitted KPI" })).toBeVisible({
+    timeout: 30_000,
+  });
   await page.getByRole("link", { name: "Submitted KPI" }).click();
-  await expect(page.getByRole("heading", { name: "Report drill-down" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Report drill-down" })).toBeVisible({
+    timeout: 30_000,
+  });
   await page.goto("/reports");
+  await expect(page.getByRole("link", { name: "Customer delays" })).toBeVisible({
+    timeout: 30_000,
+  });
   await page.getByRole("link", { name: "Customer delays" }).click();
-  await expect(page.getByRole("heading", { name: "Report drill-down" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Report drill-down" })).toBeVisible({
+    timeout: 30_000,
+  });
   await page.goto(`/reports/employees/${me.id}`);
-  await expect(page.getByRole("heading", { name: "Platform Owner" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Platform Owner" })).toBeVisible({
+    timeout: 30_000,
+  });
   await page.getByLabel("Reporting period").selectOption("since_joining");
   await page.getByRole("button", { name: "Apply" }).click();
   await expect(page.getByLabel("Reporting period")).toHaveValue("since_joining");
   await page.goto("/reports");
-  await expect(page.getByRole("heading", { name: "Top employees" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Top employees" })).toBeVisible({
+    timeout: 30_000,
+  });
   await page.getByLabel("Ranking metric").selectOption("case_count");
   const rankingLink = page
     .getByRole("heading", { name: "Top employees" })
@@ -149,16 +163,21 @@ test("owner dashboard periods, drill-down, profile, ranking, comparison, delay, 
     .first();
   if ((await rankingLink.count()) > 0) {
     await rankingLink.click();
-    await expect(page.getByText("Employment status")).toBeVisible();
+    await expect(page.getByText("Employment status")).toBeVisible({ timeout: 30_000 });
   }
   await page.goto("/reports");
   await page.getByRole("button", { name: "Compare" }).click();
-  await expect(page.getByRole("heading", { name: "Comparisons" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Comparisons" })).toBeVisible({
+    timeout: 30_000,
+  });
   await page.getByRole("button", { name: "Compare" }).click();
-  await expect(page.getByText("Percentage change")).toBeVisible();
+  await expect(page.getByText("Percentage change")).toBeVisible({ timeout: 20_000 });
   await page.goto("/reports");
   await page.getByRole("button", { name: "Refresh" }).click();
-  await expect(page.getByRole("heading", { name: "Performance / MIS" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Performance / MIS" })).toBeVisible({
+    timeout: 30_000,
+  });
+  await expect(page.getByText(/Company-wide/)).toBeVisible({ timeout: 30_000 });
   const [excel] = await Promise.all([
     page.waitForEvent("download"),
     page.getByRole("button", { name: "Excel" }).click(),

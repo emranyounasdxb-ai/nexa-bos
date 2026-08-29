@@ -8,7 +8,7 @@ The stored record is monthly. Results can be aggregated for Monthly, QTD, Half-Y
 
 ## Product measurement
 
-Measurement is stored on each target (`count` or `amount`). When omitted, the product's `requestedAmountRequired` flag selects the default (amount when required, otherwise count). Seeded Personal Finance therefore defaults to Amount and Credit Card to Count without hardcoding those product codes. Currency is AED. Missing monetary values are not fabricated.
+Measurement is stored on each target (`count` or `amount`). When omitted, the product's explicit `targetMeasurement` setting is used. Seeded Personal Finance defaults to Amount and Credit Card to Count. Future products are configurable independently of Application field-validation flags such as `requestedAmountRequired`. Currency is AED. Missing monetary values are not fabricated.
 
 ## Milestones
 

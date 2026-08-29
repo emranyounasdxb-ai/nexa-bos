@@ -547,13 +547,17 @@ class MetricEngine:
             "delay_internal": self.delays("Internal"),
             "delay_other": self.delays("Other"),
             "stage": self.pending(),
-            "conversion_submitted_approved": self.milestone("approved", "approved_at"),
-            "conversion_approved_booked": self.milestone("booked", "booked_at"),
-            "conversion_booked_funded": self.milestone("funded", "funded_at"),
-            "conversion_submitted_rejected": self.terminal("Final Rejected"),
+            "conversion_submitted_approved": self.cohort_reached(
+                "submitted", "submitted_at", "approved_at"
+            ),
+            "conversion_approved_booked": self.cohort_reached(
+                "approved", "approved_at", "booked_at"
+            ),
+            "conversion_booked_funded": self.cohort_reached("booked", "booked_at", "funded_at"),
+            "conversion_submitted_rejected": self.cohort_terminal("Final Rejected"),
             "conversion_submitted_cancelled_withdrawn": [
-                *self.terminal("Cancelled"),
-                *self.terminal("Withdrawn"),
+                *self.cohort_terminal("Cancelled"),
+                *self.cohort_terminal("Withdrawn"),
             ],
         }
         items = mapping[metric]
@@ -623,19 +627,51 @@ class MetricEngine:
         }
 
     def conversions(self) -> dict[str, float | None]:
-        submitted = len(self.milestone("submitted", "submitted_at"))
-        approved = len(self.milestone("approved", "approved_at"))
-        booked = len(self.milestone("booked", "booked_at"))
-        funded = len(self.milestone("funded", "funded_at"))
-        rejected = len(self.terminal("Final Rejected"))
-        cancelled = len(self.terminal("Cancelled")) + len(self.terminal("Withdrawn"))
+        submitted = self.milestone("submitted", "submitted_at")
+        approved = self.milestone("approved", "approved_at")
+        booked = self.milestone("booked", "booked_at")
         return {
-            "submittedToApproved": ratio(approved, submitted),
-            "approvedToBooked": ratio(booked, approved),
-            "bookedToFunded": ratio(funded, booked),
-            "submittedToFinalRejected": ratio(rejected, submitted),
-            "submittedToCancelledWithdrawn": ratio(cancelled, submitted),
+            "submittedToApproved": ratio(
+                len(self.cohort_reached("submitted", "submitted_at", "approved_at")),
+                len(submitted),
+            ),
+            "approvedToBooked": ratio(
+                len(self.cohort_reached("approved", "approved_at", "booked_at")),
+                len(approved),
+            ),
+            "bookedToFunded": ratio(
+                len(self.cohort_reached("booked", "booked_at", "funded_at")),
+                len(booked),
+            ),
+            "submittedToFinalRejected": ratio(
+                len(self.cohort_terminal("Final Rejected")), len(submitted)
+            ),
+            "submittedToCancelledWithdrawn": ratio(
+                len(self.cohort_terminal("Cancelled")) + len(self.cohort_terminal("Withdrawn")),
+                len(submitted),
+            ),
         }
+
+    def _reached_by_cutoff(self, fact: AppFact, when_name: str) -> bool:
+        when = getattr(fact, when_name)
+        if when is None:
+            return False
+        value = when if when.tzinfo else when.replace(tzinfo=UTC)
+        return value <= self.window.end
+
+    def cohort_reached(self, attr_name: str, when_name: str, reached_when: str) -> list[AppFact]:
+        return [
+            fact
+            for fact in self.milestone(attr_name, when_name)
+            if self._reached_by_cutoff(fact, reached_when)
+        ]
+
+    def cohort_terminal(self, outcome: str) -> list[AppFact]:
+        return [
+            fact
+            for fact in self.milestone("submitted", "submitted_at")
+            if fact.terminal_outcome == outcome and self._reached_by_cutoff(fact, "terminal_at")
+        ]
 
     def stage_breakdown(self) -> list[dict[str, object]]:
         counts: dict[tuple[UUID | None, str], int] = {}
@@ -839,25 +875,30 @@ def serialize_application(fact: AppFact) -> dict[str, object]:
 
 
 def trend_points(
-    facts: list[AppFact], access: ReportingAccess, filters: ReportFilters
+    facts: list[AppFact],
+    access: ReportingAccess,
+    filters: ReportFilters,
+    window: PeriodWindow,
 ) -> list[dict[str, object]]:
     buckets: dict[str, dict[str, int | Decimal]] = {}
     for fact in facts:
         if not _app_matches_catalog(fact, filters):
             continue
         if fact.submitted_at and _visible_event(access, fact.submitted, fact.submitted_at, filters):
-            key = _aware(fact.submitted_at).date().replace(day=1).isoformat()
-            bucket = buckets.setdefault(key, {"submitted": 0, "funded": 0, "fundedValue": ZERO})
-            bucket["submitted"] = int(bucket["submitted"]) + 1
+            if in_window(fact.submitted_at, window):
+                key = _aware(fact.submitted_at).date().replace(day=1).isoformat()
+                bucket = buckets.setdefault(key, {"submitted": 0, "funded": 0, "fundedValue": ZERO})
+                bucket["submitted"] = int(bucket["submitted"]) + 1
         if fact.funded_at and _visible_event(access, fact.funded, fact.funded_at, filters):
-            key = _aware(fact.funded_at).date().replace(day=1).isoformat()
-            bucket = buckets.setdefault(key, {"submitted": 0, "funded": 0, "fundedValue": ZERO})
-            bucket["funded"] = int(bucket["funded"]) + 1
-            bucket["fundedValue"] = Decimal(str(bucket["fundedValue"])) + (
-                fact.funded_amount or ZERO
-            )
+            if in_window(fact.funded_at, window):
+                key = _aware(fact.funded_at).date().replace(day=1).isoformat()
+                bucket = buckets.setdefault(key, {"submitted": 0, "funded": 0, "fundedValue": ZERO})
+                bucket["funded"] = int(bucket["funded"]) + 1
+                bucket["fundedValue"] = Decimal(str(bucket["fundedValue"])) + (
+                    fact.funded_amount or ZERO
+                )
     points = []
-    for month in sorted(buckets)[-6:]:
+    for month in sorted(buckets):
         bucket = buckets[month]
         points.append(
             {
@@ -955,7 +996,7 @@ async def dashboard_payload(
         "stageBreakdown": engine.stage_breakdown(),
         "activeDelays": engine.delay_breakdown(),
         "rankings": build_rankings(engine, users, offices, teams, ranking_metric),
-        "trend": trend_points(facts, access, filters),
+        "trend": trend_points(facts, access, filters, window),
         "targetsSummary": await _dashboard_targets(
             session, actor, window=window, facts=facts, access=access
         ),
@@ -1288,7 +1329,11 @@ async def filter_options_payload(session: AsyncSession, actor: User) -> dict[str
     departments = {row.id: row for row in (await session.execute(select(Department))).scalars()}
     banks = {row.id: row for row in (await session.execute(select(Bank))).scalars()}
     products = {row.id: row for row in (await session.execute(select(Product))).scalars()}
-    stages = {(fact.current_stage_id, fact.current_stage_name) for fact in facts}
+    stages = {
+        (fact.current_stage_id, fact.current_stage_name)
+        for fact in facts
+        if _visible_event(access, fact.current_attr, now, ReportFilters())
+    }
     return {
         "reportingScope": access.label,
         "periods": [

@@ -136,19 +136,18 @@ def _period_bounds(period: str, month: date, today: date) -> tuple[date, date]:
     key = (period or PERIOD_MONTH).strip().lower()
     if key not in TARGET_PERIODS:
         raise AppError(status_code=422, code="INVALID_PERIOD", message="Unknown target period")
+    anchor_end = reporting_month_end(month.year, month.month)
+    if month.year == today.year and month.month == today.month:
+        anchor_end = min(anchor_end, today)
     if key == PERIOD_MONTH:
-        start = month
-        end = reporting_month_end(month.year, month.month)
-        if month.year == today.year and month.month == today.month:
-            end = min(end, today)
-        return start, end
+        return month, anchor_end
     if key == PERIOD_QTD:
-        return quarter_start(today), today
+        return quarter_start(month), anchor_end
     if key == PERIOD_HALF_YEAR:
-        return half_year_start(today), today
+        return half_year_start(month), anchor_end
     if key == PERIOD_YTD:
-        return date(today.year, 1, 1), today
-    return date(today.year, 1, 1), today
+        return date(month.year, 1, 1), anchor_end
+    return date(month.year, 1, 1), anchor_end
 
 
 def _entity_visible(
@@ -629,11 +628,7 @@ async def create_target(
         raise AppError(status_code=404, code="TEAM_NOT_FOUND", message="Team was not found")
     elif payload.level.value == TARGET_LEVEL_OFFICE and payload.entity_id not in offices:
         raise AppError(status_code=404, code="OFFICE_NOT_FOUND", message="Office was not found")
-    measurement = (
-        payload.measurement.value
-        if payload.measurement
-        else default_measurement(product.requested_amount_required)
-    )
+    measurement = payload.measurement.value if payload.measurement else default_measurement(product)
     await _ensure_unique(
         session,
         level=payload.level.value,
@@ -1068,7 +1063,7 @@ async def filter_options(session: AsyncSession, actor: User) -> dict[str, object
                 "code": product.code,
                 "name": product.name,
                 "requestedAmountRequired": product.requested_amount_required,
-                "defaultMeasurement": default_measurement(product.requested_amount_required),
+                "defaultMeasurement": default_measurement(product),
             }
             for product in products.values()
         ],
@@ -1093,6 +1088,36 @@ def _weight_total(metrics: list[KpiScorecardMetric] | list[KpiMetricInput]) -> D
         weight = item.weight_percent if hasattr(item, "weight_percent") else item.weight_percent
         total += quantize(weight)
     return quantize(total)
+
+
+def _metric_requires_baseline(code: str) -> bool:
+    return code not in MILESTONE_KPI
+
+
+def _assert_active_invariant(metrics: list[KpiScorecardMetric] | list[KpiMetricInput]) -> None:
+    if _weight_total(metrics) != HUNDRED:
+        raise AppError(
+            status_code=422,
+            code="KPI_WEIGHT_INVALID",
+            message="An active KPI scorecard must have weights totaling exactly 100%",
+        )
+    missing = [
+        item.metric_code
+        for item in metrics
+        if _metric_requires_baseline(item.metric_code)
+        and (
+            item.baseline is None
+            if hasattr(item, "baseline")
+            else getattr(item, "baseline", None) is None
+        )
+    ]
+    if missing:
+        raise AppError(
+            status_code=422,
+            code="KPI_BASELINE_REQUIRED",
+            message="Each comparison KPI metric requires a configured baseline/target",
+            details=missing,
+        )
 
 
 def _validate_metrics(items: list[KpiMetricInput]) -> None:
@@ -1120,6 +1145,7 @@ def serialize_scorecard(card: KpiScorecard) -> dict[str, object]:
             "metricCode": row.metric_code,
             "weightPercent": money(row.weight_percent),
             "direction": row.direction,
+            "baseline": money(row.baseline) if row.baseline is not None else None,
             "sortOrder": row.sort_order,
         }
         for row in sorted(card.metrics, key=lambda item: item.sort_order)
@@ -1191,6 +1217,7 @@ async def create_scorecard(
                 metric_code=item.metric_code,
                 weight_percent=quantize(item.weight_percent),
                 direction=item.direction.value,
+                baseline=quantize(item.baseline) if item.baseline is not None else None,
                 sort_order=item.sort_order if item.sort_order is not None else index,
             )
         )
@@ -1225,9 +1252,12 @@ async def update_scorecard(
                     metric_code=item.metric_code,
                     weight_percent=quantize(item.weight_percent),
                     direction=item.direction.value,
+                    baseline=quantize(item.baseline) if item.baseline is not None else None,
                     sort_order=item.sort_order if item.sort_order is not None else index,
                 )
             )
+        if card.status == KPI_STATUS_ACTIVE:
+            _assert_active_invariant(payload.metrics)
     card.updated_at = utcnow()
     card.updated_by_id = actor.id
     await record_audit(
@@ -1248,13 +1278,7 @@ async def set_scorecard_status(
 ) -> dict[str, object]:
     card = await _load_scorecard(session, scorecard_id)
     if active:
-        total = _weight_total(card.metrics)
-        if total != HUNDRED:
-            raise AppError(
-                status_code=422,
-                code="KPI_WEIGHT_INVALID",
-                message="An active KPI scorecard must have weights totaling exactly 100%",
-            )
+        _assert_active_invariant(card.metrics)
         current = (
             await session.execute(
                 select(KpiScorecard).where(
@@ -1398,24 +1422,24 @@ async def _employee_kpi_components(
                 if pcts
                 else None
             )
-            baseline = HUNDRED if actual is not None else None
+            baseline = quantize(metric.baseline) if metric.baseline is not None else None
         elif metric.metric_code in CONVERSION_KEYS:
             raw = conversions.get(CONVERSION_KEYS[metric.metric_code])
             actual = quantize(raw) if raw is not None else None
-            baseline = HUNDRED if actual is not None else None
+            baseline = quantize(metric.baseline) if metric.baseline is not None else None
         elif metric.metric_code == "attendance_score":
             if attendance is None:
                 actual = None
-                baseline = None
             else:
                 actual = quantize(attendance["attendanceScore"])
-                baseline = HUNDRED
+            baseline = quantize(metric.baseline) if metric.baseline is not None else None
+        configured = baseline is not None
         achievement = directed_achievement(
             actual if actual is not None else ZERO,
             baseline,
             metric.direction,
         )
-        if actual is None:
+        if actual is None or not configured:
             achievement = None
         contribution = weighted_contribution(achievement, quantize(metric.weight_percent))
         score += contribution
@@ -1429,6 +1453,7 @@ async def _employee_kpi_components(
                 "baseline": money(baseline) if baseline is not None else None,
                 "achievementPct": achievement,
                 "weightedContribution": money(contribution),
+                "configured": configured,
             }
         )
     return {
@@ -1553,10 +1578,29 @@ async def dashboard_targets_summary(
             offices=offices,
         )
     ]
+
+    def _sort_name(row: PerformanceTarget) -> str:
+        if row.level == TARGET_LEVEL_EMPLOYEE:
+            user = users.get(row.entity_id)
+            return user.full_name.lower() if user else str(row.entity_id)
+        if row.level == TARGET_LEVEL_TEAM:
+            team = teams.get(row.entity_id)
+            return team.name.lower() if team else str(row.entity_id)
+        office = offices.get(row.entity_id)
+        return office.name.lower() if office else str(row.entity_id)
+
+    visible.sort(
+        key=lambda row: (
+            row.level,
+            _sort_name(row),
+            products[row.product_id].code if row.product_id in products else "",
+            row.milestone,
+            str(row.bank_id or ""),
+        )
+    )
     weekdays, holidays = await _calendar_context(session)
-    preview = visible[:8]
     items = []
-    for row in preview:
+    for row in visible:
         result = await _compute_result(
             session,
             actor,

@@ -5,6 +5,7 @@ from pathlib import Path
 from uuid import UUID
 
 from sqlalchemy import func, or_, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from nexa_bos_api.core.config import get_settings
@@ -34,6 +35,8 @@ from nexa_bos_api.identity.models import (
     Designation,
     EmploymentPeriod,
     Office,
+    ReservedEmail,
+    ReservedEmployeeCode,
     Team,
     User,
     UserAssignmentHistory,
@@ -131,6 +134,21 @@ async def assert_unique_email(
             message="Email is already used, including historical values",
             details=_conflict_details(owner),
         )
+    reserved = await session.get(ReservedEmail, email.lower())
+    if reserved is not None and reserved.user_id != ignore_user_id:
+        holder = await session.get(User, reserved.user_id)
+        if holder:
+            raise AppError(
+                status_code=409,
+                code="EMAIL_DUPLICATE",
+                message="Email is already used, including historical values",
+                details=_conflict_details(holder),
+            )
+        raise AppError(
+            status_code=409,
+            code="EMAIL_DUPLICATE",
+            message="Email is already used, including historical values",
+        )
 
 
 async def assert_unique_employee_code(
@@ -144,6 +162,66 @@ async def assert_unique_employee_code(
             message="Employee code is already used, including historical values",
             details=_conflict_details(owner),
         )
+    reserved = await session.get(ReservedEmployeeCode, employee_code)
+    if reserved is not None and reserved.user_id != ignore_user_id:
+        holder = await session.get(User, reserved.user_id)
+        if holder:
+            raise AppError(
+                status_code=409,
+                code="EMPLOYEE_CODE_DUPLICATE",
+                message="Employee code is already used, including historical values",
+                details=_conflict_details(holder),
+            )
+        raise AppError(
+            status_code=409,
+            code="EMPLOYEE_CODE_DUPLICATE",
+            message="Employee code is already used, including historical values",
+        )
+
+
+async def reserve_email(session: AsyncSession, email: str, user_id: UUID) -> None:
+    normalized = email.lower()
+    existing = await session.get(ReservedEmail, normalized)
+    if existing is not None:
+        if existing.user_id != user_id:
+            raise AppError(
+                status_code=409,
+                code="EMAIL_DUPLICATE",
+                message="Email is already used, including historical values",
+            )
+        return
+    session.add(ReservedEmail(email_normalized=normalized, user_id=user_id))
+    try:
+        await session.flush()
+    except IntegrityError as exc:
+        await session.rollback()
+        raise AppError(
+            status_code=409,
+            code="EMAIL_DUPLICATE",
+            message="Email is already used, including historical values",
+        ) from exc
+
+
+async def reserve_employee_code(session: AsyncSession, employee_code: str, user_id: UUID) -> None:
+    existing = await session.get(ReservedEmployeeCode, employee_code)
+    if existing is not None:
+        if existing.user_id != user_id:
+            raise AppError(
+                status_code=409,
+                code="EMPLOYEE_CODE_DUPLICATE",
+                message="Employee code is already used, including historical values",
+            )
+        return
+    session.add(ReservedEmployeeCode(employee_code=employee_code, user_id=user_id))
+    try:
+        await session.flush()
+    except IntegrityError as exc:
+        await session.rollback()
+        raise AppError(
+            status_code=409,
+            code="EMPLOYEE_CODE_DUPLICATE",
+            message="Employee code is already used, including historical values",
+        ) from exc
 
 
 async def assert_manager_ok(
@@ -389,6 +467,8 @@ async def create_user(session: AsyncSession, actor: User, payload: UserCreateReq
     )
     session.add(user)
     await session.flush()
+    await reserve_email(session, user.email, user.id)
+    await reserve_employee_code(session, user.employee_code, user.id)
     period = EmploymentPeriod(
         id=new_uuid(),
         user_id=user.id,
@@ -413,7 +493,15 @@ async def create_user(session: AsyncSession, actor: User, payload: UserCreateReq
             "employeeCode": user.employee_code,
         },
     )
-    await session.commit()
+    try:
+        await session.commit()
+    except IntegrityError as exc:
+        await session.rollback()
+        raise AppError(
+            status_code=409,
+            code="IDENTITY_UNIQUE_CONFLICT",
+            message="Email or employee code is already used, including historical values",
+        ) from exc
     return await reload_user(session, user.id)
 
 
@@ -551,6 +639,7 @@ async def update_user(
         await assert_unique_email(session, payload.email, ignore_user_id=target.id)
         session.add(UserEmailHistory(user_id=target.id, email=target.email, changed_at=now))
         target.email = payload.email.lower()
+        await reserve_email(session, target.email, target.id)
         await terminate_sessions(session, target.id)
     if payload.employee_code and payload.employee_code != target.employee_code:
         await assert_unique_employee_code(session, payload.employee_code, ignore_user_id=target.id)
@@ -563,6 +652,7 @@ async def update_user(
             at=now,
         )
         target.employee_code = payload.employee_code.strip()
+        await reserve_employee_code(session, target.employee_code, target.id)
     org_touched = any(
         name in payload.model_fields_set for name in ("office_id", "department_id", "team_id")
     )

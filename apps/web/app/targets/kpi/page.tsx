@@ -27,6 +27,7 @@ type MetricRow = {
   metricCode: string;
   weightPercent: string;
   direction: string;
+  baseline?: string | null;
   sortOrder: number;
 };
 type Scorecard = {
@@ -45,7 +46,13 @@ export default function KpiScorecardsPage() {
   const [catalog, setCatalog] = useState<MetricDef[]>([]);
   const [name, setName] = useState("");
   const [rows, setRows] = useState<MetricRow[]>([
-    { metricCode: "target_achievement", weightPercent: "100", direction: "higher_is_better", sortOrder: 0 },
+    {
+      metricCode: "target_achievement",
+      weightPercent: "100",
+      direction: "higher_is_better",
+      baseline: "100",
+      sortOrder: 0,
+    },
   ]);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -80,6 +87,7 @@ export default function KpiScorecardsPage() {
         metricCode: next.code,
         weightPercent: "0",
         direction: next.defaultDirection,
+        baseline: "",
         sortOrder: rows.length,
       },
     ]);
@@ -94,6 +102,7 @@ export default function KpiScorecardsPage() {
         metric_code: row.metricCode,
         weight_percent: row.weightPercent,
         direction: row.direction,
+        baseline: row.baseline ? row.baseline : null,
         sort_order: index,
       })),
     };
@@ -174,7 +183,7 @@ export default function KpiScorecardsPage() {
           </p>
           <div className="mt-3 space-y-3">
             {rows.map((row, index) => (
-              <div key={`${row.metricCode}-${index}`} className="grid gap-3 md:grid-cols-3">
+              <div key={`${row.metricCode}-${index}`} className="grid gap-3 md:grid-cols-4">
                 <Field label="Metric">
                   <Select
                     aria-label={`Metric ${index + 1}`}
@@ -199,6 +208,17 @@ export default function KpiScorecardsPage() {
                     onChange={(event) => {
                       const next = [...rows];
                       next[index] = { ...row, weightPercent: event.target.value };
+                      setRows(next);
+                    }}
+                  />
+                </Field>
+                <Field label="Baseline / target">
+                  <TextInput
+                    aria-label={`Baseline ${index + 1}`}
+                    value={row.baseline ?? ""}
+                    onChange={(event) => {
+                      const next = [...rows];
+                      next[index] = { ...row, baseline: event.target.value };
                       setRows(next);
                     }}
                   />

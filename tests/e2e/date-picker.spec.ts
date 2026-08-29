@@ -55,7 +55,7 @@ test("create user form uses the NEXA BOS date picker", async ({ page, request })
   await joining.fill("2026-03-15");
   await expect(joining).toHaveValue("2026-03-15");
 
-  await page.getByRole("button", { name: "Open calendar" }).first().click();
+  await joining.locator("xpath=..").getByRole("button", { name: "Open calendar" }).click();
   await expect(page.getByRole("dialog", { name: "Choose date" })).toBeVisible();
   await page.getByRole("button", { name: "Next month" }).click();
   await page.getByRole("button", { name: "Previous month" }).click();
@@ -94,7 +94,7 @@ test("invalid typed dates block submit and month navigation keeps a focused day"
   await expect
     .poll(async () => joining.evaluate((el: HTMLInputElement) => el.checkValidity()))
     .toBe(true);
-  await page.getByRole("button", { name: "Open calendar" }).first().click();
+  await joining.locator("xpath=..").getByRole("button", { name: "Open calendar" }).click();
   await expect(page.getByRole("dialog", { name: "Choose date" })).toBeVisible();
   await expect(page.getByRole("button", { name: "2026-03-31" })).toHaveAttribute("tabindex", "0");
   await page.getByRole("button", { name: "Previous month" }).click();
@@ -104,7 +104,7 @@ test("invalid typed dates block submit and month navigation keeps a focused day"
   await expect(page.getByRole("dialog", { name: "Choose date" })).toHaveCount(0);
 
   await joining.fill("2026-03-03");
-  await page.getByRole("button", { name: "Open calendar" }).first().click();
+  await joining.locator("xpath=..").getByRole("button", { name: "Open calendar" }).click();
   await expect(page.getByRole("dialog", { name: "Choose date" })).toBeVisible();
   await expect(page.getByRole("button", { name: "2026-03-03" })).toHaveAttribute("tabindex", "0");
   await page.getByRole("button", { name: "2026-03-03" }).focus();

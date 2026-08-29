@@ -344,6 +344,7 @@ test("owner targets, KPI scorecards, profile section, and scoped isolation", asy
   await page.getByLabel("Metric 2").selectOption("attendance_score");
   await page.getByLabel("Weight 1").fill("80");
   await page.getByLabel("Weight 2").fill("20");
+  await page.getByLabel("Baseline 2").fill("100");
   await page.getByRole("button", { name: "Save scorecard" }).click();
   await expect(page.getByText("KPI scorecard updated.")).toBeVisible();
   await cardRow.getByRole("button", { name: "Activate" }).click();

@@ -101,6 +101,7 @@ export default function CatalogPage() {
                 <th className="px-3 py-2 text-left">Approved</th>
                 <th className="px-3 py-2 text-left">Booked</th>
                 <th className="px-3 py-2 text-left">Funded</th>
+                <th className="px-3 py-2 text-left">Target measurement</th>
               </tr>
             </thead>
             <tbody>
@@ -129,6 +130,22 @@ export default function CatalogPage() {
                       />
                     </td>
                   ))}
+                  <td className="px-3 py-2">
+                    <select
+                      aria-label={`${product.code} target measurement`}
+                      className={controlClass}
+                      value={product.targetMeasurement ?? "count"}
+                      onChange={(event) =>
+                        void apiRequest(`/api/v1/products/${product.id}/field-rules`, api, {
+                          method: "PUT",
+                          body: JSON.stringify({ target_measurement: event.target.value }),
+                        }).then(refresh)
+                      }
+                    >
+                      <option value="count">Count</option>
+                      <option value="amount">Amount</option>
+                    </select>
+                  </td>
                 </tr>
               ))}
             </tbody>

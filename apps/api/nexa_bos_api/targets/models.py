@@ -146,6 +146,7 @@ class KpiScorecardMetric(Base):
     metric_code: Mapped[str] = mapped_column(String(64), nullable=False)
     weight_percent: Mapped[Decimal] = mapped_column(Numeric(5, 2), nullable=False)
     direction: Mapped[str] = mapped_column(String(32), nullable=False)
+    baseline: Mapped[Decimal | None] = mapped_column(Numeric(18, 2))
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     scorecard: Mapped[KpiScorecard] = relationship(back_populates="metrics")

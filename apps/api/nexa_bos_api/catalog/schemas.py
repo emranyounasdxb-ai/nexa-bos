@@ -33,3 +33,4 @@ class ProductFieldRulesUpdate(BaseModel):
     approved_amount_required: bool | None = None
     booked_amount_required: bool | None = None
     funded_amount_required: bool | None = None
+    target_measurement: str | None = None

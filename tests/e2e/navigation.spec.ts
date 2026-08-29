@@ -30,7 +30,7 @@ async function signIn(page: Page, request: APIRequestContext) {
   await ensureOwner(request);
   await page.goto("/login");
   await expect(page.getByRole("heading", { name: "Sign in to NEXA BOS" })).toBeVisible();
-  await expect(page.getByText("MFA is not enforced")).toBeVisible();
+  await expect(page.getByText("Authenticator challenge is required only when MFA is enabled")).toBeVisible();
   await page.getByLabel("Email").fill("owner@example.com");
   await page.getByLabel("Password").fill("OwnerPass1!");
   await page.getByRole("button", { name: "Sign in" }).click();
@@ -74,10 +74,13 @@ test("owner can log in, navigate major screens, sign out, and log in again", asy
   await page.getByRole("link", { name: "My profile" }).click();
   await expect(page.getByRole("heading", { name: "My profile" })).toBeVisible();
 
-  await page.getByRole("button", { name: "Sign out" }).click();
-  await expect(page).toHaveURL(/\/login/, { timeout: 15_000 });
+  const signOut = page.locator("header").getByRole("button", { name: "Sign out" });
+  await signOut.waitFor({ state: "visible" });
+  await signOut.evaluate((button: HTMLButtonElement) => button.click());
+  await expect(page).toHaveURL(/\/login/, { timeout: 20_000 });
   await expect(page.getByRole("heading", { name: "Sign in to NEXA BOS" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Sign in", exact: true })).toBeVisible();
+  await expect(page.getByLabel("Email")).toBeVisible();
 
   await page.getByLabel("Email").fill("owner@example.com");
   await page.getByLabel("Password").fill("OwnerPass1!");

@@ -174,6 +174,7 @@ async def products_field_rules(
             approved_amount_required=payload.approved_amount_required,
             booked_amount_required=payload.booked_amount_required,
             funded_amount_required=payload.funded_amount_required,
+            target_measurement=payload.target_measurement,
         )
     )
 

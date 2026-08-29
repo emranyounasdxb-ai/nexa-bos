@@ -49,6 +49,7 @@ class Product(Base):
     approved_amount_required: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     booked_amount_required: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     funded_amount_required: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    target_measurement: Mapped[str] = mapped_column(String(20), nullable=False, default="count")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 

@@ -5,7 +5,12 @@ from collections.abc import Iterable
 from datetime import date, timedelta
 from decimal import ROUND_HALF_UP, Decimal
 
-from nexa_bos_api.targets.enums import DIRECTION_HIGHER, DIRECTION_LOWER, MEASUREMENT_AMOUNT
+from nexa_bos_api.targets.enums import (
+    DIRECTION_HIGHER,
+    DIRECTION_LOWER,
+    MEASUREMENT_AMOUNT,
+    MEASUREMENT_COUNT,
+)
 
 ZERO = Decimal("0.00")
 HUNDRED = Decimal("100.00")
@@ -118,8 +123,12 @@ def directed_achievement(
 def weighted_contribution(achievement: float | None, weight: Decimal) -> Decimal:
     if achievement is None:
         return ZERO
-    return quantize(Decimal(str(achievement)) * weight / HUNDRED)
+    capped = min(Decimal(str(achievement)), HUNDRED)
+    return quantize(capped * weight / HUNDRED)
 
 
-def default_measurement(requested_amount_required: bool) -> str:
-    return MEASUREMENT_AMOUNT if requested_amount_required else "count"
+def default_measurement(product: object) -> str:
+    measurement = getattr(product, "target_measurement", None)
+    if measurement in {MEASUREMENT_AMOUNT, MEASUREMENT_COUNT}:
+        return str(measurement)
+    return MEASUREMENT_COUNT

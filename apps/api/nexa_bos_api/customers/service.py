@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from difflib import SequenceMatcher
 from uuid import UUID
 
 from sqlalchemy import func, or_, select
@@ -35,6 +36,27 @@ def normalize_identifier(value: str | None) -> str | None:
         return None
     compact = " ".join(value.split()).upper()
     return compact or None
+
+
+NAME_SIMILARITY_THRESHOLD = 85.0
+
+
+def normalize_name(value: str | None) -> str | None:
+    if value is None:
+        return None
+    compact = " ".join(value.split()).casefold()
+    return compact or None
+
+
+def normalize_contact(value: str | None) -> str | None:
+    if value is None:
+        return None
+    compact = "".join(value.split()).casefold()
+    return compact or None
+
+
+def name_similarity(left: str, right: str) -> float:
+    return SequenceMatcher(None, left, right).ratio() * 100
 
 
 def _blank_to_none(value: str | None) -> str | None:
@@ -286,22 +308,40 @@ async def find_possible_duplicates(
     email: str | None,
     ignore_customer_id: UUID | None = None,
 ) -> list[Customer]:
-    clauses = [Customer.mobile == mobile]
-    if full_name:
-        clauses.append(func.lower(Customer.full_name) == full_name.lower())
-        clauses.append(func.lower(Customer.company_name) == full_name.lower())
-    if company_name:
-        clauses.append(func.lower(Customer.company_name) == company_name.lower())
-        clauses.append(func.lower(Customer.full_name) == company_name.lower())
-    if email:
-        clauses.append(func.lower(Customer.email) == email.lower())
+    incoming_names = [
+        value for value in (normalize_name(full_name), normalize_name(company_name)) if value
+    ]
+    mobile_n = normalize_contact(mobile)
+    email_n = normalize_contact(email)
+    if not incoming_names or (mobile_n is None and email_n is None):
+        return []
+    contact_clauses = []
+    if mobile_n is not None:
+        contact_clauses.append(func.replace(func.lower(Customer.mobile), " ", "") == mobile_n)
+    if email_n is not None:
+        contact_clauses.append(func.lower(Customer.email) == email_n)
     stmt = select(Customer).where(
         Customer.status != CustomerStatus.MERGED,
-        or_(*clauses),
+        or_(*contact_clauses),
     )
     if ignore_customer_id is not None:
         stmt = stmt.where(Customer.id != ignore_customer_id)
-    return list((await session.execute(stmt)).scalars().unique().all())
+    candidates = list((await session.execute(stmt)).scalars().unique().all())
+    matches: list[Customer] = []
+    for customer in candidates:
+        existing_names = [
+            value
+            for value in (normalize_name(customer.full_name), normalize_name(customer.company_name))
+            if value
+        ]
+        similar = any(
+            name_similarity(incoming, existing) >= NAME_SIMILARITY_THRESHOLD
+            for incoming in incoming_names
+            for existing in existing_names
+        )
+        if similar:
+            matches.append(customer)
+    return matches
 
 
 async def create_customer(
@@ -565,6 +605,58 @@ async def merge_customers(
         )
     primary = await get_visible_customer(session, actor, primary_id)
     _reject_merged(primary)
+    from nexa_bos_api.applications.models import Application
+
+    source_active = list(
+        (
+            await session.execute(
+                select(Application).where(
+                    Application.customer_id == source.id,
+                    Application.terminal_outcome.is_(None),
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    primary_active = list(
+        (
+            await session.execute(
+                select(Application).where(
+                    Application.customer_id == primary.id,
+                    Application.terminal_outcome.is_(None),
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    source_keys = {(row.bank_id, row.product_id): row for row in source_active}
+    conflicts = []
+    for row in primary_active:
+        other = source_keys.get((row.bank_id, row.product_id))
+        if other is None:
+            continue
+        conflicts.append(
+            {
+                "bankId": str(row.bank_id),
+                "productId": str(row.product_id),
+                "primaryApplicationId": str(row.id),
+                "primaryApplicationCode": row.application_code,
+                "sourceApplicationId": str(other.id),
+                "sourceApplicationCode": other.application_code,
+            }
+        )
+    if conflicts:
+        raise AppError(
+            status_code=409,
+            code="APPLICATION_MERGE_CONFLICT",
+            message=(
+                "Merge is blocked because both customers have an active application "
+                "for the same Bank and Product"
+            ),
+            details=conflicts,
+        )
     now = utcnow()
     source.status = CustomerStatus.MERGED
     source.merged_into_id = primary.id

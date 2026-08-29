@@ -24,6 +24,7 @@ from nexa_bos_api.targets.calc import (
     directed_achievement,
     gap_value,
     prorate_target,
+    weighted_contribution,
     working_dates,
 )
 
@@ -232,6 +233,14 @@ def test_calc_safe_zero_and_working_days() -> None:
     )
     assert directed_achievement(Decimal("0"), Decimal("0"), "lower_is_better") == 100.0
     assert directed_achievement(Decimal("10"), Decimal("0"), "lower_is_better") == 0.0
+    assert directed_achievement(Decimal("50"), None, "higher_is_better") is None
+    assert directed_achievement(Decimal("50"), None, "lower_is_better") is None
+    assert directed_achievement(Decimal("80"), Decimal("100"), "higher_is_better") == 80.0
+    assert directed_achievement(Decimal("50"), Decimal("100"), "lower_is_better") == 200.0
+    assert directed_achievement(Decimal("0"), Decimal("10"), "lower_is_better") == 100.0
+    assert weighted_contribution(200.0, Decimal("40")) == Decimal("40.00")
+    assert weighted_contribution(80.0, Decimal("40")) == Decimal("32.00")
+    assert weighted_contribution(None, Decimal("40")) == Decimal("0.00")
     days = working_dates(date(2026, 8, 29), date(2026, 8, 31), {0, 1, 2, 3, 4}, {date(2026, 8, 31)})
     assert days == []
 
@@ -661,6 +670,7 @@ async def test_period_aggregation_prorate_run_rate_lock_kpi_profile_scope(
                     "metric_code": "target_achievement",
                     "weight_percent": "40",
                     "direction": "higher_is_better",
+                    "baseline": "100",
                 },
                 {
                     "metric_code": "funded_count",
@@ -671,6 +681,7 @@ async def test_period_aggregation_prorate_run_rate_lock_kpi_profile_scope(
                     "metric_code": "attendance_score",
                     "weight_percent": "20",
                     "direction": "higher_is_better",
+                    "baseline": "100",
                 },
             ]
         },

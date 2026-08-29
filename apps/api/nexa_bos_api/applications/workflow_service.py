@@ -5,7 +5,13 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from nexa_bos_api.applications.models import Workflow, WorkflowStage, WorkflowTransition, new_uuid
+from nexa_bos_api.applications.models import (
+    Application,
+    Workflow,
+    WorkflowStage,
+    WorkflowTransition,
+    new_uuid,
+)
 from nexa_bos_api.applications.seed import (
     create_workflow_record,
     utcnow,
@@ -151,9 +157,27 @@ async def create_workflow_version(
     return await load_workflow(session, created.id)
 
 
+async def _assert_workflow_unused(session: AsyncSession, workflow: Workflow) -> None:
+    used = (
+        await session.execute(
+            select(Application.id).where(Application.workflow_id == workflow.id).limit(1)
+        )
+    ).scalar_one_or_none()
+    if used is not None:
+        raise AppError(
+            status_code=409,
+            code="WORKFLOW_VERSION_IN_USE",
+            message=(
+                "This workflow version is in use by an application and cannot be mutated in place. "
+                "Create a new workflow version."
+            ),
+        )
+
+
 async def add_stage(
     session: AsyncSession, actor: User, workflow: Workflow, name: str, code: str, sort_order: int
 ) -> WorkflowStage:
+    await _assert_workflow_unused(session, workflow)
     now = utcnow()
     normalized = code.strip().upper()
     duplicate = next((row for row in workflow.stages if row.code == normalized), None)
@@ -201,6 +225,8 @@ async def update_stage(
     name: str | None,
     sort_order: int | None,
 ) -> WorkflowStage:
+    workflow = await load_workflow(session, stage.workflow_id)
+    await _assert_workflow_unused(session, workflow)
     if stage.system_key == StageSystemKey.APPLICATION_CREATED and name:
         if name.strip() != "Application Created":
             raise AppError(
@@ -230,6 +256,8 @@ async def update_stage(
 async def set_stage_status(
     session: AsyncSession, actor: User, stage: WorkflowStage, status: MasterStatus
 ) -> WorkflowStage:
+    workflow = await load_workflow(session, stage.workflow_id)
+    await _assert_workflow_unused(session, workflow)
     if stage.system_key == StageSystemKey.APPLICATION_CREATED and status != MasterStatus.ACTIVE:
         raise AppError(
             status_code=422,
@@ -253,6 +281,7 @@ async def set_stage_status(
 async def replace_transitions(
     session: AsyncSession, actor: User, workflow: Workflow, items: list[dict]
 ) -> Workflow:
+    await _assert_workflow_unused(session, workflow)
     stage_ids = {row.id for row in workflow.stages}
     pairs: list[tuple[UUID, UUID]] = []
     for item in items:

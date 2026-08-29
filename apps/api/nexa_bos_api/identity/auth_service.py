@@ -4,6 +4,7 @@ import hmac
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
+import pyotp
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -115,7 +116,9 @@ def csrf_matches(row: Session, csrf_token: str | None) -> bool:
     return hmac.compare_digest(hash_token(csrf_token), row.csrf_token_hash)
 
 
-async def login(session: AsyncSession, email: str, password: str) -> tuple[User, str, str]:
+async def login(
+    session: AsyncSession, email: str, password: str
+) -> tuple[User, str | None, str | None, str | None]:
     user = (
         await session.execute(
             select(User)
@@ -179,6 +182,80 @@ async def login(session: AsyncSession, email: str, password: str) -> tuple[User,
 
     user.failed_login_count = 0
     user.locked_until = None
+    if user.mfa_enabled:
+        if not user.mfa_secret:
+            raise AppError(
+                status_code=403,
+                code="MFA_NOT_CONFIGURED",
+                message="MFA is enabled but no authenticator secret is configured",
+            )
+        challenge = new_token()
+        session.add(
+            OneTimeToken(
+                id=new_uuid(),
+                user_id=user.id,
+                purpose=TokenPurpose.MFA_LOGIN,
+                token_hash=hash_token(challenge),
+                expires_at=_utcnow() + timedelta(minutes=10),
+                created_at=_utcnow(),
+            )
+        )
+        await record_audit(
+            session,
+            action="auth.mfa_challenge",
+            entity_type="user",
+            entity_id=str(user.id),
+            actor_id=user.id,
+            target_user_id=user.id,
+        )
+        await session.commit()
+        user = await load_user_with_type(session, user.id)
+        assert user is not None
+        return user, None, None, challenge
+    token, csrf = await create_session(session, user)
+    await record_audit(
+        session,
+        action="auth.login",
+        entity_type="user",
+        entity_id=str(user.id),
+        actor_id=user.id,
+        target_user_id=user.id,
+    )
+    await session.commit()
+    user = await load_user_with_type(session, user.id)
+    assert user is not None
+    return user, token, csrf, None
+
+
+async def complete_mfa_login(
+    session: AsyncSession, raw_token: str, code: str
+) -> tuple[User, str, str]:
+    token_hash = hash_token(raw_token)
+    row = (
+        await session.execute(select(OneTimeToken).where(OneTimeToken.token_hash == token_hash))
+    ).scalar_one_or_none()
+    now = _utcnow()
+    if (
+        row is None
+        or row.used_at is not None
+        or row.expires_at <= now
+        or row.purpose != TokenPurpose.MFA_LOGIN
+    ):
+        raise AppError(
+            status_code=400,
+            code="TOKEN_INVALID",
+            message="MFA challenge is invalid or expired",
+        )
+    user = await load_user_with_type(session, row.user_id)
+    if user is None or not user.mfa_enabled or not user.mfa_secret:
+        raise AppError(
+            status_code=400,
+            code="TOKEN_INVALID",
+            message="MFA challenge is invalid or expired",
+        )
+    if not pyotp.TOTP(user.mfa_secret).verify(code, valid_window=1):
+        raise AppError(status_code=422, code="MFA_INVALID", message="Invalid authenticator code")
+    row.used_at = now
     token, csrf = await create_session(session, user)
     await record_audit(
         session,

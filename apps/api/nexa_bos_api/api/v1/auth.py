@@ -12,6 +12,7 @@ from nexa_bos_api.core.exceptions import AppError
 from nexa_bos_api.db.session import SessionDep
 from nexa_bos_api.identity.audit import record_audit
 from nexa_bos_api.identity.auth_service import (
+    complete_mfa_login,
     consume_password_token,
     get_settings_row,
     issue_one_time_link,
@@ -27,6 +28,7 @@ from nexa_bos_api.identity.permissions import USERS_GENERATE_RESET_LINK, USERS_G
 from nexa_bos_api.identity.schemas import (
     LoginRequest,
     MfaConfirmRequest,
+    MfaLoginRequest,
     OwnerBootstrapRequest,
     PasswordSetRequest,
 )
@@ -50,11 +52,24 @@ async def bootstrap_owner(payload: OwnerBootstrapRequest, session: SessionDep) -
 async def login_route(
     payload: LoginRequest, session: SessionDep, response: Response
 ) -> dict[str, object]:
-    user, token, csrf = await login(session, str(payload.email), payload.password)
+    user, token, csrf, mfa_token = await login(session, str(payload.email), payload.password)
+    if mfa_token:
+        return {"mfaRequired": True, "mfaToken": mfa_token, "userId": str(user.id)}
     settings = get_settings()
     sec = await get_settings_row(session)
     set_session_cookie(response, token, settings, max_age=sec.absolute_session_hours * 3600)
-    return {"user": public_user(user), "csrfToken": csrf}
+    return {"user": public_user(user), "csrfToken": csrf, "mfaRequired": False}
+
+
+@router.post("/mfa/login")
+async def mfa_login_route(
+    payload: MfaLoginRequest, session: SessionDep, response: Response
+) -> dict[str, object]:
+    user, token, csrf = await complete_mfa_login(session, payload.token, payload.code)
+    settings = get_settings()
+    sec = await get_settings_row(session)
+    set_session_cookie(response, token, settings, max_age=sec.absolute_session_hours * 3600)
+    return {"user": public_user(user), "csrfToken": csrf, "mfaRequired": False}
 
 
 @router.post("/logout")

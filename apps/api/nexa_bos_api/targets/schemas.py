@@ -41,6 +41,7 @@ class KpiMetricInput(BaseModel):
     metric_code: str = Field(min_length=1, max_length=64)
     weight_percent: Decimal = Field(gt=0, le=100)
     direction: KpiDirection
+    baseline: Decimal | None = Field(default=None, ge=0)
     sort_order: int | None = None
 
 

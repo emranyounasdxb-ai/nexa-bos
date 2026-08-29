@@ -25,6 +25,22 @@ import { apiGet, apiRequest, ApiClientError } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { getBrowserApiUrl } from "@/lib/env";
 
+const FILTERS_KEY = "nexa-bos.attendance.filters";
+
+type SavedFilters = { date?: string; officeId?: string; departmentId?: string };
+
+function readSavedFilters(): SavedFilters {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = sessionStorage.getItem(FILTERS_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as SavedFilters;
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
 type FilterOffice = { id: string; name: string; code: string };
 type FilterDept = { id: string; name: string; officeId: string };
 type LeaveType = { id: string; name: string; code: string };
@@ -51,6 +67,7 @@ export default function AttendancePage() {
   const [date, setDate] = useState(todayIso());
   const [officeId, setOfficeId] = useState("");
   const [departmentId, setDepartmentId] = useState("");
+  const [filtersReady, setFiltersReady] = useState(false);
   const [offices, setOffices] = useState<FilterOffice[]>([]);
   const [departments, setDepartments] = useState<FilterDept[]>([]);
   const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
@@ -71,6 +88,19 @@ export default function AttendancePage() {
     () => departments.filter((item) => !officeId || item.officeId === officeId),
     [departments, officeId],
   );
+
+  useEffect(() => {
+    const saved = readSavedFilters();
+    if (saved.date) setDate(saved.date);
+    if (saved.officeId) setOfficeId(saved.officeId);
+    if (saved.departmentId) setDepartmentId(saved.departmentId);
+    setFiltersReady(true);
+  }, []);
+
+  useEffect(() => {
+    if (!filtersReady) return;
+    sessionStorage.setItem(FILTERS_KEY, JSON.stringify({ date, officeId, departmentId }));
+  }, [filtersReady, date, officeId, departmentId]);
 
   const loadFilters = useCallback(async () => {
     const data = await apiGet<{
@@ -129,9 +159,9 @@ export default function AttendancePage() {
   }, [can, loadFilters]);
 
   useEffect(() => {
-    if (!can("Attendance.View")) return;
+    if (!can("Attendance.View") || !filtersReady) return;
     void loadDay();
-  }, [can, loadDay]);
+  }, [can, loadDay, filtersReady]);
 
   function updateDraft(employeeId: string, patch: Partial<Draft>) {
     setDrafts((current) => ({ ...current, [employeeId]: { ...current[employeeId], ...patch } }));

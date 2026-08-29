@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 
 import { Button, focusRing, cx } from "@/components/ui";
-import { apiGet, apiRequest, setCsrfToken } from "@/lib/api";
+import { apiGet, apiRequest, getCsrfToken, setCsrfToken } from "@/lib/api";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
 import { getBrowserApiUrl } from "@/lib/env";
 import type { UserRecord } from "@/lib/types";
@@ -64,26 +64,23 @@ function HolidayReminders() {
 
 function Shell({ children }: { children: ReactNode }) {
   const { user, can, setUser } = useAuth();
-  const router = useRouter();
   const pathname = usePathname();
 
   async function logout() {
     try {
-      const current = await apiGet<UserRecord>("/api/v1/auth/me", getBrowserApiUrl());
-      if (current.csrfToken) {
-        setCsrfToken(current.csrfToken);
+      if (!getCsrfToken()) {
+        const current = await apiGet<UserRecord>("/api/v1/auth/me", getBrowserApiUrl());
+        if (current.csrfToken) {
+          setCsrfToken(current.csrfToken);
+        }
       }
-    } catch {
-      /* keep any existing CSRF token and still attempt logout */
-    }
-    try {
       await apiRequest("/api/v1/auth/logout", getBrowserApiUrl(), { method: "POST" });
     } catch {
       /* session already gone */
     }
     setCsrfToken(null);
     setUser(null);
-    router.push("/login");
+    window.location.assign("/login");
   }
 
   const links = [
@@ -155,8 +152,12 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
     void apiGet<UserRecord>("/api/v1/auth/me", getBrowserApiUrl())
       .then((current) => {
+        if (cancelled) {
+          return;
+        }
         if (current.csrfToken) {
           setCsrfToken(current.csrfToken);
         }
@@ -167,6 +168,9 @@ export function AppShell({ children }: { children: ReactNode }) {
         }
       })
       .catch(async () => {
+        if (cancelled) {
+          return;
+        }
         setCsrfToken(null);
         setUser(null);
         setReady(true);
@@ -176,12 +180,19 @@ export function AppShell({ children }: { children: ReactNode }) {
               "/api/v1/auth/bootstrap-status",
               getBrowserApiUrl(),
             );
-            router.replace(status.available ? "/bootstrap" : "/login");
+            if (!cancelled) {
+              router.replace(status.available ? "/bootstrap" : "/login");
+            }
           } catch {
-            router.replace("/login");
+            if (!cancelled) {
+              router.replace("/login");
+            }
           }
         }
       });
+    return () => {
+      cancelled = true;
+    };
   }, [pathname, router]);
 
   if (!ready) {
