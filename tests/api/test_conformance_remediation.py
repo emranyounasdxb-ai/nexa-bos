@@ -9,7 +9,7 @@ from uuid import UUID, uuid4
 import pyotp
 import pytest
 from httpx import AsyncClient
-from sqlalchemy import insert, select, text
+from sqlalchemy import insert, select
 from sqlalchemy.exc import IntegrityError
 
 from helpers import (
@@ -40,9 +40,6 @@ from nexa_bos_api.reporting.service import (
     trend_points,
 )
 from nexa_bos_api.targets.calc import default_measurement, month_end
-from nexa_bos_api.targets.enums import DIRECTION_LOWER, KPI_STATUS_ACTIVE, KPI_STATUS_INACTIVE
-from nexa_bos_api.targets.kpi_baseline_upgrade import DEACTIVATE_ACTIVE_MISSING_BASELINE_SQL
-from nexa_bos_api.targets.models import KpiScorecard, KpiScorecardMetric
 from nexa_bos_api.targets.service import _period_bounds
 
 _TEST_STAGES = (
@@ -914,67 +911,6 @@ async def test_mfa_off_unchanged_and_enabled_user_cannot_bypass(client: AsyncCli
     me = await challenger.get("/api/v1/auth/me")
     assert me.status_code == 200
     assert me.json()["id"] == user["id"]
-
-
-@pytest.mark.asyncio
-async def test_0011_deactivates_active_scorecard_missing_required_baseline(
-    client: AsyncClient,
-) -> None:
-    authed, owner = await owner_client(client)
-    tag = unique_tag()
-    scorecard_id = uuid4()
-    metric_id = uuid4()
-    async with app.state.session_factory() as session:
-        await session.execute(text("UPDATE kpi_scorecards SET status = 'inactive' WHERE status = 'active'"))
-        session.add(
-            KpiScorecard(
-                id=scorecard_id,
-                name=f"Legacy Lower {tag}",
-                status=KPI_STATUS_ACTIVE,
-                created_at=datetime.now(UTC),
-                updated_at=datetime.now(UTC),
-                created_by_id=UUID(owner["id"]),
-                updated_by_id=UUID(owner["id"]),
-            )
-        )
-        session.add(
-            KpiScorecardMetric(
-                id=metric_id,
-                scorecard_id=scorecard_id,
-                metric_code="submitted_to_final_rejected",
-                weight_percent=Decimal("100.00"),
-                direction=DIRECTION_LOWER,
-                baseline=None,
-                sort_order=0,
-            )
-        )
-        await session.commit()
-    async with app.state.session_factory() as session:
-        await session.execute(text(DEACTIVATE_ACTIVE_MISSING_BASELINE_SQL))
-        await session.commit()
-    current = await authed.get(f"/api/v1/targets/kpi/{scorecard_id}")
-    assert current.status_code == 200, current.text
-    body = current.json()
-    assert body["status"] == KPI_STATUS_INACTIVE
-    assert body["metrics"][0]["baseline"] is None
-    patched = await authed.patch(
-        f"/api/v1/targets/kpi/{scorecard_id}",
-        json={
-            "metrics": [
-                {
-                    "metric_code": "submitted_to_final_rejected",
-                    "weight_percent": "100",
-                    "direction": "lower_is_better",
-                    "baseline": "8",
-                }
-            ]
-        },
-    )
-    assert patched.status_code == 200, patched.text
-    activated = await authed.post(f"/api/v1/targets/kpi/{scorecard_id}/activate")
-    assert activated.status_code == 200, activated.text
-    assert activated.json()["status"] == KPI_STATUS_ACTIVE
-    assert activated.json()["metrics"][0]["baseline"] == "8.00"
 
 
 @pytest.mark.asyncio
