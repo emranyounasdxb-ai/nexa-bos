@@ -166,6 +166,11 @@ async def set_user_type_status(
     old = {"status": user_type.status}
     user_type.status = status
     user_type.updated_at = utcnow()
+    assigned_users = (
+        await session.execute(select(User.id).where(User.user_type_id == user_type.id))
+    ).all()
+    for row in assigned_users:
+        await terminate_sessions(session, row[0])
     await record_audit(
         session,
         action="user_type.activate" if status == UserTypeStatus.ACTIVE else "user_type.deactivate",

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Annotated
 from uuid import UUID
 
@@ -219,6 +220,13 @@ async def upload_photo(
 @router.get("/{user_id}/photo")
 async def get_photo(user_id: UUID, session: SessionDep, actor: CurrentUser) -> FileResponse:
     target = await get_visible_user(session, actor, user_id)
+    if actor.id != target.id and not has_permission(actor, USERS_VIEW):
+        raise AppError(
+            status_code=403,
+            code="FORBIDDEN",
+            message="You do not have permission to perform this action",
+            details=[{"permission": USERS_VIEW}],
+        )
     path = photo_path(target)
     if path is None:
         raise AppError(status_code=404, code="PHOTO_NOT_FOUND", message="No profile photo")
@@ -325,6 +333,9 @@ async def _store_photo(session, actor, target, file: UploadFile):
         raise AppError(
             status_code=422, code="PHOTO_TOO_LARGE", message="Photo must be 2MB or smaller"
         )
+    original = Path((file.filename or "").replace("\\", "/")).name
+    if not original or original in {".", ".."}:
+        original = f"photo{suffix}"
     return await save_photo(
         session,
         actor,
@@ -332,5 +343,5 @@ async def _store_photo(session, actor, target, file: UploadFile):
         data,
         suffix,
         content_type,
-        file.filename or f"photo{suffix}",
+        original,
     )

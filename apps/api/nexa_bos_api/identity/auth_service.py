@@ -9,9 +9,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from nexa_bos_api.core.exceptions import AppError
-from nexa_bos_api.identity.access import load_user_with_type, permission_set
+from nexa_bos_api.identity.access import is_owner, load_user_with_type, permission_set
 from nexa_bos_api.identity.audit import record_audit
-from nexa_bos_api.identity.enums import AccountStatus, TokenPurpose
+from nexa_bos_api.identity.enums import AccountStatus, TokenPurpose, UserTypeStatus
 from nexa_bos_api.identity.models import (
     Department,
     Designation,
@@ -98,6 +98,12 @@ async def resolve_session(session: AsyncSession, token: str) -> tuple[User, Sess
     user = await load_user_with_type(session, row.user_id)
     if user is None or user.account_status != AccountStatus.ACTIVE:
         return None
+    if not is_owner(user) and (
+        user.user_type is None or user.user_type.status != UserTypeStatus.ACTIVE
+    ):
+        await session.delete(row)
+        await session.commit()
+        return None
     row.last_seen_at = now
     await session.commit()
     return user, row
@@ -161,6 +167,15 @@ async def login(session: AsyncSession, email: str, password: str) -> tuple[User,
                 message="Account is temporarily locked",
             )
         raise AppError(status_code=401, code="AUTH_FAILED", message="Invalid email or password")
+
+    if not is_owner(user) and (
+        user.user_type is None or user.user_type.status != UserTypeStatus.ACTIVE
+    ):
+        raise AppError(
+            status_code=403,
+            code="USER_TYPE_INACTIVE",
+            message="This user type is inactive",
+        )
 
     user.failed_login_count = 0
     user.locked_until = None
