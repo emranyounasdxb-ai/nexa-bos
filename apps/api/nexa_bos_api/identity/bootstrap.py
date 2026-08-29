@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from nexa_bos_api.attendance.seed import seed_attendance
 from nexa_bos_api.catalog.service import seed_catalog
 from nexa_bos_api.customers.models import CustomerCodeCounter
 from nexa_bos_api.identity.enums import (
@@ -36,6 +37,7 @@ async def bootstrap_identity(session: AsyncSession) -> None:
     await _seed_settings(session)
     await _seed_offices(session)
     await seed_catalog(session)
+    await seed_attendance(session)
     await session.commit()
 
 
