@@ -253,6 +253,26 @@ async def complete_mfa_login(
             code="TOKEN_INVALID",
             message="MFA challenge is invalid or expired",
         )
+    if user.locked_until and user.locked_until > now:
+        raise AppError(
+            status_code=423,
+            code="ACCOUNT_LOCKED",
+            message="Account is temporarily locked",
+        )
+    if user.account_status != AccountStatus.ACTIVE:
+        raise AppError(
+            status_code=401,
+            code="AUTH_FAILED",
+            message="Invalid email or password",
+        )
+    if not is_owner(user) and (
+        user.user_type is None or user.user_type.status != UserTypeStatus.ACTIVE
+    ):
+        raise AppError(
+            status_code=403,
+            code="USER_TYPE_INACTIVE",
+            message="This user type is inactive",
+        )
     if not pyotp.TOTP(user.mfa_secret).verify(code, valid_window=1):
         raise AppError(status_code=422, code="MFA_INVALID", message="Invalid authenticator code")
     row.used_at = now

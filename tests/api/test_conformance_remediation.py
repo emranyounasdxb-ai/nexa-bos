@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, date, datetime
 from decimal import Decimal
 from types import SimpleNamespace
@@ -8,7 +9,7 @@ from uuid import UUID, uuid4
 import pyotp
 import pytest
 from httpx import AsyncClient
-from sqlalchemy import insert, select
+from sqlalchemy import insert, select, text
 from sqlalchemy.exc import IntegrityError
 
 from helpers import (
@@ -39,6 +40,9 @@ from nexa_bos_api.reporting.service import (
     trend_points,
 )
 from nexa_bos_api.targets.calc import default_measurement, month_end
+from nexa_bos_api.targets.enums import DIRECTION_LOWER, KPI_STATUS_ACTIVE, KPI_STATUS_INACTIVE
+from nexa_bos_api.targets.kpi_baseline_upgrade import DEACTIVATE_ACTIVE_MISSING_BASELINE_SQL
+from nexa_bos_api.targets.models import KpiScorecard, KpiScorecardMetric
 from nexa_bos_api.targets.service import _period_bounds
 
 _TEST_STAGES = (
@@ -910,3 +914,199 @@ async def test_mfa_off_unchanged_and_enabled_user_cannot_bypass(client: AsyncCli
     me = await challenger.get("/api/v1/auth/me")
     assert me.status_code == 200
     assert me.json()["id"] == user["id"]
+
+
+@pytest.mark.asyncio
+async def test_0011_deactivates_active_scorecard_missing_required_baseline(
+    client: AsyncClient,
+) -> None:
+    authed, owner = await owner_client(client)
+    tag = unique_tag()
+    scorecard_id = uuid4()
+    metric_id = uuid4()
+    async with app.state.session_factory() as session:
+        await session.execute(text("UPDATE kpi_scorecards SET status = 'inactive' WHERE status = 'active'"))
+        session.add(
+            KpiScorecard(
+                id=scorecard_id,
+                name=f"Legacy Lower {tag}",
+                status=KPI_STATUS_ACTIVE,
+                created_at=datetime.now(UTC),
+                updated_at=datetime.now(UTC),
+                created_by_id=UUID(owner["id"]),
+                updated_by_id=UUID(owner["id"]),
+            )
+        )
+        session.add(
+            KpiScorecardMetric(
+                id=metric_id,
+                scorecard_id=scorecard_id,
+                metric_code="submitted_to_final_rejected",
+                weight_percent=Decimal("100.00"),
+                direction=DIRECTION_LOWER,
+                baseline=None,
+                sort_order=0,
+            )
+        )
+        await session.commit()
+    async with app.state.session_factory() as session:
+        await session.execute(text(DEACTIVATE_ACTIVE_MISSING_BASELINE_SQL))
+        await session.commit()
+    current = await authed.get(f"/api/v1/targets/kpi/{scorecard_id}")
+    assert current.status_code == 200, current.text
+    body = current.json()
+    assert body["status"] == KPI_STATUS_INACTIVE
+    assert body["metrics"][0]["baseline"] is None
+    patched = await authed.patch(
+        f"/api/v1/targets/kpi/{scorecard_id}",
+        json={
+            "metrics": [
+                {
+                    "metric_code": "submitted_to_final_rejected",
+                    "weight_percent": "100",
+                    "direction": "lower_is_better",
+                    "baseline": "8",
+                }
+            ]
+        },
+    )
+    assert patched.status_code == 200, patched.text
+    activated = await authed.post(f"/api/v1/targets/kpi/{scorecard_id}/activate")
+    assert activated.status_code == 200, activated.text
+    assert activated.json()["status"] == KPI_STATUS_ACTIVE
+    assert activated.json()["metrics"][0]["baseline"] == "8.00"
+
+
+@pytest.mark.asyncio
+async def test_concurrent_duplicate_email_returns_controlled_conflict(client: AsyncClient) -> None:
+    authed, _owner = await owner_client(client)
+    tag = unique_tag()
+    email = f"race-email-{tag}@example.com"
+    designation = await designation_id(authed)
+
+    async def create(code_suffix: str) -> object:
+        return await authed.post(
+            "/api/v1/users",
+            json={
+                "full_name": f"Race Email {code_suffix}",
+                "employee_code": f"EMP-RE{tag}{code_suffix}",
+                "email": email,
+                "mobile": "+971500000021",
+                "designation_id": designation,
+                "employment_status": "Active",
+                "joining_date": "2026-03-01",
+            },
+        )
+
+    first, second = await asyncio.gather(create("A"), create("B"))
+    statuses = sorted([first.status_code, second.status_code])
+    assert 500 not in {first.status_code, second.status_code}
+    assert statuses == [200, 409]
+    loser = first if first.status_code == 409 else second
+    assert loser.json()["error"]["code"] == "EMAIL_DUPLICATE"
+    listed = (await authed.get("/api/v1/users")).json()["items"]
+    assert sum(1 for item in listed if item["email"] == email) == 1
+
+
+@pytest.mark.asyncio
+async def test_concurrent_duplicate_employee_code_returns_controlled_conflict(
+    client: AsyncClient,
+) -> None:
+    authed, _owner = await owner_client(client)
+    tag = unique_tag()
+    employee_code = f"EMP-RC{tag}"
+    designation = await designation_id(authed)
+
+    async def create(email_suffix: str) -> object:
+        return await authed.post(
+            "/api/v1/users",
+            json={
+                "full_name": f"Race Code {email_suffix}",
+                "employee_code": employee_code,
+                "email": f"race-code-{tag}-{email_suffix}@example.com",
+                "mobile": "+971500000022",
+                "designation_id": designation,
+                "employment_status": "Active",
+                "joining_date": "2026-03-01",
+            },
+        )
+
+    first, second = await asyncio.gather(create("a"), create("b"))
+    statuses = sorted([first.status_code, second.status_code])
+    assert 500 not in {first.status_code, second.status_code}
+    assert statuses == [200, 409]
+    loser = first if first.status_code == 409 else second
+    assert loser.json()["error"]["code"] == "EMPLOYEE_CODE_DUPLICATE"
+    listed = (await authed.get("/api/v1/users")).json()["items"]
+    assert sum(1 for item in listed if item["employeeCode"] == employee_code) == 1
+
+
+async def _enable_mfa(client: AsyncClient, email: str, password: str) -> str:
+    session = await spawned_client()
+    await authenticate(session, email, password)
+    setup = await session.post("/api/v1/auth/mfa/setup")
+    assert setup.status_code == 200, setup.text
+    secret = setup.json()["secret"]
+    confirm = await session.post("/api/v1/auth/mfa/confirm", json={"code": pyotp.TOTP(secret).now()})
+    assert confirm.status_code == 200, confirm.text
+    return secret
+
+
+@pytest.mark.asyncio
+async def test_mfa_completion_rejected_when_user_deactivated_mid_challenge(
+    client: AsyncClient,
+) -> None:
+    authed, _owner = await owner_client(client)
+    user = await create_activated_user(authed, password="UserPass1!")
+    secret = await _enable_mfa(authed, user["email"], "UserPass1!")
+    challenger = await spawned_client()
+    challenge = await challenger.post(
+        "/api/v1/auth/login", json={"email": user["email"], "password": "UserPass1!"}
+    )
+    assert challenge.status_code == 200
+    token = challenge.json()["mfaToken"]
+    deactivated = await authed.post(f"/api/v1/users/{user['id']}/deactivate")
+    assert deactivated.status_code == 200, deactivated.text
+    completed = await challenger.post(
+        "/api/v1/auth/mfa/login",
+        json={"token": token, "code": pyotp.TOTP(secret).now()},
+    )
+    assert completed.status_code == 401
+    assert completed.json()["error"]["code"] == "AUTH_FAILED"
+    assert "nexa_session" not in completed.cookies
+    me = await challenger.get("/api/v1/auth/me")
+    assert me.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_mfa_completion_rejected_when_user_type_deactivated_mid_challenge(
+    client: AsyncClient,
+) -> None:
+    authed, _owner = await owner_client(client)
+    tag = unique_tag().upper()
+    created_type = await authed.post(
+        "/api/v1/user-types", json={"name": f"MFA {tag}", "code": f"M{tag[:8]}"}
+    )
+    type_id = created_type.json()["id"]
+    await authed.post(f"/api/v1/user-types/{type_id}/activate")
+    user = await create_activated_user(
+        authed, user_type_code=created_type.json()["code"], password="UserPass1!"
+    )
+    secret = await _enable_mfa(authed, user["email"], "UserPass1!")
+    challenger = await spawned_client()
+    challenge = await challenger.post(
+        "/api/v1/auth/login", json={"email": user["email"], "password": "UserPass1!"}
+    )
+    assert challenge.status_code == 200
+    token = challenge.json()["mfaToken"]
+    deactivated = await authed.post(f"/api/v1/user-types/{type_id}/deactivate")
+    assert deactivated.status_code == 200, deactivated.text
+    completed = await challenger.post(
+        "/api/v1/auth/mfa/login",
+        json={"token": token, "code": pyotp.TOTP(secret).now()},
+    )
+    assert completed.status_code == 403
+    assert completed.json()["error"]["code"] == "USER_TYPE_INACTIVE"
+    assert "nexa_session" not in completed.cookies
+    me = await challenger.get("/api/v1/auth/me")
+    assert me.status_code == 401

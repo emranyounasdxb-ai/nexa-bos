@@ -60,13 +60,38 @@ def storage_dir() -> Path:
 
 
 async def next_user_code(session: AsyncSession) -> str:
-    counter = await session.get(UserCodeCounter, 1)
+    counter = await session.get(UserCodeCounter, 1, with_for_update=True)
     if counter is None:
         counter = UserCodeCounter(id=1, last_value=0)
         session.add(counter)
         await session.flush()
+        counter = await session.get(UserCodeCounter, 1, with_for_update=True)
+        assert counter is not None
     counter.last_value += 1
     return f"USR-{counter.last_value:06d}"
+
+
+def identity_unique_conflict(exc: IntegrityError) -> AppError:
+    constraint = ""
+    orig = getattr(exc, "orig", None)
+    if orig is not None:
+        diag = getattr(orig, "diag", None)
+        if diag is not None:
+            constraint = (getattr(diag, "constraint_name", None) or "").lower()
+        blob = f"{constraint} {orig}".lower()
+    else:
+        blob = str(exc).lower()
+    if "employee_code" in blob or "employee code" in blob:
+        return AppError(
+            status_code=409,
+            code="EMPLOYEE_CODE_DUPLICATE",
+            message="Employee code is already used, including historical values",
+        )
+    return AppError(
+        status_code=409,
+        code="EMAIL_DUPLICATE",
+        message="Email is already used, including historical values",
+    )
 
 
 def _conflict_details(user: User) -> list[object]:
@@ -195,11 +220,7 @@ async def reserve_email(session: AsyncSession, email: str, user_id: UUID) -> Non
         await session.flush()
     except IntegrityError as exc:
         await session.rollback()
-        raise AppError(
-            status_code=409,
-            code="EMAIL_DUPLICATE",
-            message="Email is already used, including historical values",
-        ) from exc
+        raise identity_unique_conflict(exc) from exc
 
 
 async def reserve_employee_code(session: AsyncSession, employee_code: str, user_id: UUID) -> None:
@@ -217,11 +238,7 @@ async def reserve_employee_code(session: AsyncSession, employee_code: str, user_
         await session.flush()
     except IntegrityError as exc:
         await session.rollback()
-        raise AppError(
-            status_code=409,
-            code="EMPLOYEE_CODE_DUPLICATE",
-            message="Employee code is already used, including historical values",
-        ) from exc
+        raise identity_unique_conflict(exc) from exc
 
 
 async def assert_manager_ok(
@@ -466,7 +483,11 @@ async def create_user(session: AsyncSession, actor: User, payload: UserCreateReq
         user, payload.employment_status, payload.last_working_date, period=None
     )
     session.add(user)
-    await session.flush()
+    try:
+        await session.flush()
+    except IntegrityError as exc:
+        await session.rollback()
+        raise identity_unique_conflict(exc) from exc
     await reserve_email(session, user.email, user.id)
     await reserve_employee_code(session, user.employee_code, user.id)
     period = EmploymentPeriod(
@@ -497,11 +518,7 @@ async def create_user(session: AsyncSession, actor: User, payload: UserCreateReq
         await session.commit()
     except IntegrityError as exc:
         await session.rollback()
-        raise AppError(
-            status_code=409,
-            code="IDENTITY_UNIQUE_CONFLICT",
-            message="Email or employee code is already used, including historical values",
-        ) from exc
+        raise identity_unique_conflict(exc) from exc
     return await reload_user(session, user.id)
 
 
@@ -774,7 +791,11 @@ async def update_user(
         old_values=old,
         new_values=public_user(target),
     )
-    await session.commit()
+    try:
+        await session.commit()
+    except IntegrityError as exc:
+        await session.rollback()
+        raise identity_unique_conflict(exc) from exc
     return await reload_user(session, target.id)
 
 
