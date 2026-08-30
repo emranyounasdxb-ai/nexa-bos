@@ -227,3 +227,107 @@ export type WorkflowRecord = {
   stages: WorkflowStageRecord[];
   transitions: { id: string; fromStageId: string; toStageId: string }[];
 };
+
+export type AssetCategoryField = {
+  key: string;
+  label: string;
+  required: boolean;
+};
+
+export type AssetCategoryRecord = {
+  id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  status: string;
+  fields: AssetCategoryField[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AssetAllocationRecord = {
+  id: string;
+  employeeId: string;
+  employeeCode: string | null;
+  employeeName: string | null;
+  employmentStatus: string | null;
+  issueDate: string;
+  issuedById: string;
+  issuedBy: string | null;
+  conditionAtIssue: string;
+  issueRemarks: string | null;
+  returnDate: string | null;
+  receivedById: string | null;
+  receivedBy: string | null;
+  returnCondition: string | null;
+  returnRemarks: string | null;
+  endType: string | null;
+  previousAllocationId: string | null;
+  active: boolean;
+};
+
+export type AssetRecord = {
+  id: string;
+  assetCode: string;
+  category: AssetCategoryRecord;
+  office: OrgRef | null;
+  status: string;
+  condition: string;
+  brand: string | null;
+  model: string | null;
+  serialNumber: string | null;
+  imei: string | null;
+  iccid: string | null;
+  mobileNumber: string | null;
+  operator: string | null;
+  attributes: Record<string, string>;
+  description: string | null;
+  currentAllocation: AssetAllocationRecord | null;
+  outstanding: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AssetEmployeeOption = {
+  id: string;
+  userCode: string;
+  fullName: string;
+  employmentStatus: string;
+  officeId: string | null;
+};
+
+export type AssetOptions = {
+  categories: AssetCategoryRecord[];
+  offices: OrgRef[];
+  employees: AssetEmployeeOption[];
+  statuses: string[];
+  conditions: string[];
+  reports: { key: string; title: string }[];
+};
+
+export type AssetHistoryRecord = {
+  asset: AssetRecord;
+  allocations: AssetAllocationRecord[];
+  officeCustody: {
+    id: string;
+    officeId: string;
+    officeCode: string | null;
+    officeName: string | null;
+    startedOn: string;
+    endedOn: string | null;
+    transferredBy: string | null;
+    reason: string | null;
+    active: boolean;
+  }[];
+  events: {
+    id: string;
+    action: string;
+    entityId: string;
+    actorId: string | null;
+    targetUserId: string | null;
+    oldValues: Record<string, unknown> | null;
+    newValues: Record<string, unknown> | null;
+    reason: string | null;
+    createdAt: string;
+  }[];
+};

@@ -3,16 +3,36 @@
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
-import { ButtonLink, PageHeader, controlClass, secondaryButtonClass } from "@/components/ui";
+import {
+  ButtonLink,
+  EmptyState,
+  PageHeader,
+  TableHead,
+  TableShell,
+  Td,
+  Th,
+  controlClass,
+  secondaryButtonClass,
+} from "@/components/ui";
 import { apiGet, apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { getBrowserApiUrl } from "@/lib/env";
-import type { UserRecord, UserTypeSummary } from "@/lib/types";
+import type {
+  AssetAllocationRecord,
+  AssetRecord,
+  UserRecord,
+  UserTypeSummary,
+} from "@/lib/types";
 
 type History = {
   emails: { email: string; changedAt: string }[];
   employeeCodes: { employeeCode: string; effectiveFrom: string; effectiveTo: string | null }[];
   events: { id: string; action: string; createdAt: string }[];
+};
+
+type EmployeeAssets = {
+  current: { asset: AssetRecord; allocation: AssetAllocationRecord }[];
+  history: { asset: AssetRecord; allocation: AssetAllocationRecord }[];
 };
 
 export default function UserProfilePage() {
@@ -21,6 +41,7 @@ export default function UserProfilePage() {
   const [user, setUser] = useState<UserRecord | null>(null);
   const [types, setTypes] = useState<UserTypeSummary[]>([]);
   const [history, setHistory] = useState<History | null>(null);
+  const [assets, setAssets] = useState<EmployeeAssets | null>(null);
   const [message, setMessage] = useState("");
   const api = getBrowserApiUrl();
 
@@ -29,7 +50,11 @@ export default function UserProfilePage() {
     setUser(data);
     const hist = await apiGet<History>(`/api/v1/users/${params.id}/history`, api);
     setHistory(hist);
-  }, [api, params.id]);
+    if (can("Assets.View")) {
+      const employeeAssets = await apiGet<EmployeeAssets>(`/api/v1/assets/employees/${params.id}`, api);
+      setAssets(employeeAssets);
+    }
+  }, [api, can, params.id]);
 
   useEffect(() => {
     void refresh().catch((err: unknown) => setMessage(err instanceof Error ? err.message : "Load failed"));
@@ -222,6 +247,60 @@ export default function UserProfilePage() {
         ) : null}
       </div>
       {message ? <p className="text-sm text-slate-700">{message}</p> : null}
+      {can("Assets.View") ? (
+        <div className="space-y-4">
+          <div>
+            <h3 className="text-lg font-semibold text-slate-900">Current Assets</h3>
+            <p className="text-sm text-slate-600">
+              Active company Asset custody for this employee, including outstanding offboarding items.
+            </p>
+          </div>
+          {assets?.current.length ? (
+            <TableShell>
+              <TableHead><tr><Th>Asset</Th><Th>Category</Th><Th>Identity</Th><Th>Issue date</Th><Th>Condition</Th><Th>Status</Th></tr></TableHead>
+              <tbody>
+                {assets.current.map(({ asset, allocation }) => (
+                  <tr key={allocation.id} className="border-t border-slate-100">
+                    <Td><ButtonLink href={`/assets/${asset.id}`} variant="secondary">{asset.assetCode}</ButtonLink></Td>
+                    <Td>{asset.category.name}</Td>
+                    <Td>{asset.serialNumber ?? asset.imei ?? asset.iccid ?? asset.mobileNumber ?? asset.model ?? "—"}</Td>
+                    <Td>{allocation.issueDate}</Td>
+                    <Td>{allocation.conditionAtIssue}</Td>
+                    <Td>{asset.outstanding ? "Outstanding" : asset.status}</Td>
+                  </tr>
+                ))}
+              </tbody>
+            </TableShell>
+          ) : (
+            <EmptyState>No current Assets are allocated to this employee.</EmptyState>
+          )}
+
+          {can("Assets.ViewAudit") ? (
+            <>
+              <h3 className="text-lg font-semibold text-slate-900">Asset History</h3>
+              {assets?.history.length ? (
+                <TableShell>
+                  <TableHead><tr><Th>Asset</Th><Th>Category</Th><Th>Issue date</Th><Th>Return date</Th><Th>Issue condition</Th><Th>Return condition</Th></tr></TableHead>
+                  <tbody>
+                    {assets.history.map(({ asset, allocation }) => (
+                      <tr key={allocation.id} className="border-t border-slate-100">
+                        <Td><ButtonLink href={`/assets/${asset.id}`} variant="secondary">{asset.assetCode}</ButtonLink></Td>
+                        <Td>{asset.category.name}</Td>
+                        <Td>{allocation.issueDate}</Td>
+                        <Td>{allocation.returnDate ?? "—"}</Td>
+                        <Td>{allocation.conditionAtIssue}</Td>
+                        <Td>{allocation.returnCondition ?? "—"}</Td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </TableShell>
+              ) : (
+                <EmptyState>No returned Asset history is recorded for this employee.</EmptyState>
+              )}
+            </>
+          ) : null}
+        </div>
+      ) : null}
       <div className="grid gap-4 md:grid-cols-2">
         <div className="rounded-xl border bg-white p-4 text-sm">
           <h3 className="font-semibold">Employee code history</h3>

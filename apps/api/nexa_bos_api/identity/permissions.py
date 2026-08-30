@@ -84,6 +84,14 @@ FINANCE_FINALIZE = "Finance.Finalize"
 FINANCE_REOPEN_PERIOD = "Finance.ReopenPeriod"
 FINANCE_VIEW_COMMISSION_RULES = "Finance.ViewCommissionRules"
 FINANCE_MANAGE_COMMISSION_RULES = "Finance.ManageCommissionRules"
+ASSETS_VIEW = "Assets.View"
+ASSETS_MANAGE_MASTER = "Assets.ManageMaster"
+ASSETS_MANAGE_STOCK = "Assets.ManageStock"
+ASSETS_ALLOCATE = "Assets.Allocate"
+ASSETS_TRANSFER = "Assets.Transfer"
+ASSETS_RETURN = "Assets.Return"
+ASSETS_MANAGE_STATUS = "Assets.ManageStatus"
+ASSETS_VIEW_AUDIT = "Assets.ViewAudit"
 
 PERMISSION_CATALOG: tuple[tuple[str, str], ...] = (
     (USERS_VIEW, "View users within assigned visibility scope"),
@@ -188,6 +196,14 @@ PERMISSION_CATALOG: tuple[tuple[str, str], ...] = (
     (FINANCE_REOPEN_PERIOD, "Reopen a finalized Finance payout period with a reason"),
     (FINANCE_VIEW_COMMISSION_RULES, "View commission and incentive configuration versions"),
     (FINANCE_MANAGE_COMMISSION_RULES, "Create and activate Finance configuration versions"),
+    (ASSETS_VIEW, "View authorized Asset data"),
+    (ASSETS_MANAGE_MASTER, "Manage Asset categories and master details within scope"),
+    (ASSETS_MANAGE_STOCK, "Create and maintain authorized Asset stock and condition metadata"),
+    (ASSETS_ALLOCATE, "Allocate Assets to eligible employees"),
+    (ASSETS_TRANSFER, "Transfer Asset employee or Office custody within scope"),
+    (ASSETS_RETURN, "Process explicit Asset returns"),
+    (ASSETS_MANAGE_STATUS, "Manage audited Lost, Damaged, Repair, and Retired status"),
+    (ASSETS_VIEW_AUDIT, "View authorized Asset history and audit"),
 )
 
 ALL_PERMISSION_CODES: tuple[str, ...] = tuple(code for code, _ in PERMISSION_CATALOG)
