@@ -173,7 +173,6 @@ def test_asset_security_matrix_covers_every_registered_route() -> None:
         ("PATCH", "/api/v1/assets/categories/{category_id}"),
         ("POST", "/api/v1/assets/categories/{category_id}/activate"),
         ("POST", "/api/v1/assets/categories/{category_id}/deactivate"),
-        ("DELETE", "/api/v1/assets/categories/{category_id}"),
         ("GET", "/api/v1/assets/reports/{report}"),
         ("POST", "/api/v1/assets/reports/export"),
         ("GET", "/api/v1/assets/audit"),
@@ -190,19 +189,13 @@ def test_asset_security_matrix_covers_every_registered_route() -> None:
         ("POST", "/api/v1/assets/{asset_id}/transfer/office"),
         ("POST", "/api/v1/assets/{asset_id}/status"),
         ("GET", "/api/v1/assets/{asset_id}/history"),
-        ("DELETE", "/api/v1/assets/{asset_id}"),
     }
     assert registered == expected
 
 
 @pytest.mark.asyncio
 async def test_every_asset_route_requires_authentication(client: AsyncClient) -> None:
-    probes = [
-        *_ROUTE_MATRIX,
-        ("DELETE", f"/api/v1/assets/{_DUMMY_ID}", None, "unsupported"),
-        ("DELETE", f"/api/v1/assets/categories/{_DUMMY_ID}", None, "unsupported"),
-    ]
-    for method, path, body, _permission in probes:
+    for method, path, body, _permission in _ROUTE_MATRIX:
         response = await client.request(method, path, json=body)
         assert response.status_code == 401, (method, path, response.text)
         assert response.json()["error"]["code"] == "UNAUTHENTICATED"
@@ -228,10 +221,7 @@ async def test_every_asset_mutation_preserves_csrf(client: AsyncClient) -> None:
     owner, _ = await owner_client(client)
     csrf = owner.headers.pop("X-CSRF-Token")
     try:
-        probes = [row for row in _ROUTE_MATRIX if row[0] in {"POST", "PATCH"}] + [
-            ("DELETE", f"/api/v1/assets/{_DUMMY_ID}", None, "unsupported"),
-            ("DELETE", f"/api/v1/assets/categories/{_DUMMY_ID}", None, "unsupported"),
-        ]
+        probes = [row for row in _ROUTE_MATRIX if row[0] in {"POST", "PATCH"}]
         for method, path, body, _permission in probes:
             response = await owner.request(method, path, json=body)
             assert response.status_code == 403, (method, path, response.text)

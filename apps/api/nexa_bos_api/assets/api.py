@@ -127,15 +127,6 @@ async def categories_deactivate(
     return await set_category_status(session, actor, category_id, active=False)
 
 
-@router.delete("/categories/{category_id}")
-async def categories_delete_forbidden(category_id: UUID, _actor: CurrentUser) -> None:
-    raise AppError(
-        status_code=405,
-        code="ASSET_CATEGORY_DELETE_FORBIDDEN",
-        message="Asset category deletion is forbidden",
-    )
-
-
 @router.get("/reports/{report}")
 async def report_view(
     report: AssetReport,
@@ -349,12 +340,3 @@ async def assets_history(
     actor: Annotated[CurrentUser, Depends(require_permission(ASSETS_VIEW_AUDIT))],
 ) -> dict[str, object]:
     return await asset_history(session, actor, asset_id)
-
-
-@router.delete("/{asset_id}")
-async def assets_delete_forbidden(asset_id: UUID, _actor: CurrentUser) -> None:
-    raise AppError(
-        status_code=405,
-        code="ASSET_DELETE_FORBIDDEN",
-        message="Asset deletion is forbidden",
-    )
