@@ -24,6 +24,7 @@ from nexa_bos_api.attendance.models import (
 )
 from nexa_bos_api.core.config import get_settings
 from nexa_bos_api.db.session import create_engine, create_session_factory
+from nexa_bos_api.identity.models import AuditEvent
 from nexa_bos_api.notifications.enums import NotificationEventType
 from nexa_bos_api.notifications.models import (
     Notification,
@@ -167,6 +168,28 @@ def _urgent_payload(
         "acknowledgement_required": acknowledgement_required,
         "affected_user_id": affected_user_id,
         "targets": targets,
+    }
+
+
+def _rule_payload(name: str, target: dict[str, object]) -> dict[str, object]:
+    return {
+        "name": name,
+        "event_type": "operations.application_stage_changed",
+        "severity": "warning",
+        "title": f"{name} title",
+        "message": f"{name} message",
+        "acknowledgement_required": False,
+        "targets": [target],
+    }
+
+
+def _assert_rule_not_found(response) -> None:
+    assert response.status_code == 404, response.text
+    assert response.json()["error"] == {
+        "code": "NOTIFICATION_RULE_NOT_FOUND",
+        "message": "Notification rule was not found",
+        "details": [],
+        "requestId": response.json()["error"]["requestId"],
     }
 
 
@@ -398,6 +421,222 @@ async def test_recipient_types_and_scope_tampering_are_server_controlled(
             ),
         )
         assert allowed.status_code == 200, allowed.text
+
+
+@pytest.mark.asyncio
+async def test_company_rule_cannot_be_taken_over_by_office_admin(
+    client: AsyncClient,
+) -> None:
+    owner, _ = await owner_client(client)
+    dxb = await office_id(owner, "DXB")
+    permissions = ["Notifications.View", "Notifications.ManageRules", "Users.View"]
+    company_admin, _ = await _notification_user(
+        owner,
+        permissions=permissions,
+        scope="company",
+        office=dxb,
+    )
+    office_admin, _ = await _notification_user(
+        owner,
+        permissions=permissions,
+        scope="office",
+        office=dxb,
+    )
+
+    async with await spawned_client() as company_client, await spawned_client() as office_client:
+        await authenticate(company_client, company_admin["email"], "UserPass1!")
+        await authenticate(office_client, office_admin["email"], "UserPass1!")
+        assert (await office_client.get(f"/api/v1/users/{company_admin['id']}")).status_code == 200
+
+        original = _rule_payload(
+            "Company controlled rule",
+            {"target_type": "company", "target_id": None},
+        )
+        created = await company_client.post("/api/v1/notifications/rules", json=original)
+        assert created.status_code == 200, created.text
+        rule_id = created.json()["id"]
+        activated = await company_client.post(f"/api/v1/notifications/rules/{rule_id}/activate")
+        assert activated.status_code == 200, activated.text
+
+        async with _notification_session() as session:
+            await dispatch_source_event(
+                session,
+                event_type=NotificationEventType.APPLICATION_STAGE_CHANGED,
+                source_event_key=f"bola:{uuid4()}",
+                affected_user_id=None,
+                linked_entity_type=None,
+                linked_entity_id=None,
+                contextual_link=None,
+                actor_id=UUID(company_admin["id"]),
+            )
+            await session.commit()
+            deliveries_before = set(
+                (
+                    await session.execute(
+                        select(
+                            NotificationDelivery.id,
+                            NotificationDelivery.notification_id,
+                            NotificationDelivery.recipient_id,
+                            NotificationDelivery.read_at,
+                            NotificationDelivery.acknowledged_at,
+                        )
+                        .join(Notification)
+                        .where(Notification.rule_id == UUID(rule_id))
+                    )
+                ).all()
+            )
+            audits_before = set(
+                (
+                    await session.execute(
+                        select(AuditEvent.id, AuditEvent.action).where(
+                            AuditEvent.entity_type == "notification_rule",
+                            AuditEvent.entity_id == rule_id,
+                        )
+                    )
+                ).all()
+            )
+        assert deliveries_before
+
+        listed = await office_client.get("/api/v1/notifications/rules")
+        assert listed.status_code == 200, listed.text
+        assert rule_id not in {row["id"] for row in listed.json()["items"]}
+        _assert_rule_not_found(await office_client.get(f"/api/v1/notifications/rules/{rule_id}"))
+        narrowed = _rule_payload(
+            "Office takeover attempt",
+            {"target_type": "office", "target_id": dxb},
+        )
+        _assert_rule_not_found(
+            await office_client.put(
+                f"/api/v1/notifications/rules/{rule_id}",
+                json=narrowed,
+            )
+        )
+        _assert_rule_not_found(
+            await office_client.post(f"/api/v1/notifications/rules/{rule_id}/activate")
+        )
+        _assert_rule_not_found(
+            await office_client.post(f"/api/v1/notifications/rules/{rule_id}/deactivate")
+        )
+
+        unchanged = await company_client.get(f"/api/v1/notifications/rules/{rule_id}")
+        assert unchanged.status_code == 200, unchanged.text
+        assert unchanged.json()["name"] == original["name"]
+        assert unchanged.json()["status"] == "active"
+        assert unchanged.json()["targets"] == [
+            {"targetType": "company", "targetId": None, "label": None}
+        ]
+        async with _notification_session() as session:
+            deliveries_after = set(
+                (
+                    await session.execute(
+                        select(
+                            NotificationDelivery.id,
+                            NotificationDelivery.notification_id,
+                            NotificationDelivery.recipient_id,
+                            NotificationDelivery.read_at,
+                            NotificationDelivery.acknowledged_at,
+                        )
+                        .join(Notification)
+                        .where(Notification.rule_id == UUID(rule_id))
+                    )
+                ).all()
+            )
+            audits_after = set(
+                (
+                    await session.execute(
+                        select(AuditEvent.id, AuditEvent.action).where(
+                            AuditEvent.entity_type == "notification_rule",
+                            AuditEvent.entity_id == rule_id,
+                        )
+                    )
+                ).all()
+            )
+        assert deliveries_after == deliveries_before
+        assert audits_after == audits_before
+
+        assert (
+            await company_client.post(f"/api/v1/notifications/rules/{rule_id}/deactivate")
+        ).status_code == 200
+        assert (
+            await company_client.post(f"/api/v1/notifications/rules/{rule_id}/activate")
+        ).status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_rule_management_uses_complete_target_reach_not_creator_visibility(
+    client: AsyncClient,
+) -> None:
+    owner, _ = await owner_client(client)
+    dxb = await office_id(owner, "DXB")
+    auh = await office_id(owner, "AUH")
+    department, team = await _team(owner, dxb)
+    _auh_department, auh_team = await _team(owner, auh)
+    permissions = ["Notifications.View", "Notifications.ManageRules", "Users.View"]
+    company_admin, company_type = await _notification_user(
+        owner,
+        permissions=permissions,
+        scope="company",
+        office=dxb,
+        department=department,
+        team=team,
+    )
+    office_admin, _ = await _notification_user(
+        owner,
+        permissions=permissions,
+        scope="office",
+        office=dxb,
+        department=department,
+        team=team,
+    )
+    targets = {
+        "Company reach": {"target_type": "company", "target_id": None},
+        "User Type reach": {"target_type": "user_type", "target_id": company_type["id"]},
+        "Office reach": {"target_type": "office", "target_id": dxb},
+        "Team reach": {"target_type": "team", "target_id": team},
+        "Other office reach": {"target_type": "office", "target_id": auh},
+        "Other team reach": {"target_type": "team", "target_id": auh_team},
+        "Affected user reach": {"target_type": "affected_user", "target_id": None},
+        "Reporting manager reach": {
+            "target_type": "reporting_manager",
+            "target_id": None,
+        },
+    }
+
+    async with await spawned_client() as company_client, await spawned_client() as office_client:
+        await authenticate(company_client, company_admin["email"], "UserPass1!")
+        await authenticate(office_client, office_admin["email"], "UserPass1!")
+        assert (await office_client.get(f"/api/v1/users/{company_admin['id']}")).status_code == 200
+        created: dict[str, str] = {}
+        for name, target in targets.items():
+            response = await company_client.post(
+                "/api/v1/notifications/rules",
+                json=_rule_payload(name, target),
+            )
+            assert response.status_code == 200, response.text
+            created[name] = response.json()["id"]
+
+        company_rows = await company_client.get("/api/v1/notifications/rules")
+        assert set(created.values()) <= {row["id"] for row in company_rows.json()["items"]}
+        office_rows = await office_client.get("/api/v1/notifications/rules")
+        visible_ids = {row["id"] for row in office_rows.json()["items"]}
+        assert created["Office reach"] in visible_ids
+        assert created["Team reach"] in visible_ids
+        for name in ("Office reach", "Team reach"):
+            allowed = await office_client.get(f"/api/v1/notifications/rules/{created[name]}")
+            assert allowed.status_code == 200, allowed.text
+        hidden_names = {
+            "Company reach",
+            "User Type reach",
+            "Other office reach",
+            "Other team reach",
+            "Affected user reach",
+            "Reporting manager reach",
+        }
+        assert {created[name] for name in hidden_names}.isdisjoint(visible_ids)
+        for name in hidden_names:
+            _assert_rule_not_found(
+                await office_client.get(f"/api/v1/notifications/rules/{created[name]}")
+            )
 
 
 @pytest.mark.asyncio

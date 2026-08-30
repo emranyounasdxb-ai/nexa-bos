@@ -12,6 +12,7 @@ from sqlalchemy.orm import selectinload
 from nexa_bos_api.core.exceptions import AppError
 from nexa_bos_api.identity.access import (
     has_permission,
+    load_user_with_type,
     user_load_options,
     visibility_scope,
     visible_user_ids,
@@ -292,9 +293,83 @@ async def serialize_rule(session: AsyncSession, row: NotificationRule) -> dict[s
     }
 
 
+def _scope_contains(
+    actor_allowed: set[UUID] | None,
+    effective_allowed: set[UUID] | None,
+) -> bool:
+    if actor_allowed is None:
+        return True
+    if effective_allowed is None:
+        return False
+    return effective_allowed.issubset(actor_allowed)
+
+
+async def _stored_static_target_within_scope(
+    session: AsyncSession,
+    actor: User,
+    target: NotificationRuleTarget,
+    *,
+    actor_allowed: set[UUID] | None,
+) -> bool:
+    scope = visibility_scope(actor)
+    target_type = NotificationTargetType(target.target_type)
+    if target_type == NotificationTargetType.COMPANY:
+        return scope == VisibilityScope.COMPANY
+    if target_type == NotificationTargetType.USER_TYPE:
+        return scope == VisibilityScope.COMPANY
+    if target_type == NotificationTargetType.OFFICE:
+        return scope == VisibilityScope.COMPANY or (
+            scope == VisibilityScope.OFFICE and actor.office_id == target.office_id
+        )
+    if target_type != NotificationTargetType.TEAM:
+        return False
+    team = await session.get(Team, target.team_id)
+    if team is None:
+        return False
+    if scope == VisibilityScope.COMPANY:
+        return True
+    if scope == VisibilityScope.OFFICE and actor.office_id == team.office_id:
+        return True
+    team_users = set(
+        (await session.execute(select(User.id).where(User.team_id == team.id))).scalars()
+    )
+    return actor.team_id == team.id or (
+        actor_allowed is not None and bool(team_users) and team_users.issubset(actor_allowed)
+    )
+
+
 async def _can_manage_rule(session: AsyncSession, actor: User, row: NotificationRule) -> bool:
-    allowed = await visible_user_ids(session, actor)
-    return allowed is None or row.created_by_id in allowed or row.created_by_id == actor.id
+    if not row.targets:
+        return False
+    actor_allowed = await visible_user_ids(session, actor)
+    dynamic_types = {
+        NotificationTargetType.AFFECTED_USER,
+        NotificationTargetType.REPORTING_MANAGER,
+    }
+    has_dynamic_target = any(
+        NotificationTargetType(target.target_type) in dynamic_types for target in row.targets
+    )
+    dynamic_reach_authorized = True
+    if has_dynamic_target:
+        creator = await load_user_with_type(session, row.created_by_id)
+        if creator is None:
+            return False
+        creator_allowed = await visible_user_ids(session, creator)
+        dynamic_reach_authorized = _scope_contains(actor_allowed, creator_allowed)
+    for target in row.targets:
+        target_type = NotificationTargetType(target.target_type)
+        if target_type in dynamic_types:
+            if not dynamic_reach_authorized:
+                return False
+            continue
+        if not await _stored_static_target_within_scope(
+            session,
+            actor,
+            target,
+            actor_allowed=actor_allowed,
+        ):
+            return False
+    return True
 
 
 def _category_for_rule(event_type: NotificationEventType) -> NotificationCategory:
