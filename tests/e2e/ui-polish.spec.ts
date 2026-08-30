@@ -81,6 +81,91 @@ test("dashboard correction keeps content readable, bounded, and route-consistent
   });
 });
 
+test("sidebar groups are folded by default and toggle across desktop and mobile", async ({
+  page,
+  request,
+}, testInfo) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await signIn(page, request);
+
+  const sidebar = page.getByRole("complementary", { name: "Application sidebar" });
+  const groups = [
+    { label: "Operations", firstItem: "Customers" },
+    { label: "People", firstItem: "Users" },
+    { label: "Performance", firstItem: "Targets" },
+    { label: "Finance", firstItem: "Finance" },
+    { label: "Assets", firstItem: "Assets" },
+    { label: "Administration", firstItem: "Banks & products" },
+  ];
+
+  await expect(sidebar.getByRole("link", { name: "Dashboard", exact: true })).toHaveAttribute(
+    "aria-current",
+    "page",
+  );
+  await expect(sidebar.getByTestId("sidebar-main-icon")).toHaveCount(7);
+  for (const group of groups) {
+    await expect(sidebar.getByRole("button", { name: `${group.label} menu` })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+    await expect(sidebar.getByRole("link", { name: group.firstItem, exact: true })).toBeHidden();
+  }
+
+  await page.screenshot({
+    path: testInfo.outputPath("task16-sidebar-folded.png"),
+  });
+
+  for (const group of groups) {
+    const parent = sidebar.getByRole("button", { name: `${group.label} menu` });
+    await parent.focus();
+    await parent.press("Enter");
+    await expect(parent).toHaveAttribute("aria-expanded", "true");
+    await expect(sidebar.getByRole("link", { name: group.firstItem, exact: true })).toBeVisible();
+    if (group.label === "Operations") {
+      await page.screenshot({
+        path: testInfo.outputPath("task16-sidebar-expanded.png"),
+      });
+    }
+    await parent.press(" ");
+    await expect(parent).toHaveAttribute("aria-expanded", "false");
+    await expect(sidebar.getByRole("link", { name: group.firstItem, exact: true })).toBeHidden();
+  }
+
+  const peopleMenu = sidebar.getByRole("button", { name: "People menu" });
+  await peopleMenu.click();
+  await sidebar.getByRole("link", { name: "Users", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "User directory" })).toBeVisible();
+  await expect(sidebar.getByRole("link", { name: "Users", exact: true })).toHaveAttribute(
+    "aria-current",
+    "page",
+  );
+  await expect(peopleMenu).toHaveClass(/bg-blue-50/);
+
+  await page.getByRole("button", { name: "Collapse sidebar" }).click();
+  await expect(sidebar).toHaveCSS("width", "80px");
+  await expect(peopleMenu).toHaveAttribute("aria-expanded", "true");
+  await peopleMenu.click();
+  await expect(peopleMenu).toHaveAttribute("aria-expanded", "false");
+  await peopleMenu.click();
+  await expect(sidebar.getByRole("link", { name: "Users", exact: true })).toBeVisible();
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "User directory" })).toBeVisible();
+  await page.getByRole("button", { name: "Open navigation" }).click();
+  for (const group of groups) {
+    await expect(sidebar.getByRole("button", { name: `${group.label} menu` })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+  }
+  const mobileOperations = sidebar.getByRole("button", { name: "Operations menu" });
+  await mobileOperations.click();
+  await expect(sidebar.getByRole("link", { name: "Customers", exact: true })).toBeVisible();
+  await mobileOperations.click();
+  await expect(sidebar.getByRole("link", { name: "Customers", exact: true })).toBeHidden();
+});
+
 test("shared shell supports dashboard landing, collapse, user menu, and mobile navigation", async ({
   page,
   request,
@@ -105,6 +190,7 @@ test("shared shell supports dashboard landing, collapse, user menu, and mobile n
   await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
   await page.getByLabel("Open user menu").click();
 
+  await page.getByRole("button", { name: "People menu" }).click();
   await page.getByRole("link", { name: "Users", exact: true }).click();
   await expect(page.getByRole("heading", { name: "User directory" })).toBeVisible();
   await expect(page.getByLabel("Search users")).toBeVisible();
@@ -118,6 +204,10 @@ test("shared shell supports dashboard landing, collapse, user menu, and mobile n
   ).toBeTruthy();
   await page.getByRole("button", { name: "Open navigation" }).click();
   await expect(page.getByRole("navigation", { name: "Primary" })).toBeVisible();
+  const mobilePeopleMenu = page.getByRole("button", { name: "People menu" });
+  if ((await mobilePeopleMenu.getAttribute("aria-expanded")) !== "true") {
+    await mobilePeopleMenu.click();
+  }
   await expect(page.getByRole("link", { name: "Users", exact: true })).toBeVisible();
   await page.screenshot({
     path: testInfo.outputPath("task16-users-mobile.png"),

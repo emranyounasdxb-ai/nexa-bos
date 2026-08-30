@@ -39,16 +39,26 @@ async function signIn(page: Page, request: APIRequestContext) {
   });
 }
 
+async function openGroup(page: Page, label: string) {
+  const parent = page.getByRole("button", { name: `${label} menu` });
+  if ((await parent.getAttribute("aria-expanded")) !== "true") {
+    await parent.click();
+  }
+  await expect(parent).toHaveAttribute("aria-expanded", "true");
+}
+
 test("owner can log in, navigate major screens, sign out, and log in again", async ({
   page,
   request,
 }) => {
   test.setTimeout(150_000);
   await signIn(page, request);
+  await openGroup(page, "People");
   await page.getByRole("link", { name: "Users", exact: true }).click();
   await expect(page.getByRole("link", { name: "USR-000001" })).toBeVisible();
   await expect(page.getByLabel("Authenticator code")).toHaveCount(0);
 
+  await openGroup(page, "Operations");
   await page.getByRole("link", { name: "Customers", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Customers" })).toBeVisible();
 
@@ -61,6 +71,7 @@ test("owner can log in, navigate major screens, sign out, and log in again", asy
   await page.getByRole("link", { name: "Dashboard", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
 
+  await openGroup(page, "Performance");
   await page.getByRole("link", { name: "Reports", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Comparisons" })).toBeVisible();
 
@@ -70,12 +81,15 @@ test("owner can log in, navigate major screens, sign out, and log in again", asy
   await page.getByRole("link", { name: "Targets", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Targets" })).toBeVisible();
 
+  await openGroup(page, "Finance");
   await page.getByRole("link", { name: "Finance", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Finance", exact: true })).toBeVisible();
 
+  await openGroup(page, "Administration");
   await page.getByRole("link", { name: "Notifications", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Notification center" })).toBeVisible();
 
+  await openGroup(page, "Assets");
   await page.getByRole("link", { name: "Assets", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Asset Register" })).toBeVisible();
 
