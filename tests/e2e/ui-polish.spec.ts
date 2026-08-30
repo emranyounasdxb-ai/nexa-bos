@@ -37,6 +37,50 @@ async function signIn(page: Page, request: APIRequestContext) {
   });
 }
 
+test("dashboard correction keeps content readable, bounded, and route-consistent", async ({
+  page,
+  request,
+}, testInfo) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await signIn(page, request);
+  await expect(page).toHaveURL(/\/reports(?:\?|$)/);
+  await expect(page.getByRole("link", { name: "Submitted KPI" })).toBeVisible({ timeout: 30_000 });
+
+  const shellHeader = page.locator("header").first();
+  await expect(shellHeader.getByText("Workspace", { exact: true })).toBeVisible();
+  await expect(shellHeader.getByText("Dashboard", { exact: true })).toBeVisible();
+
+  const actionButtons = await page.getByTestId("dashboard-actions").getByRole("button").all();
+  expect(actionButtons).toHaveLength(5);
+  for (const button of actionButtons) {
+    const box = await button.boundingBox();
+    expect(box?.height ?? 0).toBeGreaterThanOrEqual(40);
+  }
+
+  await expect(page.getByTestId("stage-breakdown-panel")).toBeVisible();
+  const stageScroll = page.getByTestId("stage-breakdown-scroll");
+  if ((await stageScroll.count()) > 0) {
+    const bounds = await stageScroll.evaluate((element) => ({
+      clientHeight: element.clientHeight,
+      maxHeight: window.getComputedStyle(element).maxHeight,
+      overflowY: window.getComputedStyle(element).overflowY,
+    }));
+    expect(bounds.clientHeight).toBeLessThanOrEqual(288);
+    expect(bounds.maxHeight).toBe("288px");
+    expect(["auto", "scroll"]).toContain(bounds.overflowY);
+  }
+
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+    ),
+  ).toBeTruthy();
+  await page.screenshot({
+    path: testInfo.outputPath("task16-dashboard-desktop.png"),
+    fullPage: true,
+  });
+});
+
 test("shared shell supports dashboard landing, collapse, user menu, and mobile navigation", async ({
   page,
   request,

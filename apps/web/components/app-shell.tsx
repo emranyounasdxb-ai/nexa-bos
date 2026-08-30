@@ -33,10 +33,10 @@ type NavGroup = {
 
 const routeContext = (pathname: string) => {
   const routes = [
-    { prefix: "/reports/compare", group: "Performance", title: "Reports" },
-    { prefix: "/reports/drill-down", group: "Performance", title: "Report drill-down" },
-    { prefix: "/reports/employees", group: "Performance", title: "Employee report" },
-    { prefix: "/reports", group: "Dashboard", title: "Dashboard" },
+    { prefix: "/reports/compare", group: "Performance / Reports", title: "Comparisons" },
+    { prefix: "/reports/drill-down", group: "Performance / Reports", title: "Report drill-down" },
+    { prefix: "/reports/employees", group: "Performance / Reports", title: "Employee report" },
+    { prefix: "/reports", group: "Workspace", title: "Dashboard" },
     { prefix: "/customers/new", group: "Operations / Customers", title: "Create customer" },
     { prefix: "/customers", group: "Operations", title: "Customers" },
     { prefix: "/applications/new", group: "Operations / Applications", title: "Create application" },
@@ -89,7 +89,7 @@ const isActiveRoute = (pathname: string, href: string) => {
 const landingFor = (user: UserRecord) =>
   user.permissions.includes("Dashboard.View") ? "/reports" : "/users";
 
-function HolidayReminders() {
+function HolidayReminders({ compact = false }: { compact?: boolean }) {
   const [items, setItems] = useState<Reminder[]>([]);
   const api = getBrowserApiUrl();
 
@@ -113,20 +113,29 @@ function HolidayReminders() {
   }
 
   return (
-    <aside aria-label="Holiday reminders" className="mb-5 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+    <aside
+      aria-label="Holiday reminders"
+      className={cx(
+        compact ? "mb-4 flex gap-2 overflow-x-auto pb-1" : "mb-5 grid gap-2 md:grid-cols-2 xl:grid-cols-3",
+      )}
+    >
       {items.map((item) => (
         <div
           key={item.id}
           className={cx(
-            "flex min-w-0 flex-col items-start justify-between gap-3 rounded-xl border bg-white px-4 py-3 text-sm shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:flex-row sm:items-center xl:flex-col xl:items-start",
+            "flex min-w-0 justify-between rounded-xl border bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)]",
+            compact
+              ? "min-w-[18rem] items-center gap-2 px-3 py-2 text-xs"
+              : "flex-col items-start gap-3 px-4 py-3 text-sm sm:flex-row sm:items-center xl:flex-col xl:items-start",
             item.kind === "urgent" ? "border-red-200" : "border-slate-200",
           )}
         >
-          <div className="flex min-w-0 items-start gap-3">
+          <div className={cx("flex min-w-0 items-start", compact ? "gap-2" : "gap-3")}>
             <span
               aria-hidden="true"
               className={cx(
-                "mt-0.5 inline-flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-bold",
+                "mt-0.5 inline-flex shrink-0 items-center justify-center rounded-full text-xs font-bold",
+                compact ? "size-6" : "size-7",
                 item.kind === "urgent" ? "bg-red-50 text-red-700" : "bg-blue-50 text-[#0f4c81]",
               )}
             >
@@ -141,7 +150,12 @@ function HolidayReminders() {
               {item.daysUntil != null ? ` (${item.daysUntil} day(s))` : ""}
             </p>
           </div>
-          <Button type="button" variant="ghost" className="min-h-8 px-2 py-1" onClick={() => void dismiss(item.id)}>
+          <Button
+            type="button"
+            variant="ghost"
+            className="min-h-8 shrink-0 px-2 py-1 text-xs"
+            onClick={() => void dismiss(item.id)}
+          >
             Dismiss
           </Button>
         </div>
@@ -478,7 +492,7 @@ function Shell({ children }: { children: ReactNode }) {
           </div>
         </header>
         <main className="mx-auto w-full max-w-[1600px] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-          {can("Attendance.View") ? <HolidayReminders /> : null}
+          {can("Attendance.View") ? <HolidayReminders compact={pathname === "/reports"} /> : null}
           {children}
         </main>
       </div>
