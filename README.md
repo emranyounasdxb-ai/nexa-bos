@@ -79,6 +79,26 @@ docker compose up
 
 Do not commit `.env`. Use `.env.example` as the placeholder template.
 
+## Release candidate status
+
+Tasks 1–14 are integrated and the Task 15 full integration/UAT/stabilization pass is complete. The current database migration head is `0016_asset_inventory`.
+
+Local release-candidate validation completed with:
+
+- 189 API tests passed, including all 7 Security Baseline scenarios.
+- 25 Playwright workflows passed across OWNER, restricted-scope, security, and cross-module journeys.
+- Ruff check and format check, ESLint, TypeScript, and the Next.js production build passed.
+- A fresh PostgreSQL database upgraded from `0001_baseline` through `0016_asset_inventory`; `alembic current` and `alembic check` passed.
+
+Task 15 stabilized notification-rule replacement when targets are unchanged, controlled missing-user responses, application-list query growth, repeatable hierarchy-search test data, and major-screen OWNER browser navigation.
+
+Accepted release-candidate residuals:
+
+- The Notification Center returns the newest 100 deliveries without pagination. Older deliveries remain persisted and counted, but browsing them requires a future product/API pagination decision.
+- Contextual notification links use a same-origin route-prefix allowlist. Producers emit fixed routes and destination authorization remains authoritative; exact route-segment matching is a defense-in-depth follow-up.
+
+This is a Release Candidate pending pull-request review and CI. It is not a production deployment.
+
 ## Out of scope
 
 External notifications, NexaHR, Redis, workers, and multi-tenancy are not implemented.

@@ -1,9 +1,17 @@
 from __future__ import annotations
 
 import pytest
+from helpers import create_activated_user, designation_id, office_id, owner_client, unique_tag
 from httpx import AsyncClient
 
-from helpers import create_activated_user, designation_id, office_id, owner_client, unique_tag
+
+@pytest.mark.asyncio
+async def test_missing_user_returns_controlled_not_found(client: AsyncClient) -> None:
+    authed, _ = await owner_client(client)
+    response = await authed.get("/api/v1/users/00000000-0000-0000-0000-000000000001")
+
+    assert response.status_code == 404, response.text
+    assert response.json()["error"]["code"] == "USER_NOT_FOUND"
 
 
 @pytest.mark.asyncio

@@ -34,6 +34,7 @@ from nexa_bos_api.applications.service import (
     reassign_case_owner,
     save_case_number,
     serialize_application,
+    serialize_applications,
     set_outcome,
     update_application,
     update_stage,
@@ -194,7 +195,7 @@ async def applications_list(
             funded_max,
         ),
     )
-    return {"items": [await serialize_application(session, row) for row in rows]}
+    return {"items": await serialize_applications(session, rows)}
 
 
 @router.post("/applications")

@@ -3,7 +3,8 @@ from __future__ import annotations
 from datetime import date
 
 import pytest
-from httpx import AsyncClient
+from httpx import AsyncClient, Response
+from sqlalchemy import event
 
 from helpers import (
     authenticate,
@@ -13,6 +14,7 @@ from helpers import (
     spawned_client,
     unique_tag,
 )
+from nexa_bos_api.main import app
 
 
 async def _customer(client: AsyncClient, name: str) -> dict:
@@ -239,7 +241,9 @@ async def test_application_id_generation_and_entry_stage(client: AsyncClient) ->
     assert created["currentStage"] == "Application Created"
     assert created["terminalOutcome"] is None
     assert created["submitted"] is False
-    products = {item["code"]: item for item in (await authed.get("/api/v1/products")).json()["items"]}
+    products = {
+        item["code"]: item for item in (await authed.get("/api/v1/products")).json()["items"]
+    }
     assert products["PF"]["requestedAmountRequired"] is True
     assert products["PF"]["approvedAmountRequired"] is True
 
@@ -534,9 +538,7 @@ async def test_workflow_versioning_and_migration(client: AsyncClient) -> None:
     )
     assert newer["workflowVersion"] == original_version + 1
     target = next(
-        stage
-        for stage in versioned.json()["stages"]
-        if stage["systemKey"] == "application_created"
+        stage for stage in versioned.json()["stages"] if stage["systemKey"] == "application_created"
     )
     migrated = await authed.post(
         f"/api/v1/applications/{created['id']}/migrate",
@@ -626,6 +628,57 @@ async def test_search_respects_application_scope(client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
+async def test_application_list_query_count_does_not_grow_per_row(client: AsyncClient) -> None:
+    authed, owner = await owner_client(client)
+    dib, _eib, pf, _cc = await _catalog(authed)
+    tag = unique_tag()
+    applications = []
+    for index in range(4):
+        customer = await _customer(authed, f"Query batch {tag} {index}")
+        applications.append(
+            await _create_app(
+                authed,
+                customer_id=customer["id"],
+                bank_id=dib["id"],
+                product_id=pf["id"],
+                case_owner_id=owner["id"],
+            )
+        )
+
+    async def counted_get(path: str) -> tuple[int, Response]:
+        statements: list[str] = []
+
+        def count_selects(
+            _connection: object,
+            _cursor: object,
+            statement: str,
+            _parameters: object,
+            _context: object,
+            _executemany: bool,
+        ) -> None:
+            if statement.lstrip().upper().startswith("SELECT"):
+                statements.append(statement)
+
+        engine = app.state.engine.sync_engine
+        event.listen(engine, "before_cursor_execute", count_selects)
+        try:
+            response = await authed.get(path)
+        finally:
+            event.remove(engine, "before_cursor_execute", count_selects)
+        assert response.status_code == 200, response.text
+        return len(statements), response
+
+    single_count, single = await counted_get(
+        f"/api/v1/applications?application_id={applications[0]['applicationCode']}"
+    )
+    batch_count, batch = await counted_get(f"/api/v1/applications?q={tag}")
+
+    assert len(single.json()["items"]) == 1
+    assert len(batch.json()["items"]) == 4
+    assert batch_count <= single_count + 1, (single_count, batch_count)
+
+
+@pytest.mark.asyncio
 async def test_case_owner_reassignment_and_customer_office_visibility(
     client: AsyncClient,
 ) -> None:
@@ -707,7 +760,9 @@ async def test_case_owner_reassignment_and_customer_office_visibility(
         json={"case_owner_id": viewer["id"], "reason": "Coverage"},
     )
     assert reassigned.status_code == 200, reassigned.text
-    timeline = (await authed.get(f"/api/v1/applications/{hidden_app['id']}/timeline")).json()["items"]
+    timeline = (await authed.get(f"/api/v1/applications/{hidden_app['id']}/timeline")).json()[
+        "items"
+    ]
     assert any(item["eventType"] == "case_owner_reassigned" for item in timeline)
     assert reassigned.json()["caseOwnerId"] == viewer["id"]
     async with await spawned_client() as other:
@@ -743,10 +798,13 @@ async def test_filter_keeps_historical_ineligible_case_owner(client: AsyncClient
         json={"can_be_case_owner": False},
     )
     assert disabled.json()["canBeCaseOwner"] is False
-    eligible = {item["id"] for item in (await authed.get("/api/v1/users/case-owners")).json()["items"]}
+    eligible = {
+        item["id"] for item in (await authed.get("/api/v1/users/case-owners")).json()["items"]
+    }
     assert former["id"] not in eligible
     referenced = {
-        item["id"] for item in (await authed.get("/api/v1/applications/case-owners")).json()["items"]
+        item["id"]
+        for item in (await authed.get("/api/v1/applications/case-owners")).json()["items"]
     }
     assert former["id"] in referenced
     filtered = await authed.get(f"/api/v1/applications?case_owner_id={former['id']}")
@@ -760,7 +818,8 @@ async def test_filter_keeps_historical_ineligible_case_owner(client: AsyncClient
     historical = await authed.get(f"/api/v1/applications?case_owner_id={former['id']}")
     assert app["id"] in {item["id"] for item in historical.json()["items"]}
     still_listed = {
-        item["id"] for item in (await authed.get("/api/v1/applications/case-owners")).json()["items"]
+        item["id"]
+        for item in (await authed.get("/api/v1/applications/case-owners")).json()["items"]
     }
     assert former["id"] in still_listed
 

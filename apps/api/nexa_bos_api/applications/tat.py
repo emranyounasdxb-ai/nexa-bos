@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from uuid import UUID
 
@@ -263,9 +264,23 @@ def _delay_payload(delay: ApplicationDelay) -> dict[str, object]:
     }
 
 
-async def serialize_delay(session: AsyncSession, delay: ApplicationDelay) -> dict[str, object]:
-    stage = await session.get(WorkflowStage, delay.stage_id)
-    marker = await session.get(User, delay.marked_by_id)
+async def serialize_delay(
+    session: AsyncSession,
+    delay: ApplicationDelay,
+    *,
+    stages: Mapping[UUID, WorkflowStage] | None = None,
+    users: Mapping[UUID, User] | None = None,
+) -> dict[str, object]:
+    stage = (
+        stages.get(delay.stage_id)
+        if stages is not None
+        else await session.get(WorkflowStage, delay.stage_id)
+    )
+    marker = (
+        users.get(delay.marked_by_id)
+        if users is not None
+        else await session.get(User, delay.marked_by_id)
+    )
     return {
         "id": str(delay.id),
         "delayType": delay.delay_type,
@@ -284,10 +299,23 @@ async def serialize_delay(session: AsyncSession, delay: ApplicationDelay) -> dic
 
 
 async def serialize_occupancy(
-    session: AsyncSession, occupancy: ApplicationStageOccupancy, *, now: datetime
+    session: AsyncSession,
+    occupancy: ApplicationStageOccupancy,
+    *,
+    now: datetime,
+    stages: Mapping[UUID, WorkflowStage] | None = None,
+    users: Mapping[UUID, User] | None = None,
 ) -> dict[str, object]:
-    stage = await session.get(WorkflowStage, occupancy.stage_id)
-    actor = await session.get(User, occupancy.updated_by_id)
+    stage = (
+        stages.get(occupancy.stage_id)
+        if stages is not None
+        else await session.get(WorkflowStage, occupancy.stage_id)
+    )
+    actor = (
+        users.get(occupancy.updated_by_id)
+        if users is not None
+        else await session.get(User, occupancy.updated_by_id)
+    )
     elapsed = (
         occupancy.duration_seconds
         if occupancy.exited_at is not None
@@ -311,30 +339,40 @@ async def serialize_occupancy(
     }
 
 
-async def tat_fields(session: AsyncSession, application: Application) -> dict[str, object]:
+async def tat_fields(
+    session: AsyncSession,
+    application: Application,
+    *,
+    occupancies: Sequence[ApplicationStageOccupancy] | None = None,
+    delays: Sequence[ApplicationDelay] | None = None,
+    stages: Mapping[UUID, WorkflowStage] | None = None,
+    users: Mapping[UUID, User] | None = None,
+) -> dict[str, object]:
     now = utcnow()
-    occupancies = (
-        (
-            await session.execute(
-                select(ApplicationStageOccupancy)
-                .where(ApplicationStageOccupancy.application_id == application.id)
-                .order_by(ApplicationStageOccupancy.entered_at.asc())
+    if occupancies is None:
+        occupancies = (
+            (
+                await session.execute(
+                    select(ApplicationStageOccupancy)
+                    .where(ApplicationStageOccupancy.application_id == application.id)
+                    .order_by(ApplicationStageOccupancy.entered_at.asc())
+                )
             )
+            .scalars()
+            .all()
         )
-        .scalars()
-        .all()
-    )
-    delays = (
-        (
-            await session.execute(
-                select(ApplicationDelay)
-                .where(ApplicationDelay.application_id == application.id)
-                .order_by(ApplicationDelay.started_at.asc())
+    if delays is None:
+        delays = (
+            (
+                await session.execute(
+                    select(ApplicationDelay)
+                    .where(ApplicationDelay.application_id == application.id)
+                    .order_by(ApplicationDelay.started_at.asc())
+                )
             )
+            .scalars()
+            .all()
         )
-        .scalars()
-        .all()
-    )
     current = next((row for row in occupancies if row.exited_at is None), None)
     active = next((row for row in delays if row.ended_at is None), None)
     stopped = application.tat_stopped_at is not None
@@ -350,8 +388,13 @@ async def tat_fields(session: AsyncSession, application: Application) -> dict[st
         "currentStageElapsedSeconds": (
             duration_seconds(current.entered_at, now) if current else None
         ),
-        "stageDurations": [await serialize_occupancy(session, row, now=now) for row in occupancies],
-        "activeDelay": await serialize_delay(session, active) if active else None,
+        "stageDurations": [
+            await serialize_occupancy(session, row, now=now, stages=stages, users=users)
+            for row in occupancies
+        ],
+        "activeDelay": (
+            await serialize_delay(session, active, stages=stages, users=users) if active else None
+        ),
         "hasActiveDelay": active is not None,
     }
 

@@ -394,8 +394,14 @@ def _validate_acknowledgement(severity: str, required: bool) -> None:
         )
 
 
-def _replace_targets(rule: NotificationRule, targets: list[NotificationTargetInput]) -> None:
-    rule.targets.clear()
+async def _replace_targets(
+    session: AsyncSession,
+    rule: NotificationRule,
+    targets: list[NotificationTargetInput],
+) -> None:
+    if rule.targets:
+        rule.targets.clear()
+        await session.flush()
     for item in targets:
         user_type_id, office_id, team_id = _target_reference(item)
         rule.targets.append(
@@ -437,7 +443,7 @@ async def create_rule(
         activated_at=None,
     )
     session.add(row)
-    _replace_targets(row, payload.targets)
+    await _replace_targets(session, row, payload.targets)
     await record_audit(
         session,
         action="notification.rule.create",
@@ -484,7 +490,7 @@ async def update_rule(
     row.acknowledgement_required = payload.acknowledgement_required
     row.updated_by_id = actor.id
     row.updated_at = utcnow()
-    _replace_targets(row, payload.targets)
+    await _replace_targets(session, row, payload.targets)
     await record_audit(
         session,
         action="notification.rule.update",
