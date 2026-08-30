@@ -75,6 +75,7 @@ export default function OrganizationPage() {
     <section className="space-y-8">
       <PageHeader
         title="Organization masters"
+        description="Manage the offices, departments, designations, and teams available to authorized workflows."
         actions={
           can("Users.View") ? (
             <ButtonLink href="/organization/hierarchy" variant="secondary">
@@ -228,7 +229,8 @@ function CreateForm({
 
 function ItemTable({ items }: { items: OrgRef[] }) {
   return (
-    <table className="min-w-full rounded-xl border bg-white text-sm">
+    <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.03)]">
+    <table className="min-w-full text-sm">
       <thead className="bg-slate-50">
         <tr>
           <th className="px-3 py-2 text-left">Code</th>
@@ -246,6 +248,7 @@ function ItemTable({ items }: { items: OrgRef[] }) {
         ))}
       </tbody>
     </table>
+    </div>
   );
 }
 
@@ -261,7 +264,8 @@ function TeamTable({
   onAssign: (teamId: string, userId: string) => void;
 }) {
   return (
-    <table className="min-w-full rounded-xl border bg-white text-sm">
+    <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.03)]">
+    <table className="min-w-full text-sm">
       <thead className="bg-slate-50">
         <tr>
           <th className="px-3 py-2 text-left">Code</th>
@@ -302,5 +306,6 @@ function TeamTable({
         })}
       </tbody>
     </table>
+    </div>
   );
 }

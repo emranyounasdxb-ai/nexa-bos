@@ -11,6 +11,7 @@ import {
   EmptyState,
   ErrorText,
   FilterBar,
+  LoadingState,
   PageHeader,
   Select,
   TableHead,
@@ -37,20 +38,36 @@ function KpiButton({
   count,
   value,
   href,
+  tone = "blue",
 }: {
   label: string;
   count?: number;
   value?: string | null;
   href: string;
+  tone?: "blue" | "green" | "amber" | "red";
 }) {
+  const toneClass = {
+    blue: "bg-blue-50 text-[#0f4c81]",
+    green: "bg-emerald-50 text-emerald-700",
+    amber: "bg-amber-50 text-amber-700",
+    red: "bg-red-50 text-red-700",
+  }[tone];
   return (
     <Link
       href={href}
       aria-label={`${label} KPI`}
-      className="rounded-xl border border-slate-200 bg-white p-4 hover:border-slate-400"
+      className="group rounded-xl border border-slate-200 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-colors hover:border-slate-300 hover:bg-slate-50/60"
     >
-      <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</p>
-      <p className="mt-2 text-2xl font-semibold text-slate-900">{count ?? "—"}</p>
+      <div className="flex items-start justify-between gap-3">
+        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
+        <span
+          aria-hidden="true"
+          className={`inline-flex size-7 shrink-0 items-center justify-center rounded-md text-xs font-bold ${toneClass}`}
+        >
+          {label.charAt(0)}
+        </span>
+      </div>
+      <p className="mt-3 text-2xl font-semibold tracking-tight text-slate-900">{count ?? "—"}</p>
       {value !== undefined ? <p className="mt-1 text-sm text-slate-600">{formatAed(value)}</p> : null}
     </Link>
   );
@@ -99,7 +116,7 @@ function RankingTable({
 }
 
 export function DashboardInner() {
-  const { can } = useAuth();
+  const { can, user } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const api = getBrowserApiUrl();
@@ -185,11 +202,11 @@ export function DashboardInner() {
   return (
     <section className="space-y-6">
       <PageHeader
-        title="Performance / MIS"
+        title="Dashboard"
         description={
           data
             ? `${data.period.label} · ${data.reportingScope ?? "No reporting scope"} · ${data.currency}`
-            : "Management dashboard"
+            : "Management overview"
         }
         actions={
           <div className="flex flex-wrap gap-2">
@@ -219,6 +236,17 @@ export function DashboardInner() {
           </div>
         }
       />
+      <div className="relative overflow-hidden rounded-xl bg-slate-900 p-5 text-white sm:p-6">
+        <div className="relative z-10 max-w-2xl">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-200">NEXA BOS overview</p>
+          <h2 className="mt-2 text-xl font-semibold sm:text-2xl">Welcome back, {user?.fullName ?? "NEXA user"}.</h2>
+          <p className="mt-2 text-sm leading-6 text-slate-300">
+            Review live operational performance using the existing reporting scope and period filters below.
+          </p>
+        </div>
+        <div aria-hidden="true" className="absolute -right-10 -top-16 size-48 rounded-full border border-white/10" />
+        <div aria-hidden="true" className="absolute -right-2 top-8 size-28 rounded-full border border-white/10" />
+      </div>
       <FilterBar>
         <label className="text-sm">
           Reporting period
@@ -364,20 +392,20 @@ export function DashboardInner() {
         </div>
       </FilterBar>
       <ErrorText>{error}</ErrorText>
-      {loading ? <p className="text-sm text-slate-500">Loading…</p> : null}
+      {loading ? <LoadingState>Loading dashboard metrics…</LoadingState> : null}
       {data ? (
         <>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <KpiButton label="Submitted" count={data.kpis.submitted.count} value={data.kpis.submitted.value} href={drill("submitted")} />
-            <KpiButton label="Approved" count={data.kpis.approved.count} value={data.kpis.approved.value} href={drill("approved")} />
-            <KpiButton label="Booked" count={data.kpis.booked.count} value={data.kpis.booked.value} href={drill("booked")} />
-            <KpiButton label="Funded" count={data.kpis.funded.count} value={data.kpis.funded.value} href={drill("funded")} />
-            <KpiButton label="Pending" count={data.kpis.pending.count} href={drill("pending")} />
-            <KpiButton label="Returned / Requirement Pending" count={data.kpis.returnedRequirementPending.count} href={drill("returned")} />
-            <KpiButton label="Final Rejected" count={data.kpis.finalRejected.count} href={drill("final_rejected")} />
-            <KpiButton label="Cancelled" count={data.kpis.cancelled.count} href={drill("cancelled")} />
-            <KpiButton label="Withdrawn" count={data.kpis.withdrawn.count} href={drill("withdrawn")} />
-            <KpiButton label="Completed" count={data.kpis.completed.count} href={drill("completed")} />
+            <KpiButton tone="green" label="Approved" count={data.kpis.approved.count} value={data.kpis.approved.value} href={drill("approved")} />
+            <KpiButton tone="green" label="Booked" count={data.kpis.booked.count} value={data.kpis.booked.value} href={drill("booked")} />
+            <KpiButton tone="green" label="Funded" count={data.kpis.funded.count} value={data.kpis.funded.value} href={drill("funded")} />
+            <KpiButton tone="amber" label="Pending" count={data.kpis.pending.count} href={drill("pending")} />
+            <KpiButton tone="amber" label="Returned / Requirement Pending" count={data.kpis.returnedRequirementPending.count} href={drill("returned")} />
+            <KpiButton tone="red" label="Final Rejected" count={data.kpis.finalRejected.count} href={drill("final_rejected")} />
+            <KpiButton tone="red" label="Cancelled" count={data.kpis.cancelled.count} href={drill("cancelled")} />
+            <KpiButton tone="red" label="Withdrawn" count={data.kpis.withdrawn.count} href={drill("withdrawn")} />
+            <KpiButton tone="green" label="Completed" count={data.kpis.completed.count} href={drill("completed")} />
             <KpiButton label="PF Count / Value" count={data.kpis.personalFinance.count} value={data.kpis.personalFinance.value} href={drill("pf_value")} />
             <KpiButton label="CC Count" count={data.kpis.creditCard.count} href={drill("cc_count")} />
           </div>

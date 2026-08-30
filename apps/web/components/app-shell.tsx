@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 
-import { Button, focusRing, cx } from "@/components/ui";
+import { Button, cx, focusRing } from "@/components/ui";
 import { apiGet, apiRequest, getCsrfToken, setCsrfToken } from "@/lib/api";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
 import { getBrowserApiUrl } from "@/lib/env";
@@ -18,6 +18,76 @@ type Reminder = {
   holiday: { name: string; holidayDate: string } | null;
   daysUntil: number | null;
 };
+
+type NavItem = {
+  href: string;
+  label: string;
+  shortLabel: string;
+  show: boolean;
+};
+
+type NavGroup = {
+  label: string;
+  items: NavItem[];
+};
+
+const routeContext = (pathname: string) => {
+  const routes = [
+    { prefix: "/reports/compare", group: "Performance", title: "Reports" },
+    { prefix: "/reports/drill-down", group: "Performance", title: "Report drill-down" },
+    { prefix: "/reports/employees", group: "Performance", title: "Employee report" },
+    { prefix: "/reports", group: "Dashboard", title: "Dashboard" },
+    { prefix: "/customers/new", group: "Operations / Customers", title: "Create customer" },
+    { prefix: "/customers", group: "Operations", title: "Customers" },
+    { prefix: "/applications/new", group: "Operations / Applications", title: "Create application" },
+    { prefix: "/applications", group: "Operations", title: "Applications" },
+    { prefix: "/workflows", group: "Operations", title: "Workflows" },
+    { prefix: "/users/new", group: "People / Users", title: "Create user" },
+    { prefix: "/users", group: "People", title: "Users" },
+    { prefix: "/organization/hierarchy", group: "People / Organization", title: "Hierarchy" },
+    { prefix: "/organization", group: "People", title: "Organization" },
+    { prefix: "/attendance/reports", group: "People / Attendance", title: "Attendance reports" },
+    { prefix: "/attendance/holidays", group: "People / Attendance", title: "Official holidays" },
+    { prefix: "/attendance/schedules", group: "People / Attendance", title: "Schedules" },
+    { prefix: "/attendance", group: "People", title: "Attendance" },
+    { prefix: "/targets/kpi", group: "Performance / Targets", title: "KPI scorecards" },
+    { prefix: "/targets", group: "Performance", title: "Targets" },
+    { prefix: "/finance", group: "Finance", title: "Finance" },
+    { prefix: "/assets/categories", group: "Assets", title: "Asset categories" },
+    { prefix: "/assets/reports", group: "Assets", title: "Asset reports" },
+    { prefix: "/assets", group: "Assets", title: "Asset register" },
+    { prefix: "/notifications/manage", group: "Administration / Notifications", title: "Notification admin" },
+    { prefix: "/notifications", group: "Administration", title: "Notifications" },
+    { prefix: "/catalog", group: "Administration", title: "Banks & products" },
+    { prefix: "/user-types", group: "Administration", title: "User types" },
+    { prefix: "/security", group: "Administration", title: "Security" },
+    { prefix: "/account", group: "Account", title: "My profile" },
+  ];
+  return (
+    routes.find((route) => pathname === route.prefix || pathname.startsWith(`${route.prefix}/`)) ?? {
+      group: "NEXA BOS",
+      title: "Workspace",
+    }
+  );
+};
+
+const isActiveRoute = (pathname: string, href: string) => {
+  if (["/reports", "/notifications", "/attendance", "/organization", "/targets"].includes(href)) {
+    return pathname === href;
+  }
+  if (href === "/assets") {
+    return (
+      pathname === href ||
+      (/^\/assets\/[^/]+$/.test(pathname) &&
+        pathname !== "/assets/categories" &&
+        pathname !== "/assets/reports")
+    );
+  }
+  return pathname === href || pathname.startsWith(`${href}/`);
+};
+
+const landingFor = (user: UserRecord) =>
+  user.permissions.includes("Dashboard.View") ? "/reports" : "/users";
 
 function HolidayReminders() {
   const [items, setItems] = useState<Reminder[]>([]);
@@ -38,27 +108,45 @@ function HolidayReminders() {
       await apiRequest(`/api/v1/attendance/reminders/${id}/dismiss`, api, { method: "POST" });
       setItems((current) => current.filter((item) => item.id !== id));
     } catch {
-      /* keep banner */
+      /* Keep the reminder visible when dismissal fails. */
     }
   }
 
   return (
-    <div className="border-b border-slate-200 bg-slate-50">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-2 px-4 py-3 text-sm sm:px-6">
-        {items.map((item) => (
-          <div key={item.id} className="flex flex-wrap items-center justify-between gap-2">
-            <p>
-              {item.kind === "urgent" ? "Urgent holiday reminder: " : "Holiday reminder: "}
+    <aside aria-label="Holiday reminders" className="mb-5 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+      {items.map((item) => (
+        <div
+          key={item.id}
+          className={cx(
+            "flex min-w-0 flex-col items-start justify-between gap-3 rounded-xl border bg-white px-4 py-3 text-sm shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:flex-row sm:items-center xl:flex-col xl:items-start",
+            item.kind === "urgent" ? "border-red-200" : "border-slate-200",
+          )}
+        >
+          <div className="flex min-w-0 items-start gap-3">
+            <span
+              aria-hidden="true"
+              className={cx(
+                "mt-0.5 inline-flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-bold",
+                item.kind === "urgent" ? "bg-red-50 text-red-700" : "bg-blue-50 text-[#0f4c81]",
+              )}
+            >
+              {item.kind === "urgent" ? "!" : "i"}
+            </span>
+            <p className="min-w-0 text-slate-700">
+              <span className="font-semibold text-slate-900">
+                {item.kind === "urgent" ? "Urgent holiday reminder" : "Holiday reminder"}
+              </span>
+              {": "}
               {item.holiday?.name} on {item.holiday?.holidayDate}
               {item.daysUntil != null ? ` (${item.daysUntil} day(s))` : ""}
             </p>
-            <Button type="button" variant="secondary" onClick={() => void dismiss(item.id)}>
-              Dismiss
-            </Button>
           </div>
-        ))}
-      </div>
-    </div>
+          <Button type="button" variant="ghost" className="min-h-8 px-2 py-1" onClick={() => void dismiss(item.id)}>
+            Dismiss
+          </Button>
+        </div>
+      ))}
+    </aside>
   );
 }
 
@@ -84,12 +172,14 @@ function NotificationBell() {
       aria-label={`Notifications, ${unreadCount} unread`}
       className={cx(
         focusRing,
-        "relative inline-flex min-h-9 items-center rounded-md border border-slate-300 px-3 py-1.5 text-slate-700",
+        "relative inline-flex size-10 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 transition-colors hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900",
       )}
     >
-      <span aria-hidden="true">Bell</span>
+      <span aria-hidden="true" className="text-base grayscale">
+        🔔
+      </span>
       {unreadCount > 0 ? (
-        <span className="ml-2 inline-flex min-w-5 justify-center rounded-full bg-slate-900 px-1.5 py-0.5 text-xs font-semibold text-white">
+        <span className="absolute -right-1 -top-1 inline-flex min-w-5 justify-center rounded-full bg-[#0f4c81] px-1.5 py-0.5 text-[10px] font-bold leading-4 text-white ring-2 ring-white">
           {unreadCount > 99 ? "99+" : unreadCount}
         </span>
       ) : null}
@@ -101,6 +191,13 @@ function Shell({ children }: { children: ReactNode }) {
   const { user, can, setUser } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const context = routeContext(pathname);
+
+  useEffect(() => {
+    setMobileNavOpen(false);
+  }, [pathname]);
 
   async function logout() {
     try {
@@ -112,7 +209,7 @@ function Shell({ children }: { children: ReactNode }) {
       }
       await apiRequest("/api/v1/auth/logout", getBrowserApiUrl(), { method: "POST" });
     } catch {
-      /* session already gone */
+      /* The local session is already gone. */
     }
     setCsrfToken(null);
     setUser(null);
@@ -120,91 +217,271 @@ function Shell({ children }: { children: ReactNode }) {
     router.refresh();
   }
 
-  const links = [
-    { href: "/reports", label: "Dashboard", show: can("Dashboard.View") },
-    { href: "/reports/compare", label: "Reports", show: can("Reports.View") },
-    { href: "/targets", label: "Targets", show: can("Targets.View") },
-    { href: "/targets/kpi", label: "KPI scorecards", show: can("Targets.View") },
+  const groups: NavGroup[] = [
     {
-      href: "/finance",
+      label: "Workspace",
+      items: [{ href: "/reports", label: "Dashboard", shortLabel: "DB", show: can("Dashboard.View") }],
+    },
+    {
+      label: "Operations",
+      items: [
+        { href: "/customers", label: "Customers", shortLabel: "CU", show: can("Customers.View") },
+        { href: "/applications", label: "Applications", shortLabel: "AP", show: can("Applications.View") },
+        { href: "/workflows", label: "Workflows", shortLabel: "WF", show: can("WorkflowStages.Edit") },
+      ],
+    },
+    {
+      label: "People",
+      items: [
+        { href: "/users", label: "Users", shortLabel: "US", show: can("Users.View") },
+        { href: "/organization", label: "Organization", shortLabel: "OR", show: true },
+        { href: "/organization/hierarchy", label: "Hierarchy", shortLabel: "HI", show: can("Users.View") },
+        { href: "/attendance", label: "Attendance", shortLabel: "AT", show: can("Attendance.View") },
+        { href: "/attendance/reports", label: "Attendance reports", shortLabel: "AR", show: can("Attendance.Reports") },
+      ],
+    },
+    {
+      label: "Performance",
+      items: [
+        { href: "/targets", label: "Targets", shortLabel: "TG", show: can("Targets.View") },
+        { href: "/targets/kpi", label: "KPI scorecards", shortLabel: "KP", show: can("Targets.View") },
+        { href: "/reports/compare", label: "Reports", shortLabel: "RP", show: can("Reports.View") },
+      ],
+    },
+    {
       label: "Finance",
-      show: can("Finance.View") || can("Finance.ViewCommissionRules"),
+      items: [
+        {
+          href: "/finance",
+          label: "Finance",
+          shortLabel: "FI",
+          show: can("Finance.View") || can("Finance.ViewCommissionRules"),
+        },
+      ],
     },
-    { href: "/assets", label: "Assets", show: can("Assets.View") },
     {
-      href: "/assets/categories",
-      label: "Asset categories",
-      show: can("Assets.ManageMaster"),
+      label: "Assets",
+      items: [
+        { href: "/assets", label: "Assets", shortLabel: "AS", show: can("Assets.View") },
+        { href: "/assets/categories", label: "Asset categories", shortLabel: "AC", show: can("Assets.ManageMaster") },
+        { href: "/assets/reports", label: "Asset reports", shortLabel: "AR", show: can("Assets.View") },
+      ],
     },
-    { href: "/assets/reports", label: "Asset reports", show: can("Assets.View") },
-    { href: "/attendance", label: "Attendance", show: can("Attendance.View") },
-    { href: "/attendance/reports", label: "Attendance reports", show: can("Attendance.Reports") },
-    { href: "/notifications", label: "Notifications", show: can("Notifications.View") },
     {
-      href: "/notifications/manage",
-      label: "Notification admin",
-      show:
-        can("Notifications.ManageRules") ||
-        can("Notifications.SendUrgent") ||
-        can("Notifications.ViewAudit"),
+      label: "Administration",
+      items: [
+        { href: "/catalog", label: "Banks & products", shortLabel: "BP", show: true },
+        { href: "/user-types", label: "User types", shortLabel: "UT", show: can("UserTypes.View") },
+        { href: "/notifications", label: "Notifications", shortLabel: "NO", show: can("Notifications.View") },
+        {
+          href: "/notifications/manage",
+          label: "Notification admin",
+          shortLabel: "NA",
+          show:
+            can("Notifications.ManageRules") ||
+            can("Notifications.SendUrgent") ||
+            can("Notifications.ViewAudit"),
+        },
+        { href: "/security", label: "Security", shortLabel: "SE", show: can("Security.ManageSettings") },
+      ],
     },
-    { href: "/users", label: "Users", show: can("Users.View") },
-    { href: "/users/new", label: "Create user", show: can("Users.Create") },
-    { href: "/customers", label: "Customers", show: can("Customers.View") },
-    { href: "/customers/new", label: "Create customer", show: can("Customers.Create") },
-    { href: "/applications", label: "Applications", show: can("Applications.View") },
-    { href: "/applications/new", label: "Create application", show: can("Applications.Create") },
-    { href: "/workflows", label: "Workflows", show: can("WorkflowStages.Edit") },
-    { href: "/user-types", label: "User types", show: can("UserTypes.View") },
-    { href: "/organization", label: "Organization", show: true },
-    {
-      href: "/organization/hierarchy",
-      label: "Hierarchy",
-      show: can("Users.View"),
-    },
-    { href: "/catalog", label: "Banks & products", show: true },
-    { href: "/security", label: "Security", show: can("Security.ManageSettings") },
-    { href: "/account", label: "My profile", show: true },
   ];
 
+  const visibleGroups = groups
+    .map((group) => ({ ...group, items: group.items.filter((item) => item.show) }))
+    .filter((group) => group.items.length > 0);
+  const initials = (user?.fullName ?? "NEXA User")
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toUpperCase())
+    .join("");
+
   return (
-    <div className="flex min-h-screen flex-col">
-      <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-4 sm:px-6">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">NEXA BOS</p>
-            <h1 className="text-lg font-semibold text-slate-900">NEXA BOS</h1>
-          </div>
-          <div className="flex items-center gap-3 text-sm">
-            <span className="text-slate-600">{user?.fullName}</span>
-            {can("Notifications.View") ? <NotificationBell /> : null}
-            <Button type="button" variant="secondary" onClick={() => void logout()}>
-              Sign out
-            </Button>
-          </div>
+    <div className="min-h-screen lg:flex">
+      {mobileNavOpen ? (
+        <button
+          type="button"
+          aria-label="Close navigation"
+          className="fixed inset-0 z-40 bg-slate-950/40 lg:hidden"
+          onClick={() => setMobileNavOpen(false)}
+        />
+      ) : null}
+      <aside
+        aria-label="Application sidebar"
+        className={cx(
+          "fixed inset-y-0 left-0 z-50 flex w-72 flex-col border-r border-slate-200 bg-white transition-transform duration-200 lg:sticky lg:top-0 lg:z-20 lg:h-screen lg:translate-x-0 lg:transition-[width]",
+          mobileNavOpen ? "translate-x-0" : "-translate-x-full",
+          sidebarCollapsed ? "lg:w-20" : "lg:w-72",
+        )}
+      >
+        <div className="flex h-[70px] shrink-0 items-center justify-between border-b border-slate-200 px-5">
+          <Link
+            href={can("Dashboard.View") ? "/reports" : "/users"}
+            className={cx(focusRing, "flex min-w-0 items-center gap-3 rounded-md")}
+          >
+            <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-md bg-[#0f4c81] text-sm font-bold tracking-tight text-white">
+              NX
+            </span>
+            <span className={cx("min-w-0", sidebarCollapsed && "lg:hidden")}>
+              <span className="block text-sm font-bold tracking-[0.12em] text-slate-900">NEXA BOS</span>
+              <span className="block truncate text-[11px] text-slate-500">Business operations</span>
+            </span>
+          </Link>
+          <button
+            type="button"
+            aria-label="Close navigation"
+            className={cx(focusRing, "rounded-md p-2 text-slate-500 hover:bg-slate-100 lg:hidden")}
+            onClick={() => setMobileNavOpen(false)}
+          >
+            ×
+          </button>
         </div>
-        <nav className="mx-auto flex w-full max-w-6xl flex-wrap gap-x-4 gap-y-2 px-4 pb-3 text-sm sm:px-6">
-          {links
-            .filter((link) => link.show)
-            .map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
+        <nav aria-label="Primary" className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
+          {visibleGroups.map((group) => (
+            <div key={group.label} className="mb-5 last:mb-0">
+              <p
                 className={cx(
-                  focusRing,
-                  "rounded-sm",
-                  pathname === link.href || pathname.startsWith(`${link.href}/`)
-                    ? "font-semibold text-slate-900"
-                    : "text-slate-500",
+                  "mb-1 px-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400",
+                  sidebarCollapsed && "lg:sr-only",
                 )}
               >
-                {link.label}
-              </Link>
-            ))}
+                {group.label}
+              </p>
+              <div className="space-y-1">
+                {group.items.map((item) => {
+                  const active = isActiveRoute(pathname, item.href);
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      title={sidebarCollapsed ? item.label : undefined}
+                      className={cx(
+                        focusRing,
+                        "group flex min-h-10 items-center gap-3 rounded-md px-3 text-sm font-medium transition-colors",
+                        active
+                          ? "bg-blue-50 text-[#0f4c81]"
+                          : "text-slate-600 hover:bg-slate-50 hover:text-slate-900",
+                        sidebarCollapsed && "lg:justify-center lg:px-2",
+                      )}
+                    >
+                      <span
+                        aria-hidden="true"
+                        className={cx(
+                          "inline-flex size-7 shrink-0 items-center justify-center rounded-md border text-[10px] font-bold",
+                          active
+                            ? "border-blue-200 bg-white text-[#0f4c81]"
+                            : "border-slate-200 bg-slate-50 text-slate-500 group-hover:bg-white",
+                        )}
+                      >
+                        {item.shortLabel}
+                      </span>
+                      <span className={cx("truncate", sidebarCollapsed && "lg:sr-only")}>{item.label}</span>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </nav>
-      </header>
-      {can("Attendance.View") ? <HolidayReminders /> : null}
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6">{children}</main>
+        <div className="hidden shrink-0 border-t border-slate-200 p-3 lg:block">
+          <button
+            type="button"
+            aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            className={cx(
+              focusRing,
+              "flex w-full items-center justify-center gap-2 rounded-md px-3 py-2 text-xs font-medium text-slate-500 hover:bg-slate-50 hover:text-slate-900",
+            )}
+            onClick={() => setSidebarCollapsed((current) => !current)}
+          >
+            <span aria-hidden="true">{sidebarCollapsed ? "→" : "←"}</span>
+            <span className={cx(sidebarCollapsed && "sr-only")}>
+              {sidebarCollapsed ? "Expand" : "Collapse sidebar"}
+            </span>
+          </button>
+        </div>
+      </aside>
+
+      <div className="min-w-0 flex-1">
+        <header className="sticky top-0 z-30 flex h-[70px] items-center justify-between gap-4 border-b border-slate-200 bg-white/95 px-4 backdrop-blur-sm sm:px-6 lg:px-8">
+          <div className="flex min-w-0 items-center gap-3">
+            <button
+              type="button"
+              aria-label="Open navigation"
+              className={cx(
+                focusRing,
+                "inline-flex size-10 shrink-0 items-center justify-center rounded-md border border-slate-200 text-lg text-slate-600 hover:bg-slate-50 lg:hidden",
+              )}
+              onClick={() => setMobileNavOpen(true)}
+            >
+              ☰
+            </button>
+            <div className="min-w-0">
+              <p className="truncate text-[11px] font-medium text-slate-500">{context.group}</p>
+              <p className="truncate text-sm font-semibold text-slate-900 sm:text-base">{context.title}</p>
+            </div>
+          </div>
+          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+            {can("Notifications.View") ? <NotificationBell /> : null}
+            <details className="group relative">
+              <summary
+                aria-label="Open user menu"
+                className={cx(
+                  focusRing,
+                  "flex cursor-pointer list-none items-center gap-2 rounded-md border border-transparent p-1.5 hover:border-slate-200 hover:bg-slate-50 [&::-webkit-details-marker]:hidden",
+                )}
+              >
+                <span className="inline-flex size-8 items-center justify-center rounded-full bg-slate-900 text-xs font-semibold text-white">
+                  {initials}
+                </span>
+                <span className="hidden max-w-40 text-left sm:block">
+                  <span className="block truncate text-xs font-semibold text-slate-900">{user?.fullName}</span>
+                  <span className="block truncate text-[10px] text-slate-500">
+                    {user?.userType?.name ?? "NEXA user"}
+                  </span>
+                </span>
+                <span aria-hidden="true" className="hidden text-xs text-slate-400 sm:inline">
+                  ⌄
+                </span>
+              </summary>
+              <div className="absolute right-0 mt-2 w-64 overflow-hidden rounded-xl border border-slate-200 bg-white p-2 shadow-[0_12px_28px_rgba(15,23,42,0.12)]">
+                <div className="border-b border-slate-100 px-3 py-2 sm:hidden">
+                  <p className="truncate text-sm font-semibold text-slate-900">{user?.fullName}</p>
+                  <p className="truncate text-xs text-slate-500">{user?.email}</p>
+                </div>
+                <Link
+                  href="/account"
+                  onClick={(event) => {
+                    const menu = event.currentTarget.closest("details");
+                    if (menu) {
+                      menu.open = false;
+                    }
+                  }}
+                  className={cx(
+                    focusRing,
+                    "block rounded-md px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 hover:text-slate-900",
+                  )}
+                >
+                  My profile
+                </Link>
+                <button
+                  type="button"
+                  className={cx(
+                    focusRing,
+                    "block w-full rounded-md px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 hover:text-slate-900",
+                  )}
+                  onClick={() => void logout()}
+                >
+                  Sign out
+                </button>
+              </div>
+            </details>
+          </div>
+        </header>
+        <main className="mx-auto w-full max-w-[1600px] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+          {can("Attendance.View") ? <HolidayReminders /> : null}
+          {children}
+        </main>
+      </div>
     </div>
   );
 }
@@ -228,7 +505,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         setUser(current);
         setReady(true);
         if (pathname === "/login" || pathname === "/bootstrap") {
-          router.replace("/users");
+          router.replace(landingFor(current));
         }
       })
       .catch(async () => {
@@ -260,7 +537,17 @@ export function AppShell({ children }: { children: ReactNode }) {
   }, [pathname, router]);
 
   if (!ready) {
-    return <p className="p-8 text-sm text-slate-500">Loading…</p>;
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#f4f6f8]" role="status">
+        <span className="inline-flex items-center gap-3 text-sm text-slate-500">
+          <span
+            className="size-5 animate-spin rounded-full border-2 border-slate-200 border-t-[#0f4c81]"
+            aria-hidden="true"
+          />
+          Loading NEXA BOS…
+        </span>
+      </div>
+    );
   }
 
   return (

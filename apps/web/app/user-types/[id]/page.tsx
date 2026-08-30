@@ -220,7 +220,7 @@ export default function UserTypeDetailPage() {
         ) : null}
       </div>
       {can("UserTypes.AssignPermissions") && item.code !== "OWNER" ? (
-        <div className="rounded-xl border bg-white p-4">
+        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.03)]">
           <h3 className="font-semibold">Permissions</h3>
           <div className="mt-3 grid gap-2 md:grid-cols-2">
             {catalog.map((perm) => (

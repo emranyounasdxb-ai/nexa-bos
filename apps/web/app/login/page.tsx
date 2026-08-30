@@ -32,7 +32,7 @@ export default function LoginPage() {
     }
     setCsrfToken(result.csrfToken);
     setUser(result.user);
-    router.push("/users");
+    router.push(result.user.permissions.includes("Dashboard.View") ? "/reports" : "/users");
   }
 
   async function onSubmit(event: React.FormEvent) {

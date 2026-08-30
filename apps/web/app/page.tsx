@@ -11,7 +11,7 @@ export default function HomePage() {
   const router = useRouter();
   useEffect(() => {
     void apiGet<UserRecord>("/api/v1/auth/me", getBrowserApiUrl())
-      .then(() => router.replace("/users"))
+      .then((user) => router.replace(user.permissions.includes("Dashboard.View") ? "/reports" : "/users"))
       .catch(() =>
         apiGet<{ available: boolean }>("/api/v1/auth/bootstrap-status", getBrowserApiUrl())
           .then((status) => router.replace(status.available ? "/bootstrap" : "/login"))

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
-import { Badge, Button, Card, EmptyState, ErrorText, PageHeader } from "@/components/ui";
+import { Badge, Button, Card, EmptyState, ErrorText, LoadingState, PageHeader, StatusBadge } from "@/components/ui";
 import { apiGet, apiRequest } from "@/lib/api";
 import { getBrowserApiUrl } from "@/lib/env";
 
@@ -105,7 +105,7 @@ export default function NotificationsPage() {
         }
       />
       <ErrorText>{error}</ErrorText>
-      {loading ? <p className="text-sm text-slate-500">Loading…</p> : null}
+      {loading ? <LoadingState>Loading notifications…</LoadingState> : null}
       {!loading && items.length === 0 ? (
         <Card>
           <EmptyState>No notifications are available.</EmptyState>
@@ -115,16 +115,26 @@ export default function NotificationsPage() {
         {items.map((item) => (
           <Card
             key={item.id}
-            className={item.unread ? "border-slate-500 bg-slate-50" : undefined}
+            className={`relative overflow-hidden ${item.unread ? "border-blue-200 bg-blue-50/30" : ""}`}
           >
+            <span
+              aria-hidden="true"
+              className={`absolute inset-y-0 left-0 w-1 ${
+                item.severity.toLowerCase() === "critical"
+                  ? "bg-red-700"
+                  : item.severity.toLowerCase() === "urgent"
+                    ? "bg-amber-500"
+                    : "bg-[#0f4c81]"
+              }`}
+            />
             <div className="flex flex-wrap items-start justify-between gap-3">
-              <div className="min-w-0 flex-1 space-y-2">
+              <div className="min-w-0 flex-1 space-y-2 pl-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  {item.unread ? <Badge>Unread</Badge> : <Badge>Read</Badge>}
+                  <StatusBadge value={item.unread ? "Unread" : "Read"} />
                   <Badge>{label(item.category)}</Badge>
-                  <Badge>{label(item.severity)}</Badge>
+                  <StatusBadge value={label(item.severity)} />
                   {item.acknowledgementRequired ? (
-                    <Badge>{item.acknowledged ? "Acknowledged" : "Acknowledgement required"}</Badge>
+                    <StatusBadge value={item.acknowledged ? "Acknowledged" : "Acknowledgement required"} />
                   ) : null}
                 </div>
                 <h3 className="font-semibold text-slate-900">{item.title}</h3>

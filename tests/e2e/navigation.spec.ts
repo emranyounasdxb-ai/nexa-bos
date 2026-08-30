@@ -34,7 +34,7 @@ async function signIn(page: Page, request: APIRequestContext) {
   await page.getByLabel("Email").fill("owner@example.com");
   await page.getByLabel("Password").fill("OwnerPass1!");
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page.getByRole("heading", { name: "User directory" })).toBeVisible({
+  await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible({
     timeout: 30_000,
   });
 }
@@ -45,6 +45,7 @@ test("owner can log in, navigate major screens, sign out, and log in again", asy
 }) => {
   test.setTimeout(150_000);
   await signIn(page, request);
+  await page.getByRole("link", { name: "Users", exact: true }).click();
   await expect(page.getByRole("link", { name: "USR-000001" })).toBeVisible();
   await expect(page.getByLabel("Authenticator code")).toHaveCount(0);
 
@@ -58,7 +59,7 @@ test("owner can log in, navigate major screens, sign out, and log in again", asy
   await expect(page.getByRole("heading", { name: "Workflows" })).toBeVisible();
 
   await page.getByRole("link", { name: "Dashboard", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Performance / MIS" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
 
   await page.getByRole("link", { name: "Reports", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Comparisons" })).toBeVisible();
@@ -95,9 +96,11 @@ test("owner can log in, navigate major screens, sign out, and log in again", asy
   await expect(page.getByRole("heading", { name: "Security settings" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Save" })).toBeVisible({ timeout: 15_000 });
 
+  await page.getByLabel("Open user menu").click();
   await page.getByRole("link", { name: "My profile" }).click();
   await expect(page.getByRole("heading", { name: "My profile" })).toBeVisible();
 
+  await page.getByLabel("Open user menu").click();
   const signOut = page.locator("header").getByRole("button", { name: "Sign out" });
   await signOut.waitFor({ state: "visible" });
   await signOut.evaluate((button: HTMLButtonElement) => button.click());
@@ -109,7 +112,7 @@ test("owner can log in, navigate major screens, sign out, and log in again", asy
   await page.getByLabel("Email").fill("owner@example.com");
   await page.getByLabel("Password").fill("OwnerPass1!");
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page.getByRole("heading", { name: "User directory" })).toBeVisible({
+  await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible({
     timeout: 30_000,
   });
   await expect(page.getByLabel("Authenticator code")).toHaveCount(0);

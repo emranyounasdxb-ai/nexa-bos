@@ -271,7 +271,7 @@ export function DatePicker({
           id={dialogId}
           role="dialog"
           aria-label="Choose date"
-          className="absolute z-20 mt-2 w-[19.5rem] rounded-md border border-slate-300 bg-white p-3"
+          className="absolute z-20 mt-2 w-[min(19.5rem,calc(100vw-2rem))] rounded-xl border border-slate-200 bg-white p-3 shadow-[0_12px_28px_rgba(15,23,42,0.12)]"
         >
           <div className="mb-2 flex items-center justify-between gap-1">
             <button
