@@ -107,7 +107,7 @@ async def descendant_ids(session: AsyncSession, manager_id: UUID) -> set[UUID]:
             """
             WITH RECURSIVE reports AS (
                 SELECT id FROM users WHERE reporting_manager_id = :manager_id
-                UNION ALL
+                UNION
                 SELECT u.id
                 FROM users u
                 INNER JOIN reports r ON u.reporting_manager_id = r.id
