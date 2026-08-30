@@ -130,6 +130,13 @@ function Shell({ children }: { children: ReactNode }) {
       label: "Finance",
       show: can("Finance.View") || can("Finance.ViewCommissionRules"),
     },
+    { href: "/assets", label: "Assets", show: can("Assets.View") },
+    {
+      href: "/assets/categories",
+      label: "Asset categories",
+      show: can("Assets.ManageMaster"),
+    },
+    { href: "/assets/reports", label: "Asset reports", show: can("Assets.View") },
     { href: "/attendance", label: "Attendance", show: can("Attendance.View") },
     { href: "/attendance/reports", label: "Attendance reports", show: can("Attendance.Reports") },
     { href: "/notifications", label: "Notifications", show: can("Notifications.View") },
