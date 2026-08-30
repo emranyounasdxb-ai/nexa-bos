@@ -15,6 +15,7 @@ from nexa_bos_api.core.logging import configure_logging
 from nexa_bos_api.core.middleware import RequestIdMiddleware, SecurityHeadersMiddleware
 from nexa_bos_api.customers import models as _customer_models  # noqa: F401
 from nexa_bos_api.db.session import create_engine, create_session_factory
+from nexa_bos_api.finance import models as _finance_models  # noqa: F401
 from nexa_bos_api.identity import models as _identity_models  # noqa: F401
 from nexa_bos_api.identity.bootstrap import bootstrap_identity
 from nexa_bos_api.targets import models as _target_models  # noqa: F401
