@@ -111,6 +111,22 @@ def _active_custody(asset: Asset) -> AssetOfficeCustody | None:
     return next((row for row in asset.office_history if row.ended_on is None), None)
 
 
+def _require_allocated_custody_operation(asset: Asset, *, operation: str) -> None:
+    if asset.status != AssetStatus.ALLOCATED:
+        raise AppError(
+            status_code=409,
+            code="ASSET_STATUS_OPERATION_BLOCKED",
+            message=f"Asset must be Allocated before {operation}",
+            details=[
+                {
+                    "operation": operation,
+                    "currentStatus": asset.status,
+                    "requiredStatus": AssetStatus.ALLOCATED.value,
+                }
+            ],
+        )
+
+
 def _not_found() -> AppError:
     return AppError(status_code=404, code="ASSET_NOT_FOUND", message="Asset was not found")
 
@@ -919,6 +935,7 @@ async def return_asset(
     payload: AssetReturnRequest,
 ) -> dict[str, object]:
     asset = await _get_asset(session, actor, asset_id, lock=True)
+    _require_allocated_custody_operation(asset, operation="Return")
     allocation = _active_allocation(asset)
     if allocation is None:
         raise AppError(
@@ -1043,6 +1060,7 @@ async def transfer_employee(
     payload: EmployeeTransferRequest,
 ) -> dict[str, object]:
     asset = await _get_asset(session, actor, asset_id, lock=True)
+    _require_allocated_custody_operation(asset, operation="Employee Transfer")
     current = _active_allocation(asset)
     if current is None:
         raise AppError(

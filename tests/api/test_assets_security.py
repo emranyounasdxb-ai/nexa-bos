@@ -292,6 +292,139 @@ async def test_damaged_return_requires_status_authority_and_reason(
     assert event["reason"] == "Screen cracked"
 
 
+@pytest.mark.parametrize("controlled_status", ["Lost", "Damaged", "Under Repair"])
+@pytest.mark.parametrize(
+    ("operation", "permission"),
+    [
+        ("return", "Assets.Return"),
+        ("employee_transfer", "Assets.Transfer"),
+    ],
+)
+@pytest.mark.asyncio
+async def test_h1_controlled_status_blocks_custody_operation_until_authorized_correction(
+    client: AsyncClient,
+    controlled_status: str,
+    operation: str,
+    permission: str,
+) -> None:
+    owner, _ = await owner_client(client)
+    dxb = await office_id(owner, "DXB")
+    current_employee = await _employee(owner, dxb)
+    next_employee = await _employee(owner, dxb)
+    asset = await _create_pc(owner, dxb)
+    allocated = await owner.post(
+        f"/api/v1/assets/{asset['id']}/allocate",
+        json={
+            "employee_id": current_employee["id"],
+            "issue_date": "2026-08-01",
+            "condition_at_issue": "Good",
+        },
+    )
+    assert allocated.status_code == 200, allocated.text
+
+    manager_type = await _type_with(
+        owner,
+        ["Assets.View", "Assets.ManageStatus"],
+        scope="company",
+    )
+    manager_user = await create_activated_user(owner, user_type_code=manager_type)
+    operator_type = await _type_with(
+        owner,
+        ["Assets.View", permission],
+        scope="company",
+    )
+    operator_user = await create_activated_user(owner, user_type_code=operator_type)
+
+    async with await spawned_client() as manager:
+        await authenticate(manager, manager_user["email"], "UserPass1!")
+        controlled = await manager.post(
+            f"/api/v1/assets/{asset['id']}/status",
+            json={
+                "status": controlled_status,
+                "reason": f"H1 controlled state: {controlled_status}",
+            },
+        )
+        assert controlled.status_code == 200, controlled.text
+
+    before_detail = (await owner.get(f"/api/v1/assets/{asset['id']}")).json()
+    before_history = (await owner.get(f"/api/v1/assets/{asset['id']}/history")).json()
+    assert before_detail["status"] == controlled_status
+    assert before_detail["currentAllocation"]["employeeId"] == current_employee["id"]
+
+    if operation == "return":
+        path = f"/api/v1/assets/{asset['id']}/return"
+        payload = {
+            "return_date": "2026-08-20",
+            "return_condition": "Good",
+            "remarks": "H1 denied return probe",
+        }
+    else:
+        path = f"/api/v1/assets/{asset['id']}/transfer/employee"
+        payload = {
+            "employee_id": next_employee["id"],
+            "transfer_date": "2026-08-20",
+            "condition": "Good",
+            "remarks": "H1 denied transfer probe",
+        }
+
+    async with await spawned_client() as operator:
+        await authenticate(operator, operator_user["email"], "UserPass1!")
+        denied = await operator.post(path, json=payload)
+        assert denied.status_code == 409, denied.text
+        assert denied.json()["error"]["code"] == "ASSET_STATUS_OPERATION_BLOCKED"
+        assert denied.json()["error"]["details"] == [
+            {
+                "operation": "Return" if operation == "return" else "Employee Transfer",
+                "currentStatus": controlled_status,
+                "requiredStatus": "Allocated",
+            }
+        ]
+
+    after_denial_detail = (await owner.get(f"/api/v1/assets/{asset['id']}")).json()
+    after_denial_history = (
+        await owner.get(f"/api/v1/assets/{asset['id']}/history")
+    ).json()
+    assert after_denial_detail == before_detail
+    assert after_denial_history == before_history
+
+    async with await spawned_client() as manager:
+        await authenticate(manager, manager_user["email"], "UserPass1!")
+        missing_reason = await manager.post(
+            f"/api/v1/assets/{asset['id']}/status",
+            json={"status": "Allocated", "reason": ""},
+        )
+        assert missing_reason.status_code == 422, missing_reason.text
+        corrected = await manager.post(
+            f"/api/v1/assets/{asset['id']}/status",
+            json={
+                "status": "Allocated",
+                "reason": f"Authorized correction from {controlled_status}",
+            },
+        )
+        assert corrected.status_code == 200, corrected.text
+        assert corrected.json()["status"] == "Allocated"
+
+    async with await spawned_client() as operator:
+        await authenticate(operator, operator_user["email"], "UserPass1!")
+        allowed = await operator.post(path, json=payload)
+        assert allowed.status_code == 200, allowed.text
+        if operation == "return":
+            assert allowed.json()["status"] == "In Stock"
+            assert allowed.json()["currentAllocation"] is None
+        else:
+            assert allowed.json()["status"] == "Allocated"
+            assert allowed.json()["currentAllocation"]["employeeId"] == next_employee["id"]
+
+    final_history = (await owner.get(f"/api/v1/assets/{asset['id']}/history")).json()
+    correction = next(
+        row
+        for row in final_history["events"]
+        if row["action"] == "asset.status.change"
+        and row["newValues"] == {"status": "Allocated"}
+    )
+    assert correction["reason"] == f"Authorized correction from {controlled_status}"
+
+
 @pytest.mark.asyncio
 async def test_employee_profile_history_requires_audit_permission(
     client: AsyncClient,
