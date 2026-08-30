@@ -275,26 +275,30 @@ export default function UserProfilePage() {
             <EmptyState>No current Assets are allocated to this employee.</EmptyState>
           )}
 
-          <h3 className="text-lg font-semibold text-slate-900">Asset History</h3>
-          {assets?.history.length ? (
-            <TableShell>
-              <TableHead><tr><Th>Asset</Th><Th>Category</Th><Th>Issue date</Th><Th>Return date</Th><Th>Issue condition</Th><Th>Return condition</Th></tr></TableHead>
-              <tbody>
-                {assets.history.map(({ asset, allocation }) => (
-                  <tr key={allocation.id} className="border-t border-slate-100">
-                    <Td><ButtonLink href={`/assets/${asset.id}`} variant="secondary">{asset.assetCode}</ButtonLink></Td>
-                    <Td>{asset.category.name}</Td>
-                    <Td>{allocation.issueDate}</Td>
-                    <Td>{allocation.returnDate ?? "—"}</Td>
-                    <Td>{allocation.conditionAtIssue}</Td>
-                    <Td>{allocation.returnCondition ?? "—"}</Td>
-                  </tr>
-                ))}
-              </tbody>
-            </TableShell>
-          ) : (
-            <EmptyState>No returned Asset history is recorded for this employee.</EmptyState>
-          )}
+          {can("Assets.ViewAudit") ? (
+            <>
+              <h3 className="text-lg font-semibold text-slate-900">Asset History</h3>
+              {assets?.history.length ? (
+                <TableShell>
+                  <TableHead><tr><Th>Asset</Th><Th>Category</Th><Th>Issue date</Th><Th>Return date</Th><Th>Issue condition</Th><Th>Return condition</Th></tr></TableHead>
+                  <tbody>
+                    {assets.history.map(({ asset, allocation }) => (
+                      <tr key={allocation.id} className="border-t border-slate-100">
+                        <Td><ButtonLink href={`/assets/${asset.id}`} variant="secondary">{asset.assetCode}</ButtonLink></Td>
+                        <Td>{asset.category.name}</Td>
+                        <Td>{allocation.issueDate}</Td>
+                        <Td>{allocation.returnDate ?? "—"}</Td>
+                        <Td>{allocation.conditionAtIssue}</Td>
+                        <Td>{allocation.returnCondition ?? "—"}</Td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </TableShell>
+              ) : (
+                <EmptyState>No returned Asset history is recorded for this employee.</EmptyState>
+              )}
+            </>
+          ) : null}
         </div>
       ) : null}
       <div className="grid gap-4 md:grid-cols-2">

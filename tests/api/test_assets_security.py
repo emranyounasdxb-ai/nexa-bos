@@ -293,6 +293,43 @@ async def test_damaged_return_requires_status_authority_and_reason(
 
 
 @pytest.mark.asyncio
+async def test_employee_profile_history_requires_audit_permission(
+    client: AsyncClient,
+) -> None:
+    owner, _ = await owner_client(client)
+    dxb = await office_id(owner, "DXB")
+    employee = await _employee(owner, dxb)
+    asset = await _create_pc(owner, dxb)
+    assert (
+        await owner.post(
+            f"/api/v1/assets/{asset['id']}/allocate",
+            json={
+                "employee_id": employee["id"],
+                "issue_date": "2026-08-01",
+                "condition_at_issue": "Good",
+            },
+        )
+    ).status_code == 200
+    assert (
+        await owner.post(
+            f"/api/v1/assets/{asset['id']}/return",
+            json={"return_date": "2026-08-20", "return_condition": "Good"},
+        )
+    ).status_code == 200
+
+    view_type = await _type_with(owner, ["Assets.View"], scope="company")
+    viewer = await create_activated_user(owner, user_type_code=view_type)
+    async with await spawned_client() as restricted:
+        await authenticate(restricted, viewer["email"], "UserPass1!")
+        profile = await restricted.get(f"/api/v1/assets/employees/{employee['id']}")
+        assert profile.status_code == 200, profile.text
+        assert profile.json() == {"current": [], "history": []}
+        direct_history = await restricted.get(f"/api/v1/assets/{asset['id']}/history")
+        assert direct_history.status_code == 403
+        assert direct_history.json()["error"]["details"] == [{"permission": "Assets.ViewAudit"}]
+
+
+@pytest.mark.asyncio
 async def test_office_scope_blocks_idor_tampering_audit_and_export_leakage(
     client: AsyncClient,
 ) -> None:

@@ -47,7 +47,7 @@ from nexa_bos_api.identity.access import (
 from nexa_bos_api.identity.audit import record_audit
 from nexa_bos_api.identity.enums import EmploymentStatus, MasterStatus, VisibilityScope
 from nexa_bos_api.identity.models import AuditEvent, Office, User, new_uuid
-from nexa_bos_api.identity.permissions import ASSETS_MANAGE_STATUS
+from nexa_bos_api.identity.permissions import ASSETS_MANAGE_STATUS, ASSETS_VIEW_AUDIT
 
 BUILTIN_FIELDS = {
     "brand",
@@ -1347,7 +1347,7 @@ async def employee_assets(
             }
             if allocation.return_date is None:
                 current.append(item)
-            else:
+            elif has_permission(actor, ASSETS_VIEW_AUDIT):
                 history.append(item)
     return {"current": current, "history": history}
 
