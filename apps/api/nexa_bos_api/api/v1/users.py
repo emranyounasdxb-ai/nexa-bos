@@ -96,7 +96,11 @@ async def reporting_managers(
             message="You do not have permission to perform this action",
             details=[{"permission": USERS_EDIT}],
         )
-    users = await list_reporting_managers(session, exclude_user_id=exclude_user_id)
+    users = await list_reporting_managers(
+        session,
+        actor,
+        exclude_user_id=exclude_user_id,
+    )
     return {
         "items": [
             {

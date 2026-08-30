@@ -157,6 +157,11 @@ function Shell({ children }: { children: ReactNode }) {
     { href: "/workflows", label: "Workflows", show: can("WorkflowStages.Edit") },
     { href: "/user-types", label: "User types", show: can("UserTypes.View") },
     { href: "/organization", label: "Organization", show: true },
+    {
+      href: "/organization/hierarchy",
+      label: "Hierarchy",
+      show: can("Users.View"),
+    },
     { href: "/catalog", label: "Banks & products", show: true },
     { href: "/security", label: "Security", show: can("Security.ManageSettings") },
     { href: "/account", label: "My profile", show: true },

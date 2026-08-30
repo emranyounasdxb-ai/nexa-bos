@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 
-import { Button, ErrorText, PageHeader, controlClass } from "@/components/ui";
+import { Button, ButtonLink, ErrorText, PageHeader, controlClass } from "@/components/ui";
 import { apiGet, apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { getBrowserApiUrl } from "@/lib/env";
@@ -73,7 +73,16 @@ export default function OrganizationPage() {
 
   return (
     <section className="space-y-8">
-      <PageHeader title="Organization masters" />
+      <PageHeader
+        title="Organization masters"
+        actions={
+          can("Users.View") ? (
+            <ButtonLink href="/organization/hierarchy" variant="secondary">
+              View hierarchy
+            </ButtonLink>
+          ) : null
+        }
+      />
       <ErrorText>{message}</ErrorText>
       <MasterSection
         title="Offices"

@@ -245,6 +245,37 @@ export type AssetCategoryRecord = {
   updatedAt: string;
 };
 
+export type HierarchyNode = {
+  id: string;
+  employeeCode: string;
+  fullName: string;
+  designation: OrgRef | null;
+  userType: Pick<UserTypeSummary, "id" | "code" | "name"> | null;
+  office: OrgRef | null;
+  department: OrgRef | null;
+  team: OrgRef | null;
+  reportingManagerId: string | null;
+  employmentStatus: string;
+  directReportIds: string[];
+  contextOnly: boolean;
+};
+
+export type HierarchyPayload = {
+  scope: "company" | "office" | "team" | "own";
+  includeInactive: boolean;
+  filters: {
+    offices: OrgRef[];
+    departments: OrgRef[];
+    teams: OrgRef[];
+  };
+  nodes: HierarchyNode[];
+  rootIds: string[];
+  searchResults: Pick<HierarchyNode, "id" | "employeeCode" | "fullName">[];
+  selectedUserId: string | null;
+  upwardChainIds: string[];
+  directReportIds: string[];
+};
+
 export type AssetAllocationRecord = {
   id: string;
   employeeId: string;

@@ -10,6 +10,7 @@ from nexa_bos_api.core.exceptions import AppError
 from nexa_bos_api.db.session import SessionDep
 from nexa_bos_api.identity.access import has_permission
 from nexa_bos_api.identity.enums import MasterStatus
+from nexa_bos_api.identity.hierarchy_service import organization_hierarchy
 from nexa_bos_api.identity.models import Department, Designation, Office
 from nexa_bos_api.identity.org_service import (
     create_department,
@@ -42,6 +43,7 @@ from nexa_bos_api.identity.permissions import (
     DESIGNATIONS_MANAGE,
     OFFICES_MANAGE,
     TEAMS_MANAGE,
+    USERS_VIEW,
 )
 from nexa_bos_api.identity.schemas import (
     DepartmentCreateRequest,
@@ -56,6 +58,29 @@ router = APIRouter(tags=["organization"])
 
 def _include_inactive(actor, permission: str, requested: bool) -> bool:
     return requested and has_permission(actor, permission)
+
+
+@router.get("/organization/hierarchy")
+async def hierarchy(
+    session: SessionDep,
+    actor: Annotated[CurrentUser, Depends(require_permission(USERS_VIEW))],
+    office_id: Annotated[UUID | None, Query(alias="officeId")] = None,
+    department_id: Annotated[UUID | None, Query(alias="departmentId")] = None,
+    team_id: Annotated[UUID | None, Query(alias="teamId")] = None,
+    include_inactive: Annotated[bool, Query(alias="includeInactive")] = False,
+    q: Annotated[str | None, Query(max_length=100)] = None,
+    selected_user_id: Annotated[UUID | None, Query(alias="selectedUserId")] = None,
+) -> dict[str, object]:
+    return await organization_hierarchy(
+        session,
+        actor,
+        office_id=office_id,
+        department_id=department_id,
+        team_id=team_id,
+        include_inactive=include_inactive,
+        query=q,
+        selected_user_id=selected_user_id,
+    )
 
 
 @router.get("/offices")

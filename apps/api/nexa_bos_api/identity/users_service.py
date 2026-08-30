@@ -242,7 +242,11 @@ async def reserve_employee_code(session: AsyncSession, employee_code: str, user_
 
 
 async def assert_manager_ok(
-    session: AsyncSession, user_id: UUID | None, manager_id: UUID | None
+    session: AsyncSession,
+    user_id: UUID | None,
+    manager_id: UUID | None,
+    *,
+    actor: User,
 ) -> None:
     if manager_id is None:
         return
@@ -258,6 +262,10 @@ async def assert_manager_ok(
         )
     ).scalar_one_or_none()
     if manager is None:
+        raise AppError(
+            status_code=404, code="MANAGER_NOT_FOUND", message="Reporting manager not found"
+        )
+    if not await can_view_user(session, actor, manager):
         raise AppError(
             status_code=404, code="MANAGER_NOT_FOUND", message="Reporting manager not found"
         )
@@ -428,7 +436,7 @@ async def _initial_assignments(
 async def create_user(session: AsyncSession, actor: User, payload: UserCreateRequest) -> User:
     await assert_unique_email(session, payload.email)
     await assert_unique_employee_code(session, payload.employee_code)
-    await assert_manager_ok(session, None, payload.reporting_manager_id)
+    await assert_manager_ok(session, None, payload.reporting_manager_id, actor=actor)
     designation = await session.get(Designation, payload.designation_id)
     if designation is None or designation.status != MasterStatus.ACTIVE:
         raise AppError(
@@ -587,7 +595,10 @@ async def list_users(
 
 
 async def list_reporting_managers(
-    session: AsyncSession, *, exclude_user_id: UUID | None = None
+    session: AsyncSession,
+    actor: User,
+    *,
+    exclude_user_id: UUID | None = None,
 ) -> list[User]:
     stmt = (
         select(User)
@@ -601,6 +612,9 @@ async def list_reporting_managers(
     )
     if exclude_user_id is not None:
         stmt = stmt.where(User.id != exclude_user_id)
+    allowed = await visible_user_ids(session, actor)
+    if allowed is not None:
+        stmt = stmt.where(User.id.in_(allowed))
     return list((await session.execute(stmt)).scalars().unique().all())
 
 
@@ -721,7 +735,12 @@ async def update_user(
         payload.reporting_manager_id is not None
         or "reporting_manager_id" in payload.model_fields_set
     ):
-        await assert_manager_ok(session, target.id, payload.reporting_manager_id)
+        await assert_manager_ok(
+            session,
+            target.id,
+            payload.reporting_manager_id,
+            actor=actor,
+        )
         if target.reporting_manager_id != payload.reporting_manager_id:
             manager = (
                 await session.get(User, payload.reporting_manager_id)
@@ -984,7 +1003,12 @@ async def rehire_user(
             at=now,
         )
     if "reporting_manager_id" in payload.model_fields_set:
-        await assert_manager_ok(session, target.id, payload.reporting_manager_id)
+        await assert_manager_ok(
+            session,
+            target.id,
+            payload.reporting_manager_id,
+            actor=actor,
+        )
         target.reporting_manager_id = payload.reporting_manager_id
     target.joining_date = payload.joining_date
     target.last_working_date = None
