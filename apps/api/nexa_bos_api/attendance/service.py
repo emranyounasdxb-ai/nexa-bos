@@ -5,6 +5,7 @@ from decimal import Decimal
 from uuid import UUID
 
 from sqlalchemy import Select, or_, select
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -1068,6 +1069,19 @@ async def correct_attendance(
         new_values=new,
         note=reason,
     )
+    from nexa_bos_api.notifications.enums import NotificationEventType
+    from nexa_bos_api.notifications.service import dispatch_source_event
+
+    await dispatch_source_event(
+        session,
+        event_type=NotificationEventType.ATTENDANCE_RECORD_CORRECTED,
+        source_event_key=str(correction.id),
+        affected_user_id=row.employee_id,
+        linked_entity_type="attendance_record",
+        linked_entity_id=str(row.id),
+        contextual_link="/attendance",
+        actor_id=actor.id,
+    )
     await session.commit()
     session.expire(row, ["corrections"])
     return await get_record(session, actor, row.id)
@@ -1103,14 +1117,32 @@ async def ensure_automatic_reminders(session: AsyncSession, today: date | None =
     for holiday in holidays:
         days_until = (holiday.holiday_date - as_of).days
         if 0 <= days_until <= 7 and holiday.id not in existing:
-            session.add(
-                HolidayReminder(
+            inserted_id = await session.scalar(
+                insert(HolidayReminder)
+                .values(
                     id=new_uuid(),
                     holiday_id=holiday.id,
                     kind=ReminderKind.AUTOMATIC,
                     created_at=now,
                     actor_id=None,
                 )
+                .on_conflict_do_nothing(
+                    index_elements=[HolidayReminder.holiday_id],
+                    index_where=HolidayReminder.kind == ReminderKind.AUTOMATIC,
+                )
+                .returning(HolidayReminder.id)
+            )
+            if inserted_id is None:
+                continue
+            from nexa_bos_api.notifications.service import dispatch_holiday_reminder
+
+            await dispatch_holiday_reminder(
+                session,
+                holiday_id=holiday.id,
+                holiday_name=holiday.name,
+                holiday_date=holiday.holiday_date.isoformat(),
+                kind=ReminderKind.AUTOMATIC,
+                actor_id=None,
             )
 
 
@@ -1166,6 +1198,17 @@ async def list_reminders(session: AsyncSession, actor: User) -> dict[str, object
                 "daysUntil": (holiday.holiday_date - today).days,
             }
         )
+        from nexa_bos_api.notifications.service import dispatch_holiday_reminder
+
+        await dispatch_holiday_reminder(
+            session,
+            holiday_id=holiday.id,
+            holiday_name=holiday.name,
+            holiday_date=holiday.holiday_date.isoformat(),
+            kind=row.kind,
+            actor_id=row.actor_id,
+        )
+    await session.commit()
     return {"items": items, "timezone": "Asia/Dubai"}
 
 
@@ -1183,6 +1226,16 @@ async def send_urgent_reminder(
         actor_id=actor.id,
     )
     session.add(row)
+    from nexa_bos_api.notifications.service import dispatch_holiday_reminder
+
+    await dispatch_holiday_reminder(
+        session,
+        holiday_id=holiday.id,
+        holiday_name=holiday.name,
+        holiday_date=holiday.holiday_date.isoformat(),
+        kind=ReminderKind.URGENT,
+        actor_id=actor.id,
+    )
     await record_audit(
         session,
         action="attendance.holiday_urgent_reminder",
@@ -1218,7 +1271,15 @@ async def dismiss_reminder(
                 dismissed_at=utcnow(),
             )
         )
-        await session.commit()
+    from nexa_bos_api.notifications.service import mark_holiday_reminder_read
+
+    await mark_holiday_reminder_read(
+        session,
+        actor_id=actor.id,
+        holiday_id=reminder.holiday_id,
+        kind=reminder.kind,
+    )
+    await session.commit()
     return {"ok": True}
 
 

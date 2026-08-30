@@ -902,6 +902,19 @@ async def set_target_status(
         old_values=old,
         new_values={"status": target.status},
     )
+    from nexa_bos_api.notifications.enums import NotificationEventType
+    from nexa_bos_api.notifications.service import dispatch_source_event
+
+    await dispatch_source_event(
+        session,
+        event_type=NotificationEventType.TARGET_STATUS_CHANGED,
+        source_event_key=(f"{target.id}:{target.status}:{target.updated_at.isoformat()}"),
+        affected_user_id=target.entity_id if target.level == TARGET_LEVEL_EMPLOYEE else None,
+        linked_entity_type="performance_target",
+        linked_entity_id=str(target.id),
+        contextual_link="/targets",
+        actor_id=actor.id,
+    )
     try:
         await session.commit()
     except IntegrityError as exc:

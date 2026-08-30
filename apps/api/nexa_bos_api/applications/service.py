@@ -923,7 +923,7 @@ async def update_stage(
     now = utcnow()
     application.updated_at = now
     stage_note = _blank(payload.stage_note) or _blank(payload.requirement_text)
-    await _add_event(
+    stage_event = await _add_event(
         session,
         application=application,
         event_type=event_type,
@@ -963,6 +963,19 @@ async def update_stage(
         entity_id=str(application.id),
         actor_id=actor.id,
         new_values={"stageId": str(target.id), "eventType": event_type},
+    )
+    from nexa_bos_api.notifications.enums import NotificationEventType
+    from nexa_bos_api.notifications.service import dispatch_source_event
+
+    await dispatch_source_event(
+        session,
+        event_type=NotificationEventType.APPLICATION_STAGE_CHANGED,
+        source_event_key=str(stage_event.id),
+        affected_user_id=application.case_owner_id,
+        linked_entity_type="application",
+        linked_entity_id=str(application.id),
+        contextual_link=f"/applications/{application.id}",
+        actor_id=actor.id,
     )
     await session.commit()
     return application

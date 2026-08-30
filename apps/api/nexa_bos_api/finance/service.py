@@ -1975,17 +1975,16 @@ async def _transition_period(
     elif target == PayoutPeriodStatus.FINALIZED:
         period.finalized_at = now
         period.finalized_by_id = actor.id
-    session.add(
-        FinancePeriodTransition(
-            id=new_uuid(),
-            period_id=period.id,
-            from_status=old,
-            to_status=target,
-            reason=note,
-            actor_id=actor.id,
-            created_at=now,
-        )
+    transition = FinancePeriodTransition(
+        id=new_uuid(),
+        period_id=period.id,
+        from_status=old,
+        to_status=target,
+        reason=note,
+        actor_id=actor.id,
+        created_at=now,
     )
+    session.add(transition)
     action = {
         (PayoutPeriodStatus.DRAFT, PayoutPeriodStatus.REVIEW): "finance.period.review",
         (PayoutPeriodStatus.REVIEW, PayoutPeriodStatus.FINALIZED): "finance.period.finalize",
@@ -2000,6 +1999,19 @@ async def _transition_period(
         old_values={"status": old},
         new_values={"status": target},
         note=note,
+    )
+    from nexa_bos_api.notifications.enums import NotificationEventType
+    from nexa_bos_api.notifications.service import dispatch_source_event
+
+    await dispatch_source_event(
+        session,
+        event_type=NotificationEventType.FINANCE_PERIOD_STATUS_CHANGED,
+        source_event_key=str(transition.id),
+        affected_user_id=None,
+        linked_entity_type="finance_payout_period",
+        linked_entity_id=str(period.id),
+        contextual_link="/finance",
+        actor_id=actor.id,
     )
     await session.commit()
     return await period_payload(session, actor, period.id)

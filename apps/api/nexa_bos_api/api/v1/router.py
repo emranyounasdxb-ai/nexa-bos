@@ -12,6 +12,7 @@ from nexa_bos_api.api.v1.users import router as users_router
 from nexa_bos_api.api.v1.workflows import router as workflows_router
 from nexa_bos_api.attendance.api import router as attendance_router
 from nexa_bos_api.finance.api import router as finance_router
+from nexa_bos_api.notifications.api import router as notifications_router
 from nexa_bos_api.reporting.api import router as reports_router
 from nexa_bos_api.targets.api import router as targets_router
 
@@ -30,3 +31,4 @@ api_v1_router.include_router(reports_router)
 api_v1_router.include_router(attendance_router)
 api_v1_router.include_router(targets_router)
 api_v1_router.include_router(finance_router)
+api_v1_router.include_router(notifications_router)

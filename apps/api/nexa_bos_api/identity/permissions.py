@@ -66,7 +66,10 @@ ATTENDANCE_VIEW = "Attendance.View"
 ATTENDANCE_MANAGE = "Attendance.Manage"
 ATTENDANCE_CORRECT = "Attendance.Correct"
 ATTENDANCE_REPORTS = "Attendance.Reports"
+NOTIFICATIONS_VIEW = "Notifications.View"
+NOTIFICATIONS_MANAGE_RULES = "Notifications.ManageRules"
 NOTIFICATIONS_SEND_URGENT = "Notifications.SendUrgent"
+NOTIFICATIONS_VIEW_AUDIT = "Notifications.ViewAudit"
 TARGETS_VIEW = "Targets.View"
 TARGETS_CREATE = "Targets.Create"
 TARGETS_EDIT = "Targets.Edit"
@@ -161,7 +164,16 @@ PERMISSION_CATALOG: tuple[tuple[str, str], ...] = (
         "Correct attendance records with a mandatory reason and immutable history",
     ),
     (ATTENDANCE_REPORTS, "View attendance reports and attendance score summaries"),
+    (NOTIFICATIONS_VIEW, "View and acknowledge own in-app notifications"),
+    (
+        NOTIFICATIONS_MANAGE_RULES,
+        "Create and maintain notification rules within visibility scope",
+    ),
     (NOTIFICATIONS_SEND_URGENT, "Send urgent in-app notifications"),
+    (
+        NOTIFICATIONS_VIEW_AUDIT,
+        "View notification administration and acknowledgement audit in scope",
+    ),
     (TARGETS_VIEW, "View targets, KPI scorecards, and target results in reporting scope"),
     (TARGETS_CREATE, "Create targets and KPI scorecards"),
     (TARGETS_EDIT, "Edit targets and KPI scorecards, and lock target periods"),
