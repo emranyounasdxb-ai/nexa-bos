@@ -906,6 +906,19 @@ async def set_account_status(
         old_values=old,
         new_values={"accountStatus": status},
     )
+    from nexa_bos_api.notifications.enums import NotificationEventType
+    from nexa_bos_api.notifications.service import dispatch_source_event
+
+    await dispatch_source_event(
+        session,
+        event_type=NotificationEventType.SECURITY_USER_STATUS_CHANGED,
+        source_event_key=f"{target.id}:{status}:{target.updated_at.isoformat()}",
+        affected_user_id=target.id,
+        linked_entity_type="user",
+        linked_entity_id=str(target.id),
+        contextual_link=f"/users/{target.id}",
+        actor_id=actor.id,
+    )
     await session.commit()
     return await reload_user(session, target.id)
 

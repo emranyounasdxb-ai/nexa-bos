@@ -62,9 +62,45 @@ function HolidayReminders() {
   );
 }
 
+function NotificationBell() {
+  const [unreadCount, setUnreadCount] = useState(0);
+  const api = getBrowserApiUrl();
+  const pathname = usePathname();
+
+  useEffect(() => {
+    const refresh = () => {
+      void apiGet<{ unreadCount: number }>("/api/v1/notifications/unread-count", api)
+        .then((data) => setUnreadCount(data.unreadCount))
+        .catch(() => setUnreadCount(0));
+    };
+    refresh();
+    window.addEventListener("nexa-notifications-changed", refresh);
+    return () => window.removeEventListener("nexa-notifications-changed", refresh);
+  }, [api, pathname]);
+
+  return (
+    <Link
+      href="/notifications"
+      aria-label={`Notifications, ${unreadCount} unread`}
+      className={cx(
+        focusRing,
+        "relative inline-flex min-h-9 items-center rounded-md border border-slate-300 px-3 py-1.5 text-slate-700",
+      )}
+    >
+      <span aria-hidden="true">Bell</span>
+      {unreadCount > 0 ? (
+        <span className="ml-2 inline-flex min-w-5 justify-center rounded-full bg-slate-900 px-1.5 py-0.5 text-xs font-semibold text-white">
+          {unreadCount > 99 ? "99+" : unreadCount}
+        </span>
+      ) : null}
+    </Link>
+  );
+}
+
 function Shell({ children }: { children: ReactNode }) {
   const { user, can, setUser } = useAuth();
   const pathname = usePathname();
+  const router = useRouter();
 
   async function logout() {
     try {
@@ -80,7 +116,8 @@ function Shell({ children }: { children: ReactNode }) {
     }
     setCsrfToken(null);
     setUser(null);
-    window.location.assign("/login");
+    router.replace("/login");
+    router.refresh();
   }
 
   const links = [
@@ -95,6 +132,15 @@ function Shell({ children }: { children: ReactNode }) {
     },
     { href: "/attendance", label: "Attendance", show: can("Attendance.View") },
     { href: "/attendance/reports", label: "Attendance reports", show: can("Attendance.Reports") },
+    { href: "/notifications", label: "Notifications", show: can("Notifications.View") },
+    {
+      href: "/notifications/manage",
+      label: "Notification admin",
+      show:
+        can("Notifications.ManageRules") ||
+        can("Notifications.SendUrgent") ||
+        can("Notifications.ViewAudit"),
+    },
     { href: "/users", label: "Users", show: can("Users.View") },
     { href: "/users/new", label: "Create user", show: can("Users.Create") },
     { href: "/customers", label: "Customers", show: can("Customers.View") },
@@ -119,6 +165,7 @@ function Shell({ children }: { children: ReactNode }) {
           </div>
           <div className="flex items-center gap-3 text-sm">
             <span className="text-slate-600">{user?.fullName}</span>
+            {can("Notifications.View") ? <NotificationBell /> : null}
             <Button type="button" variant="secondary" onClick={() => void logout()}>
               Sign out
             </Button>

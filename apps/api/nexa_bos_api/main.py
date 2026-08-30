@@ -18,6 +18,7 @@ from nexa_bos_api.db.session import create_engine, create_session_factory
 from nexa_bos_api.finance import models as _finance_models  # noqa: F401
 from nexa_bos_api.identity import models as _identity_models  # noqa: F401
 from nexa_bos_api.identity.bootstrap import bootstrap_identity
+from nexa_bos_api.notifications import models as _notification_models  # noqa: F401
 from nexa_bos_api.targets import models as _target_models  # noqa: F401
 
 

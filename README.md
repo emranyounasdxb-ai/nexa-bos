@@ -1,6 +1,6 @@
 # NEXA BOS
 
-Standalone brokerage operating system. This repository contains the engineering foundation, User Management & Access Control, Customer + Bank/Product masters, Application Master with configurable Bank/Product workflow and lifecycle, TAT/delay, Attendance, Performance/MIS reporting, and Targets/KPI.
+Standalone brokerage operating system. This repository contains the engineering foundation, User Management & Access Control, Customer + Bank/Product masters, Application Master with configurable Bank/Product workflow and lifecycle, TAT/delay, Attendance, Performance/MIS reporting, Targets/KPI, Finance, and in-app Notifications.
 
 ## Architecture
 
@@ -81,4 +81,4 @@ Do not commit `.env`. Use `.env.example` as the placeholder template.
 
 ## Out of scope
 
-Finance, commission, full notifications, NexaHR, Redis, workers, and multi-tenancy are not implemented.
+External notifications, NexaHR, Redis, workers, and multi-tenancy are not implemented.
