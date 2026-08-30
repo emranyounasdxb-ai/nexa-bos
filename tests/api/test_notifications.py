@@ -194,6 +194,25 @@ def _assert_rule_not_found(response) -> None:
 
 
 @pytest.mark.asyncio
+async def test_rule_update_preserves_an_unchanged_target(client: AsyncClient) -> None:
+    owner, _ = await owner_client(client)
+    target = {"target_type": "company", "target_id": None}
+    original = _rule_payload(f"Stable target {unique_tag()}", target)
+    created = await owner.post("/api/v1/notifications/rules", json=original)
+    assert created.status_code == 200, created.text
+
+    edited = {**original, "name": f"Edited stable target {unique_tag()}"}
+    updated = await owner.put(
+        f"/api/v1/notifications/rules/{created.json()['id']}",
+        json=edited,
+    )
+
+    assert updated.status_code == 200, updated.text
+    assert updated.json()["name"] == edited["name"]
+    assert updated.json()["targets"] == [{"targetType": "company", "targetId": None, "label": None}]
+
+
+@pytest.mark.asyncio
 async def test_notification_center_read_ack_permissions_csrf_and_idor(
     client: AsyncClient,
 ) -> None:

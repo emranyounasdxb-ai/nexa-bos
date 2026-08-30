@@ -43,7 +43,7 @@ test("owner can log in, navigate major screens, sign out, and log in again", asy
   page,
   request,
 }) => {
-  test.setTimeout(90_000);
+  test.setTimeout(150_000);
   await signIn(page, request);
   await expect(page.getByRole("link", { name: "USR-000001" })).toBeVisible();
   await expect(page.getByLabel("Authenticator code")).toHaveCount(0);
@@ -57,11 +57,35 @@ test("owner can log in, navigate major screens, sign out, and log in again", asy
   await page.getByRole("link", { name: "Workflows" }).click();
   await expect(page.getByRole("heading", { name: "Workflows" })).toBeVisible();
 
+  await page.getByRole("link", { name: "Dashboard", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Performance / MIS" })).toBeVisible();
+
+  await page.getByRole("link", { name: "Reports", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Comparisons" })).toBeVisible();
+
+  await page.getByRole("link", { name: "Attendance", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Attendance" })).toBeVisible();
+
+  await page.getByRole("link", { name: "Targets", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Targets" })).toBeVisible();
+
+  await page.getByRole("link", { name: "Finance", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Finance", exact: true })).toBeVisible();
+
+  await page.getByRole("link", { name: "Notifications", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Notification center" })).toBeVisible();
+
+  await page.getByRole("link", { name: "Assets", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Asset Register" })).toBeVisible();
+
   await page.getByRole("link", { name: "User types" }).click();
   await expect(page.getByRole("heading", { name: "User types" })).toBeVisible();
 
   await page.getByRole("link", { name: "Organization" }).click();
   await expect(page.getByRole("heading", { name: "Organization masters" })).toBeVisible();
+
+  await page.getByRole("link", { name: "Hierarchy", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Organization hierarchy" })).toBeVisible();
 
   await page.getByRole("link", { name: "Banks & products" }).click();
   await expect(page.getByRole("heading", { name: "Banks and products" })).toBeVisible();

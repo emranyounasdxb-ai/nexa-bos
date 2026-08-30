@@ -80,6 +80,7 @@ async def test_company_hierarchy_filters_search_context_and_inactive_users(
     owner, owner_user = await owner_client(client)
     dxb = await office_id(owner, "DXB")
     department, team = await _department_team(owner, dxb, prefix="Hierarchy")
+    search_tag = unique_tag()[:8]
     manager = await _named_user(
         owner,
         "Hierarchy Manager",
@@ -91,7 +92,7 @@ async def test_company_hierarchy_filters_search_context_and_inactive_users(
     )
     employee = await _named_user(
         owner,
-        "Hierarchy Search Employee",
+        f"Hierarchy Search Employee {search_tag}",
         user_type_code="SE",
         office=dxb,
         department=department,
@@ -158,7 +159,10 @@ async def test_company_hierarchy_filters_search_context_and_inactive_users(
     assert [row["id"] for row in by_code.json()["searchResults"]] == [employee["id"]]
     by_name = await owner.get(
         "/api/v1/organization/hierarchy",
-        params={"q": "search employee", "selectedUserId": employee["id"]},
+        params={
+            "q": f"search employee {search_tag}",
+            "selectedUserId": employee["id"],
+        },
     )
     selected = by_name.json()
     assert [row["id"] for row in selected["searchResults"]] == [employee["id"]]

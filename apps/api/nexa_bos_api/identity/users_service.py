@@ -588,7 +588,9 @@ async def reload_user(session: AsyncSession, user_id: UUID) -> User:
             .where(User.id == user_id)
             .execution_options(populate_existing=True)
         )
-    ).scalar_one()
+    ).scalar_one_or_none()
+    if user is None:
+        raise AppError(status_code=404, code="USER_NOT_FOUND", message="User not found")
     return user
 
 

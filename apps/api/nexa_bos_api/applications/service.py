@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections import defaultdict
+from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from decimal import Decimal
 from uuid import UUID
@@ -12,8 +14,10 @@ from nexa_bos_api.applications.models import (
     Application,
     ApplicationCaseNumberHistory,
     ApplicationCodeCounter,
+    ApplicationDelay,
     ApplicationEvent,
     ApplicationOwnerHistory,
+    ApplicationStageOccupancy,
     Workflow,
     WorkflowStage,
     WorkflowTransition,
@@ -65,15 +69,54 @@ def _blank(value: str | None) -> str | None:
     return stripped or None
 
 
+@dataclass(frozen=True)
+class ApplicationSerializationContext:
+    customers: dict[UUID, Customer]
+    banks: dict[UUID, Bank]
+    products: dict[UUID, Product]
+    stages: dict[UUID, WorkflowStage]
+    workflows: dict[UUID, Workflow]
+    users: dict[UUID, User]
+    occupancies: dict[UUID, list[ApplicationStageOccupancy]]
+    delays: dict[UUID, list[ApplicationDelay]]
+
+
 async def serialize_application(
-    session: AsyncSession, application: Application
+    session: AsyncSession,
+    application: Application,
+    *,
+    context: ApplicationSerializationContext | None = None,
 ) -> dict[str, object]:
-    customer = await session.get(Customer, application.customer_id)
-    bank = await session.get(Bank, application.bank_id)
-    product = await session.get(Product, application.product_id)
-    stage = await session.get(WorkflowStage, application.current_stage_id)
-    workflow = await session.get(Workflow, application.workflow_id)
-    owner = await session.get(User, application.case_owner_id)
+    customer = (
+        context.customers.get(application.customer_id)
+        if context is not None
+        else await session.get(Customer, application.customer_id)
+    )
+    bank = (
+        context.banks.get(application.bank_id)
+        if context is not None
+        else await session.get(Bank, application.bank_id)
+    )
+    product = (
+        context.products.get(application.product_id)
+        if context is not None
+        else await session.get(Product, application.product_id)
+    )
+    stage = (
+        context.stages.get(application.current_stage_id)
+        if context is not None
+        else await session.get(WorkflowStage, application.current_stage_id)
+    )
+    workflow = (
+        context.workflows.get(application.workflow_id)
+        if context is not None
+        else await session.get(Workflow, application.workflow_id)
+    )
+    owner = (
+        context.users.get(application.case_owner_id)
+        if context is not None
+        else await session.get(User, application.case_owner_id)
+    )
     return {
         "id": str(application.id),
         "applicationCode": application.application_code,
@@ -118,8 +161,105 @@ async def serialize_application(
         "updatedAt": application.updated_at.isoformat(),
         "submitted": application.submitted_at is not None,
         "terminal": application.terminal_outcome is not None,
-        **(await tat_fields(session, application)),
+        **(
+            await tat_fields(
+                session,
+                application,
+                occupancies=context.occupancies.get(application.id, []) if context else None,
+                delays=context.delays.get(application.id, []) if context else None,
+                stages=context.stages if context else None,
+                users=context.users if context else None,
+            )
+        ),
     }
+
+
+async def serialize_applications(
+    session: AsyncSession, applications: list[Application]
+) -> list[dict[str, object]]:
+    if not applications:
+        return []
+
+    application_ids = {row.id for row in applications}
+    occupancies = list(
+        (
+            await session.execute(
+                select(ApplicationStageOccupancy)
+                .where(ApplicationStageOccupancy.application_id.in_(application_ids))
+                .order_by(
+                    ApplicationStageOccupancy.application_id,
+                    ApplicationStageOccupancy.entered_at,
+                )
+            )
+        ).scalars()
+    )
+    delays = list(
+        (
+            await session.execute(
+                select(ApplicationDelay)
+                .where(ApplicationDelay.application_id.in_(application_ids))
+                .order_by(ApplicationDelay.application_id, ApplicationDelay.started_at)
+            )
+        ).scalars()
+    )
+    stage_ids = {row.current_stage_id for row in applications}
+    stage_ids.update(row.stage_id for row in occupancies)
+    stage_ids.update(row.stage_id for row in delays)
+    user_ids = {row.case_owner_id for row in applications}
+    user_ids.update(row.updated_by_id for row in occupancies)
+    user_ids.update(row.marked_by_id for row in delays)
+
+    customers = list(
+        (
+            await session.execute(
+                select(Customer).where(Customer.id.in_({row.customer_id for row in applications}))
+            )
+        ).scalars()
+    )
+    banks = list(
+        (
+            await session.execute(
+                select(Bank).where(Bank.id.in_({row.bank_id for row in applications}))
+            )
+        ).scalars()
+    )
+    products = list(
+        (
+            await session.execute(
+                select(Product).where(Product.id.in_({row.product_id for row in applications}))
+            )
+        ).scalars()
+    )
+    stages = list(
+        (
+            await session.execute(select(WorkflowStage).where(WorkflowStage.id.in_(stage_ids)))
+        ).scalars()
+    )
+    workflows = list(
+        (
+            await session.execute(
+                select(Workflow).where(Workflow.id.in_({row.workflow_id for row in applications}))
+            )
+        ).scalars()
+    )
+    users = list((await session.execute(select(User).where(User.id.in_(user_ids)))).scalars())
+    occupancies_by_application: dict[UUID, list[ApplicationStageOccupancy]] = defaultdict(list)
+    delays_by_application: dict[UUID, list[ApplicationDelay]] = defaultdict(list)
+    for row in occupancies:
+        occupancies_by_application[row.application_id].append(row)
+    for row in delays:
+        delays_by_application[row.application_id].append(row)
+    context = ApplicationSerializationContext(
+        customers={row.id: row for row in customers},
+        banks={row.id: row for row in banks},
+        products={row.id: row for row in products},
+        stages={row.id: row for row in stages},
+        workflows={row.id: row for row in workflows},
+        users={row.id: row for row in users},
+        occupancies=dict(occupancies_by_application),
+        delays=dict(delays_by_application),
+    )
+    return [await serialize_application(session, row, context=context) for row in applications]
 
 
 async def next_application_code(session: AsyncSession, product: Product, bank: Bank) -> str:
