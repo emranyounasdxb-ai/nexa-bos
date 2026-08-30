@@ -48,6 +48,8 @@ from nexa_bos_api.identity.models import (
 from nexa_bos_api.identity.org_service import clear_team_leadership_for_user
 from nexa_bos_api.identity.schemas import RehireRequest, UserCreateRequest, UserUpdateRequest
 
+REPORTING_HIERARCHY_LOCK_KEY = 0x4E45584148494552  # ASCII: NEXAHIER
+
 
 def utcnow() -> datetime:
     return datetime.now(UTC)
@@ -247,9 +249,9 @@ async def assert_manager_ok(
     manager_id: UUID | None,
     *,
     actor: User,
-) -> None:
+) -> User | None:
     if manager_id is None:
-        return
+        return None
     if user_id is not None and manager_id == user_id:
         raise AppError(
             status_code=422,
@@ -258,7 +260,10 @@ async def assert_manager_ok(
         )
     manager = (
         await session.execute(
-            select(User).options(*user_load_options()).where(User.id == manager_id)
+            select(User)
+            .options(*user_load_options())
+            .where(User.id == manager_id)
+            .execution_options(populate_existing=True)
         )
     ).scalar_one_or_none()
     if manager is None:
@@ -289,6 +294,45 @@ async def assert_manager_ok(
                 code="HIERARCHY_CYCLE",
                 message="Reporting manager would create a circular hierarchy",
             )
+    return manager
+
+
+async def prepare_reporting_manager_change(
+    session: AsyncSession,
+    actor: User,
+    *,
+    user_id: UUID | None,
+    manager_id: UUID | None,
+) -> tuple[User | None, User | None]:
+    """Serialize and validate one authoritative reporting-graph mutation.
+
+    PostgreSQL holds this advisory lock until the surrounding service transaction
+    commits or rolls back, so every API process observes the preceding graph write
+    before validating its own proposed edge.
+    """
+    await session.execute(select(func.pg_advisory_xact_lock(REPORTING_HIERARCHY_LOCK_KEY)))
+
+    target = await reload_user(session, user_id) if user_id is not None else None
+    if target is not None and not await can_view_user(session, actor, target):
+        raise AppError(
+            status_code=403,
+            code="OUT_OF_SCOPE",
+            message="User is outside your visibility scope",
+        )
+    if target is not None and is_owner(target) and manager_id is not None:
+        raise AppError(
+            status_code=422,
+            code="OWNER_NO_MANAGER",
+            message="OWNER cannot have a reporting manager",
+        )
+
+    manager = await assert_manager_ok(
+        session,
+        user_id,
+        manager_id,
+        actor=actor,
+    )
+    return target, manager
 
 
 async def resolve_org(
@@ -436,7 +480,13 @@ async def _initial_assignments(
 async def create_user(session: AsyncSession, actor: User, payload: UserCreateRequest) -> User:
     await assert_unique_email(session, payload.email)
     await assert_unique_employee_code(session, payload.employee_code)
-    await assert_manager_ok(session, None, payload.reporting_manager_id, actor=actor)
+    if payload.reporting_manager_id is not None:
+        await prepare_reporting_manager_change(
+            session,
+            actor,
+            user_id=None,
+            manager_id=payload.reporting_manager_id,
+        )
     designation = await session.get(Designation, payload.designation_id)
     if designation is None or designation.status != MasterStatus.ACTIVE:
         raise AppError(
@@ -658,14 +708,20 @@ async def _current_period(session: AsyncSession, user_id: UUID) -> EmploymentPer
 async def update_user(
     session: AsyncSession, actor: User, target: User, payload: UserUpdateRequest
 ) -> User:
+    manager_touched = "reporting_manager_id" in payload.model_fields_set
+    validated_manager = None
+    if manager_touched:
+        refreshed_target, validated_manager = await prepare_reporting_manager_change(
+            session,
+            actor,
+            user_id=target.id,
+            manager_id=payload.reporting_manager_id,
+        )
+        assert refreshed_target is not None
+        target = refreshed_target
+
     old = public_user(target)
     now = utcnow()
-    if is_owner(target) and payload.reporting_manager_id:
-        raise AppError(
-            status_code=422,
-            code="OWNER_NO_MANAGER",
-            message="OWNER cannot have a reporting manager",
-        )
     if payload.email and payload.email.lower() != target.email:
         await assert_unique_email(session, payload.email, ignore_user_id=target.id)
         session.add(UserEmailHistory(user_id=target.id, email=target.email, changed_at=now))
@@ -731,22 +787,8 @@ async def update_user(
         target.department_id = department.id if department else None
         target.team_id = team.id if team else None
         await _maybe_clear_tl(session, target)
-    if (
-        payload.reporting_manager_id is not None
-        or "reporting_manager_id" in payload.model_fields_set
-    ):
-        await assert_manager_ok(
-            session,
-            target.id,
-            payload.reporting_manager_id,
-            actor=actor,
-        )
+    if manager_touched:
         if target.reporting_manager_id != payload.reporting_manager_id:
-            manager = (
-                await session.get(User, payload.reporting_manager_id)
-                if payload.reporting_manager_id
-                else None
-            )
             await record_assignment(
                 session,
                 user_id=target.id,
@@ -754,7 +796,7 @@ async def update_user(
                 value_id=str(payload.reporting_manager_id)
                 if payload.reporting_manager_id
                 else None,
-                value_label=manager.full_name if manager else None,
+                value_label=validated_manager.full_name if validated_manager else None,
                 at=now,
             )
         target.reporting_manager_id = payload.reporting_manager_id
@@ -947,6 +989,15 @@ async def rehire_user(
 ) -> User:
     if is_owner(target):
         raise AppError(status_code=422, code="OWNER_PROTECTED", message="OWNER cannot be rehired")
+    if "reporting_manager_id" in payload.model_fields_set:
+        refreshed_target, _ = await prepare_reporting_manager_change(
+            session,
+            actor,
+            user_id=target.id,
+            manager_id=payload.reporting_manager_id,
+        )
+        assert refreshed_target is not None
+        target = refreshed_target
     if payload.employment_status in AUTO_DEACTIVATE_EMPLOYMENT:
         raise AppError(
             status_code=422,
@@ -1003,12 +1054,6 @@ async def rehire_user(
             at=now,
         )
     if "reporting_manager_id" in payload.model_fields_set:
-        await assert_manager_ok(
-            session,
-            target.id,
-            payload.reporting_manager_id,
-            actor=actor,
-        )
         target.reporting_manager_id = payload.reporting_manager_id
     target.joining_date = payload.joining_date
     target.last_working_date = None
