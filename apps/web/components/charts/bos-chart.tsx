@@ -1,37 +1,31 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
-import * as echarts from "echarts/core";
 import type { ComposeOption, EChartsType } from "echarts/core";
-import { BarChart, LineChart, PieChart } from "echarts/charts";
 import type { BarSeriesOption, LineSeriesOption, PieSeriesOption } from "echarts/charts";
-import {
-  AriaComponent,
-  GridComponent,
-  LegendComponent,
-  TooltipComponent,
-} from "echarts/components";
 import type {
   AriaComponentOption,
   GridComponentOption,
   LegendComponentOption,
   TooltipComponentOption,
 } from "echarts/components";
-import { SVGRenderer } from "echarts/renderers";
 
 import { EmptyState, LoadingState, cx } from "@/components/ui";
 
-echarts.use([
-  LineChart,
-  BarChart,
-  PieChart,
-  GridComponent,
-  TooltipComponent,
-  LegendComponent,
-  AriaComponent,
-  SVGRenderer,
-]);
+type EChartsRuntime = typeof import("./echarts-runtime");
+
+let runtimePromise: Promise<EChartsRuntime> | null = null;
+
+function loadEChartsRuntime() {
+  if (!runtimePromise) {
+    runtimePromise = import("./echarts-runtime").catch((error: unknown) => {
+      runtimePromise = null;
+      throw error;
+    });
+  }
+  return runtimePromise;
+}
 
 export type BosChartOption = ComposeOption<
   | LineSeriesOption
@@ -68,31 +62,67 @@ export function BosChart({
 }: BosChartProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<EChartsType | null>(null);
+  const optionRef = useRef(option);
+  const descriptionRef = useRef(accessibleDescription);
+  const [runtimeStatus, setRuntimeStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
 
   useEffect(() => {
-    if (loading || empty || !containerRef.current) return;
+    if (loading || empty || !containerRef.current) {
+      setRuntimeStatus("idle");
+      return;
+    }
 
-    const container = containerRef.current;
-    const chart = echarts.getInstanceByDom(container) ??
-      echarts.init(container, null, { renderer: "svg" });
-    chartRef.current = chart;
-
+    let active = true;
+    let chart: EChartsType | null = null;
+    let observer: ResizeObserver | null = null;
     let resizeFrame = 0;
-    const observer = new ResizeObserver(() => {
-      cancelAnimationFrame(resizeFrame);
-      resizeFrame = requestAnimationFrame(() => chart.resize());
-    });
-    observer.observe(container);
+    setRuntimeStatus("loading");
+
+    void loadEChartsRuntime()
+      .then(({ echarts }) => {
+        if (!active || !containerRef.current) return;
+
+        const container = containerRef.current;
+        chart = echarts.getInstanceByDom(container) ??
+          echarts.init(container, null, { renderer: "svg" });
+        chartRef.current = chart;
+        chart.setOption(
+          {
+            ...optionRef.current,
+            aria: {
+              show: true,
+              description: descriptionRef.current,
+            },
+          },
+          { notMerge: true, lazyUpdate: true },
+        );
+
+        observer = new ResizeObserver(() => {
+          cancelAnimationFrame(resizeFrame);
+          resizeFrame = requestAnimationFrame(() => chart?.resize());
+        });
+        observer.observe(container);
+        setRuntimeStatus("ready");
+      })
+      .catch(() => {
+        if (!active) return;
+        if (chart && !chart.isDisposed()) chart.dispose();
+        if (chartRef.current === chart) chartRef.current = null;
+        setRuntimeStatus("error");
+      });
 
     return () => {
-      observer.disconnect();
+      active = false;
+      observer?.disconnect();
       cancelAnimationFrame(resizeFrame);
-      if (!chart.isDisposed()) chart.dispose();
+      if (chart && !chart.isDisposed()) chart.dispose();
       if (chartRef.current === chart) chartRef.current = null;
     };
   }, [empty, loading]);
 
   useEffect(() => {
+    optionRef.current = option;
+    descriptionRef.current = accessibleDescription;
     if (loading || empty || !chartRef.current) return;
     chartRef.current.setOption(
       {
@@ -122,16 +152,33 @@ export function BosChart({
     );
   }
 
+  if (runtimeStatus === "error") {
+    return (
+      <div className={className} data-testid={testId}>
+        <EmptyState>Unable to load this chart.</EmptyState>
+      </div>
+    );
+  }
+
   const style: CSSProperties = { height };
   return (
-    <div className={cx("min-w-0 overflow-hidden", className)} data-testid={testId}>
+    <div
+      className={cx("relative min-w-0 overflow-hidden", className)}
+      data-testid={testId}
+      aria-busy={runtimeStatus !== "ready"}
+    >
       <div
         ref={containerRef}
-        className="w-full min-w-0"
+        className={cx("w-full min-w-0", runtimeStatus !== "ready" && "opacity-0")}
         style={style}
-        role="img"
-        aria-label={accessibleDescription}
+        role={runtimeStatus === "ready" ? "img" : undefined}
+        aria-label={runtimeStatus === "ready" ? accessibleDescription : undefined}
       />
+      {runtimeStatus !== "ready" ? (
+        <div className="absolute inset-0 flex items-center justify-center">
+          <LoadingState>{loadingMessage}</LoadingState>
+        </div>
+      ) : null}
     </div>
   );
 }
