@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 
+import { IconEdit, IconPower } from "@/components/icons";
 import {
   Badge,
   Button,
@@ -150,7 +151,7 @@ export default function AssetCategoriesPage() {
               <Td><p className="font-medium">{item.name}</p><p className="text-xs text-slate-500">{item.description}</p></Td>
               <Td>{item.fields.map((field) => field.label).join(", ") || "No additional fields"}</Td>
               <Td><Badge>{item.status}</Badge></Td>
-              <Td><div className="flex gap-2"><Button type="button" variant="secondary" onClick={() => void rename(item)}>Rename</Button><Button type="button" variant="secondary" onClick={() => void toggle(item)}>{item.status === "active" ? "Deactivate" : "Activate"}</Button></div></Td>
+              <Td><div className="flex gap-2"><Button type="button" variant="secondary" onClick={() => void rename(item)}><IconEdit className="size-4" />Rename</Button><Button type="button" variant="secondary" onClick={() => void toggle(item)}><IconPower className="size-4" />{item.status === "active" ? "Deactivate" : "Activate"}</Button></div></Td>
             </tr>
           ))}
         </tbody>

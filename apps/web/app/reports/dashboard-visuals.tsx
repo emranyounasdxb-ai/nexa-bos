@@ -2,19 +2,26 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { RankedBarChart } from "@/components/charts";
+import {
+  IconArrowUpRight,
+  IconChevronDown,
+  IconMinus,
+  IconTrendingDown,
+  IconTrendingUp,
+  type IconComponent,
+} from "@/components/icons";
 import { Badge, SectionHeader } from "@/components/ui";
 import { formatPct, type DashboardPayload, type RankingRow } from "@/lib/reports";
 
 export type MetricTone = "blue" | "green" | "amber" | "red" | "violet";
-type MetricIconName = "inbox" | "check" | "funded" | "clock";
 export type TrendDirection = { kind: "up" | "down" | "stable"; delta: number };
 
-export const metricToneClasses: Record<MetricTone, { icon: string; bar: string; text: string }> = {
-  blue: { icon: "bg-blue-50 text-blue-700", bar: "bg-blue-600", text: "text-blue-700" },
-  green: { icon: "bg-emerald-50 text-emerald-700", bar: "bg-emerald-500", text: "text-emerald-700" },
-  amber: { icon: "bg-amber-50 text-amber-700", bar: "bg-amber-500", text: "text-amber-700" },
-  red: { icon: "bg-red-50 text-red-700", bar: "bg-red-500", text: "text-red-700" },
-  violet: { icon: "bg-violet-50 text-violet-700", bar: "bg-violet-500", text: "text-violet-700" },
+export const metricToneClasses: Record<MetricTone, { icon: string }> = {
+  blue: { icon: "bg-blue-50 text-blue-700" },
+  green: { icon: "bg-emerald-50 text-emerald-700" },
+  amber: { icon: "bg-amber-50 text-amber-700" },
+  red: { icon: "bg-red-50 text-red-700" },
+  violet: { icon: "bg-violet-50 text-violet-700" },
 };
 
 export function CompactEmpty({ children }: { children: ReactNode }) {
@@ -28,41 +35,6 @@ function formatCurrencyValue(value: string | number | null | undefined) {
   if (!match) return `AED ${text}`;
   const [, sign, integer, fraction = ""] = match;
   return `AED ${sign}${integer.replace(/\B(?=(\d{3})+(?!\d))/g, ",")}${fraction}`;
-}
-
-function MetricIcon({ name }: { name: MetricIconName }) {
-  const paths: Record<MetricIconName, ReactNode> = {
-    inbox: (
-      <>
-        <path d="M5 4.75h14v12.5H5z" />
-        <path d="M5 13h3.25l1.5 2h4.5l1.5-2H19" />
-      </>
-    ),
-    check: (
-      <>
-        <circle cx="12" cy="12" r="8" />
-        <path d="m8.5 12 2.25 2.25 4.75-5" />
-      </>
-    ),
-    funded: (
-      <>
-        <path d="M6 7.25h12v10.5H6z" />
-        <path d="M8.5 10.25h7M8.5 13.75h4" />
-        <path d="M9 7.25V5.5h6v1.75" />
-      </>
-    ),
-    clock: (
-      <>
-        <circle cx="12" cy="12" r="8" />
-        <path d="M12 8v4.5l3 1.75" />
-      </>
-    ),
-  };
-  return (
-    <svg aria-hidden="true" className="size-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.75">
-      {paths[name]}
-    </svg>
-  );
 }
 
 export function comparisonDirection(current: number | undefined, previous: number | undefined): TrendDirection | null {
@@ -87,11 +59,11 @@ export function DirectionIndicator({
       : direction.kind === "down"
         ? "bg-red-50 text-red-700"
         : "bg-slate-100 text-slate-600";
-  const symbol = direction.kind === "up" ? "↗" : direction.kind === "down" ? "↘" : "→";
+  const DirectionIcon = direction.kind === "up" ? IconTrendingUp : direction.kind === "down" ? IconTrendingDown : IconMinus;
   const delta = direction.delta > 0 ? `+${direction.delta}` : String(direction.delta);
   return (
     <span className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold ${style}`}>
-      <span aria-hidden="true">{symbol}</span>
+      <DirectionIcon className="size-3.5" />
       {delta} vs {comparisonLabel}
     </span>
   );
@@ -111,27 +83,30 @@ export function KpiCard({
   value?: string | null;
   href: string;
   tone: MetricTone;
-  icon: MetricIconName;
+  icon: IconComponent;
   context?: ReactNode;
 }) {
+  const MetricIcon = icon;
   return (
     <Link
       href={href}
       aria-label={`${label} KPI`}
-      className="group flex min-h-36 flex-col rounded-xl border border-slate-200 bg-white p-3.5 shadow-[0_1px_3px_rgba(15,23,42,0.05)] transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f4c81]"
+      className="group flex min-h-32 flex-col rounded-[10px] border border-slate-200/90 bg-white p-3.5 shadow-[0_1px_2px_rgba(15,23,42,0.035)] transition hover:border-slate-300 hover:shadow-[0_3px_8px_rgba(15,23,42,0.07)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f4c81]"
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className={`inline-flex size-9 items-center justify-center rounded-lg [&_svg]:size-5 ${metricToneClasses[tone].icon}`}>
-          <MetricIcon name={icon} />
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <span className={`inline-flex size-8 shrink-0 items-center justify-center rounded-md ${metricToneClasses[tone].icon}`}>
+            <MetricIcon className="size-5" />
+          </span>
+          <p className="truncate text-[11px] font-semibold uppercase tracking-[0.1em] text-slate-500">{label}</p>
         </div>
-        <span aria-hidden="true" className="text-base text-slate-300 transition group-hover:translate-x-0.5 group-hover:text-slate-500">→</span>
+        <IconArrowUpRight className="size-4 shrink-0 text-slate-300 transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-slate-500" />
       </div>
-      <p className="mt-2.5 text-2xl font-semibold tracking-tight text-slate-950">{count.toLocaleString()}</p>
-      <div className="mt-0.5 flex min-h-8 items-start justify-between gap-2">
-        <p className="text-sm font-semibold text-slate-600">{label}</p>
-        {value !== undefined ? <p className="text-right text-xs font-medium text-slate-500">{formatCurrencyValue(value)}</p> : null}
+      <div className="mt-2.5 flex min-w-0 items-end justify-between gap-3">
+        <p className="text-3xl font-semibold leading-none tracking-tight text-slate-950">{count.toLocaleString()}</p>
+        {value !== undefined ? <p className="truncate text-right text-xs font-medium tabular-nums text-slate-500">{formatCurrencyValue(value)}</p> : null}
       </div>
-      <div className="mt-auto border-t border-slate-100 pt-2">{context ?? <span className="text-xs text-slate-500">Selected period</span>}</div>
+      <div className="mt-auto border-t border-slate-100 pt-2.5">{context ?? <span className="text-xs text-slate-500">Selected period</span>}</div>
     </Link>
   );
 }
@@ -142,20 +117,25 @@ export function PipelineMetric({
   value,
   href,
   tone = "blue",
+  icon,
 }: {
   label: string;
   count: number;
   value?: string | null;
   href: string;
   tone?: MetricTone;
+  icon: IconComponent;
 }) {
+  const MetricIcon = icon;
   return (
     <Link
       href={href}
       aria-label={`${label} KPI`}
       className="group flex min-w-0 items-center gap-2 rounded-lg border border-slate-200 bg-slate-50/60 px-2.5 py-2 hover:border-slate-300 hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f4c81]"
     >
-      <span aria-hidden="true" className={`size-2.5 shrink-0 rounded-full ${metricToneClasses[tone].bar}`} />
+      <span aria-hidden="true" className={`inline-flex size-7 shrink-0 items-center justify-center rounded-md ${metricToneClasses[tone].icon}`}>
+        <MetricIcon className="size-4" />
+      </span>
       <span className="min-w-0 flex-1">
         <span className="block truncate text-xs font-semibold text-slate-600">{label}</span>
         {value !== undefined ? <span className="block truncate text-xs text-slate-500">{formatCurrencyValue(value)}</span> : null}
@@ -191,7 +171,7 @@ export function StageDistribution({
       />
       <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-2.5 text-xs text-slate-500"><span>{total.toLocaleString()} pending applications</span><span>{rows.length} workflow stages</span></div>
       <details className="group mt-2 rounded-lg border border-slate-200 bg-slate-50/60">
-        <summary className="cursor-pointer list-none px-3 py-2 text-sm font-semibold text-[#0f4c81] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f4c81]"><span className="inline-flex w-full items-center justify-between gap-3">All stage details<span aria-hidden="true" className="transition-transform group-open:rotate-180">⌄</span></span></summary>
+        <summary className="cursor-pointer list-none px-3 py-2 text-sm font-semibold text-[#0f4c81] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f4c81]"><span className="inline-flex w-full items-center justify-between gap-3">All stage details<IconChevronDown className="size-4 transition-transform group-open:rotate-180" /></span></summary>
         <div data-testid="stage-breakdown-scroll" className="max-h-48 overflow-y-auto border-t border-slate-200 bg-white p-1.5">
           {rows.map((row) => (
             <Link key={`${row.stageId ?? "none"}:${row.name}:detail`} className="flex items-center justify-between gap-4 rounded-md px-2 py-1.5 text-sm hover:bg-slate-50" href={drill("stage", row.stageId ? { stage_id: row.stageId } : {})}>

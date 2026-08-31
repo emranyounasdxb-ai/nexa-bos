@@ -6,6 +6,26 @@ import { useRouter, useSearchParams } from "next/navigation";
 
 import { DatePicker } from "@/components/date-picker";
 import { DonutChart, TimeSeriesChart } from "@/components/charts";
+import {
+  IconArrowBack,
+  IconArrowBackUp,
+  IconArrowUpRight,
+  IconArrowsDiff,
+  IconBan,
+  IconBook2,
+  IconCashBanknote,
+  IconChevronDown,
+  IconCircleCheck,
+  IconCircleX,
+  IconClock,
+  IconCreditCard,
+  IconFileSpreadsheet,
+  IconFileTypePdf,
+  IconFilter,
+  IconInbox,
+  IconPrinter,
+  IconRefresh,
+} from "@/components/icons";
 import { Badge, Button, Card, ErrorText, PageHeader, Select, SectionHeader } from "@/components/ui";
 import { apiDownload, apiGet, ApiClientError } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
@@ -59,7 +79,7 @@ function DashboardSkeleton() {
       <span className="sr-only">Loading dashboard metrics…</span>
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {Array.from({ length: 4 }, (_, index) => (
-          <div key={index} className="h-28 animate-pulse rounded-xl border border-slate-200 bg-white p-4">
+          <div key={index} className="h-32 animate-pulse rounded-[10px] border border-slate-200 bg-white p-4">
             <div className="h-3 w-20 rounded bg-slate-200" />
             <div className="mt-4 h-6 w-28 rounded bg-slate-200" />
             <div className="mt-3 h-3 w-32 rounded bg-slate-100" />
@@ -67,11 +87,11 @@ function DashboardSkeleton() {
         ))}
       </div>
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(18rem,0.6fr)]">
-        <div className="h-44 animate-pulse rounded-xl border border-slate-200 bg-white p-4">
+        <div className="h-44 animate-pulse rounded-[10px] border border-slate-200 bg-white p-4">
           <div className="h-4 w-36 rounded bg-slate-200" />
           <div className="mt-5 h-28 rounded-lg bg-slate-100" />
         </div>
-        <div className="h-44 animate-pulse rounded-xl border border-slate-200 bg-white p-4">
+        <div className="h-44 animate-pulse rounded-[10px] border border-slate-200 bg-white p-4">
           <div className="h-4 w-32 rounded bg-slate-200" />
           <div className="mt-5 grid grid-cols-2 gap-3">
             {Array.from({ length: 4 }, (_, index) => (
@@ -236,28 +256,32 @@ export function DashboardInner() {
             <Button type="button" className="min-w-28" aria-busy={loading && Boolean(data)} onClick={() => void load()}>
               {loading && data ? (
                 <span className="inline-flex items-center gap-2">
-                  <span aria-hidden="true" className="size-3 animate-spin rounded-full border-2 border-white/45 border-t-white" />
+                  <IconRefresh className="size-4 animate-spin" />
                   Refreshing…
                 </span>
-              ) : "Refresh"}
+              ) : <><IconRefresh className="size-4" />Refresh</>}
             </Button>
             {can("Reports.ExportExcel") ? (
               <Button type="button" variant="secondary" className="min-w-20" onClick={() => void exportReport("xlsx")}>
+                <IconFileSpreadsheet className="size-4" />
                 Excel
               </Button>
             ) : null}
             {can("Reports.ExportPDF") ? (
               <Button type="button" variant="secondary" className="min-w-20" onClick={() => void exportReport("pdf")}>
+                <IconFileTypePdf className="size-4" />
                 PDF
               </Button>
             ) : null}
             {can("Reports.Print") ? (
               <Button type="button" variant="secondary" className="min-w-20" onClick={() => void exportReport("print")}>
+                <IconPrinter className="size-4" />
                 Print
               </Button>
             ) : null}
             {can("Reports.View") ? (
               <Button type="button" variant="secondary" className="min-w-20" onClick={() => router.push("/reports/compare")}>
+                <IconArrowsDiff className="size-4" />
                 Compare
               </Button>
             ) : null}
@@ -265,7 +289,7 @@ export function DashboardInner() {
         }
       />
 
-      <details data-testid="dashboard-filters" className="group rounded-xl border border-slate-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+      <details data-testid="dashboard-filters" className="group rounded-[10px] border border-slate-200/90 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.035)]">
         <summary className="cursor-pointer list-none px-4 py-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f4c81] sm:px-5">
           <span className="flex items-center justify-between gap-4">
             <span>
@@ -275,7 +299,9 @@ export function DashboardInner() {
               </span>
             </span>
             <span className="inline-flex items-center gap-2 text-sm font-semibold text-[#0f4c81]">
-              Refine <span aria-hidden="true" className="transition-transform group-open:rotate-180">⌄</span>
+              <IconFilter className="size-4" />
+              Refine
+              <IconChevronDown className="size-4 transition-transform group-open:rotate-180" />
             </span>
           </span>
         </summary>
@@ -352,7 +378,7 @@ export function DashboardInner() {
             </Select>
           </label>
           <div className="flex items-end">
-            <Button type="button" className="w-full" onClick={applyFilters}>Apply filters</Button>
+            <Button type="button" className="w-full" onClick={applyFilters}><IconFilter className="size-4" />Apply filters</Button>
           </div>
         </div>
       </details>
@@ -363,10 +389,10 @@ export function DashboardInner() {
         <div data-testid="dashboard-overview" className="space-y-4">
           <div data-testid="dashboard-kpi-charts" className="space-y-4">
             <div data-testid="dashboard-kpi-grid" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              <KpiCard label="Submitted" count={data.kpis.submitted.count} value={data.kpis.submitted.value} href={drill("submitted")} tone="blue" icon="inbox" context={<DirectionIndicator direction={submittedDirection} comparisonLabel={comparisonLabel} />} />
-              <KpiCard label="Approved" count={data.kpis.approved.count} value={data.kpis.approved.value} href={drill("approved")} tone="violet" icon="check" context={<span className="text-xs font-medium text-slate-500">Approval conversion {formatPct(data.conversions.submittedToApproved)}</span>} />
-              <KpiCard label="Funded" count={data.kpis.funded.count} value={data.kpis.funded.value} href={drill("funded")} tone="green" icon="funded" context={<DirectionIndicator direction={fundedDirection} comparisonLabel={comparisonLabel} />} />
-              <KpiCard label="Pending" count={data.kpis.pending.count} href={drill("pending")} tone="amber" icon="clock" context={<span className="text-xs font-medium text-slate-500">Open at reporting cutoff</span>} />
+              <KpiCard label="Submitted" count={data.kpis.submitted.count} value={data.kpis.submitted.value} href={drill("submitted")} tone="blue" icon={IconInbox} context={<DirectionIndicator direction={submittedDirection} comparisonLabel={comparisonLabel} />} />
+              <KpiCard label="Approved" count={data.kpis.approved.count} value={data.kpis.approved.value} href={drill("approved")} tone="violet" icon={IconCircleCheck} context={<span className="text-xs font-medium text-slate-500">Approval conversion {formatPct(data.conversions.submittedToApproved)}</span>} />
+              <KpiCard label="Funded" count={data.kpis.funded.count} value={data.kpis.funded.value} href={drill("funded")} tone="green" icon={IconCashBanknote} context={<DirectionIndicator direction={fundedDirection} comparisonLabel={comparisonLabel} />} />
+              <KpiCard label="Pending" count={data.kpis.pending.count} href={drill("pending")} tone="amber" icon={IconClock} context={<span className="text-xs font-medium text-slate-500">Open at reporting cutoff</span>} />
             </div>
 
             <Card className="p-3 sm:p-3.5">
@@ -378,14 +404,14 @@ export function DashboardInner() {
                 <Badge>{data.currency}</Badge>
               </div>
               <div className="mt-2.5 grid gap-1.5 sm:grid-cols-2 lg:grid-cols-4">
-                <PipelineMetric label="Booked" count={data.kpis.booked.count} value={data.kpis.booked.value} href={drill("booked")} tone="green" />
-                <PipelineMetric label="Returned / Requirement Pending" count={data.kpis.returnedRequirementPending.count} href={drill("returned")} tone="amber" />
-                <PipelineMetric label="Final Rejected" count={data.kpis.finalRejected.count} href={drill("final_rejected")} tone="red" />
-                <PipelineMetric label="Cancelled" count={data.kpis.cancelled.count} href={drill("cancelled")} tone="red" />
-                <PipelineMetric label="Withdrawn" count={data.kpis.withdrawn.count} href={drill("withdrawn")} tone="red" />
-                <PipelineMetric label="Completed" count={data.kpis.completed.count} href={drill("completed")} tone="green" />
-                <PipelineMetric label="PF Count / Value" count={data.kpis.personalFinance.count} value={data.kpis.personalFinance.value} href={drill("pf_value")} />
-                <PipelineMetric label="CC Count" count={data.kpis.creditCard.count} href={drill("cc_count")} />
+                <PipelineMetric label="Booked" count={data.kpis.booked.count} value={data.kpis.booked.value} href={drill("booked")} tone="green" icon={IconBook2} />
+                <PipelineMetric label="Returned / Requirement Pending" count={data.kpis.returnedRequirementPending.count} href={drill("returned")} tone="amber" icon={IconArrowBackUp} />
+                <PipelineMetric label="Final Rejected" count={data.kpis.finalRejected.count} href={drill("final_rejected")} tone="red" icon={IconCircleX} />
+                <PipelineMetric label="Cancelled" count={data.kpis.cancelled.count} href={drill("cancelled")} tone="red" icon={IconBan} />
+                <PipelineMetric label="Withdrawn" count={data.kpis.withdrawn.count} href={drill("withdrawn")} tone="red" icon={IconArrowBack} />
+                <PipelineMetric label="Completed" count={data.kpis.completed.count} href={drill("completed")} tone="green" icon={IconCircleCheck} />
+                <PipelineMetric label="PF Count / Value" count={data.kpis.personalFinance.count} value={data.kpis.personalFinance.value} href={drill("pf_value")} icon={IconCashBanknote} />
+                <PipelineMetric label="CC Count" count={data.kpis.creditCard.count} href={drill("cc_count")} icon={IconCreditCard} />
               </div>
             </Card>
 
@@ -429,7 +455,7 @@ export function DashboardInner() {
             </Card>
             {data.targetsSummary && data.targetsSummary.items.length > 0 ? (
               <Card className="min-w-0 p-4 sm:p-4">
-                <SectionHeader title="Target performance" description="Progress against effective targets in scope." actions={<Link className="text-sm font-semibold text-[#0f4c81] hover:underline" href="/targets">Open targets →</Link>} />
+                <SectionHeader title="Target performance" description="Progress against effective targets in scope." actions={<Link className="inline-flex items-center gap-1 text-sm font-semibold text-[#0f4c81] hover:underline" href="/targets">Open targets <IconArrowUpRight className="size-4" /></Link>} />
                 <TargetProgress summary={data.targetsSummary} />
               </Card>
             ) : (

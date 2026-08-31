@@ -58,6 +58,9 @@ test("dashboard presents a compact executive summary with bounded detail", async
   await expect(kpiGrid.getByRole("link", { name: "Funded KPI", exact: true })).toBeVisible();
   await expect(kpiGrid.getByRole("link", { name: "Pending KPI", exact: true })).toBeVisible();
   await expect(kpiGrid.getByRole("link")).toHaveCount(4);
+  for (const label of ["Submitted KPI", "Approved KPI", "Funded KPI", "Pending KPI"]) {
+    await expect(kpiGrid.getByRole("link", { name: label, exact: true }).locator("svg").first()).toBeVisible();
+  }
   await expect(kpiGrid.getByText(/vs Previous Month/).first()).toBeVisible({ timeout: 30_000 });
   await expect(page.getByTestId("dashboard-trend-insufficient")).toBeVisible();
   await expect(page.getByText("Executive overview", { exact: true })).toHaveCount(0);
@@ -94,6 +97,9 @@ test("dashboard presents a compact executive summary with bounded detail", async
     const box = await button.boundingBox();
     expect(box?.height ?? 0).toBeGreaterThanOrEqual(40);
   }
+  await expect(page.getByTestId("dashboard-actions").locator("svg")).toHaveCount(5);
+  await expect(page.getByLabel(/Notifications, \d+ unread/).locator("svg")).toBeVisible();
+  await expect(page.getByLabel("Open user menu").locator("svg")).toBeVisible();
 
   await expect(page.getByTestId("stage-breakdown-panel")).toBeVisible();
   const stageScroll = page.getByTestId("stage-breakdown-scroll");
@@ -114,7 +120,7 @@ test("dashboard presents a compact executive summary with bounded detail", async
     ),
   ).toBeTruthy();
   await page.screenshot({
-    path: testInfo.outputPath("task16-1-dashboard-desktop.png"),
+    path: testInfo.outputPath("task16-2-tabler-dashboard-desktop.png"),
     fullPage: true,
   });
   await shellHeader.evaluate((element) => {
@@ -122,14 +128,14 @@ test("dashboard presents a compact executive summary with bounded detail", async
   });
   await page
     .getByTestId("dashboard-kpi-charts")
-    .screenshot({ path: testInfo.outputPath("task16-1-dashboard-kpi-primary-charts.png") });
+    .screenshot({ path: testInfo.outputPath("task16-2-tabler-kpi-cards.png") });
   await shellHeader.evaluate((element) => {
     element.style.visibility = "";
   });
   await page.mouse.move(1200, 300);
   await expect(page.getByRole("complementary", { name: "Application sidebar" })).toHaveCSS("width", "80px");
   await page.screenshot({
-    path: testInfo.outputPath("task16-1-dashboard-collapsed-sidebar.png"),
+    path: testInfo.outputPath("task16-2-tabler-sidebar-collapsed.png"),
     fullPage: true,
   });
 });
@@ -357,6 +363,7 @@ test("sidebar groups are folded by default and toggle across desktop and mobile"
     await expect(parent).toHaveAttribute("aria-expanded", "true");
     await expect(sidebar).toHaveAttribute("data-expanded", "true");
     await expect(sidebar.getByRole("link", { name: group.firstItem, exact: true })).toBeVisible();
+    await expect(sidebar.getByRole("link", { name: group.firstItem, exact: true }).locator("svg")).toBeVisible();
     const clippedLabels = await sidebar.locator("nav span.truncate").evaluateAll((labels) =>
       labels
         .filter((label) => {
@@ -369,7 +376,7 @@ test("sidebar groups are folded by default and toggle across desktop and mobile"
     expect(clippedLabels).toEqual([]);
     if (group.label === "Operations") {
       await page.screenshot({
-        path: testInfo.outputPath("task16-sidebar-expanded.png"),
+        path: testInfo.outputPath("task16-2-tabler-sidebar-expanded.png"),
       });
     }
     await parent.press(" ");

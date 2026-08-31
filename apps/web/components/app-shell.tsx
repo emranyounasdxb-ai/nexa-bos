@@ -4,6 +4,41 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 
+import {
+  IconAlertTriangle,
+  IconBell,
+  IconBellCog,
+  IconBriefcase2,
+  IconBuildingBank,
+  IconBuildingCommunity,
+  IconCalendarCheck,
+  IconCategory,
+  IconChartBar,
+  IconChevronDown,
+  IconChevronRight,
+  IconDevices2,
+  IconFileDescription,
+  IconGauge,
+  IconGitBranch,
+  IconHierarchy3,
+  IconInfoCircle,
+  IconLayoutDashboard,
+  IconLogout,
+  IconMenu2,
+  IconPackages,
+  IconReportAnalytics,
+  IconSettings,
+  IconShieldLock,
+  IconTargetArrow,
+  IconUser,
+  IconUserCircle,
+  IconUsers,
+  IconUsersGroup,
+  IconUserShield,
+  IconWallet,
+  IconX,
+  type IconComponent,
+} from "@/components/icons";
 import { Button, cx, focusRing } from "@/components/ui";
 import { apiGet, apiRequest, getCsrfToken, setCsrfToken } from "@/lib/api";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
@@ -22,24 +57,15 @@ type Reminder = {
 type NavItem = {
   href: string;
   label: string;
-  shortLabel: string;
+  icon: IconComponent;
   show: boolean;
 };
 
 type NavGroup = {
   label: string;
-  icon: NavIconName;
+  icon: IconComponent;
   items: NavItem[];
 };
-
-type NavIconName =
-  | "dashboard"
-  | "operations"
-  | "people"
-  | "performance"
-  | "finance"
-  | "assets"
-  | "administration";
 
 const routeContext = (pathname: string) => {
   const routes = [
@@ -97,70 +123,12 @@ const isActiveRoute = (pathname: string, href: string) => {
   return pathname === href || pathname.startsWith(`${href}/`);
 };
 
-function NavIcon({ name }: { name: NavIconName }) {
-  const paths: Record<NavIconName, ReactNode> = {
-    dashboard: (
-      <>
-        <rect x="3" y="3" width="7" height="7" rx="1" />
-        <rect x="14" y="3" width="7" height="7" rx="1" />
-        <rect x="3" y="14" width="7" height="7" rx="1" />
-        <rect x="14" y="14" width="7" height="7" rx="1" />
-      </>
-    ),
-    operations: (
-      <>
-        <path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" />
-        <rect x="3" y="7" width="18" height="13" rx="2" />
-        <path d="M3 12h18M10 12v2h4v-2" />
-      </>
-    ),
-    people: (
-      <>
-        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-        <circle cx="9" cy="7" r="4" />
-        <path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
-      </>
-    ),
-    performance: (
-      <>
-        <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />
-      </>
-    ),
-    finance: (
-      <>
-        <rect x="3" y="5" width="18" height="15" rx="2" />
-        <path d="M16 13h5M3 9h18" />
-        <circle cx="16" cy="13" r="1" />
-      </>
-    ),
-    assets: (
-      <>
-        <path d="m12 3 9 5-9 5-9-5 9-5Z" />
-        <path d="m3 12 9 5 9-5M3 16l9 5 9-5" />
-      </>
-    ),
-    administration: (
-      <>
-        <circle cx="12" cy="12" r="3" />
-        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06-2.83 2.83-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21h-4v-.17a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06-2.83-2.83.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3v-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06L7.04 4.3l.06.06A1.65 1.65 0 0 0 8.92 4a1.65 1.65 0 0 0 1-1.51V2h4v.49A1.65 1.65 0 0 0 15 4a1.65 1.65 0 0 0 1.82.33l.06-.06 2.83 2.83-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21v4h-.09a1.65 1.65 0 0 0-1.51 1Z" />
-      </>
-    ),
-  };
-
+function SidebarIcon({ icon: IconComponent, item = false }: { icon: IconComponent; item?: boolean }) {
   return (
-    <svg
-      data-testid="sidebar-main-icon"
-      aria-hidden="true"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="size-[18px]"
-    >
-      {paths[name]}
-    </svg>
+    <IconComponent
+      data-testid={item ? "sidebar-item-icon" : "sidebar-main-icon"}
+      className={item ? "size-4" : "size-5"}
+    />
   );
 }
 
@@ -198,9 +166,9 @@ function HolidayReminders({ compact = false }: { compact?: boolean }) {
       >
         <span
           aria-hidden="true"
-          className="inline-flex size-6 shrink-0 items-center justify-center rounded-full bg-red-50 text-xs font-bold text-red-700"
+          className="inline-flex size-6 shrink-0 items-center justify-center rounded-md bg-red-50 text-red-700"
         >
-          !
+          <IconAlertTriangle className="size-4" />
         </span>
         <p className="shrink-0 text-xs font-semibold text-slate-700">Holiday reminders</p>
         <div className="flex min-w-0 flex-1 gap-2 overflow-x-auto">
@@ -253,11 +221,11 @@ function HolidayReminders({ compact = false }: { compact?: boolean }) {
             <span
               aria-hidden="true"
               className={cx(
-                "mt-0.5 inline-flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-bold",
+                "mt-0.5 inline-flex size-7 shrink-0 items-center justify-center rounded-md",
                 item.kind === "urgent" ? "bg-red-50 text-red-700" : "bg-blue-50 text-[#0f4c81]",
               )}
             >
-              {item.kind === "urgent" ? "!" : "i"}
+              {item.kind === "urgent" ? <IconAlertTriangle className="size-4" /> : <IconInfoCircle className="size-4" />}
             </span>
             <p className="min-w-0 text-slate-700">
               <span className="font-semibold text-slate-900">
@@ -307,9 +275,7 @@ function NotificationBell() {
         "relative inline-flex size-10 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 transition-colors hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900",
       )}
     >
-      <span aria-hidden="true" className="text-base grayscale">
-        🔔
-      </span>
+      <IconBell className="size-5" />
       {unreadCount > 0 ? (
         <span className="absolute -right-1 -top-1 inline-flex min-w-5 justify-center rounded-full bg-[#0f4c81] px-1.5 py-0.5 text-[10px] font-bold leading-4 text-white ring-2 ring-white">
           {unreadCount > 99 ? "99+" : unreadCount}
@@ -353,76 +319,76 @@ function Shell({ children }: { children: ReactNode }) {
   const groups: NavGroup[] = [
     {
       label: "Workspace",
-      icon: "dashboard",
-      items: [{ href: "/reports", label: "Dashboard", shortLabel: "DB", show: can("Dashboard.View") }],
+      icon: IconLayoutDashboard,
+      items: [{ href: "/reports", label: "Dashboard", icon: IconLayoutDashboard, show: can("Dashboard.View") }],
     },
     {
       label: "Operations",
-      icon: "operations",
+      icon: IconBriefcase2,
       items: [
-        { href: "/customers", label: "Customers", shortLabel: "CU", show: can("Customers.View") },
-        { href: "/applications", label: "Applications", shortLabel: "AP", show: can("Applications.View") },
-        { href: "/workflows", label: "Workflows", shortLabel: "WF", show: can("WorkflowStages.Edit") },
+        { href: "/customers", label: "Customers", icon: IconUser, show: can("Customers.View") },
+        { href: "/applications", label: "Applications", icon: IconFileDescription, show: can("Applications.View") },
+        { href: "/workflows", label: "Workflows", icon: IconGitBranch, show: can("WorkflowStages.Edit") },
       ],
     },
     {
       label: "People",
-      icon: "people",
+      icon: IconUsersGroup,
       items: [
-        { href: "/users", label: "Users", shortLabel: "US", show: can("Users.View") },
-        { href: "/organization", label: "Organization", shortLabel: "OR", show: true },
-        { href: "/organization/hierarchy", label: "Hierarchy", shortLabel: "HI", show: can("Users.View") },
-        { href: "/attendance", label: "Attendance", shortLabel: "AT", show: can("Attendance.View") },
-        { href: "/attendance/reports", label: "Attendance reports", shortLabel: "AR", show: can("Attendance.Reports") },
+        { href: "/users", label: "Users", icon: IconUsers, show: can("Users.View") },
+        { href: "/organization", label: "Organization", icon: IconBuildingCommunity, show: true },
+        { href: "/organization/hierarchy", label: "Hierarchy", icon: IconHierarchy3, show: can("Users.View") },
+        { href: "/attendance", label: "Attendance", icon: IconCalendarCheck, show: can("Attendance.View") },
+        { href: "/attendance/reports", label: "Attendance reports", icon: IconReportAnalytics, show: can("Attendance.Reports") },
       ],
     },
     {
       label: "Performance",
-      icon: "performance",
+      icon: IconChartBar,
       items: [
-        { href: "/targets", label: "Targets", shortLabel: "TG", show: can("Targets.View") },
-        { href: "/targets/kpi", label: "KPI scorecards", shortLabel: "KP", show: can("Targets.View") },
-        { href: "/reports/compare", label: "Reports", shortLabel: "RP", show: can("Reports.View") },
+        { href: "/targets", label: "Targets", icon: IconTargetArrow, show: can("Targets.View") },
+        { href: "/targets/kpi", label: "KPI scorecards", icon: IconGauge, show: can("Targets.View") },
+        { href: "/reports/compare", label: "Reports", icon: IconReportAnalytics, show: can("Reports.View") },
       ],
     },
     {
       label: "Finance",
-      icon: "finance",
+      icon: IconWallet,
       items: [
         {
           href: "/finance",
           label: "Finance",
-          shortLabel: "FI",
+          icon: IconWallet,
           show: can("Finance.View") || can("Finance.ViewCommissionRules"),
         },
       ],
     },
     {
       label: "Assets",
-      icon: "assets",
+      icon: IconPackages,
       items: [
-        { href: "/assets", label: "Assets", shortLabel: "AS", show: can("Assets.View") },
-        { href: "/assets/categories", label: "Asset categories", shortLabel: "AC", show: can("Assets.ManageMaster") },
-        { href: "/assets/reports", label: "Asset reports", shortLabel: "AR", show: can("Assets.View") },
+        { href: "/assets", label: "Assets", icon: IconDevices2, show: can("Assets.View") },
+        { href: "/assets/categories", label: "Asset categories", icon: IconCategory, show: can("Assets.ManageMaster") },
+        { href: "/assets/reports", label: "Asset reports", icon: IconReportAnalytics, show: can("Assets.View") },
       ],
     },
     {
       label: "Administration",
-      icon: "administration",
+      icon: IconSettings,
       items: [
-        { href: "/catalog", label: "Banks & products", shortLabel: "BP", show: true },
-        { href: "/user-types", label: "User types", shortLabel: "UT", show: can("UserTypes.View") },
-        { href: "/notifications", label: "Notifications", shortLabel: "NO", show: can("Notifications.View") },
+        { href: "/catalog", label: "Banks & products", icon: IconBuildingBank, show: true },
+        { href: "/user-types", label: "User types", icon: IconUserShield, show: can("UserTypes.View") },
+        { href: "/notifications", label: "Notifications", icon: IconBell, show: can("Notifications.View") },
         {
           href: "/notifications/manage",
           label: "Notification admin",
-          shortLabel: "NA",
+          icon: IconBellCog,
           show:
             can("Notifications.ManageRules") ||
             can("Notifications.SendUrgent") ||
             can("Notifications.ViewAudit"),
         },
-        { href: "/security", label: "Security", shortLabel: "SE", show: can("Security.ManageSettings") },
+        { href: "/security", label: "Security", icon: IconShieldLock, show: can("Security.ManageSettings") },
       ],
     },
   ];
@@ -512,7 +478,7 @@ function Shell({ children }: { children: ReactNode }) {
             className={cx(focusRing, "rounded-md p-2 text-slate-500 hover:bg-slate-100 lg:hidden")}
             onClick={() => setMobileNavOpen(false)}
           >
-            ×
+            <IconX className="size-5" />
           </button>
         </div>
         <nav aria-label="Primary" className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
@@ -549,7 +515,7 @@ function Shell({ children }: { children: ReactNode }) {
                       : "border-slate-200 bg-slate-50 text-slate-500 group-hover:bg-white",
                   )}
                 >
-                  <NavIcon name="dashboard" />
+                  <SidebarIcon icon={dashboardItem.icon} />
                 </span>
                 <span className={cx("truncate", !sidebarExpanded && "lg:sr-only")}>Dashboard</span>
               </Link>
@@ -588,7 +554,7 @@ function Shell({ children }: { children: ReactNode }) {
                           : "border-slate-200 bg-slate-50 text-slate-500 group-hover:bg-white",
                       )}
                     >
-                      <NavIcon name={group.icon} />
+                      <SidebarIcon icon={group.icon} />
                     </span>
                     <span className={cx("min-w-0 flex-1 truncate", !sidebarExpanded && "lg:sr-only")}>
                       {group.label}
@@ -599,7 +565,7 @@ function Shell({ children }: { children: ReactNode }) {
                     id={groupId}
                     hidden={!expanded}
                     className={cx(
-                      "ml-7 mt-1 space-y-0.5 border-l border-slate-200 pl-3",
+                      "ml-5 mt-1 space-y-0.5 border-l border-slate-200 pl-2",
                       !sidebarExpanded && "lg:hidden",
                     )}
                   >
@@ -615,31 +581,18 @@ function Shell({ children }: { children: ReactNode }) {
                           title={!sidebarExpanded ? item.label : undefined}
                           className={cx(
                             focusRing,
-                            "group flex min-h-9 items-center gap-2 rounded-md px-3 text-[13px] font-medium transition-colors",
+                            "group flex min-h-9 items-center gap-2 rounded-md px-2 text-[13px] font-medium transition-colors",
                             active
                               ? "bg-blue-50 text-[#0f4c81]"
                               : "text-slate-500 hover:bg-slate-50 hover:text-slate-900",
                             !sidebarExpanded && "lg:justify-center lg:px-1.5",
                           )}
                         >
-                          <span
-                            aria-hidden="true"
-                            className={cx(
-                              "size-1.5 shrink-0 rounded-full bg-current opacity-50",
-                              !sidebarExpanded && "lg:hidden",
-                            )}
-                          />
+                          <span aria-hidden="true" className={cx("shrink-0 text-slate-400", active && "text-[#0f4c81]")}>
+                            <SidebarIcon icon={item.icon} item />
+                          </span>
                           <span className={cx("truncate", !sidebarExpanded && "lg:sr-only")}>
                             {item.label}
-                          </span>
-                          <span
-                            aria-hidden="true"
-                            className={cx(
-                              "hidden text-[10px] font-bold tracking-wide",
-                              !sidebarExpanded && "lg:inline",
-                            )}
-                          >
-                            {item.shortLabel}
                           </span>
                         </Link>
                       );
@@ -664,14 +617,14 @@ function Shell({ children }: { children: ReactNode }) {
               )}
               onClick={() => setMobileNavOpen(true)}
             >
-              ☰
+              <IconMenu2 className="size-5" />
             </button>
             <nav
               aria-label="Breadcrumb"
               className="flex min-w-0 flex-nowrap items-center gap-2 whitespace-nowrap text-sm"
             >
               <span className="truncate font-medium text-slate-500">{breadcrumbGroup}</span>
-              <span aria-hidden="true" className="shrink-0 text-slate-400">›</span>
+              <IconChevronRight className="size-4 shrink-0 text-slate-400" />
               <h1 className="truncate font-semibold text-slate-900 sm:text-base">{context.title}</h1>
             </nav>
           </div>
@@ -694,9 +647,7 @@ function Shell({ children }: { children: ReactNode }) {
                     {user?.userType?.name ?? "NEXA user"}
                   </span>
                 </span>
-                <span aria-hidden="true" className="hidden text-xs text-slate-400 sm:inline">
-                  ⌄
-                </span>
+                <IconChevronDown className="hidden size-4 text-slate-400 transition-transform group-open:rotate-180 sm:block" />
               </summary>
               <div className="absolute right-0 mt-2 w-64 overflow-hidden rounded-xl border border-slate-200 bg-white p-2 shadow-[0_12px_28px_rgba(15,23,42,0.12)]">
                 <div className="border-b border-slate-100 px-3 py-2 sm:hidden">
@@ -713,19 +664,21 @@ function Shell({ children }: { children: ReactNode }) {
                   }}
                   className={cx(
                     focusRing,
-                    "block rounded-md px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 hover:text-slate-900",
+                    "flex items-center gap-2 rounded-md px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 hover:text-slate-900",
                   )}
                 >
+                  <IconUserCircle className="size-4" />
                   My profile
                 </Link>
                 <button
                   type="button"
                   className={cx(
                     focusRing,
-                    "block w-full rounded-md px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 hover:text-slate-900",
+                    "flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 hover:text-slate-900",
                   )}
                   onClick={() => void logout()}
                 >
+                  <IconLogout className="size-4" />
                   Sign out
                 </button>
               </div>

@@ -7,6 +7,8 @@ import type {
   TextareaHTMLAttributes,
 } from "react";
 
+import { IconAlertTriangle, IconInfoCircle, IconX } from "@/components/icons";
+
 export function cx(...parts: Array<string | false | null | undefined>): string {
   return parts.filter(Boolean).join(" ");
 }
@@ -63,7 +65,7 @@ export function Card({ children, className }: { children: ReactNode; className?:
   return (
     <div
       className={cx(
-        "rounded-xl border border-slate-200 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:p-5",
+        "rounded-[10px] border border-slate-200/90 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.035)]",
         className,
       )}
     >
@@ -196,8 +198,9 @@ export function ErrorText({ children }: { children: ReactNode }) {
     return null;
   }
   return (
-    <p role="alert" className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
-      {children}
+    <p role="alert" className="flex items-start gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+      <IconAlertTriangle className="mt-0.5 size-4 shrink-0" />
+      <span>{children}</span>
     </p>
   );
 }
@@ -240,7 +243,7 @@ export function FilterBar({ children, className }: { children: ReactNode; classN
   return (
     <div
       className={cx(
-        "grid gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.03)] sm:grid-cols-2 lg:grid-cols-3",
+        "grid gap-4 rounded-[10px] border border-slate-200/90 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.03)] sm:grid-cols-2 lg:grid-cols-3",
         className,
       )}
     >
@@ -261,9 +264,7 @@ export function LoadingState({ children = "Loading…" }: { children?: ReactNode
 export function EmptyState({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-24 flex-col items-center justify-center px-4 py-6 text-center text-sm text-slate-500">
-      <span aria-hidden="true" className="mb-2 inline-flex size-8 items-center justify-center rounded-full bg-slate-100 text-slate-400">
-        —
-      </span>
+      <IconInfoCircle className="mb-2 size-6 text-slate-400" />
       {children}
     </div>
   );
@@ -323,7 +324,7 @@ export function DialogPanel({
             {description ? <p className="mt-1 text-sm text-slate-500">{description}</p> : null}
           </div>
           <Button type="button" variant="ghost" aria-label="Close dialog" onClick={onClose}>
-            ×
+            <IconX className="size-4" />
           </Button>
         </div>
         <div className="mt-5">{children}</div>
