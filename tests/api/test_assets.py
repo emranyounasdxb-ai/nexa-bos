@@ -289,6 +289,9 @@ async def test_employee_and_office_transfers_preserve_custody_chain(client: Asyn
         None,
         "employee_transfer",
     }
+    office_transfer_date = next(
+        row["startedOn"] for row in history["officeCustody"] if row["active"]
+    )
     assert (
         await owner.post(
             f"/api/v1/assets/{asset['id']}/return",
@@ -297,7 +300,7 @@ async def test_employee_and_office_transfers_preserve_custody_chain(client: Asyn
     ).status_code == 200
     office_transfer = await owner.post(
         f"/api/v1/assets/{asset['id']}/transfer/office",
-        json={"office_id": auh, "transfer_date": "2026-08-30", "remarks": "AUH stock"},
+        json={"office_id": auh, "transfer_date": office_transfer_date, "remarks": "AUH stock"},
     )
     assert office_transfer.status_code == 200, office_transfer.text
     assert office_transfer.json()["office"]["id"] == auh
