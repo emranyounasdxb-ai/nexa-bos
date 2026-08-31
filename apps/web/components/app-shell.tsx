@@ -210,7 +210,9 @@ function HolidayReminders({ compact = false }: { compact?: boolean }) {
     <aside
       aria-label="Holiday reminders"
       className={cx(
-        compact ? "mb-4 flex gap-2 overflow-x-auto pb-1" : "mb-5 grid gap-2 md:grid-cols-2 xl:grid-cols-3",
+        compact
+          ? "mb-4 grid w-full min-w-0 max-w-full gap-2 sm:flex sm:overflow-x-auto sm:pb-1"
+          : "mb-5 grid gap-2 md:grid-cols-2 xl:grid-cols-3",
       )}
     >
       {items.map((item) => (
@@ -219,7 +221,7 @@ function HolidayReminders({ compact = false }: { compact?: boolean }) {
           className={cx(
             "flex min-w-0 justify-between rounded-xl border bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)]",
             compact
-              ? "min-w-[18rem] items-center gap-2 px-3 py-2 text-xs"
+              ? "w-full min-w-0 items-center gap-2 px-3 py-2 text-xs sm:w-auto sm:min-w-[18rem]"
               : "flex-col items-start gap-3 px-4 py-3 text-sm sm:flex-row sm:items-center xl:flex-col xl:items-start",
             item.kind === "urgent" ? "border-red-200" : "border-slate-200",
           )}

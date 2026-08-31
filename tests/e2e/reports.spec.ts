@@ -46,6 +46,14 @@ async function signIn(page: Page, email = "owner@example.com", password = "Owner
   });
 }
 
+async function openDashboardFilters(page: Page) {
+  const filters = page.getByTestId("dashboard-filters");
+  if (!(await filters.getByLabel("Reporting period").isVisible())) {
+    await filters.locator("summary").click();
+  }
+  return filters;
+}
+
 test("owner dashboard periods, drill-down, profile, ranking, comparison, delay, refresh, and exports", async ({
   page,
   request,
@@ -122,12 +130,14 @@ test("owner dashboard periods, drill-down, profile, ranking, comparison, delay, 
     timeout: 30_000,
   });
   await expect(page.getByText(/MTD ·/)).toBeVisible({ timeout: 30_000 });
-  await page.getByLabel("Reporting period").selectOption("ytd");
+  let filters = await openDashboardFilters(page);
+  await filters.getByLabel("Reporting period").selectOption("ytd");
   await page.getByRole("button", { name: "Apply" }).click();
   await expect(page.getByText(/YTD ·/)).toBeVisible({ timeout: 30_000 });
-  await page.getByLabel("Reporting period").selectOption("custom");
-  await page.getByLabel("Custom period start").fill("2026-01-01");
-  await page.getByLabel("Custom period end").fill("2026-12-31");
+  filters = await openDashboardFilters(page);
+  await filters.getByLabel("Reporting period").selectOption("custom");
+  await filters.getByLabel("Custom period start").fill("2026-01-01");
+  await filters.getByLabel("Custom period end").fill("2026-12-31");
   await page.getByRole("button", { name: "Apply" }).click();
   await expect(page.getByRole("link", { name: "Submitted KPI" })).toBeVisible({
     timeout: 30_000,
@@ -155,7 +165,8 @@ test("owner dashboard periods, drill-down, profile, ranking, comparison, delay, 
   await expect(page.getByRole("heading", { name: "Top employees" })).toBeVisible({
     timeout: 30_000,
   });
-  await page.getByLabel("Ranking metric").selectOption("case_count");
+  filters = await openDashboardFilters(page);
+  await filters.getByLabel("Ranking metric").selectOption("case_count");
   const rankingLink = page
     .getByRole("heading", { name: "Top employees" })
     .locator("..")
@@ -256,6 +267,7 @@ test("scoped reporter cannot see unauthorized data or export without permission"
   });
   await expect(page.getByRole("button", { name: "Excel" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "PDF" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: /Open targets/ })).toHaveCount(0);
   const me = await page.request.get(`${apiOrigin}/api/v1/auth/me`);
   const csrf = ((await me.json()) as { csrfToken?: string }).csrfToken;
   const denied = await page.request.post(`${apiOrigin}/api/v1/reports/export`, {
