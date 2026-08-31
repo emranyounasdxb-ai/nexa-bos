@@ -46,7 +46,10 @@ export default function CatalogPage() {
 
   return (
     <section className="space-y-8">
-      <PageHeader title="Banks and products" />
+      <PageHeader
+        title="Banks and products"
+        description="Manage the authorized bank, product, amount-rule, and mapping catalogue."
+      />
       <ErrorText>{message}</ErrorText>
       <MasterSection
         title="Banks"
@@ -93,7 +96,8 @@ export default function CatalogPage() {
       {can("Products.Edit") ? (
         <section className="space-y-3">
           <h3 className="font-semibold">Product amount rules</h3>
-          <table className="min-w-full rounded-xl border bg-white text-sm">
+          <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.03)]">
+          <table className="min-w-full text-sm">
             <thead className="bg-slate-50">
               <tr>
                 <th className="px-3 py-2 text-left">Product</th>
@@ -150,6 +154,7 @@ export default function CatalogPage() {
               ))}
             </tbody>
           </table>
+          </div>
         </section>
       ) : null}
       <section className="space-y-3">
@@ -187,7 +192,8 @@ export default function CatalogPage() {
             </button>
           </form>
         ) : null}
-        <table className="min-w-full rounded-xl border bg-white text-sm">
+        <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.03)]">
+        <table className="min-w-full text-sm">
           <thead className="bg-slate-50">
             <tr>
               <th className="px-3 py-2 text-left">Bank</th>
@@ -234,6 +240,7 @@ export default function CatalogPage() {
             ))}
           </tbody>
         </table>
+        </div>
       </section>
     </section>
   );
@@ -266,7 +273,8 @@ function MasterSection({
     <section className="space-y-3">
       <h3 className="font-semibold">{title}</h3>
       {canCreate ? <CreateForm onCreate={onCreate} /> : null}
-      <table className="min-w-full rounded-xl border bg-white text-sm">
+      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.03)]">
+      <table className="min-w-full text-sm">
         <thead className="bg-slate-50">
           <tr>
             <th className="px-3 py-2 text-left">Code</th>
@@ -303,6 +311,7 @@ function MasterSection({
           ))}
         </tbody>
       </table>
+      </div>
     </section>
   );
 }

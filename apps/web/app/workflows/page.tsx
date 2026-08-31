@@ -120,7 +120,7 @@ export default function WorkflowsPage() {
         ))}
       </select>
       {selected ? (
-        <div className="space-y-4 rounded-xl border bg-white p-4">
+        <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:p-5">
           <h3 className="font-semibold">
             {selected.bank?.code} / {selected.product?.code} version {selected.version}
           </h3>

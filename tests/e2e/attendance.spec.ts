@@ -41,7 +41,7 @@ async function signIn(page: Page, email = "owner@example.com", password = "Owner
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page.getByRole("heading", { name: "User directory" })).toBeVisible({
+  await expect(page.getByRole("heading", { name: /Dashboard|User directory/ })).toBeVisible({
     timeout: 30_000,
   });
 }
@@ -249,7 +249,7 @@ test("owner attendance bulk entry, calculations, correction, holiday, schedule, 
   await expect(page.getByText("Attendance score / impact")).toBeVisible();
 
   await page.goto("/reports");
-  await expect(page.getByRole("heading", { name: "Performance / MIS" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
 });
 
 test("scoped user cannot access unauthorized attendance or send urgent reminders", async ({

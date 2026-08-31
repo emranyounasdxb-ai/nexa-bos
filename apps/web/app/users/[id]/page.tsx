@@ -302,7 +302,7 @@ export default function UserProfilePage() {
         </div>
       ) : null}
       <div className="grid gap-4 md:grid-cols-2">
-        <div className="rounded-xl border bg-white p-4 text-sm">
+        <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm shadow-[0_1px_2px_rgba(15,23,42,0.03)]">
           <h3 className="font-semibold">Employee code history</h3>
           <ul className="mt-2 space-y-1">
             <li>Current: {user.employeeCode}</li>
@@ -314,7 +314,7 @@ export default function UserProfilePage() {
             ))}
           </ul>
         </div>
-        <div className="rounded-xl border bg-white p-4 text-sm">
+        <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm shadow-[0_1px_2px_rgba(15,23,42,0.03)]">
           <h3 className="font-semibold">Email history</h3>
           <ul className="mt-2 space-y-1">
             <li>Current: {user.email}</li>
@@ -327,7 +327,7 @@ export default function UserProfilePage() {
         </div>
       </div>
       {history?.events.length ? (
-        <div className="rounded-xl border bg-white p-4 text-sm">
+        <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm shadow-[0_1px_2px_rgba(15,23,42,0.03)]">
           <h3 className="font-semibold">Audit</h3>
           <ul className="mt-2 space-y-1">
             {history.events.map((event) => (

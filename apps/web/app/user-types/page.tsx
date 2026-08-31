@@ -43,7 +43,10 @@ export default function UserTypesPage() {
 
   return (
     <section className="space-y-6">
-      <PageHeader title="User types" />
+      <PageHeader
+        title="User types"
+        description="Review and manage the existing role templates and their configured visibility scopes."
+      />
       <ErrorText>{error}</ErrorText>
       {can("UserTypes.Create") ? (
         <form onSubmit={(event) => void createType(event)} className="grid gap-2 rounded-xl border border-slate-200 bg-white p-4 md:grid-cols-4">
@@ -75,7 +78,8 @@ export default function UserTypesPage() {
           <Button type="submit">Create custom type</Button>
         </form>
       ) : null}
-      <table className="min-w-full rounded-xl border border-slate-200 bg-white text-sm">
+      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.03)]">
+      <table className="min-w-full text-sm">
         <thead className="bg-slate-50">
           <tr>
             <th className="px-3 py-2 text-left">Code</th>
@@ -103,6 +107,7 @@ export default function UserTypesPage() {
           ))}
         </tbody>
       </table>
+      </div>
     </section>
   );
 }

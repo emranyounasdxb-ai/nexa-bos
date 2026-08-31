@@ -41,7 +41,7 @@ async function signIn(page: Page) {
   await page.getByLabel("Email").fill("owner@example.com");
   await page.getByLabel("Password").fill("OwnerPass1!");
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page.getByRole("heading", { name: "User directory" })).toBeVisible({
+  await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible({
     timeout: 30_000,
   });
 }
@@ -60,6 +60,7 @@ test("stored XSS payload is rendered as text, not executed", async ({ page, requ
   });
   expect(created.ok()).toBeTruthy();
   await signIn(page);
+  await page.getByRole("button", { name: "Operations menu" }).click();
   await page.getByRole("link", { name: "Customers", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Customers" })).toBeVisible();
   await page.getByLabel("Search customers").fill(`XSS-${tag}`);

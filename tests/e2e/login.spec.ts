@@ -26,15 +26,17 @@ async function ensureOwner(request: APIRequestContext) {
   expect(created.ok()).toBeTruthy();
 }
 
-test("owner can sign in and open the user directory", async ({ page, request }) => {
+test("owner lands on the dashboard and can open the user directory", async ({ page, request }) => {
   await ensureOwner(request);
   await page.goto("/login");
   await page.getByLabel("Email").fill("owner@example.com");
   await page.getByLabel("Password").fill("OwnerPass1!");
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page.getByRole("heading", { name: "User directory" })).toBeVisible({
+  await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible({
     timeout: 30_000,
   });
+  await page.getByRole("link", { name: "Users", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "User directory" })).toBeVisible();
   await expect(page.getByRole("link", { name: "USR-000001" })).toBeVisible();
   await page.goto("/users/new");
   await expect(page.getByLabel("Reporting manager")).toBeVisible();

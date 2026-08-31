@@ -268,7 +268,7 @@ export default function ApplicationDetailPage() {
 
       {!item.terminal && !item.activeDelay && can("Applications.MarkDelay") ? (
         <form
-          className="space-y-2 rounded-xl border bg-white p-4"
+          className="space-y-2 rounded-xl border border-slate-200 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
           onSubmit={(event) => {
             event.preventDefault();
             void post(`/api/v1/applications/${item.id}/delays`, {
@@ -320,7 +320,7 @@ export default function ApplicationDetailPage() {
 
       {!item.terminal && can("Applications.Submit") ? (
         <form
-          className="space-y-2 rounded-xl border bg-white p-4"
+          className="space-y-2 rounded-xl border border-slate-200 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
           onSubmit={(event) => {
             event.preventDefault();
             void post(`/api/v1/applications/${item.id}/case-number`, {
@@ -355,7 +355,7 @@ export default function ApplicationDetailPage() {
 
       {!item.terminal && can("Applications.UpdateStage") ? (
         <form
-          className="space-y-2 rounded-xl border bg-white p-4"
+          className="space-y-2 rounded-xl border border-slate-200 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
           onSubmit={(event) => {
             event.preventDefault();
             void post(`/api/v1/applications/${item.id}/stage`, {
@@ -442,7 +442,7 @@ export default function ApplicationDetailPage() {
 
       {!item.terminal && can("Applications.CorrectStage") ? (
         <form
-          className="space-y-2 rounded-xl border bg-white p-4"
+          className="space-y-2 rounded-xl border border-slate-200 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
           onSubmit={(event) => {
             event.preventDefault();
             void post(`/api/v1/applications/${item.id}/correct-stage`, {
@@ -487,7 +487,7 @@ export default function ApplicationDetailPage() {
 
       {!item.terminal && can("Applications.CorrectSubmittedData") && item.submitted ? (
         <form
-          className="space-y-2 rounded-xl border bg-white p-4"
+          className="space-y-2 rounded-xl border border-slate-200 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
           onSubmit={(event) => {
             event.preventDefault();
             void post(`/api/v1/applications/${item.id}/correct-submitted`, {
@@ -520,7 +520,7 @@ export default function ApplicationDetailPage() {
 
       {!item.terminal && can("Applications.ReassignCaseOwner") ? (
         <form
-          className="space-y-2 rounded-xl border bg-white p-4"
+          className="space-y-2 rounded-xl border border-slate-200 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
           onSubmit={(event) => {
             event.preventDefault();
             void post(`/api/v1/applications/${item.id}/reassign-owner`, {
@@ -559,7 +559,7 @@ export default function ApplicationDetailPage() {
 
       {!item.terminal && can("Applications.SetOutcome") ? (
         <form
-          className="space-y-2 rounded-xl border bg-white p-4"
+          className="space-y-2 rounded-xl border border-slate-200 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
           onSubmit={(event) => {
             event.preventDefault();
             void post(`/api/v1/applications/${item.id}/outcome`, {
@@ -595,7 +595,7 @@ export default function ApplicationDetailPage() {
 
       {!item.terminal && can("Workflows.MigrateApplication") ? (
         <form
-          className="space-y-2 rounded-xl border bg-white p-4"
+          className="space-y-2 rounded-xl border border-slate-200 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
           onSubmit={(event) => {
             event.preventDefault();
             void post(`/api/v1/applications/${item.id}/migrate`, {
@@ -656,7 +656,7 @@ export default function ApplicationDetailPage() {
         <h3 className="font-semibold">Timeline</h3>
         <ol className="mt-3 space-y-3">
           {timeline.map((event) => (
-            <li key={event.id} className="rounded-xl border bg-white p-3 text-sm">
+            <li key={event.id} className="rounded-xl border border-slate-200 bg-white p-3 text-sm shadow-[0_1px_2px_rgba(15,23,42,0.03)]">
               <p className="font-medium">{event.eventType.replaceAll("_", " ")}</p>
               <p className="text-slate-600">
                 {event.previousStage ? `${event.previousStage} → ` : ""}

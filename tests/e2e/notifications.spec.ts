@@ -39,6 +39,7 @@ async function signIn(page: Page, request: APIRequestContext, email = "owner@exa
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill(email === "owner@example.com" ? "OwnerPass1!" : "UserPass1!");
   await page.getByRole("button", { name: "Sign in" }).click();
+  await page.getByRole("button", { name: "Administration menu" }).click();
   await expect(page.getByRole("link", { name: "Notifications", exact: true })).toBeVisible({
     timeout: 30_000,
   });

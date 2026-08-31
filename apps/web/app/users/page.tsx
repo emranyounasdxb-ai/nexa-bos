@@ -4,10 +4,13 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import {
+  Badge,
   ButtonLink,
   EmptyState,
   ErrorText,
+  FilterBar,
   PageHeader,
+  StatusBadge,
   TableHead,
   TableShell,
   Td,
@@ -62,17 +65,28 @@ export default function UsersPage() {
     <section className="space-y-4">
       <PageHeader
         title="User directory"
+        description="Search and review employees visible within your authorized user scope."
         actions={
           can("Users.Create") ? <ButtonLink href="/users/new">Create user</ButtonLink> : null
         }
       />
-      <TextInput
-        className="mt-0"
-        placeholder="Search name, email, codes, mobile, office, department..."
-        value={query}
-        onChange={(event) => setQuery(event.target.value)}
-        aria-label="Search users"
-      />
+      <FilterBar className="sm:grid-cols-1 lg:grid-cols-1">
+        <label className="text-sm font-medium text-slate-700">
+          Search users
+          <div className="relative">
+            <span aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+              ⌕
+            </span>
+            <TextInput
+              className="pl-9"
+              placeholder="Name, email, code, mobile, office or department"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              aria-label="Search users"
+            />
+          </div>
+        </label>
+      </FilterBar>
       <ErrorText>{error}</ErrorText>
       <TableShell>
         <TableHead>
@@ -105,10 +119,24 @@ export default function UsersPage() {
                     {user.userCode}
                   </Link>
                 </Td>
-                <Td>{user.fullName}</Td>
-                <Td>{user.email}</Td>
-                <Td>{user.userType?.code ?? "—"}</Td>
-                <Td>{user.accountStatus}</Td>
+                <Td>
+                  <div className="flex items-center gap-3">
+                    <span
+                      aria-hidden="true"
+                      className="inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-blue-50 text-xs font-semibold text-[#0f4c81]"
+                    >
+                      {user.fullName
+                        .split(/\s+/)
+                        .slice(0, 2)
+                        .map((part) => part.charAt(0).toUpperCase())
+                        .join("")}
+                    </span>
+                    <span className="font-medium text-slate-900">{user.fullName}</span>
+                  </div>
+                </Td>
+                <Td className="whitespace-nowrap">{user.email}</Td>
+                <Td>{user.userType?.code ? <Badge>{user.userType.code}</Badge> : "—"}</Td>
+                <Td><StatusBadge value={user.accountStatus} /></Td>
               </tr>
             ))
           )}

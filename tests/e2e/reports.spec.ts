@@ -41,7 +41,7 @@ async function signIn(page: Page, email = "owner@example.com", password = "Owner
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page.getByRole("heading", { name: "User directory" })).toBeVisible({
+  await expect(page.getByRole("heading", { name: /Dashboard|User directory/ })).toBeVisible({
     timeout: 30_000,
   });
 }
@@ -118,7 +118,7 @@ test("owner dashboard periods, drill-down, profile, ranking, comparison, delay, 
   });
   await signIn(page);
   await page.goto("/reports");
-  await expect(page.getByRole("heading", { name: "Performance / MIS" })).toBeVisible({
+  await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible({
     timeout: 30_000,
   });
   await expect(page.getByText(/MTD ·/)).toBeVisible({ timeout: 30_000 });
@@ -174,7 +174,7 @@ test("owner dashboard periods, drill-down, profile, ranking, comparison, delay, 
   await expect(page.getByText("Percentage change")).toBeVisible({ timeout: 20_000 });
   await page.goto("/reports");
   await page.getByRole("button", { name: "Refresh" }).click();
-  await expect(page.getByRole("heading", { name: "Performance / MIS" })).toBeVisible({
+  await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible({
     timeout: 30_000,
   });
   await expect(page.getByText(/Company-wide/)).toBeVisible({ timeout: 30_000 });
@@ -251,7 +251,7 @@ test("scoped reporter cannot see unauthorized data or export without permission"
   });
   await signIn(page, userBody.email, "UserPass1!");
   await page.goto("/reports");
-  await expect(page.getByRole("heading", { name: "Performance / MIS" })).toBeVisible({
+  await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible({
     timeout: 30_000,
   });
   await expect(page.getByRole("button", { name: "Excel" })).toHaveCount(0);
