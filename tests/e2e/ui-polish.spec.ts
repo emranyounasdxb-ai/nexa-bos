@@ -37,14 +37,22 @@ async function signIn(page: Page, request: APIRequestContext) {
   });
 }
 
-test("dashboard correction keeps content readable, bounded, and route-consistent", async ({
+test("dashboard presents a compact executive summary with bounded detail", async ({
   page,
   request,
 }, testInfo) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await signIn(page, request);
   await expect(page).toHaveURL(/\/reports(?:\?|$)/);
-  await expect(page.getByRole("link", { name: "Submitted KPI" })).toBeVisible({ timeout: 30_000 });
+  const kpiGrid = page.getByTestId("dashboard-kpi-grid");
+  await expect(kpiGrid.getByRole("link", { name: "Submitted KPI", exact: true })).toBeVisible({ timeout: 30_000 });
+  await expect(kpiGrid.getByRole("link", { name: "Approved KPI", exact: true })).toBeVisible();
+  await expect(kpiGrid.getByRole("link", { name: "Funded KPI", exact: true })).toBeVisible();
+  await expect(kpiGrid.getByRole("link", { name: "Pending KPI", exact: true })).toBeVisible();
+  await expect(kpiGrid.getByRole("link")).toHaveCount(4);
+  const dashboardFilters = page.getByTestId("dashboard-filters");
+  await expect(dashboardFilters).not.toHaveAttribute("open", "");
+  await expect(dashboardFilters.getByLabel("Reporting period", { exact: true })).toBeHidden();
 
   const shellHeader = page.locator("header").first();
   await expect(shellHeader.getByText("Workspace", { exact: true })).toBeVisible();
@@ -65,8 +73,8 @@ test("dashboard correction keeps content readable, bounded, and route-consistent
       maxHeight: window.getComputedStyle(element).maxHeight,
       overflowY: window.getComputedStyle(element).overflowY,
     }));
-    expect(bounds.clientHeight).toBeLessThanOrEqual(288);
-    expect(bounds.maxHeight).toBe("288px");
+    expect(bounds.clientHeight).toBeLessThanOrEqual(256);
+    expect(bounds.maxHeight).toBe("256px");
     expect(["auto", "scroll"]).toContain(bounds.overflowY);
   }
 
@@ -78,6 +86,15 @@ test("dashboard correction keeps content readable, bounded, and route-consistent
   await page.screenshot({
     path: testInfo.outputPath("task16-dashboard-desktop.png"),
     fullPage: true,
+  });
+  await shellHeader.evaluate((element) => {
+    element.style.visibility = "hidden";
+  });
+  await page
+    .getByTestId("dashboard-kpi-charts")
+    .screenshot({ path: testInfo.outputPath("task16-dashboard-kpi-charts.png") });
+  await shellHeader.evaluate((element) => {
+    element.style.visibility = "";
   });
 });
 
