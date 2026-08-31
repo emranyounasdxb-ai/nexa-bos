@@ -442,14 +442,15 @@ export default function TargetsPage() {
                   {item.prorate ? <Badge>Prorate</Badge> : null}
                 </Td>
                 <Td>
-                  <div className="flex flex-wrap gap-2">
-                    <Button type="button" variant="secondary" onClick={() => void showHistory(item.id)}>
+                  <div className="flex flex-wrap gap-1.5">
+                    <Button type="button" variant="secondary" size="compact" onClick={() => void showHistory(item.id)}>
                       History
                     </Button>
                     {can("Targets.Edit") && !item.locked ? (
                       <Button
                         type="button"
                         variant="secondary"
+                        size="compact"
                         onClick={() => {
                           setEditId(item.id);
                           setEditValue(item.targetValue);
@@ -460,12 +461,12 @@ export default function TargetsPage() {
                       </Button>
                     ) : null}
                     {can("Targets.Deactivate") && item.status === "active" ? (
-                      <Button type="button" variant="secondary" onClick={() => void setStatus(item.id, false)}>
+                      <Button type="button" variant="secondary" size="compact" onClick={() => void setStatus(item.id, false)}>
                         Deactivate
                       </Button>
                     ) : null}
                     {can("Targets.Activate") && item.status === "inactive" ? (
-                      <Button type="button" variant="secondary" onClick={() => void setStatus(item.id, true)}>
+                      <Button type="button" variant="secondary" size="compact" onClick={() => void setStatus(item.id, true)}>
                         Activate
                       </Button>
                     ) : null}

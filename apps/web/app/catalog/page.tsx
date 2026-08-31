@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 
-import { ErrorText, PageHeader, controlClass, primaryButtonClass } from "@/components/ui";
+import { Pagination, useClientPagination } from "@/components/pagination";
+import { Button, ErrorText, PageHeader, StatusBadge, TableHead, TableShell, Td, Th, controlClass, primaryButtonClass } from "@/components/ui";
 import { apiGet, apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { getBrowserApiUrl } from "@/lib/env";
@@ -17,6 +18,8 @@ export default function CatalogPage() {
   const api = getBrowserApiUrl();
   const canSeeInactive =
     can("Banks.Edit") || can("Products.Edit") || can("BankProducts.Create");
+  const productRulesPagination = useClientPagination(products);
+  const mappingPagination = useClientPagination(mappings);
 
   const refresh = useCallback(async () => {
     const suffix = canSeeInactive ? "?includeInactive=true" : "";
@@ -96,22 +99,21 @@ export default function CatalogPage() {
       {can("Products.Edit") ? (
         <section className="space-y-3">
           <h3 className="font-semibold">Product amount rules</h3>
-          <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.03)]">
-          <table className="min-w-full text-sm">
-            <thead className="bg-slate-50">
+          <TableShell className="rounded-b-none">
+            <TableHead>
               <tr>
-                <th className="px-3 py-2 text-left">Product</th>
-                <th className="px-3 py-2 text-left">Requested</th>
-                <th className="px-3 py-2 text-left">Approved</th>
-                <th className="px-3 py-2 text-left">Booked</th>
-                <th className="px-3 py-2 text-left">Funded</th>
-                <th className="px-3 py-2 text-left">Target measurement</th>
+                <Th>Product</Th>
+                <Th>Requested</Th>
+                <Th>Approved</Th>
+                <Th>Booked</Th>
+                <Th>Funded</Th>
+                <Th>Target measurement</Th>
               </tr>
-            </thead>
+            </TableHead>
             <tbody>
-              {products.map((product) => (
-                <tr key={product.id} className="border-t">
-                  <td className="px-3 py-2">{product.code}</td>
+              {productRulesPagination.pagedItems.map((product) => (
+                <tr key={product.id}>
+                  <Td>{product.code}</Td>
                   {(
                     [
                       ["requested_amount_required", product.requestedAmountRequired],
@@ -120,7 +122,7 @@ export default function CatalogPage() {
                       ["funded_amount_required", product.fundedAmountRequired],
                     ] as const
                   ).map(([field, value]) => (
-                    <td key={field} className="px-3 py-2">
+                    <Td key={field}>
                       <input
                         type="checkbox"
                         aria-label={`${product.code} ${field}`}
@@ -132,12 +134,12 @@ export default function CatalogPage() {
                           }).then(refresh)
                         }
                       />
-                    </td>
+                    </Td>
                   ))}
-                  <td className="px-3 py-2">
+                  <Td>
                     <select
                       aria-label={`${product.code} target measurement`}
-                      className={controlClass}
+                      className={`${controlClass} !min-h-8 !py-1 text-xs`}
                       value={product.targetMeasurement ?? "count"}
                       onChange={(event) =>
                         void apiRequest(`/api/v1/products/${product.id}/field-rules`, api, {
@@ -149,12 +151,20 @@ export default function CatalogPage() {
                       <option value="count">Count</option>
                       <option value="amount">Amount</option>
                     </select>
-                  </td>
+                  </Td>
                 </tr>
               ))}
             </tbody>
-          </table>
-          </div>
+          </TableShell>
+          <Pagination
+            className="-mt-3 rounded-b-[10px] border border-slate-200"
+            page={productRulesPagination.page}
+            pageSize={productRulesPagination.pageSize}
+            total={productRulesPagination.total}
+            totalPages={productRulesPagination.totalPages}
+            onPageChange={productRulesPagination.setPage}
+            onPageSizeChange={productRulesPagination.setPageSize}
+          />
         </section>
       ) : null}
       <section className="space-y-3">
@@ -192,26 +202,26 @@ export default function CatalogPage() {
             </button>
           </form>
         ) : null}
-        <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.03)]">
-        <table className="min-w-full text-sm">
-          <thead className="bg-slate-50">
+        <TableShell className="rounded-b-none">
+          <TableHead>
             <tr>
-              <th className="px-3 py-2 text-left">Bank</th>
-              <th className="px-3 py-2 text-left">Product</th>
-              <th className="px-3 py-2 text-left">Status</th>
-              <th className="px-3 py-2 text-left">Actions</th>
+              <Th>Bank</Th>
+              <Th>Product</Th>
+              <Th>Status</Th>
+              <Th>Actions</Th>
             </tr>
-          </thead>
+          </TableHead>
           <tbody>
-            {mappings.map((item) => (
-              <tr key={item.id} className="border-t">
-                <td className="px-3 py-2">{item.bank?.code}</td>
-                <td className="px-3 py-2">{item.product?.code}</td>
-                <td className="px-3 py-2">{item.status}</td>
-                <td className="px-3 py-2">
+            {mappingPagination.pagedItems.map((item) => (
+              <tr key={item.id}>
+                <Td>{item.bank?.code}</Td>
+                <Td>{item.product?.code}</Td>
+                <Td><StatusBadge value={item.status} /></Td>
+                <Td>
                   {item.status === "active" && can("BankProducts.Deactivate") ? (
-                    <button
-                      className="text-sm underline"
+                    <Button
+                      variant="secondary"
+                      size="compact"
                       type="button"
                       onClick={() =>
                         void apiRequest(`/api/v1/bank-products/${item.id}/deactivate`, api, {
@@ -220,11 +230,12 @@ export default function CatalogPage() {
                       }
                     >
                       Deactivate
-                    </button>
+                    </Button>
                   ) : null}
                   {item.status === "inactive" && can("BankProducts.Activate") ? (
-                    <button
-                      className="text-sm underline"
+                    <Button
+                      variant="secondary"
+                      size="compact"
                       type="button"
                       onClick={() =>
                         void apiRequest(`/api/v1/bank-products/${item.id}/activate`, api, {
@@ -233,14 +244,22 @@ export default function CatalogPage() {
                       }
                     >
                       Activate
-                    </button>
+                    </Button>
                   ) : null}
-                </td>
+                </Td>
               </tr>
             ))}
           </tbody>
-        </table>
-        </div>
+        </TableShell>
+        <Pagination
+          className="-mt-3 rounded-b-[10px] border border-slate-200"
+          page={mappingPagination.page}
+          pageSize={mappingPagination.pageSize}
+          total={mappingPagination.total}
+          totalPages={mappingPagination.totalPages}
+          onPageChange={mappingPagination.setPage}
+          onPageSizeChange={mappingPagination.setPageSize}
+        />
       </section>
     </section>
   );
@@ -269,49 +288,57 @@ function MasterSection({
   onActivate: (id: string) => void;
   onDeactivate: (id: string) => void;
 }) {
+  const pagination = useClientPagination(items);
   return (
     <section className="space-y-3">
       <h3 className="font-semibold">{title}</h3>
       {canCreate ? <CreateForm onCreate={onCreate} /> : null}
-      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.03)]">
-      <table className="min-w-full text-sm">
-        <thead className="bg-slate-50">
+      <TableShell className="rounded-b-none">
+        <TableHead>
           <tr>
-            <th className="px-3 py-2 text-left">Code</th>
-            <th className="px-3 py-2 text-left">Name</th>
-            <th className="px-3 py-2 text-left">Status</th>
-            <th className="px-3 py-2 text-left">Actions</th>
+            <Th>Code</Th>
+            <Th>Name</Th>
+            <Th>Status</Th>
+            <Th>Actions</Th>
           </tr>
-        </thead>
+        </TableHead>
         <tbody>
-          {items.map((item) => (
-            <tr key={item.id} className="border-t">
-              <td className="px-3 py-2">{item.code}</td>
-              <td className="px-3 py-2">
+          {pagination.pagedItems.map((item) => (
+            <tr key={item.id}>
+              <Td>{item.code}</Td>
+              <Td>
                 {canEdit ? (
                   <RenameName value={item.name} onSave={(name) => onRename(item.id, name)} />
                 ) : (
                   item.name
                 )}
-              </td>
-              <td className="px-3 py-2">{item.status}</td>
-              <td className="px-3 py-2">
+              </Td>
+              <Td><StatusBadge value={item.status} /></Td>
+              <Td>
                 {item.status === "active" && canDeactivate ? (
-                  <button className="text-sm underline" type="button" onClick={() => onDeactivate(item.id)}>
+                  <Button variant="secondary" size="compact" type="button" onClick={() => onDeactivate(item.id)}>
                     Deactivate
-                  </button>
+                  </Button>
                 ) : null}
                 {item.status === "inactive" && canActivate ? (
-                  <button className="text-sm underline" type="button" onClick={() => onActivate(item.id)}>
+                  <Button variant="secondary" size="compact" type="button" onClick={() => onActivate(item.id)}>
                     Activate
-                  </button>
+                  </Button>
                 ) : null}
-              </td>
+              </Td>
             </tr>
           ))}
         </tbody>
-      </table>
-      </div>
+      </TableShell>
+      <Pagination
+        className="-mt-3 rounded-b-[10px] border border-slate-200"
+        page={pagination.page}
+        pageSize={pagination.pageSize}
+        total={pagination.total}
+        totalPages={pagination.totalPages}
+        onPageChange={pagination.setPage}
+        onPageSizeChange={pagination.setPageSize}
+      />
     </section>
   );
 }
@@ -371,14 +398,14 @@ function RenameName({ value, onSave }: { value: string; onSave: (name: string) =
       }}
     >
       <input
-        className={`${controlClass} py-1`}
+        className={`${controlClass} !min-h-8 !py-1 text-xs`}
         value={name}
         onChange={(event) => setName(event.target.value)}
         aria-label="Name"
       />
-      <button className="text-xs underline" type="submit">
+      <Button variant="secondary" size="compact" type="submit">
         Save
-      </button>
+      </Button>
     </form>
   );
 }

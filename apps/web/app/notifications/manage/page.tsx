@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { IconX } from "@/components/icons";
+import { Pagination, useClientPagination } from "@/components/pagination";
 import {
   Badge,
   Button,
@@ -190,6 +191,7 @@ export default function NotificationManagementPage() {
     affected_user_id: "",
     targets: [] as Target[],
   });
+  const rulesPagination = useClientPagination(rules);
 
   const load = useCallback(async () => {
     try {
@@ -317,9 +319,10 @@ export default function NotificationManagementPage() {
         <div className="space-y-3">
           <h3 className="font-semibold text-slate-900">Notification rules</h3>
           {rules.length === 0 ? <Card><EmptyState>No notification rules have been configured.</EmptyState></Card> : (
-            <TableShell><TableHead><tr><Th>Name</Th><Th>Event</Th><Th>Category</Th><Th>Severity</Th><Th>Status</Th><Th>Actions</Th></tr></TableHead><tbody>
-              {rules.map((rule) => <tr key={rule.id} className="border-t border-slate-100"><Td>{rule.name}</Td><Td>{friendly(rule.eventType)}</Td><Td>{friendly(rule.category)}</Td><Td><Badge>{friendly(rule.severity)}</Badge></Td><Td><Badge>{friendly(rule.status)}</Badge></Td><Td><div className="flex gap-2"><Button type="button" variant="secondary" onClick={() => editRule(rule)}>Edit</Button><Button type="button" variant="secondary" onClick={() => void changeStatus(rule)}>{rule.status === "active" ? "Deactivate" : "Activate"}</Button></div></Td></tr>)}
+            <><TableShell className="rounded-b-none"><TableHead><tr><Th>Name</Th><Th>Event</Th><Th>Category</Th><Th>Severity</Th><Th>Status</Th><Th>Actions</Th></tr></TableHead><tbody>
+              {rulesPagination.pagedItems.map((rule) => <tr key={rule.id} className="border-t border-slate-100"><Td>{rule.name}</Td><Td>{friendly(rule.eventType)}</Td><Td>{friendly(rule.category)}</Td><Td><Badge>{friendly(rule.severity)}</Badge></Td><Td><Badge>{friendly(rule.status)}</Badge></Td><Td><div className="flex gap-1.5"><Button type="button" variant="secondary" size="compact" onClick={() => editRule(rule)}>Edit</Button><Button type="button" variant="secondary" size="compact" onClick={() => void changeStatus(rule)}>{rule.status === "active" ? "Deactivate" : "Activate"}</Button></div></Td></tr>)}
             </tbody></TableShell>
+            <Pagination className="-mt-3 rounded-b-[10px] border border-slate-200" page={rulesPagination.page} pageSize={rulesPagination.pageSize} total={rulesPagination.total} totalPages={rulesPagination.totalPages} onPageChange={rulesPagination.setPage} onPageSizeChange={rulesPagination.setPageSize} /></>
           )}
         </div>
       ) : null}

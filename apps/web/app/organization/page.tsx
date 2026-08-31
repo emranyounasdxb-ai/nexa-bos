@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 
-import { Button, ButtonLink, ErrorText, PageHeader, controlClass } from "@/components/ui";
+import { Pagination, useClientPagination } from "@/components/pagination";
+import { Button, ButtonLink, ErrorText, PageHeader, StatusBadge, TableHead, TableShell, Td, Th, controlClass } from "@/components/ui";
 import { apiGet, apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { getBrowserApiUrl } from "@/lib/env";
@@ -228,27 +229,37 @@ function CreateForm({
 }
 
 function ItemTable({ items }: { items: OrgRef[] }) {
+  const pagination = useClientPagination(items);
   return (
-    <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.03)]">
-    <table className="min-w-full text-sm">
-      <thead className="bg-slate-50">
+    <>
+    <TableShell className="rounded-b-none">
+      <TableHead>
         <tr>
-          <th className="px-3 py-2 text-left">Code</th>
-          <th className="px-3 py-2 text-left">Name</th>
-          <th className="px-3 py-2 text-left">Status</th>
+          <Th>Code</Th>
+          <Th>Name</Th>
+          <Th>Status</Th>
         </tr>
-      </thead>
+      </TableHead>
       <tbody>
-        {items.map((item) => (
-          <tr key={item.id} className="border-t">
-            <td className="px-3 py-2">{item.code}</td>
-            <td className="px-3 py-2">{item.name}</td>
-            <td className="px-3 py-2">{item.status ?? "active"}</td>
+        {pagination.pagedItems.map((item) => (
+          <tr key={item.id}>
+            <Td>{item.code}</Td>
+            <Td>{item.name}</Td>
+            <Td><StatusBadge value={item.status ?? "active"} /></Td>
           </tr>
         ))}
       </tbody>
-    </table>
-    </div>
+    </TableShell>
+    <Pagination
+      className="-mt-3 rounded-b-[10px] border border-slate-200"
+      page={pagination.page}
+      pageSize={pagination.pageSize}
+      total={pagination.total}
+      totalPages={pagination.totalPages}
+      onPageChange={pagination.setPage}
+      onPageSizeChange={pagination.setPageSize}
+    />
+    </>
   );
 }
 
@@ -263,30 +274,31 @@ function TeamTable({
   canManage: boolean;
   onAssign: (teamId: string, userId: string) => void;
 }) {
+  const pagination = useClientPagination(items);
   return (
-    <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.03)]">
-    <table className="min-w-full text-sm">
-      <thead className="bg-slate-50">
+    <>
+    <TableShell className="rounded-b-none">
+      <TableHead>
         <tr>
-          <th className="px-3 py-2 text-left">Code</th>
-          <th className="px-3 py-2 text-left">Name</th>
-          <th className="px-3 py-2 text-left">Status</th>
-          <th className="px-3 py-2 text-left">Team leader</th>
+          <Th>Code</Th>
+          <Th>Name</Th>
+          <Th>Status</Th>
+          <Th>Team leader</Th>
         </tr>
-      </thead>
+      </TableHead>
       <tbody>
-        {items.map((item) => {
+        {pagination.pagedItems.map((item) => {
           const leaders = leadersByTeam[item.id] ?? [];
           return (
-            <tr key={item.id} className="border-t">
-              <td className="px-3 py-2">{item.code}</td>
-              <td className="px-3 py-2">{item.name}</td>
-              <td className="px-3 py-2">{item.status ?? "active"}</td>
-              <td className="px-3 py-2">
+            <tr key={item.id}>
+              <Td>{item.code}</Td>
+              <Td>{item.name}</Td>
+              <Td><StatusBadge value={item.status ?? "active"} /></Td>
+              <Td>
                 {canManage ? (
                   <select
                     aria-label={`Team leader for ${item.code}`}
-                    className={`${controlClass} py-1`}
+                    className={`${controlClass} !min-h-8 !py-1 text-xs`}
                     value={item.teamLeaderId ?? ""}
                     onChange={(event) => onAssign(item.id, event.target.value)}
                   >
@@ -300,12 +312,21 @@ function TeamTable({
                 ) : (
                   item.teamLeaderId ?? "None"
                 )}
-              </td>
+              </Td>
             </tr>
           );
         })}
       </tbody>
-    </table>
-    </div>
+    </TableShell>
+    <Pagination
+      className="-mt-3 rounded-b-[10px] border border-slate-200"
+      page={pagination.page}
+      pageSize={pagination.pageSize}
+      total={pagination.total}
+      totalPages={pagination.totalPages}
+      onPageChange={pagination.setPage}
+      onPageSizeChange={pagination.setPageSize}
+    />
+    </>
   );
 }

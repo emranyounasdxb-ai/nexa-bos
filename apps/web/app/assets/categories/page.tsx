@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { IconEdit, IconPower } from "@/components/icons";
+import { Pagination, useClientPagination } from "@/components/pagination";
 import {
   Badge,
   Button,
@@ -35,6 +36,7 @@ export default function AssetCategoriesPage() {
   const [fieldRequired, setFieldRequired] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const pagination = useClientPagination(items);
 
   const refresh = useCallback(async () => {
     const data = await apiGet<{ items: AssetCategoryRecord[] }>(
@@ -142,20 +144,29 @@ export default function AssetCategoriesPage() {
       </Card>
       <ErrorText>{error}</ErrorText>
       {message ? <p className="text-sm text-slate-700">{message}</p> : null}
-      <TableShell>
+      <TableShell className="rounded-b-none">
         <TableHead><tr><Th>Code</Th><Th>Category</Th><Th>Fields</Th><Th>Status</Th><Th>Actions</Th></tr></TableHead>
         <tbody>
-          {items.map((item) => (
+          {pagination.pagedItems.map((item) => (
             <tr key={item.id} className="border-t border-slate-100">
               <Td>{item.code}</Td>
               <Td><p className="font-medium">{item.name}</p><p className="text-xs text-slate-500">{item.description}</p></Td>
               <Td>{item.fields.map((field) => field.label).join(", ") || "No additional fields"}</Td>
               <Td><Badge>{item.status}</Badge></Td>
-              <Td><div className="flex gap-2"><Button type="button" variant="secondary" onClick={() => void rename(item)}><IconEdit className="size-4" />Rename</Button><Button type="button" variant="secondary" onClick={() => void toggle(item)}><IconPower className="size-4" />{item.status === "active" ? "Deactivate" : "Activate"}</Button></div></Td>
+              <Td><div className="flex gap-1.5"><Button type="button" variant="secondary" size="compact" onClick={() => void rename(item)}><IconEdit className="size-4" />Rename</Button><Button type="button" variant="secondary" size="compact" onClick={() => void toggle(item)}><IconPower className="size-4" />{item.status === "active" ? "Deactivate" : "Activate"}</Button></div></Td>
             </tr>
           ))}
         </tbody>
       </TableShell>
+      <Pagination
+        className="-mt-6 rounded-b-[10px] border border-slate-200"
+        page={pagination.page}
+        pageSize={pagination.pageSize}
+        total={pagination.total}
+        totalPages={pagination.totalPages}
+        onPageChange={pagination.setPage}
+        onPageSizeChange={pagination.setPageSize}
+      />
     </section>
   );
 }

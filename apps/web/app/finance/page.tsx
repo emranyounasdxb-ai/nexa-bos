@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { DatePicker } from "@/components/date-picker";
+import { Pagination, useClientPagination } from "@/components/pagination";
 import {
   Badge,
   Button,
@@ -240,6 +241,8 @@ export default function FinancePage() {
   const [clawbackOriginal, setClawbackOriginal] = useState("");
   const [clawbackAmount, setClawbackAmount] = useState("");
   const [clawbackReason, setClawbackReason] = useState("");
+  const rulesPagination = useClientPagination(rules);
+  const plansPagination = useClientPagination(plans);
 
   const load = useCallback(async () => {
     setError("");
@@ -741,14 +744,18 @@ export default function FinancePage() {
       ) : null}
 
       {can("Finance.ViewCommissionRules") ? (
-        <TableShell>
+        <>
+        <TableShell className="rounded-b-none">
           <TableHead><tr><Th>Bank / Product</Th><Th>Milestone</Th><Th>Version</Th><Th>Effective</Th><Th>Mode</Th><Th>Recipients</Th><Th>Status</Th><Th>Actions</Th></tr></TableHead>
-          <tbody>{rules.map((rule) => <tr key={rule.id}><Td>{rule.bankName} / {rule.productName}</Td><Td>{rule.eligibilityMilestone}</Td><Td>{rule.version}</Td><Td>{rule.effectiveFrom} – {rule.effectiveTo ?? "open"}</Td><Td>{rule.payoutMode}</Td><Td>{rule.recipients.map((row) => `${row.roleName}: ${row.recipientSource}${row.hierarchyLevel ? ` ${row.hierarchyLevel}` : ""}`).join(", ")}</Td><Td><Badge>{rule.status}</Badge></Td><Td>{can("Finance.ManageCommissionRules") ? rule.status === "active" ? <Button type="button" variant="secondary" onClick={() => void action(`/api/v1/finance/commission-rules/${rule.id}/deactivate`, "Rule deactivated.")}>Deactivate</Button> : <Button type="button" onClick={() => void action(`/api/v1/finance/commission-rules/${rule.id}/activate`, "Rule activated.")}>Activate</Button> : null}</Td></tr>)}</tbody>
+          <tbody>{rulesPagination.pagedItems.map((rule) => <tr key={rule.id}><Td>{rule.bankName} / {rule.productName}</Td><Td>{rule.eligibilityMilestone}</Td><Td>{rule.version}</Td><Td>{rule.effectiveFrom} – {rule.effectiveTo ?? "open"}</Td><Td>{rule.payoutMode}</Td><Td>{rule.recipients.map((row) => `${row.roleName}: ${row.recipientSource}${row.hierarchyLevel ? ` ${row.hierarchyLevel}` : ""}`).join(", ")}</Td><Td><Badge>{rule.status}</Badge></Td><Td>{can("Finance.ManageCommissionRules") ? rule.status === "active" ? <Button type="button" variant="secondary" size="compact" onClick={() => void action(`/api/v1/finance/commission-rules/${rule.id}/deactivate`, "Rule deactivated.")}>Deactivate</Button> : <Button type="button" size="compact" onClick={() => void action(`/api/v1/finance/commission-rules/${rule.id}/activate`, "Rule activated.")}>Activate</Button> : null}</Td></tr>)}</tbody>
         </TableShell>
+        <Pagination className="-mt-6 rounded-b-[10px] border border-slate-200" page={rulesPagination.page} pageSize={rulesPagination.pageSize} total={rulesPagination.total} totalPages={rulesPagination.totalPages} onPageChange={rulesPagination.setPage} onPageSizeChange={rulesPagination.setPageSize} />
+        </>
       ) : null}
 
       {can("Finance.ViewCommissionRules") ? (
-        <TableShell>
+        <>
+        <TableShell className="rounded-b-none">
           <TableHead>
             <tr>
               <Th>Incentive plan</Th>
@@ -760,7 +767,7 @@ export default function FinancePage() {
             </tr>
           </TableHead>
           <tbody>
-            {plans.map((plan) => (
+            {plansPagination.pagedItems.map((plan) => (
               <tr key={plan.id}>
                 <Td>{plan.name}</Td>
                 <Td>{plan.version}</Td>
@@ -774,11 +781,11 @@ export default function FinancePage() {
                 <Td>
                   {can("Finance.ManageCommissionRules") ? (
                     plan.status === "active" ? (
-                      <Button type="button" variant="secondary" onClick={() => void action(`/api/v1/finance/incentive-plans/${plan.id}/deactivate`, "Incentive plan deactivated.")}>
+                      <Button type="button" variant="secondary" size="compact" onClick={() => void action(`/api/v1/finance/incentive-plans/${plan.id}/deactivate`, "Incentive plan deactivated.")}>
                         Deactivate
                       </Button>
                     ) : (
-                      <Button type="button" onClick={() => void action(`/api/v1/finance/incentive-plans/${plan.id}/activate`, "Incentive plan activated.")}>
+                      <Button type="button" size="compact" onClick={() => void action(`/api/v1/finance/incentive-plans/${plan.id}/activate`, "Incentive plan activated.")}>
                         Activate
                       </Button>
                     )
@@ -788,6 +795,8 @@ export default function FinancePage() {
             ))}
           </tbody>
         </TableShell>
+        <Pagination className="-mt-6 rounded-b-[10px] border border-slate-200" page={plansPagination.page} pageSize={plansPagination.pageSize} total={plansPagination.total} totalPages={plansPagination.totalPages} onPageChange={plansPagination.setPage} onPageSizeChange={plansPagination.setPageSize} />
+        </>
       ) : null}
     </section>
   );

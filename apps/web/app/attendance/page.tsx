@@ -327,7 +327,7 @@ export default function AttendancePage() {
                   <Td>
                     <select
                       aria-label={`${item.fullName} status`}
-                      className={controlClass}
+                      className={`${controlClass} !min-h-8 !py-1 text-xs`}
                       value={draft?.status ?? "Present"}
                       onChange={(event) => updateDraft(item.employeeId, { status: event.target.value })}
                       disabled={!canManage && !canCorrect}
@@ -359,7 +359,7 @@ export default function AttendancePage() {
                     <input
                       aria-label={`${item.fullName} time in`}
                       type="time"
-                      className={controlClass}
+                      className={`${controlClass} !min-h-8 !py-1 text-xs`}
                       value={draft?.timeIn ?? ""}
                       onChange={(event) => updateDraft(item.employeeId, { timeIn: event.target.value })}
                       disabled={!canManage && !canCorrect}
@@ -369,7 +369,7 @@ export default function AttendancePage() {
                     <input
                       aria-label={`${item.fullName} time out`}
                       type="time"
-                      className={controlClass}
+                      className={`${controlClass} !min-h-8 !py-1 text-xs`}
                       value={draft?.timeOut ?? ""}
                       onChange={(event) => updateDraft(item.employeeId, { timeOut: event.target.value })}
                       disabled={!canManage && !canCorrect}
@@ -389,7 +389,7 @@ export default function AttendancePage() {
                   <Td>
                     <input
                       aria-label={`${item.fullName} notes`}
-                      className={controlClass}
+                      className={`${controlClass} !min-h-8 !py-1 text-xs`}
                       value={draft?.notes ?? ""}
                       onChange={(event) => updateDraft(item.employeeId, { notes: event.target.value })}
                       disabled={!canManage && !canCorrect}
@@ -400,6 +400,7 @@ export default function AttendancePage() {
                       {canManage && !item.record ? (
                         <Button
                           type="button"
+                          size="compact"
                           aria-label={`${item.fullName} save`}
                           onClick={() => void saveRow(item.employeeId)}
                         >
@@ -409,6 +410,7 @@ export default function AttendancePage() {
                       {canManage && item.record && !canCorrect ? (
                         <Button
                           type="button"
+                          size="compact"
                           aria-label={`${item.fullName} update`}
                           onClick={() => void saveRow(item.employeeId)}
                         >
@@ -419,6 +421,7 @@ export default function AttendancePage() {
                         <Button
                           type="button"
                           variant="secondary"
+                          size="compact"
                           aria-label={`${item.fullName} correct`}
                           onClick={() => setCorrecting(item.record)}
                         >

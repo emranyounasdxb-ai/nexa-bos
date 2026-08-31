@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { DatePicker } from "@/components/date-picker";
+import { Pagination, useClientPagination } from "@/components/pagination";
 import {
   Button,
   ButtonLink,
@@ -61,6 +62,7 @@ export default function SchedulesPage() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const canManage = can("Attendance.Manage");
+  const schedulesPagination = useClientPagination(schedules);
   const officeDepartments = useMemo(
     () => departments.filter((item) => !officeId || item.officeId === officeId),
     [departments, officeId],
@@ -262,7 +264,7 @@ export default function SchedulesPage() {
           </div>
         </form>
       ) : null}
-      <TableShell>
+      <TableShell className="rounded-b-none">
         <TableHead>
           <tr>
             <Th>Office / Department</Th>
@@ -281,7 +283,7 @@ export default function SchedulesPage() {
               </td>
             </tr>
           ) : (
-            schedules.map((item) => (
+            schedulesPagination.pagedItems.map((item) => (
               <tr key={item.id}>
                 <Td>
                   {offices.find((office) => office.id === item.officeId)?.name ?? item.officeId}
@@ -301,6 +303,15 @@ export default function SchedulesPage() {
           )}
         </tbody>
       </TableShell>
+      <Pagination
+        className="-mt-6 rounded-b-[10px] border border-slate-200"
+        page={schedulesPagination.page}
+        pageSize={schedulesPagination.pageSize}
+        total={schedulesPagination.total}
+        totalPages={schedulesPagination.totalPages}
+        onPageChange={schedulesPagination.setPage}
+        onPageSizeChange={schedulesPagination.setPageSize}
+      />
       <ImpactRules canManage={canManage} />
     </section>
   );
@@ -317,6 +328,7 @@ function ImpactRules({ canManage }: { canManage: boolean }) {
   const [value, setValue] = useState("0");
   const [leaveTypeId, setLeaveTypeId] = useState("");
   const [error, setError] = useState("");
+  const pagination = useClientPagination(items);
 
   const load = useCallback(async () => {
     const [rules, types] = await Promise.all([
@@ -408,14 +420,23 @@ function ImpactRules({ canManage }: { canManage: boolean }) {
           </div>
         </form>
       ) : null}
-      <ul className="text-sm">
-        {items.map((item) => (
-          <li key={item.id}>
+      <ul className="divide-y divide-slate-100 rounded-t-[10px] border border-slate-200 bg-white text-[13px]">
+        {pagination.pagedItems.map((item) => (
+          <li key={item.id} className="px-3 py-2">
             {item.condition}
             {item.leaveType ? ` (${item.leaveType.name})` : ""}: {item.method} {item.value}
           </li>
         ))}
       </ul>
+      <Pagination
+        className="-mt-3 rounded-b-[10px] border border-slate-200"
+        page={pagination.page}
+        pageSize={pagination.pageSize}
+        total={pagination.total}
+        totalPages={pagination.totalPages}
+        onPageChange={pagination.setPage}
+        onPageSizeChange={pagination.setPageSize}
+      />
     </section>
   );
 }
