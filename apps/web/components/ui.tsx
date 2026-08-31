@@ -49,23 +49,14 @@ export const dangerButtonClass = cx(
 );
 
 export function PageHeader({
-  title,
-  description,
   actions,
 }: {
   title: string;
   description?: string;
   actions?: ReactNode;
 }) {
-  return (
-    <div className="flex flex-col gap-4 border-b border-slate-200 pb-5 sm:flex-row sm:items-start sm:justify-between">
-      <div className="min-w-0">
-        <h1 className="text-2xl font-semibold tracking-tight text-slate-900 sm:text-[1.65rem]">{title}</h1>
-        {description ? <p className="mt-1.5 max-w-3xl text-sm leading-6 text-slate-600">{description}</p> : null}
-      </div>
-      {actions ? <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div> : null}
-    </div>
-  );
+  if (!actions) return null;
+  return <div className="flex flex-wrap items-center justify-end gap-2">{actions}</div>;
 }
 
 export function Card({ children, className }: { children: ReactNode; className?: string }) {

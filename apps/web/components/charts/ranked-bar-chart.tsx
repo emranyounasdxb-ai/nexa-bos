@@ -103,7 +103,7 @@ export function RankedBarChart({
         empty={ranked.length === 0}
         emptyMessage="No ranked data is available."
         testId={testId}
-        height={Math.max(226, ranked.length * 42)}
+        height={Math.max(198, ranked.length * 34)}
       />
       {ranked.length > 0 ? (
         <ol className="sr-only">

@@ -53,25 +53,26 @@ const routeContext = (pathname: string) => {
     { prefix: "/applications", group: "Operations", title: "Applications" },
     { prefix: "/workflows", group: "Operations", title: "Workflows" },
     { prefix: "/users/new", group: "People / Users", title: "Create user" },
-    { prefix: "/users", group: "People", title: "Users" },
-    { prefix: "/organization/hierarchy", group: "People / Organization", title: "Hierarchy" },
-    { prefix: "/organization", group: "People", title: "Organization" },
+    { prefix: "/users", group: "People", title: "User directory" },
+    { prefix: "/organization/hierarchy", group: "People / Organization", title: "Organization hierarchy" },
+    { prefix: "/organization", group: "People", title: "Organization masters" },
     { prefix: "/attendance/reports", group: "People / Attendance", title: "Attendance reports" },
     { prefix: "/attendance/holidays", group: "People / Attendance", title: "Official holidays" },
-    { prefix: "/attendance/schedules", group: "People / Attendance", title: "Schedules" },
+    { prefix: "/attendance/schedules", group: "People / Attendance", title: "Attendance schedules" },
     { prefix: "/attendance", group: "People", title: "Attendance" },
     { prefix: "/targets/kpi", group: "Performance / Targets", title: "KPI scorecards" },
     { prefix: "/targets", group: "Performance", title: "Targets" },
     { prefix: "/finance", group: "Finance", title: "Finance" },
-    { prefix: "/assets/categories", group: "Assets", title: "Asset categories" },
-    { prefix: "/assets/reports", group: "Assets", title: "Asset reports" },
-    { prefix: "/assets", group: "Assets", title: "Asset register" },
-    { prefix: "/notifications/manage", group: "Administration / Notifications", title: "Notification admin" },
+    { prefix: "/assets/categories", group: "Assets", title: "Asset Categories" },
+    { prefix: "/assets/reports", group: "Assets", title: "Asset Reports" },
+    { prefix: "/assets", group: "Assets", title: "Asset Register" },
+    { prefix: "/notifications/manage", group: "Administration / Notifications", title: "Notification administration" },
     { prefix: "/notifications", group: "Administration", title: "Notifications" },
-    { prefix: "/catalog", group: "Administration", title: "Banks & products" },
+    { prefix: "/catalog", group: "Administration", title: "Banks and products" },
     { prefix: "/user-types", group: "Administration", title: "User types" },
-    { prefix: "/security", group: "Administration", title: "Security" },
+    { prefix: "/security", group: "Administration", title: "Security settings" },
     { prefix: "/account", group: "Account", title: "My profile" },
+    { prefix: "/status", group: "NEXA BOS", title: "Foundation smoke page" },
   ];
   return (
     routes.find((route) => pathname === route.prefix || pathname.startsWith(`${route.prefix}/`)) ?? {
@@ -163,23 +164,6 @@ function NavIcon({ name }: { name: NavIconName }) {
   );
 }
 
-function ChevronIcon({ expanded }: { expanded: boolean }) {
-  return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 20 20"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={cx("size-4 transition-transform duration-200", expanded && "rotate-90")}
-    >
-      <path d="m7 4 6 6-6 6" />
-    </svg>
-  );
-}
-
 const landingFor = (user: UserRecord) =>
   user.permissions.includes("Dashboard.View") ? "/reports" : "/users";
 
@@ -206,32 +190,70 @@ function HolidayReminders({ compact = false }: { compact?: boolean }) {
     }
   }
 
+  if (compact) {
+    return (
+      <aside
+        aria-label="Holiday reminders"
+        className="mb-3 flex min-w-0 max-w-full items-center gap-2 rounded-lg border border-slate-200 bg-white/80 px-2.5 py-2"
+      >
+        <span
+          aria-hidden="true"
+          className="inline-flex size-6 shrink-0 items-center justify-center rounded-full bg-red-50 text-xs font-bold text-red-700"
+        >
+          !
+        </span>
+        <p className="shrink-0 text-xs font-semibold text-slate-700">Holiday reminders</p>
+        <div className="flex min-w-0 flex-1 gap-2 overflow-x-auto">
+          {items.map((item) => (
+            <div
+              key={item.id}
+              className={cx(
+                "flex shrink-0 items-center gap-2 rounded-md border bg-white px-2 py-1",
+                item.kind === "urgent" ? "border-red-200" : "border-slate-200",
+              )}
+            >
+              <span
+                className={cx(
+                  "text-[10px] font-semibold uppercase tracking-wide",
+                  item.kind === "urgent" ? "text-red-700" : "text-[#0f4c81]",
+                )}
+              >
+                {item.kind === "urgent" ? "Urgent" : "Notice"}
+              </span>
+              <span className="max-w-64 truncate text-xs text-slate-700">
+                {item.holiday?.name} · {item.holiday?.holidayDate}
+                {item.daysUntil != null ? ` · ${item.daysUntil} day(s)` : ""}
+              </span>
+              <Button
+                type="button"
+                variant="ghost"
+                className="min-h-7 shrink-0 px-1.5 py-0.5 text-[11px]"
+                onClick={() => void dismiss(item.id)}
+              >
+                Dismiss
+              </Button>
+            </div>
+          ))}
+        </div>
+      </aside>
+    );
+  }
+
   return (
-    <aside
-      aria-label="Holiday reminders"
-      className={cx(
-        compact
-          ? "mb-4 grid w-full min-w-0 max-w-full gap-2 sm:flex sm:overflow-x-auto sm:pb-1"
-          : "mb-5 grid gap-2 md:grid-cols-2 xl:grid-cols-3",
-      )}
-    >
+    <aside aria-label="Holiday reminders" className="mb-5 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
       {items.map((item) => (
         <div
           key={item.id}
           className={cx(
-            "flex min-w-0 justify-between rounded-xl border bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)]",
-            compact
-              ? "w-full min-w-0 items-center gap-2 px-3 py-2 text-xs sm:w-auto sm:min-w-[18rem]"
-              : "flex-col items-start gap-3 px-4 py-3 text-sm sm:flex-row sm:items-center xl:flex-col xl:items-start",
+            "flex min-w-0 flex-col items-start justify-between gap-3 rounded-xl border bg-white px-4 py-3 text-sm shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:flex-row sm:items-center xl:flex-col xl:items-start",
             item.kind === "urgent" ? "border-red-200" : "border-slate-200",
           )}
         >
-          <div className={cx("flex min-w-0 items-start", compact ? "gap-2" : "gap-3")}>
+          <div className="flex min-w-0 items-start gap-3">
             <span
               aria-hidden="true"
               className={cx(
-                "mt-0.5 inline-flex shrink-0 items-center justify-center rounded-full text-xs font-bold",
-                compact ? "size-6" : "size-7",
+                "mt-0.5 inline-flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-bold",
                 item.kind === "urgent" ? "bg-red-50 text-red-700" : "bg-blue-50 text-[#0f4c81]",
               )}
             >
@@ -302,7 +324,7 @@ function Shell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarExpanded, setSidebarExpanded] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set());
   const context = routeContext(pathname);
 
@@ -408,6 +430,9 @@ function Shell({ children }: { children: ReactNode }) {
   const visibleGroups = groups
     .map((group) => ({ ...group, items: group.items.filter((item) => item.show) }))
     .filter((group) => group.items.length > 0);
+  const breadcrumbGroup =
+    visibleGroups.find((group) => group.items.some((item) => isActiveRoute(pathname, item.href)))?.label ??
+    context.group.split(" / ")[0];
   const dashboardItem = visibleGroups.find((group) => group.label === "Workspace")?.items[0];
   const menuGroups = visibleGroups.filter((group) => group.label !== "Workspace");
   const initials = (user?.fullName ?? "NEXA User")
@@ -428,8 +453,14 @@ function Shell({ children }: { children: ReactNode }) {
     });
   }
 
+  function closeNavigationAfterRouteClick() {
+    setExpandedGroups(new Set());
+    setSidebarExpanded(false);
+    setMobileNavOpen(false);
+  }
+
   return (
-    <div className="min-h-screen lg:flex">
+    <div className="min-h-screen bg-[#f4f6f8] lg:flex">
       {mobileNavOpen ? (
         <button
           type="button"
@@ -440,21 +471,37 @@ function Shell({ children }: { children: ReactNode }) {
       ) : null}
       <aside
         aria-label="Application sidebar"
+        data-expanded={sidebarExpanded}
         className={cx(
-          "fixed inset-y-0 left-0 z-50 flex w-72 flex-col border-r border-slate-200 bg-white transition-transform duration-200 lg:sticky lg:top-0 lg:z-20 lg:h-screen lg:translate-x-0 lg:transition-[width]",
+          "fixed inset-y-0 left-0 z-50 flex w-72 flex-col bg-[#f4f6f8] transition-transform duration-200 lg:sticky lg:top-0 lg:z-20 lg:h-screen lg:translate-x-0 lg:transition-[width]",
           mobileNavOpen ? "translate-x-0" : "-translate-x-full",
-          sidebarCollapsed ? "lg:w-20" : "lg:w-72",
+          sidebarExpanded ? "lg:w-56" : "lg:w-20",
         )}
+        onPointerEnter={(event) => {
+          if (event.pointerType === "mouse") setSidebarExpanded(true);
+        }}
+        onPointerLeave={(event) => {
+          if (event.pointerType === "mouse" && !event.currentTarget.contains(document.activeElement)) {
+            setSidebarExpanded(false);
+          }
+        }}
+        onFocusCapture={() => setSidebarExpanded(true)}
+        onBlurCapture={(event) => {
+          if (!event.currentTarget.contains(event.relatedTarget) && !event.currentTarget.matches(":hover")) {
+            setSidebarExpanded(false);
+          }
+        }}
       >
-        <div className="flex h-[70px] shrink-0 items-center justify-between border-b border-slate-200 px-5">
+        <div className="flex h-[70px] shrink-0 items-center justify-between px-5">
           <Link
             href={can("Dashboard.View") ? "/reports" : "/users"}
+            onClick={closeNavigationAfterRouteClick}
             className={cx(focusRing, "flex min-w-0 items-center gap-3 rounded-md")}
           >
             <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-md bg-[#0f4c81] text-sm font-bold tracking-tight text-white">
               NX
             </span>
-            <span className={cx("min-w-0", sidebarCollapsed && "lg:hidden")}>
+            <span className={cx("min-w-0", !sidebarExpanded && "lg:hidden")}>
               <span className="block text-sm font-bold tracking-[0.12em] text-slate-900">NEXA BOS</span>
               <span className="block truncate text-[11px] text-slate-500">Business operations</span>
             </span>
@@ -474,22 +521,23 @@ function Shell({ children }: { children: ReactNode }) {
               <p
                 className={cx(
                   "mb-1 px-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400",
-                  sidebarCollapsed && "lg:sr-only",
+                  !sidebarExpanded && "lg:sr-only",
                 )}
               >
                 Workspace
               </p>
               <Link
                 href={dashboardItem.href}
+                onClick={closeNavigationAfterRouteClick}
                 aria-current={isActiveRoute(pathname, dashboardItem.href) ? "page" : undefined}
-                title={sidebarCollapsed ? dashboardItem.label : undefined}
+                title={!sidebarExpanded ? dashboardItem.label : undefined}
                 className={cx(
                   focusRing,
                   "group flex min-h-11 items-center gap-3 rounded-md px-3 text-sm font-semibold transition-colors",
                   isActiveRoute(pathname, dashboardItem.href)
                     ? "bg-blue-50 text-[#0f4c81]"
                     : "text-slate-700 hover:bg-slate-50 hover:text-slate-950",
-                  sidebarCollapsed && "lg:justify-center lg:px-2",
+                  !sidebarExpanded && "lg:justify-center lg:px-2",
                 )}
               >
                 <span
@@ -503,7 +551,7 @@ function Shell({ children }: { children: ReactNode }) {
                 >
                   <NavIcon name="dashboard" />
                 </span>
-                <span className={cx("truncate", sidebarCollapsed && "lg:sr-only")}>Dashboard</span>
+                <span className={cx("truncate", !sidebarExpanded && "lg:sr-only")}>Dashboard</span>
               </Link>
             </div>
           ) : null}
@@ -520,14 +568,14 @@ function Shell({ children }: { children: ReactNode }) {
                     aria-expanded={expanded}
                     aria-controls={groupId}
                     aria-label={`${group.label} menu`}
-                    title={sidebarCollapsed ? group.label : undefined}
+                    title={!sidebarExpanded ? group.label : undefined}
                     className={cx(
                       focusRing,
                       "group relative flex min-h-11 w-full items-center gap-3 rounded-md px-3 text-left text-sm font-semibold transition-colors",
                       groupActive
                         ? "bg-blue-50 text-[#0f4c81]"
                         : "text-slate-700 hover:bg-slate-50 hover:text-slate-950",
-                      sidebarCollapsed && "lg:justify-center lg:px-2",
+                      !sidebarExpanded && "lg:justify-center lg:px-2",
                     )}
                     onClick={() => toggleGroup(group.label)}
                   >
@@ -542,16 +590,8 @@ function Shell({ children }: { children: ReactNode }) {
                     >
                       <NavIcon name={group.icon} />
                     </span>
-                    <span className={cx("min-w-0 flex-1 truncate", sidebarCollapsed && "lg:sr-only")}>
+                    <span className={cx("min-w-0 flex-1 truncate", !sidebarExpanded && "lg:sr-only")}>
                       {group.label}
-                    </span>
-                    <span
-                      className={cx(
-                        "ml-auto shrink-0 text-slate-400",
-                        sidebarCollapsed && "lg:absolute lg:bottom-1 lg:right-1",
-                      )}
-                    >
-                      <ChevronIcon expanded={expanded} />
                     </span>
                   </button>
 
@@ -560,7 +600,7 @@ function Shell({ children }: { children: ReactNode }) {
                     hidden={!expanded}
                     className={cx(
                       "ml-7 mt-1 space-y-0.5 border-l border-slate-200 pl-3",
-                      sidebarCollapsed && "lg:ml-0 lg:border-l-0 lg:pl-0",
+                      !sidebarExpanded && "lg:hidden",
                     )}
                   >
                     {group.items.map((item) => {
@@ -569,33 +609,34 @@ function Shell({ children }: { children: ReactNode }) {
                         <Link
                           key={item.href}
                           href={item.href}
+                          onClick={closeNavigationAfterRouteClick}
                           aria-current={active ? "page" : undefined}
-                          aria-label={sidebarCollapsed ? item.label : undefined}
-                          title={sidebarCollapsed ? item.label : undefined}
+                          aria-label={!sidebarExpanded ? item.label : undefined}
+                          title={!sidebarExpanded ? item.label : undefined}
                           className={cx(
                             focusRing,
                             "group flex min-h-9 items-center gap-2 rounded-md px-3 text-[13px] font-medium transition-colors",
                             active
                               ? "bg-blue-50 text-[#0f4c81]"
                               : "text-slate-500 hover:bg-slate-50 hover:text-slate-900",
-                            sidebarCollapsed && "lg:justify-center lg:px-1.5",
+                            !sidebarExpanded && "lg:justify-center lg:px-1.5",
                           )}
                         >
                           <span
                             aria-hidden="true"
                             className={cx(
                               "size-1.5 shrink-0 rounded-full bg-current opacity-50",
-                              sidebarCollapsed && "lg:hidden",
+                              !sidebarExpanded && "lg:hidden",
                             )}
                           />
-                          <span className={cx("truncate", sidebarCollapsed && "lg:sr-only")}>
+                          <span className={cx("truncate", !sidebarExpanded && "lg:sr-only")}>
                             {item.label}
                           </span>
                           <span
                             aria-hidden="true"
                             className={cx(
                               "hidden text-[10px] font-bold tracking-wide",
-                              sidebarCollapsed && "lg:inline",
+                              !sidebarExpanded && "lg:inline",
                             )}
                           >
                             {item.shortLabel}
@@ -609,26 +650,10 @@ function Shell({ children }: { children: ReactNode }) {
             })}
           </div>
         </nav>
-        <div className="hidden shrink-0 border-t border-slate-200 p-3 lg:block">
-          <button
-            type="button"
-            aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-            className={cx(
-              focusRing,
-              "flex w-full items-center justify-center gap-2 rounded-md px-3 py-2 text-xs font-medium text-slate-500 hover:bg-slate-50 hover:text-slate-900",
-            )}
-            onClick={() => setSidebarCollapsed((current) => !current)}
-          >
-            <span aria-hidden="true">{sidebarCollapsed ? "→" : "←"}</span>
-            <span className={cx(sidebarCollapsed && "sr-only")}>
-              {sidebarCollapsed ? "Expand" : "Collapse sidebar"}
-            </span>
-          </button>
-        </div>
       </aside>
 
-      <div className="min-w-0 flex-1">
-        <header className="sticky top-0 z-30 flex h-[70px] items-center justify-between gap-4 border-b border-slate-200 bg-white/95 px-4 backdrop-blur-sm sm:px-6 lg:px-8">
+      <div data-testid="authenticated-content" className="min-w-0 flex-1">
+        <header className="sticky top-0 z-30 flex h-[70px] items-center justify-between gap-4 bg-[#f4f6f8] px-4 backdrop-blur-sm sm:px-6 lg:px-8">
           <div className="flex min-w-0 items-center gap-3">
             <button
               type="button"
@@ -641,10 +666,14 @@ function Shell({ children }: { children: ReactNode }) {
             >
               ☰
             </button>
-            <div className="min-w-0">
-              <p className="truncate text-[11px] font-medium text-slate-500">{context.group}</p>
-              <p className="truncate text-sm font-semibold text-slate-900 sm:text-base">{context.title}</p>
-            </div>
+            <nav
+              aria-label="Breadcrumb"
+              className="flex min-w-0 flex-nowrap items-center gap-2 whitespace-nowrap text-sm"
+            >
+              <span className="truncate font-medium text-slate-500">{breadcrumbGroup}</span>
+              <span aria-hidden="true" className="shrink-0 text-slate-400">›</span>
+              <h1 className="truncate font-semibold text-slate-900 sm:text-base">{context.title}</h1>
+            </nav>
           </div>
           <div className="flex shrink-0 items-center gap-2 sm:gap-3">
             {can("Notifications.View") ? <NotificationBell /> : null}
@@ -703,7 +732,7 @@ function Shell({ children }: { children: ReactNode }) {
             </details>
           </div>
         </header>
-        <main className="mx-auto w-full max-w-[1600px] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+        <main className="w-full px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
           {can("Attendance.View") ? <HolidayReminders compact={pathname === "/reports"} /> : null}
           {children}
         </main>

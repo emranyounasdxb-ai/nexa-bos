@@ -85,14 +85,14 @@ export function TimeSeriesChart({ rows }: { rows: DashboardPayload["trend"] }) {
 
   const description = `Submitted and funded application counts across ${rows.length} authoritative monthly reporting points.`;
   return (
-    <div className="mt-4" data-testid="dashboard-trend-panel">
+    <div className="mt-3" data-testid="dashboard-trend-panel">
       <BosChart
         option={option}
         accessibleDescription={description}
         empty={rows.length < 2}
         emptyMessage="At least two authoritative monthly points are required to show a trend."
         testId={rows.length < 2 ? "dashboard-trend-insufficient" : "dashboard-trend-chart"}
-        height={276}
+        height={240}
       />
       {rows.length >= 2 ? (
         <table className="sr-only">
