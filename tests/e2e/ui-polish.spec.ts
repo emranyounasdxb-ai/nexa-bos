@@ -50,6 +50,8 @@ test("dashboard presents a compact executive summary with bounded detail", async
   await expect(kpiGrid.getByRole("link", { name: "Funded KPI", exact: true })).toBeVisible();
   await expect(kpiGrid.getByRole("link", { name: "Pending KPI", exact: true })).toBeVisible();
   await expect(kpiGrid.getByRole("link")).toHaveCount(4);
+  await expect(kpiGrid.getByText(/vs Previous Month/).first()).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId("dashboard-trend-insufficient")).toBeVisible();
   const dashboardFilters = page.getByTestId("dashboard-filters");
   await expect(dashboardFilters).not.toHaveAttribute("open", "");
   await expect(dashboardFilters.getByLabel("Reporting period", { exact: true })).toBeHidden();
@@ -84,7 +86,7 @@ test("dashboard presents a compact executive summary with bounded detail", async
     ),
   ).toBeTruthy();
   await page.screenshot({
-    path: testInfo.outputPath("task16-dashboard-desktop.png"),
+    path: testInfo.outputPath("task16-1-dashboard-desktop.png"),
     fullPage: true,
   });
   await shellHeader.evaluate((element) => {
@@ -92,10 +94,76 @@ test("dashboard presents a compact executive summary with bounded detail", async
   });
   await page
     .getByTestId("dashboard-kpi-charts")
-    .screenshot({ path: testInfo.outputPath("task16-dashboard-kpi-charts.png") });
+    .screenshot({ path: testInfo.outputPath("task16-1-dashboard-kpi-primary-charts.png") });
   await shellHeader.evaluate((element) => {
     element.style.visibility = "";
   });
+  await page.getByRole("button", { name: "Collapse sidebar" }).click();
+  await expect(page.getByRole("complementary", { name: "Application sidebar" })).toHaveCSS("width", "80px");
+  await page.screenshot({
+    path: testInfo.outputPath("task16-1-dashboard-collapsed-sidebar.png"),
+    fullPage: true,
+  });
+});
+
+test("dashboard charts render contract data responsively and preserve drill-down navigation", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await signIn(page, request);
+  await page.route(`${apiOrigin}/api/v1/reports/dashboard**`, async (route) => {
+    const response = await route.fetch();
+    const body = (await response.json()) as {
+      trend: { month: string; submitted: number; funded: number; fundedValue: string }[];
+      stageBreakdown: { stageId: string | null; name: string; count: number }[];
+      activeDelays: { Bank: number; Customer: number; Internal: number; Other: number; total: number };
+    };
+    body.trend = [
+      { month: "2026-06-01", submitted: 8, funded: 3, fundedValue: "3000.00" },
+      { month: "2026-07-01", submitted: 11, funded: 6, fundedValue: "6000.00" },
+      { month: "2026-08-01", submitted: 9, funded: 7, fundedValue: "7000.00" },
+    ];
+    body.stageBreakdown = [
+      { stageId: null, name: "Initial Application Review", count: 12 },
+      { stageId: null, name: "Bank Documentation Verification", count: 9 },
+      { stageId: null, name: "Customer Requirement Pending", count: 7 },
+      { stageId: null, name: "Internal Compliance Review", count: 5 },
+      { stageId: null, name: "Final Credit Assessment", count: 4 },
+      { stageId: null, name: "Funding Confirmation", count: 3 },
+      { stageId: null, name: "Completion", count: 1 },
+    ];
+    body.activeDelays = { Bank: 4, Customer: 3, Internal: 2, Other: 1, total: 10 };
+    await route.fulfill({ response, json: body });
+  });
+
+  await page.goto("/reports?period=ytd");
+  const trend = page.getByTestId("dashboard-trend-chart");
+  const stages = page.getByTestId("stage-distribution-chart");
+  const delays = page.getByTestId("dashboard-delay-chart");
+  await expect(trend.locator("svg")).toBeVisible({ timeout: 30_000 });
+  await expect(stages.locator("svg")).toBeVisible();
+  await expect(delays.locator("svg")).toBeVisible();
+
+  await page.getByTestId("stage-breakdown-panel").locator("summary").click();
+  await expect(page.getByRole("link", { name: /Initial Application Review/ })).toBeVisible();
+  await page.getByRole("link", { name: "Bank delays", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Report drill-down" })).toBeVisible({ timeout: 30_000 });
+
+  await page.goto("/reports?period=ytd");
+  const expandedWidth = (await page.getByTestId("dashboard-trend-chart").boundingBox())?.width ?? 0;
+  await page.getByRole("button", { name: "Collapse sidebar" }).click();
+  await expect.poll(async () => (await page.getByTestId("dashboard-trend-chart").boundingBox())?.width ?? 0)
+    .toBeGreaterThan(expandedWidth);
+
+  await page.setViewportSize({ width: 900, height: 900 });
+  await expect(page.getByTestId("dashboard-trend-chart")).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBeTruthy();
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.getByTestId("stage-distribution-chart")).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBeTruthy();
 });
 
 test("sidebar groups are folded by default and toggle across desktop and mobile", async ({

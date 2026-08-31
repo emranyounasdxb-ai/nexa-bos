@@ -7,29 +7,31 @@ export type ReportPeriod = {
 
 export type KpiValue = { count: number; value?: string | null };
 
+export type DashboardKpis = {
+  applicationsOwned: KpiValue;
+  submitted: KpiValue;
+  approved: KpiValue;
+  booked: KpiValue;
+  funded: KpiValue;
+  pending: KpiValue;
+  returnedRequirementPending: KpiValue;
+  resubmitted: KpiValue;
+  finalRejected: KpiValue;
+  cancelled: KpiValue;
+  withdrawn: KpiValue;
+  completed: KpiValue;
+  personalFinance: KpiValue;
+  creditCard: KpiValue;
+  totalBusinessValue: string;
+};
+
 export type DashboardPayload = {
   reportingScope: string | null;
   currency: string;
   period: ReportPeriod;
   empty: boolean;
   generatedAt?: string;
-  kpis: {
-    applicationsOwned: KpiValue;
-    submitted: KpiValue;
-    approved: KpiValue;
-    booked: KpiValue;
-    funded: KpiValue;
-    pending: KpiValue;
-    returnedRequirementPending: KpiValue;
-    resubmitted: KpiValue;
-    finalRejected: KpiValue;
-    cancelled: KpiValue;
-    withdrawn: KpiValue;
-    completed: KpiValue;
-    personalFinance: KpiValue;
-    creditCard: KpiValue;
-    totalBusinessValue: string;
-  };
+  kpis: DashboardKpis;
   conversions: Record<string, number | null>;
   stageBreakdown: { stageId: string | null; name: string; count: number }[];
   activeDelays: { Bank: number; Customer: number; Internal: number; Other: number; total: number };
@@ -59,6 +61,21 @@ export type DashboardPayload = {
       } | null;
     }[];
   } | null;
+};
+
+export type ReportComparisonPayload = {
+  metric: string;
+  current: string | number;
+  previous: string | number;
+  absoluteDifference: string | number;
+  percentageChange: number | null;
+  reportingScope: string | null;
+  kind: "period" | "entity";
+  currency: string;
+  currentPeriod?: ReportPeriod;
+  previousPeriod?: ReportPeriod;
+  currentKpis?: DashboardKpis;
+  previousKpis?: DashboardKpis;
 };
 
 export type RankingRow = {

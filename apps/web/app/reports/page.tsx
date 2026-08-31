@@ -5,6 +5,7 @@ import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { DatePicker } from "@/components/date-picker";
+import { DonutChart, TimeSeriesChart } from "@/components/charts";
 import { Badge, Button, Card, ErrorText, LoadingState, PageHeader, Select, SectionHeader } from "@/components/ui";
 import { apiDownload, apiGet, ApiClientError } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
@@ -15,6 +16,7 @@ import {
   toSearchParams,
   type DashboardPayload,
   type FilterOptions,
+  type ReportComparisonPayload,
   type ReportQuery,
 } from "@/lib/reports";
 import {
@@ -24,13 +26,29 @@ import {
   KpiCard,
   metricToneClasses,
   type MetricTone,
-  periodDirection,
+  comparisonDirection,
   PipelineMetric,
   RankingList,
   StageDistribution,
   TargetProgress,
-  TrendChart,
 } from "./dashboard-visuals";
+
+const comparisonPeriodFor: Partial<Record<string, string>> = {
+  mtd: "month",
+  qtd: "quarter",
+  half_year: "half_year",
+  ytd: "year",
+};
+
+function comparisonSearch(query: ReportQuery): string | null {
+  const period = comparisonPeriodFor[query.period];
+  if (!period || query.stage_id || query.terminal_outcome) return null;
+  const params = new URLSearchParams({ kind: "period", period, metric: "funded_value" });
+  for (const key of ["office_id", "department_id", "team_id", "employee_id", "bank_id", "product_id"] as const) {
+    if (query[key]) params.set(key, query[key]);
+  }
+  return params.toString();
+}
 
 export function DashboardInner() {
   const { can, user } = useAuth();
@@ -40,10 +58,12 @@ export function DashboardInner() {
   const [query, setQuery] = useState<ReportQuery>(() => queryFromSearch(searchParams.toString()));
   const [filters, setFilters] = useState<FilterOptions | null>(null);
   const [data, setData] = useState<DashboardPayload | null>(null);
+  const [comparison, setComparison] = useState<ReportComparisonPayload | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 
   const qs = useMemo(() => toSearchParams(query), [query]);
+  const comparisonQs = useMemo(() => comparisonSearch(query), [query]);
   const activeFilterCount = useMemo(
     () =>
       [query.office_id, query.department_id, query.team_id, query.employee_id, query.bank_id, query.product_id].filter(Boolean)
@@ -54,18 +74,30 @@ export function DashboardInner() {
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
+    setComparison(null);
     try {
-      const options = await apiGet<FilterOptions>("/api/v1/reports/filters", api);
+      const [options, dashboard] = await Promise.all([
+        apiGet<FilterOptions>("/api/v1/reports/filters", api),
+        apiGet<DashboardPayload>(`/api/v1/reports/dashboard?${qs}`, api),
+      ]);
       setFilters(options);
-      const dashboard = await apiGet<DashboardPayload>(`/api/v1/reports/dashboard?${qs}`, api);
       setData(dashboard);
+      if (comparisonQs) {
+        try {
+          setComparison(
+            await apiGet<ReportComparisonPayload>(`/api/v1/reports/comparisons?${comparisonQs}`, api),
+          );
+        } catch {
+          setComparison(null);
+        }
+      }
     } catch (err) {
       setError(err instanceof ApiClientError ? err.message : "Unable to load dashboard");
       setData(null);
     } finally {
       setLoading(false);
     }
-  }, [api, qs]);
+  }, [api, comparisonQs, qs]);
 
   useEffect(() => {
     void load();
@@ -120,8 +152,15 @@ export function DashboardInner() {
 
   if (!can("Dashboard.View")) return <ErrorText>Dashboard permission is required.</ErrorText>;
 
-  const submittedDirection = data ? periodDirection(data.trend.map((row) => row.submitted)) : null;
-  const fundedDirection = data ? periodDirection(data.trend.map((row) => row.funded)) : null;
+  const submittedDirection = comparisonDirection(
+    comparison?.currentKpis?.submitted.count,
+    comparison?.previousKpis?.submitted.count,
+  );
+  const fundedDirection = comparisonDirection(
+    comparison?.currentKpis?.funded.count,
+    comparison?.previousKpis?.funded.count,
+  );
+  const comparisonLabel = comparison?.previousPeriod?.label;
 
   return (
     <section className="space-y-5">
@@ -275,9 +314,9 @@ export function DashboardInner() {
 
             <div data-testid="dashboard-kpi-charts" className="space-y-5">
             <div data-testid="dashboard-kpi-grid" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <KpiCard label="Submitted" count={data.kpis.submitted.count} value={data.kpis.submitted.value} href={drill("submitted")} tone="blue" icon="inbox" context={<DirectionIndicator direction={submittedDirection} />} />
+            <KpiCard label="Submitted" count={data.kpis.submitted.count} value={data.kpis.submitted.value} href={drill("submitted")} tone="blue" icon="inbox" context={<DirectionIndicator direction={submittedDirection} comparisonLabel={comparisonLabel} />} />
             <KpiCard label="Approved" count={data.kpis.approved.count} value={data.kpis.approved.value} href={drill("approved")} tone="violet" icon="check" context={<span className="text-xs font-medium text-slate-500">Approval conversion {formatPct(data.conversions.submittedToApproved)}</span>} />
-            <KpiCard label="Funded" count={data.kpis.funded.count} value={data.kpis.funded.value} href={drill("funded")} tone="green" icon="funded" context={<DirectionIndicator direction={fundedDirection} />} />
+            <KpiCard label="Funded" count={data.kpis.funded.count} value={data.kpis.funded.value} href={drill("funded")} tone="green" icon="funded" context={<DirectionIndicator direction={fundedDirection} comparisonLabel={comparisonLabel} />} />
             <KpiCard label="Pending" count={data.kpis.pending.count} href={drill("pending")} tone="amber" icon="clock" context={<span className="text-xs font-medium text-slate-500">Open at reporting cutoff</span>} />
             </div>
 
@@ -301,12 +340,12 @@ export function DashboardInner() {
             </div>
             </Card>
 
-            <div data-testid="dashboard-charts-grid" className="grid items-start gap-5 xl:grid-cols-3">
-            <Card className="xl:col-span-2">
+            <div data-testid="dashboard-charts-grid" className="grid min-w-0 items-start gap-5 xl:grid-cols-3">
+            <Card className="min-w-0 xl:col-span-2">
               <SectionHeader title="Application performance trend" description="Submitted and funded applications over authoritative reporting periods." actions={data.trend.length > 0 ? <Badge>{data.trend.length} {data.trend.length === 1 ? "period" : "periods"}</Badge> : null} />
-              <TrendChart rows={data.trend} />
+              <TimeSeriesChart rows={data.trend} />
             </Card>
-            <Card>
+            <Card className="min-w-0">
               <SectionHeader title="Stage distribution" description="Largest current workflow queues at the reporting cutoff." />
               <StageDistribution rows={data.stageBreakdown} drill={drill} />
               </Card>
@@ -314,12 +353,12 @@ export function DashboardInner() {
             </div>
           </div>
 
-          <div className="grid items-start gap-5 xl:grid-cols-3">
-            <Card>
+          <div className="grid min-w-0 items-start gap-5 xl:grid-cols-3">
+            <Card className="min-w-0">
               <SectionHeader title="Conversion summary" description="Selected-period movement through the application funnel." />
               <ConversionSummary values={data.conversions} drill={drill} />
             </Card>
-            <Card>
+            <Card className="min-w-0">
               <SectionHeader title="Attention required" description="Open exceptions that may need management action." />
               <div className="mt-4 grid grid-cols-2 gap-3">
                 {([
@@ -338,7 +377,15 @@ export function DashboardInner() {
                 </div>
               </div>
               <div className="mt-4 border-t border-slate-100 pt-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Action driver</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Active delay drivers</p>
+                <DonutChart
+                  rows={(["Bank", "Customer", "Internal", "Other"] as const).map((type) => ({
+                    name: type,
+                    value: data.activeDelays[type],
+                  }))}
+                  accessibleDescription={`${data.activeDelays.total} active delays split across Bank, Customer, Internal and Other drivers.`}
+                  testId="dashboard-delay-chart"
+                />
                 <div className="mt-2 grid grid-cols-2 gap-2">
                   {(["Bank", "Customer", "Internal", "Other"] as const).map((type) => (
                     <Link key={type} href={drill(`delay_${type.toLowerCase()}`)} aria-label={`${type} delays`} className="flex items-center justify-between rounded-lg border border-slate-200 px-2.5 py-2 text-sm hover:bg-slate-50">

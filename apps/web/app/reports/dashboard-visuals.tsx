@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
+import { RankedBarChart } from "@/components/charts";
 import { Badge, Card, SectionHeader } from "@/components/ui";
 import { formatPct, type DashboardPayload, type RankingRow } from "@/lib/reports";
 
@@ -64,14 +65,22 @@ function MetricIcon({ name }: { name: MetricIconName }) {
   );
 }
 
-export function periodDirection(values: number[]): TrendDirection | null {
-  if (values.length < 2) return null;
-  const delta = values.at(-1)! - values.at(-2)!;
+export function comparisonDirection(current: number | undefined, previous: number | undefined): TrendDirection | null {
+  if (current === undefined || previous === undefined) return null;
+  const delta = current - previous;
   return { kind: delta === 0 ? "stable" : delta > 0 ? "up" : "down", delta };
 }
 
-export function DirectionIndicator({ direction }: { direction: TrendDirection | null }) {
-  if (!direction) return <span className="text-xs font-medium text-slate-500">Prior period unavailable</span>;
+export function DirectionIndicator({
+  direction,
+  comparisonLabel,
+}: {
+  direction: TrendDirection | null;
+  comparisonLabel?: string;
+}) {
+  if (!direction || !comparisonLabel) {
+    return <span className="text-xs font-medium text-slate-500">Formal period comparison unavailable</span>;
+  }
   const style =
     direction.kind === "up"
       ? "bg-emerald-50 text-emerald-700"
@@ -83,7 +92,7 @@ export function DirectionIndicator({ direction }: { direction: TrendDirection | 
   return (
     <span className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold ${style}`}>
       <span aria-hidden="true">{symbol}</span>
-      {delta} vs prior period
+      {delta} vs {comparisonLabel}
     </span>
   );
 }
@@ -156,53 +165,6 @@ export function PipelineMetric({
   );
 }
 
-export function TrendChart({ rows }: { rows: DashboardPayload["trend"] }) {
-  if (rows.length === 0) return <CompactEmpty>No trend points yet.</CompactEmpty>;
-
-  const width = 760;
-  const height = 280;
-  const inset = { left: 48, right: 18, top: 20, bottom: 44 };
-  const plotWidth = width - inset.left - inset.right;
-  const plotHeight = height - inset.top - inset.bottom;
-  const maximum = Math.max(0, ...rows.flatMap((row) => [row.submitted, row.funded]));
-  const scaleMaximum = maximum || 1;
-  const x = (index: number) => inset.left + (rows.length === 1 ? plotWidth / 2 : (index / (rows.length - 1)) * plotWidth);
-  const y = (value: number) => inset.top + plotHeight - (value / scaleMaximum) * plotHeight;
-  const line = (key: "submitted" | "funded") => rows.map((row, index) => `${x(index)},${y(row[key])}`).join(" ");
-  const labelEvery = Math.max(1, Math.ceil(rows.length / 6));
-  const axisValues = maximum === 0 ? [0] : [maximum, Math.round(maximum / 2), 0];
-
-  return (
-    <div className="mt-4" data-testid="dashboard-trend-chart">
-      <svg className="h-auto min-h-64 w-full" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`Application trend with ${rows.length} reporting ${rows.length === 1 ? "period" : "periods"}`}>
-        {axisValues.map((value, index) => {
-          const lineY = maximum === 0 ? inset.top + plotHeight : inset.top + (index / 2) * plotHeight;
-          return (
-            <g key={`${value}:${index}`}>
-              <line x1={inset.left} x2={width - inset.right} y1={lineY} y2={lineY} stroke="#e2e8f0" strokeWidth="1" />
-              <text x={inset.left - 10} y={lineY + 4} fill="#64748b" fontSize="12" textAnchor="end">{value}</text>
-            </g>
-          );
-        })}
-        <polyline points={line("submitted")} fill="none" stroke="#2563eb" strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" />
-        <polyline points={line("funded")} fill="none" stroke="#10b981" strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" />
-        {rows.map((row, index) => (
-          <g key={row.month}>
-            <circle cx={x(index)} cy={y(row.submitted)} r="4" fill="white" stroke="#2563eb" strokeWidth="2"><title>{`${row.month}: ${row.submitted} submitted`}</title></circle>
-            <circle cx={x(index)} cy={y(row.funded)} r="4" fill="white" stroke="#10b981" strokeWidth="2"><title>{`${row.month}: ${row.funded} funded`}</title></circle>
-            {(index % labelEvery === 0 || index === rows.length - 1) && <text x={x(index)} y={height - 14} fill="#64748b" fontSize="12" textAnchor="middle">{row.month}</text>}
-          </g>
-        ))}
-      </svg>
-      <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs font-medium text-slate-600">
-        <span className="inline-flex items-center gap-2"><span className="size-2.5 rounded-full bg-blue-600" />Submitted</span>
-        <span className="inline-flex items-center gap-2"><span className="size-2.5 rounded-full bg-emerald-500" />Funded</span>
-        {rows.length === 1 ? <span className="text-slate-500">One reporting period; direction unavailable.</span> : null}
-      </div>
-    </div>
-  );
-}
-
 export function StageDistribution({
   rows,
   drill,
@@ -218,22 +180,15 @@ export function StageDistribution({
     );
   }
   const ranked = [...rows].sort((left, right) => right.count - left.count);
-  const maximum = Math.max(...ranked.map((row) => row.count), 1);
   const total = rows.reduce((sum, row) => sum + row.count, 0);
 
   return (
     <div className="mt-4" data-testid="stage-breakdown-panel">
-      <div className="space-y-3" data-testid="stage-distribution-chart">
-        {ranked.slice(0, 6).map((row, index) => (
-          <Link key={`${row.stageId ?? "none"}:${row.name}`} href={drill("stage", row.stageId ? { stage_id: row.stageId } : {})} className="group block rounded-lg px-1 py-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f4c81]">
-            <div className="mb-1.5 flex items-center justify-between gap-3 text-sm">
-              <span className="min-w-0 truncate font-medium text-slate-700 group-hover:text-[#0f4c81]"><span className="mr-2 text-xs tabular-nums text-slate-400">{String(index + 1).padStart(2, "0")}</span>{row.name}</span>
-              <span className="shrink-0 font-semibold tabular-nums text-slate-950">{row.count}</span>
-            </div>
-            <div className="h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-blue-600" style={{ width: `${(row.count / maximum) * 100}%` }} /></div>
-          </Link>
-        ))}
-      </div>
+      <RankedBarChart
+        rows={ranked.map((row) => ({ id: row.stageId ?? row.name, label: row.name, value: row.count }))}
+        accessibleDescription={`Top workflow stages by pending application count. ${total} pending applications across ${rows.length} stages.`}
+        testId="stage-distribution-chart"
+      />
       <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3 text-xs text-slate-500"><span>{total.toLocaleString()} pending applications</span><span>{rows.length} workflow stages</span></div>
       <details className="group mt-3 rounded-lg border border-slate-200 bg-slate-50/60">
         <summary className="cursor-pointer list-none px-3 py-2.5 text-sm font-semibold text-[#0f4c81] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f4c81]"><span className="inline-flex w-full items-center justify-between gap-3">All stage details<span aria-hidden="true" className="transition-transform group-open:rotate-180">⌄</span></span></summary>
