@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-import { DatePicker } from "@/components/date-picker";
+import { DateRangePicker } from "@/components/date-picker";
 import {
   Button,
   Card,
@@ -169,20 +169,28 @@ export default function ComparePage() {
         {kind === "period" && period === "custom" ? (
           <>
             <label className="text-sm">
-              Current from
-              <DatePicker aria-label="Current from" value={dateFrom} onChange={setDateFrom} />
+              Current period
+              <DateRangePicker
+                aria-label="Current period"
+                from={dateFrom}
+                to={dateTo}
+                onChange={({ from, to }) => {
+                  setDateFrom(from);
+                  setDateTo(to);
+                }}
+              />
             </label>
             <label className="text-sm">
-              Current to
-              <DatePicker aria-label="Current to" value={dateTo} onChange={setDateTo} />
-            </label>
-            <label className="text-sm">
-              Comparison from
-              <DatePicker aria-label="Comparison from" value={compareFrom} onChange={setCompareFrom} />
-            </label>
-            <label className="text-sm">
-              Comparison to
-              <DatePicker aria-label="Comparison to" value={compareTo} onChange={setCompareTo} />
+              Comparison period
+              <DateRangePicker
+                aria-label="Comparison period"
+                from={compareFrom}
+                to={compareTo}
+                onChange={({ from, to }) => {
+                  setCompareFrom(from);
+                  setCompareTo(to);
+                }}
+              />
             </label>
           </>
         ) : null}

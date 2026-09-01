@@ -16,6 +16,7 @@ import {
   Td,
   TextInput,
   Th,
+  controlClass,
 } from "@/components/ui";
 import { apiGet, apiRequest, ApiClientError } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
@@ -219,7 +220,7 @@ export default function SchedulesPage() {
             <input
               aria-label="Start time"
               type="time"
-              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+              className={`mt-1 ${controlClass}`}
               value={startTime}
               onChange={(event) => setStartTime(event.target.value)}
               required
@@ -230,7 +231,7 @@ export default function SchedulesPage() {
             <input
               aria-label="End time"
               type="time"
-              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+              className={`mt-1 ${controlClass}`}
               value={endTime}
               onChange={(event) => setEndTime(event.target.value)}
               required
