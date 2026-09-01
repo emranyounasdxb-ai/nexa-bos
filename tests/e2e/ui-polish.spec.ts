@@ -145,37 +145,14 @@ test("dashboard presents a compact executive summary with bounded detail", async
   });
 });
 
-test("holiday reminders stay dashboard-only and dashboard actions remain accessible", async ({
+test("holiday reminders are absent and dashboard actions remain accessible", async ({
   page,
   request,
 }) => {
   test.setTimeout(120_000);
-  await page.route(`${apiOrigin}/api/v1/attendance/reminders`, async (route) => {
-    await route.fulfill({
-      json: {
-        items: [
-          {
-            id: "task-16-4-reminder",
-            kind: "urgent",
-            holiday: { name: "Review holiday", holidayDate: "2026-09-02" },
-            daysUntil: 1,
-          },
-        ],
-      },
-    });
-  });
-  await page.route(
-    `${apiOrigin}/api/v1/attendance/reminders/task-16-4-reminder/dismiss`,
-    async (route) => {
-      await route.fulfill({ json: { status: "dismissed" } });
-    },
-  );
-
   await page.setViewportSize({ width: 1440, height: 900 });
   await signIn(page, request);
-  const reminders = page.getByRole("complementary", { name: "Holiday reminders" });
-  await expect(reminders).toBeVisible();
-  await expect(reminders.getByText("Urgent", { exact: true })).toBeVisible();
+  await expect(page.getByRole("complementary", { name: "Holiday reminders" })).toHaveCount(0);
   await expect(page.getByLabel(/Notifications, \d+ unread/)).toBeVisible();
 
   const actions = page.getByTestId("dashboard-actions");
@@ -210,13 +187,13 @@ test("holiday reminders stay dashboard-only and dashboard actions remain accessi
   }
 
   await page.goto("/reports");
-  await expect(reminders).toBeVisible();
+  await expect(page.getByRole("complementary", { name: "Holiday reminders" })).toHaveCount(0);
   await actions.getByRole("button", { name: "Refresh", exact: true }).click();
   await expect(actions.getByRole("button", { name: "Refresh", exact: true })).toBeVisible();
   await actions.getByRole("button", { name: "Compare", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Comparisons", exact: true })).toBeVisible();
   await page.goto("/reports");
-  await expect(reminders).toBeVisible();
+  await expect(page.getByRole("complementary", { name: "Holiday reminders" })).toHaveCount(0);
 
   await exportButton.click();
   const [excel] = await Promise.all([
@@ -251,8 +228,6 @@ test("holiday reminders stay dashboard-only and dashboard actions remain accessi
     ).toBeTruthy();
     await page.keyboard.press("Escape");
   }
-  await reminders.getByRole("button", { name: "Dismiss" }).click();
-  await expect(reminders).toHaveCount(0);
 });
 
 test("dashboard loads primary data independently and preserves it during refreshes", async ({

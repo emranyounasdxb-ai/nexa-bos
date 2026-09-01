@@ -68,7 +68,6 @@ import {
   StageDistribution,
   TargetProgress,
 } from "./dashboard-visuals";
-import { DashboardHolidayReminders } from "./dashboard-holiday-reminders";
 
 const comparisonPeriodFor: Partial<Record<string, string>> = {
   mtd: "month",
@@ -381,7 +380,6 @@ export function DashboardInner() {
 
   return (
     <section className="space-y-4">
-      {can("Attendance.View") ? <DashboardHolidayReminders /> : null}
       <PageHeader
         title="Dashboard"
         description={
