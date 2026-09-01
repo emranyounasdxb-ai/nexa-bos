@@ -16,11 +16,15 @@ export function cx(...parts: Array<string | false | null | undefined>): string {
 export const focusRing =
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f4c81]";
 
-export const controlClass = cx(
-  "min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-[0_1px_1px_rgba(15,23,42,0.03)] transition-colors placeholder:text-slate-400",
+const controlSurfaceClass = cx(
+  "w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 shadow-[0_1px_1px_rgba(15,23,42,0.03)] transition-colors placeholder:text-slate-400",
   "hover:border-slate-400 focus:border-[#0f4c81] disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-500",
   focusRing,
 );
+
+export const controlClass = cx("h-8 py-0", controlSurfaceClass);
+
+export const multilineControlClass = cx("min-h-10 py-2", controlSurfaceClass);
 
 export const controlErrorClass = "border-red-700 focus:border-red-700";
 
@@ -195,7 +199,7 @@ export function Textarea({
 }: TextareaHTMLAttributes<HTMLTextAreaElement> & { error?: boolean }) {
   return (
     <textarea
-      className={cx("mt-1.5", controlClass, error && controlErrorClass, className)}
+      className={cx("mt-1.5", multilineControlClass, error && controlErrorClass, className)}
       aria-invalid={error || undefined}
       {...props}
     />

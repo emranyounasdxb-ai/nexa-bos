@@ -4,6 +4,7 @@ import asyncio
 from datetime import UTC, date, datetime
 from decimal import Decimal
 from io import BytesIO
+from itertools import count
 from uuid import UUID, uuid4
 
 import pytest
@@ -25,9 +26,12 @@ from test_applications import _catalog, _create_app, _customer
 from test_reports import _reporting_user
 
 
+_UNIQUE_MONTH_SEQUENCE = count(start=0, step=12)
+
+
 def _unique_month() -> date:
-    value = int(unique_tag(), 16)
-    return date(2200 + (value // 12) % 500, value % 12 + 1, 1)
+    offset = next(_UNIQUE_MONTH_SEQUENCE)
+    return date(2400 + offset // 12, offset % 12 + 1, 1)
 
 
 def _month_end(value: date) -> date:
