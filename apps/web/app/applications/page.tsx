@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
-import { DatePicker } from "@/components/date-picker";
+import { DateRangePicker } from "@/components/date-picker";
 import {
   Pagination,
   type PaginatedResponse,
@@ -303,57 +303,36 @@ export default function ApplicationsPage() {
           ))}
         </Select>
         <label className="text-sm">
-          Submission from
-          <DatePicker
-            optional
-            aria-label="Filter submission from"
-            value={filters.submission_from}
-            onChange={(submission_from) => setFilters({ ...filters, submission_from })}
+          Submission date
+          <DateRangePicker
+            aria-label="Submission date"
+            from={filters.submission_from}
+            to={filters.submission_to}
+            onChange={({ from: submission_from, to: submission_to }) =>
+              setFilters({ ...filters, submission_from, submission_to })
+            }
           />
         </label>
         <label className="text-sm">
-          Submission to
-          <DatePicker
-            optional
-            aria-label="Filter submission to"
-            value={filters.submission_to}
-            onChange={(submission_to) => setFilters({ ...filters, submission_to })}
+          Bank stage date
+          <DateRangePicker
+            aria-label="Bank stage date"
+            from={filters.bank_stage_from}
+            to={filters.bank_stage_to}
+            onChange={({ from: bank_stage_from, to: bank_stage_to }) =>
+              setFilters({ ...filters, bank_stage_from, bank_stage_to })
+            }
           />
         </label>
         <label className="text-sm">
-          Bank stage from
-          <DatePicker
-            optional
-            aria-label="Bank stage date from"
-            value={filters.bank_stage_from}
-            onChange={(bank_stage_from) => setFilters({ ...filters, bank_stage_from })}
-          />
-        </label>
-        <label className="text-sm">
-          Bank stage to
-          <DatePicker
-            optional
-            aria-label="Bank stage date to"
-            value={filters.bank_stage_to}
-            onChange={(bank_stage_to) => setFilters({ ...filters, bank_stage_to })}
-          />
-        </label>
-        <label className="text-sm">
-          Created from
-          <DatePicker
-            optional
-            aria-label="Filter created from"
-            value={filters.created_from}
-            onChange={(created_from) => setFilters({ ...filters, created_from })}
-          />
-        </label>
-        <label className="text-sm">
-          Created to
-          <DatePicker
-            optional
-            aria-label="Filter created to"
-            value={filters.created_to}
-            onChange={(created_to) => setFilters({ ...filters, created_to })}
+          Created date
+          <DateRangePicker
+            aria-label="Created date"
+            from={filters.created_from}
+            to={filters.created_to}
+            onChange={({ from: created_from, to: created_to }) =>
+              setFilters({ ...filters, created_from, created_to })
+            }
           />
         </label>
         {(

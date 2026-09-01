@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useState } from "react";
 
-import { DatePicker } from "@/components/date-picker";
+import { DateRangePicker } from "@/components/date-picker";
 import {
   Button,
   Card,
@@ -160,16 +160,18 @@ function ProfileInner() {
           </Select>
         </label>
         {period === "custom" ? (
-          <>
-            <label className="text-sm">
-              From
-              <DatePicker aria-label="From" value={dateFrom} onChange={setDateFrom} />
-            </label>
-            <label className="text-sm">
-              To
-              <DatePicker aria-label="To" value={dateTo} onChange={setDateTo} />
-            </label>
-          </>
+          <label className="text-sm">
+            Custom period
+            <DateRangePicker
+              aria-label="Custom period"
+              from={dateFrom}
+              to={dateTo}
+              onChange={({ from, to }) => {
+                setDateFrom(from);
+                setDateTo(to);
+              }}
+            />
+          </label>
         ) : null}
         <Button type="button" onClick={() => void load()}>
           Apply

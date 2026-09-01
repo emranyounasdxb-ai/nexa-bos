@@ -208,7 +208,20 @@ test("list search and page actions share compact desktop rows", async ({ page, r
     page.getByLabel("Full name", { exact: true }),
     page.locator("label").filter({ hasText: "Designation" }).locator("select"),
     page.getByLabel("Joining date", { exact: true }),
-    page.getByRole("button", { name: "Open calendar", exact: true }),
+    page.getByRole("button", { name: "Create", exact: true }),
+  ]) {
+    await expect(control).toBeVisible();
+    expect((await control.boundingBox())?.height).toBe(32);
+  }
+  await expect(page.getByRole("button", { name: "Open calendar", exact: true })).toHaveCount(0);
+
+  await page.goto("/attendance/schedules");
+  await expect(page.getByRole("heading", { name: "Attendance schedules", exact: true })).toBeVisible();
+  for (const control of [
+    page.getByLabel("Start time", { exact: true }),
+    page.getByLabel("End time", { exact: true }),
+    page.getByLabel("Grace minutes", { exact: true }),
+    page.getByRole("button", { name: "Save schedule", exact: true }),
   ]) {
     await expect(control).toBeVisible();
     expect((await control.boundingBox())?.height).toBe(32);

@@ -11,7 +11,7 @@ import {
 } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
-import { DatePicker } from "@/components/date-picker";
+import { DateRangePicker } from "@/components/date-picker";
 import { DonutChart, TimeSeriesChart } from "@/components/charts";
 import {
   IconArrowBack,
@@ -333,16 +333,17 @@ export function DashboardInner() {
             </Select>
           </label>
           {query.period === "custom" ? (
-            <>
-              <label className="text-sm font-medium text-slate-700">
-                From
-                <DatePicker aria-label="Custom period start" value={query.date_from} onChange={(value) => setQuery({ ...query, date_from: value })} />
-              </label>
-              <label className="text-sm font-medium text-slate-700">
-                To
-                <DatePicker aria-label="Custom period end" value={query.date_to} onChange={(value) => setQuery({ ...query, date_to: value })} />
-              </label>
-            </>
+            <label className="text-sm font-medium text-slate-700">
+              Custom period
+              <DateRangePicker
+                aria-label="Custom period"
+                from={query.date_from}
+                to={query.date_to}
+                onChange={({ from: date_from, to: date_to }) =>
+                  setQuery({ ...query, date_from, date_to })
+                }
+              />
+            </label>
           ) : null}
           <label className="text-sm font-medium text-slate-700">
             Office
@@ -464,20 +465,28 @@ export function DashboardInner() {
               {compareKind === "period" && comparePeriod === "custom" ? (
                 <>
                   <label className="text-sm font-medium text-slate-700">
-                    Current from
-                    <DatePicker aria-label="Current from" value={compareDateFrom} onChange={setCompareDateFrom} />
+                    Current period
+                    <DateRangePicker
+                      aria-label="Current period"
+                      from={compareDateFrom}
+                      to={compareDateTo}
+                      onChange={({ from, to }) => {
+                        setCompareDateFrom(from);
+                        setCompareDateTo(to);
+                      }}
+                    />
                   </label>
                   <label className="text-sm font-medium text-slate-700">
-                    Current to
-                    <DatePicker aria-label="Current to" value={compareDateTo} onChange={setCompareDateTo} />
-                  </label>
-                  <label className="text-sm font-medium text-slate-700">
-                    Comparison from
-                    <DatePicker aria-label="Comparison from" value={compareFrom} onChange={setCompareFrom} />
-                  </label>
-                  <label className="text-sm font-medium text-slate-700">
-                    Comparison to
-                    <DatePicker aria-label="Comparison to" value={compareTo} onChange={setCompareTo} />
+                    Comparison period
+                    <DateRangePicker
+                      aria-label="Comparison period"
+                      from={compareFrom}
+                      to={compareTo}
+                      onChange={({ from, to }) => {
+                        setCompareFrom(from);
+                        setCompareTo(to);
+                      }}
+                    />
                   </label>
                 </>
               ) : null}
