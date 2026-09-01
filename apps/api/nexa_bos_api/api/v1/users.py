@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, File, Query, UploadFile
 from fastapi.responses import FileResponse
 
 from nexa_bos_api.api.v1.deps import CurrentUser, require_permission
+from nexa_bos_api.api.v1.pagination import PaginationDep
 from nexa_bos_api.core.exceptions import AppError
 from nexa_bos_api.db.session import SessionDep
 from nexa_bos_api.identity.access import has_permission
@@ -63,6 +64,7 @@ PhotoFile = Annotated[UploadFile, File()]
 async def directory(
     session: SessionDep,
     actor: Annotated[CurrentUser, Depends(require_permission(USERS_VIEW))],
+    pagination: PaginationDep,
     q: str | None = None,
     employment_status: Annotated[str | None, Query(alias="employmentStatus")] = None,
     account_status: Annotated[str | None, Query(alias="accountStatus")] = None,
@@ -79,8 +81,13 @@ async def directory(
         office_id=office_id,
         department_id=department_id,
         user_type_id=user_type_id,
+        page=pagination.page,
+        page_size=pagination.page_size,
     )
-    return {"items": [public_user(user) for user in users]}
+    return {
+        "items": [public_user(user) for user in users.items],
+        "pagination": users.metadata(),
+    }
 
 
 @router.get("/managers")

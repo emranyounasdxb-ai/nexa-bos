@@ -439,7 +439,7 @@ function Shell({ children }: { children: ReactNode }) {
         aria-label="Application sidebar"
         data-expanded={sidebarExpanded}
         className={cx(
-          "fixed inset-y-0 left-0 z-50 flex w-72 flex-col bg-[#f4f6f8] transition-transform duration-200 lg:sticky lg:top-0 lg:z-20 lg:h-screen lg:translate-x-0 lg:transition-[width]",
+          "fixed inset-y-0 left-0 z-50 flex w-72 flex-col overflow-x-hidden bg-[#f4f6f8] transition-transform duration-200 ease-out motion-reduce:duration-0 motion-reduce:transition-none lg:sticky lg:top-0 lg:z-20 lg:h-screen lg:translate-x-0 lg:transition-[width]",
           mobileNavOpen ? "translate-x-0" : "-translate-x-full",
           sidebarExpanded ? "lg:w-56" : "lg:w-20",
         )}
@@ -462,12 +462,20 @@ function Shell({ children }: { children: ReactNode }) {
           <Link
             href={can("Dashboard.View") ? "/reports" : "/users"}
             onClick={closeNavigationAfterRouteClick}
+            aria-label="NEXA BOS home"
             className={cx(focusRing, "flex min-w-0 items-center gap-3 rounded-md")}
           >
             <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-md bg-[#0f4c81] text-sm font-bold tracking-tight text-white">
               NX
             </span>
-            <span className={cx("min-w-0", !sidebarExpanded && "lg:hidden")}>
+            <span
+              className={cx(
+                "min-w-0 overflow-hidden whitespace-nowrap transition-[max-width,opacity] duration-200 ease-out motion-reduce:duration-0 motion-reduce:transition-none",
+                sidebarExpanded
+                  ? "lg:max-w-36 lg:opacity-100"
+                  : "lg:invisible lg:max-w-0 lg:opacity-0",
+              )}
+            >
               <span className="block text-sm font-bold tracking-[0.12em] text-slate-900">NEXA BOS</span>
               <span className="block truncate text-[11px] text-slate-500">Business operations</span>
             </span>
@@ -486,8 +494,10 @@ function Shell({ children }: { children: ReactNode }) {
             <div className="mb-3">
               <p
                 className={cx(
-                  "mb-1 px-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400",
-                  !sidebarExpanded && "lg:sr-only",
+                  "mb-1 max-h-4 overflow-hidden whitespace-nowrap px-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400 transition-[max-height,opacity,margin] duration-200 ease-out motion-reduce:duration-0 motion-reduce:transition-none",
+                  sidebarExpanded
+                    ? "lg:opacity-100"
+                    : "lg:invisible lg:mb-0 lg:max-h-0 lg:opacity-0",
                 )}
               >
                 Workspace
@@ -495,6 +505,7 @@ function Shell({ children }: { children: ReactNode }) {
               <Link
                 href={dashboardItem.href}
                 onClick={closeNavigationAfterRouteClick}
+                aria-label={dashboardItem.label}
                 aria-current={isActiveRoute(pathname, dashboardItem.href) ? "page" : undefined}
                 title={!sidebarExpanded ? dashboardItem.label : undefined}
                 className={cx(
@@ -503,7 +514,6 @@ function Shell({ children }: { children: ReactNode }) {
                   isActiveRoute(pathname, dashboardItem.href)
                     ? "bg-blue-50 text-[#0f4c81]"
                     : "text-slate-700 hover:bg-slate-50 hover:text-slate-950",
-                  !sidebarExpanded && "lg:justify-center lg:px-2",
                 )}
               >
                 <span
@@ -517,7 +527,16 @@ function Shell({ children }: { children: ReactNode }) {
                 >
                   <SidebarIcon icon={dashboardItem.icon} />
                 </span>
-                <span className={cx("truncate", !sidebarExpanded && "lg:sr-only")}>Dashboard</span>
+                <span
+                  className={cx(
+                    "max-w-36 overflow-hidden whitespace-nowrap transition-[max-width,opacity] duration-200 ease-out motion-reduce:duration-0 motion-reduce:transition-none",
+                    sidebarExpanded
+                      ? "lg:opacity-100"
+                      : "lg:invisible lg:max-w-0 lg:opacity-0",
+                  )}
+                >
+                  Dashboard
+                </span>
               </Link>
             </div>
           ) : null}
@@ -541,7 +560,6 @@ function Shell({ children }: { children: ReactNode }) {
                       groupActive
                         ? "bg-blue-50 text-[#0f4c81]"
                         : "text-slate-700 hover:bg-slate-50 hover:text-slate-950",
-                      !sidebarExpanded && "lg:justify-center lg:px-2",
                     )}
                     onClick={() => toggleGroup(group.label)}
                   >
@@ -556,7 +574,14 @@ function Shell({ children }: { children: ReactNode }) {
                     >
                       <SidebarIcon icon={group.icon} />
                     </span>
-                    <span className={cx("min-w-0 flex-1 truncate", !sidebarExpanded && "lg:sr-only")}>
+                    <span
+                      className={cx(
+                        "min-w-0 flex-1 overflow-hidden whitespace-nowrap transition-[max-width,opacity] duration-200 ease-out motion-reduce:duration-0 motion-reduce:transition-none",
+                        sidebarExpanded
+                          ? "lg:max-w-36 lg:opacity-100"
+                          : "lg:invisible lg:max-w-0 lg:opacity-0",
+                      )}
+                    >
                       {group.label}
                     </span>
                   </button>
@@ -565,8 +590,9 @@ function Shell({ children }: { children: ReactNode }) {
                     id={groupId}
                     hidden={!expanded}
                     className={cx(
-                      "ml-5 mt-1 space-y-0.5 border-l border-slate-200 pl-2",
-                      !sidebarExpanded && "lg:hidden",
+                      "ml-5 mt-1 max-h-96 space-y-0.5 overflow-hidden border-l border-slate-200 pl-2 opacity-100 transition-[max-height,opacity,margin] duration-200 ease-out motion-reduce:duration-0 motion-reduce:transition-none",
+                      !sidebarExpanded &&
+                        "lg:invisible lg:mt-0 lg:max-h-0 lg:pointer-events-none lg:opacity-0",
                     )}
                   >
                     {group.items.map((item) => {
@@ -577,7 +603,7 @@ function Shell({ children }: { children: ReactNode }) {
                           href={item.href}
                           onClick={closeNavigationAfterRouteClick}
                           aria-current={active ? "page" : undefined}
-                          aria-label={!sidebarExpanded ? item.label : undefined}
+                          aria-label={item.label}
                           title={!sidebarExpanded ? item.label : undefined}
                           className={cx(
                             focusRing,
@@ -585,13 +611,19 @@ function Shell({ children }: { children: ReactNode }) {
                             active
                               ? "bg-blue-50 text-[#0f4c81]"
                               : "text-slate-500 hover:bg-slate-50 hover:text-slate-900",
-                            !sidebarExpanded && "lg:justify-center lg:px-1.5",
                           )}
                         >
                           <span aria-hidden="true" className={cx("shrink-0 text-slate-400", active && "text-[#0f4c81]")}>
                             <SidebarIcon icon={item.icon} item />
                           </span>
-                          <span className={cx("truncate", !sidebarExpanded && "lg:sr-only")}>
+                          <span
+                            className={cx(
+                              "max-w-36 overflow-hidden whitespace-nowrap transition-[max-width,opacity] duration-200 ease-out motion-reduce:duration-0 motion-reduce:transition-none",
+                              sidebarExpanded
+                                ? "lg:opacity-100"
+                                : "lg:invisible lg:max-w-0 lg:opacity-0",
+                            )}
+                          >
                             {item.label}
                           </span>
                         </Link>

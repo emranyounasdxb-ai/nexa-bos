@@ -19,6 +19,7 @@ export default function CreateApplicationPage() {
   const api = getBrowserApiUrl();
   const [error, setError] = useState("");
   const [customers, setCustomers] = useState<CustomerRecord[]>([]);
+  const [customerQuery, setCustomerQuery] = useState("");
   const [mappings, setMappings] = useState<BankProductRecord[]>([]);
   const [products, setProducts] = useState<CatalogItem[]>([]);
   const [owners, setOwners] = useState<ManagerOption[]>([]);
@@ -32,19 +33,33 @@ export default function CreateApplicationPage() {
 
   useEffect(() => {
     void Promise.all([
-      apiGet<{ items: CustomerRecord[] }>("/api/v1/customers", api),
       apiGet<{ items: BankProductRecord[] }>("/api/v1/bank-products", api),
       apiGet<{ items: CatalogItem[] }>("/api/v1/products", api),
       apiGet<{ items: ManagerOption[] }>("/api/v1/users/case-owners", api),
     ])
-      .then(([customerData, mappingData, productData, ownerData]) => {
-        setCustomers(customerData.items.filter((item) => item.status === "Active"));
+      .then(([mappingData, productData, ownerData]) => {
         setMappings(mappingData.items.filter((item) => item.status === "active"));
         setProducts(productData.items);
         setOwners(ownerData.items);
       })
       .catch((err: unknown) => setError(err instanceof Error ? err.message : "Load failed"));
   }, [api]);
+
+  useEffect(() => {
+    let active = true;
+    const query = new URLSearchParams({ page: "1", page_size: "50", status: "Active" });
+    if (customerQuery.trim()) query.set("q", customerQuery.trim());
+    void apiGet<{ items: CustomerRecord[] }>(`/api/v1/customers?${query}`, api)
+      .then((data) => {
+        if (active) setCustomers(data.items);
+      })
+      .catch((err: unknown) => {
+        if (active) setError(err instanceof Error ? err.message : "Unable to load customers");
+      });
+    return () => {
+      active = false;
+    };
+  }, [api, customerQuery]);
 
   const selectedMapping = mappings.find((item) => item.id === form.mapping_id);
   const selectedProduct = products.find((item) => item.id === selectedMapping?.productId);
@@ -88,6 +103,15 @@ export default function CreateApplicationPage() {
           void submit();
         }}
       >
+        <label className="block text-sm">
+          Search customers
+          <TextInput
+            aria-label="Search customers"
+            value={customerQuery}
+            placeholder="Customer code, name, company, mobile, or identifier"
+            onChange={(event) => setCustomerQuery(event.target.value)}
+          />
+        </label>
         <label className="block text-sm">
           Customer
           <Select

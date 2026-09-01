@@ -4,6 +4,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { DatePicker } from "@/components/date-picker";
 import {
+  Pagination,
+  type PaginatedResponse,
+  SERVER_PAGE_SIZE_OPTIONS,
+  type ServerPageSize,
+} from "@/components/pagination";
+import {
   Button,
   ButtonLink,
   Card,
@@ -43,6 +49,11 @@ export default function AttendanceReportsPage() {
   const [employees, setEmployees] = useState<Option[]>([]);
   const [summary, setSummary] = useState<AttendanceSummary | null>(null);
   const [items, setItems] = useState<AttendanceRecord[]>([]);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState<ServerPageSize>(10);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const officeDepartments = useMemo(
@@ -63,7 +74,7 @@ export default function AttendanceReportsPage() {
     setLeaveTypes(data.leaveTypes);
   }, [api]);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (requestedPage = page, requestedPageSize = pageSize) => {
     const query = new URLSearchParams({ date_from: dateFrom, date_to: dateTo });
     if (officeId) query.set("office_id", officeId);
     if (departmentId) query.set("department_id", departmentId);
@@ -73,20 +84,27 @@ export default function AttendanceReportsPage() {
     if (late) query.set("late", "true");
     if (early) query.set("early_exit", "true");
     if (incomplete) query.set("incomplete", "true");
+    query.set("page", String(requestedPage));
+    query.set("page_size", String(requestedPageSize));
     try {
+      setLoading(true);
       setError("");
-      const data = await apiGet<{ summary: AttendanceSummary; items: AttendanceRecord[] }>(
+      const data = await apiGet<PaginatedResponse<AttendanceRecord> & { summary: AttendanceSummary }>(
         `/api/v1/attendance/reports?${query}`,
         api,
       );
       setSummary(data.summary);
       setItems(data.items);
+      setTotal(data.pagination.total);
+      setTotalPages(data.pagination.totalPages);
     } catch (err) {
       setSummary(null);
       setItems([]);
       setError(err instanceof ApiClientError ? err.message : "Unable to load attendance report");
+    } finally {
+      setLoading(false);
     }
-  }, [api, dateFrom, dateTo, departmentId, early, employeeId, incomplete, late, leaveTypeId, officeId, status]);
+  }, [api, dateFrom, dateTo, departmentId, early, employeeId, incomplete, late, leaveTypeId, officeId, page, pageSize, status]);
 
   useEffect(() => {
     if (!can("Attendance.Reports")) return;
@@ -201,7 +219,7 @@ export default function AttendanceReportsPage() {
           />
           Incomplete Attendance
         </label>
-        <Button type="button" onClick={() => void load()}>
+        <Button type="button" onClick={() => { setPage(1); void load(1, pageSize); }}>
           Run report
         </Button>
       </div>
@@ -228,7 +246,7 @@ export default function AttendanceReportsPage() {
           </Card>
         </div>
       ) : null}
-      <TableShell>
+      <TableShell className={loading && items.length > 0 ? "opacity-70" : undefined}>
         <TableHead>
           <tr>
             <Th>Date</Th>
@@ -266,6 +284,23 @@ export default function AttendanceReportsPage() {
           )}
         </tbody>
       </TableShell>
+      <Pagination
+        page={page}
+        pageSize={pageSize}
+        total={total}
+        totalPages={totalPages}
+        pageSizeOptions={SERVER_PAGE_SIZE_OPTIONS}
+        onPageChange={(value) => {
+          setPage(value);
+          void load(value, pageSize);
+        }}
+        onPageSizeChange={(value) => {
+          if (value === "all") return;
+          setPage(1);
+          setPageSize(value);
+          void load(1, value);
+        }}
+      />
     </section>
   );
 }

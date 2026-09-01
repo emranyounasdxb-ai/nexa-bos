@@ -5,6 +5,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { DatePicker } from "@/components/date-picker";
 import {
+  Pagination,
+  type PaginatedResponse,
+  SERVER_PAGE_SIZE_OPTIONS,
+  type ServerPageSize,
+} from "@/components/pagination";
+import {
   Badge,
   Button,
   ButtonLink,
@@ -72,6 +78,10 @@ export default function AttendancePage() {
   const [departments, setDepartments] = useState<FilterDept[]>([]);
   const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
   const [items, setItems] = useState<RosterItem[]>([]);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState<ServerPageSize>(10);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
   const [holiday, setHoliday] = useState<{ name: string } | null>(null);
   const [weeklyOff, setWeeklyOff] = useState(false);
@@ -118,16 +128,20 @@ export default function AttendancePage() {
     const query = new URLSearchParams({ attendance_date: date });
     if (officeId) query.set("office_id", officeId);
     if (departmentId) query.set("department_id", departmentId);
+    query.set("page", String(page));
+    query.set("page_size", String(pageSize));
     setLoading(true);
     try {
       setError("");
-      const data = await apiGet<{
+      const data = await apiGet<PaginatedResponse<RosterItem> & {
         items: RosterItem[];
         officialHoliday: { name: string } | null;
         isWeeklyOff: boolean;
       }>(`/api/v1/attendance/day?${query}`, api);
       if (generation !== loadGeneration.current) return;
       setItems(data.items);
+      setTotal(data.pagination.total);
+      setTotalPages(data.pagination.totalPages);
       setHoliday(data.officialHoliday);
       setWeeklyOff(data.isWeeklyOff);
       const next: Record<string, Draft> = {};
@@ -149,7 +163,7 @@ export default function AttendancePage() {
         setLoading(false);
       }
     }
-  }, [api, date, departmentId, officeId]);
+  }, [api, date, departmentId, officeId, page, pageSize]);
 
   useEffect(() => {
     if (!can("Attendance.View")) return;
@@ -256,7 +270,7 @@ export default function AttendancePage() {
       <FilterBar>
         <label className="text-sm">
           Date
-          <DatePicker aria-label="Attendance date" value={date} onChange={setDate} required />
+          <DatePicker aria-label="Attendance date" value={date} onChange={(value) => { setDate(value); setPage(1); }} required />
         </label>
         <label className="text-sm">
           Office
@@ -266,6 +280,7 @@ export default function AttendancePage() {
             onChange={(event) => {
               setOfficeId(event.target.value);
               setDepartmentId("");
+              setPage(1);
             }}
           >
             <option value="">All offices</option>
@@ -278,7 +293,7 @@ export default function AttendancePage() {
         </label>
         <label className="text-sm">
           Department
-          <Select aria-label="Department" value={departmentId} onChange={(event) => setDepartmentId(event.target.value)}>
+          <Select aria-label="Department" value={departmentId} onChange={(event) => { setDepartmentId(event.target.value); setPage(1); }}>
             <option value="">All departments</option>
             {officeDepartments.map((item) => (
               <option key={item.id} value={item.id}>
@@ -327,7 +342,7 @@ export default function AttendancePage() {
                   <Td>
                     <select
                       aria-label={`${item.fullName} status`}
-                      className={controlClass}
+                      className={`${controlClass} !min-h-8 !py-1 text-xs`}
                       value={draft?.status ?? "Present"}
                       onChange={(event) => updateDraft(item.employeeId, { status: event.target.value })}
                       disabled={!canManage && !canCorrect}
@@ -359,7 +374,7 @@ export default function AttendancePage() {
                     <input
                       aria-label={`${item.fullName} time in`}
                       type="time"
-                      className={controlClass}
+                      className={`${controlClass} !min-h-8 !py-1 text-xs`}
                       value={draft?.timeIn ?? ""}
                       onChange={(event) => updateDraft(item.employeeId, { timeIn: event.target.value })}
                       disabled={!canManage && !canCorrect}
@@ -369,7 +384,7 @@ export default function AttendancePage() {
                     <input
                       aria-label={`${item.fullName} time out`}
                       type="time"
-                      className={controlClass}
+                      className={`${controlClass} !min-h-8 !py-1 text-xs`}
                       value={draft?.timeOut ?? ""}
                       onChange={(event) => updateDraft(item.employeeId, { timeOut: event.target.value })}
                       disabled={!canManage && !canCorrect}
@@ -389,7 +404,7 @@ export default function AttendancePage() {
                   <Td>
                     <input
                       aria-label={`${item.fullName} notes`}
-                      className={controlClass}
+                      className={`${controlClass} !min-h-8 !py-1 text-xs`}
                       value={draft?.notes ?? ""}
                       onChange={(event) => updateDraft(item.employeeId, { notes: event.target.value })}
                       disabled={!canManage && !canCorrect}
@@ -400,6 +415,7 @@ export default function AttendancePage() {
                       {canManage && !item.record ? (
                         <Button
                           type="button"
+                          size="compact"
                           aria-label={`${item.fullName} save`}
                           onClick={() => void saveRow(item.employeeId)}
                         >
@@ -409,6 +425,7 @@ export default function AttendancePage() {
                       {canManage && item.record && !canCorrect ? (
                         <Button
                           type="button"
+                          size="compact"
                           aria-label={`${item.fullName} update`}
                           onClick={() => void saveRow(item.employeeId)}
                         >
@@ -419,6 +436,7 @@ export default function AttendancePage() {
                         <Button
                           type="button"
                           variant="secondary"
+                          size="compact"
                           aria-label={`${item.fullName} correct`}
                           onClick={() => setCorrecting(item.record)}
                         >
@@ -433,6 +451,17 @@ export default function AttendancePage() {
           )}
         </tbody>
       </TableShell>
+      <Pagination
+        page={page}
+        pageSize={pageSize}
+        total={total}
+        totalPages={totalPages}
+        pageSizeOptions={SERVER_PAGE_SIZE_OPTIONS}
+        onPageChange={setPage}
+        onPageSizeChange={(value) => {
+          if (value !== "all") setPageSize(value);
+        }}
+      />
       {correcting ? (
         <div className="rounded-xl border border-slate-200 bg-white p-4">
           <h3 className="text-sm font-semibold">Correct attendance</h3>

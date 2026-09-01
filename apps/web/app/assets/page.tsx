@@ -4,6 +4,12 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
+  Pagination,
+  type PaginatedResponse,
+  SERVER_PAGE_SIZE_OPTIONS,
+  type ServerPageSize,
+} from "@/components/pagination";
+import {
   Badge,
   Button,
   Card,
@@ -79,6 +85,11 @@ export default function AssetsPage() {
   const api = getBrowserApiUrl();
   const [options, setOptions] = useState<AssetOptions | null>(null);
   const [assets, setAssets] = useState<AssetRecord[]>([]);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState<ServerPageSize>(10);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [status, setStatus] = useState("");
   const [office, setOffice] = useState("");
@@ -98,10 +109,19 @@ export default function AssetsPage() {
     if (status) params.set("status", status);
     if (office) params.set("officeId", office);
     if (category) params.set("categoryId", category);
+    params.set("page", String(page));
+    params.set("page_size", String(pageSize));
     const suffix = params.size ? `?${params.toString()}` : "";
-    const data = await apiGet<{ items: AssetRecord[] }>(`/api/v1/assets${suffix}`, api);
-    setAssets(data.items);
-  }, [api, category, office, q, status]);
+    setLoading(true);
+    try {
+      const data = await apiGet<PaginatedResponse<AssetRecord>>(`/api/v1/assets${suffix}`, api);
+      setAssets(data.items);
+      setTotal(data.pagination.total);
+      setTotalPages(data.pagination.totalPages);
+    } finally {
+      setLoading(false);
+    }
+  }, [api, category, office, page, pageSize, q, status]);
 
   useEffect(() => {
     if (!can("Assets.View")) return;
@@ -208,23 +228,26 @@ export default function AssetsPage() {
             aria-label="Search Assets"
             value={q}
             placeholder="Asset Code or identifier"
-            onChange={(event) => setQ(event.target.value)}
+            onChange={(event) => {
+              setQ(event.target.value);
+              setPage(1);
+            }}
           />
         </Field>
         <Field label="Status">
-          <Select aria-label="Asset status filter" value={status} onChange={(event) => setStatus(event.target.value)}>
+          <Select aria-label="Asset status filter" value={status} onChange={(event) => { setStatus(event.target.value); setPage(1); }}>
             <option value="">All statuses</option>
             {options?.statuses.map((item) => <option key={item}>{item}</option>)}
           </Select>
         </Field>
         <Field label="Office">
-          <Select aria-label="Asset office filter" value={office} onChange={(event) => setOffice(event.target.value)}>
+          <Select aria-label="Asset office filter" value={office} onChange={(event) => { setOffice(event.target.value); setPage(1); }}>
             <option value="">All authorized Offices</option>
             {options?.offices.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
           </Select>
         </Field>
         <Field label="Category">
-          <Select aria-label="Asset category filter" value={category} onChange={(event) => setCategory(event.target.value)}>
+          <Select aria-label="Asset category filter" value={category} onChange={(event) => { setCategory(event.target.value); setPage(1); }}>
             <option value="">All categories</option>
             {options?.categories.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
           </Select>
@@ -281,7 +304,7 @@ export default function AssetsPage() {
 
       <ErrorText>{error}</ErrorText>
       {message ? <p className="text-sm text-slate-700">{message}</p> : null}
-      <TableShell>
+      <TableShell className={loading && assets.length > 0 ? "opacity-70" : undefined}>
         <TableHead>
           <tr>
             <Th>Asset Code</Th>
@@ -305,7 +328,19 @@ export default function AssetsPage() {
           ))}
         </tbody>
       </TableShell>
-      {assets.length === 0 ? <EmptyState>No authorized Assets match the filters.</EmptyState> : null}
+      {loading && assets.length === 0 ? <EmptyState>Loading Assets…</EmptyState> : null}
+      {!loading && assets.length === 0 ? <EmptyState>No authorized Assets match the filters.</EmptyState> : null}
+      <Pagination
+        page={page}
+        pageSize={pageSize}
+        total={total}
+        totalPages={totalPages}
+        pageSizeOptions={SERVER_PAGE_SIZE_OPTIONS}
+        onPageChange={setPage}
+        onPageSizeChange={(value) => {
+          if (value !== "all") setPageSize(value);
+        }}
+      />
     </section>
   );
 }

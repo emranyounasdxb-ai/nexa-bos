@@ -8,6 +8,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from nexa_bos_api.core.exceptions import AppError
+from nexa_bos_api.core.pagination import PageResult
 from nexa_bos_api.customers.models import (
     Customer,
     CustomerCodeCounter,
@@ -444,12 +445,14 @@ async def list_customers(
     *,
     q: str | None,
     status: str | None,
-) -> list[Customer]:
+    page: int,
+    page_size: int,
+) -> PageResult[Customer]:
     stmt = select(Customer)
     allowed = await _allowed_customer_ids(session, actor)
     if allowed is not None:
         if not allowed:
-            return []
+            return PageResult(items=[], page=page, page_size=page_size, total=0)
         stmt = stmt.where(Customer.id.in_(allowed))
     if status:
         stmt = stmt.where(Customer.status == status)
@@ -468,8 +471,18 @@ async def list_customers(
                 ),
             )
         )
-    stmt = stmt.order_by(Customer.customer_code)
-    return list((await session.execute(stmt)).scalars().unique().all())
+        stmt = stmt.distinct()
+    count_stmt = select(func.count()).select_from(
+        stmt.with_only_columns(Customer.id).order_by(None).subquery()
+    )
+    total = int((await session.scalar(count_stmt)) or 0)
+    stmt = (
+        stmt.order_by(Customer.customer_code, Customer.id)
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+    )
+    items = list((await session.execute(stmt)).scalars().unique().all())
+    return PageResult(items=items, page=page, page_size=page_size, total=total)
 
 
 def _reject_merged(customer: Customer) -> None:

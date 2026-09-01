@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
-import { Button, ErrorText, PageHeader, TextInput } from "@/components/ui";
+import { Pagination, useClientPagination } from "@/components/pagination";
+import { Button, ErrorText, PageHeader, StatusBadge, TableHead, TableShell, Td, TextInput, Th } from "@/components/ui";
 import { apiGet, apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { getBrowserApiUrl } from "@/lib/env";
@@ -16,6 +17,7 @@ export default function UserTypesPage() {
   const [canManage, setCanManage] = useState(false);
   const [error, setError] = useState("");
   const api = getBrowserApiUrl();
+  const pagination = useClientPagination(items);
 
   const refresh = useCallback(async () => {
     const data = await apiGet<{ items: UserTypeSummary[] }>("/api/v1/user-types", api);
@@ -78,36 +80,43 @@ export default function UserTypesPage() {
           <Button type="submit">Create custom type</Button>
         </form>
       ) : null}
-      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.03)]">
-      <table className="min-w-full text-sm">
-        <thead className="bg-slate-50">
+      <TableShell className="rounded-b-none">
+        <TableHead>
           <tr>
-            <th className="px-3 py-2 text-left">Code</th>
-            <th className="px-3 py-2 text-left">Name</th>
-            <th className="px-3 py-2 text-left">Status</th>
-            <th className="px-3 py-2 text-left">User directory scope</th>
-            <th className="px-3 py-2 text-left">Customer scope</th>
-            <th className="px-3 py-2 text-left">Can be reporting manager</th>
+            <Th>Code</Th>
+            <Th>Name</Th>
+            <Th>Status</Th>
+            <Th>User directory scope</Th>
+            <Th>Customer scope</Th>
+            <Th>Can be reporting manager</Th>
           </tr>
-        </thead>
+        </TableHead>
         <tbody>
-          {items.map((item) => (
-            <tr key={item.id} className="border-t">
-              <td className="px-3 py-2">
+          {pagination.pagedItems.map((item) => (
+            <tr key={item.id}>
+              <Td>
                 <Link className="font-medium" href={`/user-types/${item.id}`}>
                   {item.code}
                 </Link>
-              </td>
-              <td className="px-3 py-2">{item.name}</td>
-              <td className="px-3 py-2">{item.status}</td>
-              <td className="px-3 py-2">{item.visibilityScope ?? "none"}</td>
-              <td className="px-3 py-2">{item.customerVisibilityScope ?? "none"}</td>
-              <td className="px-3 py-2">{item.canBeReportingManager ? "Yes" : "No"}</td>
+              </Td>
+              <Td>{item.name}</Td>
+              <Td><StatusBadge value={item.status} /></Td>
+              <Td>{item.visibilityScope ?? "none"}</Td>
+              <Td>{item.customerVisibilityScope ?? "none"}</Td>
+              <Td>{item.canBeReportingManager ? "Yes" : "No"}</Td>
             </tr>
           ))}
         </tbody>
-      </table>
-      </div>
+      </TableShell>
+      <Pagination
+        className="-mt-6 rounded-b-[10px] border border-slate-200"
+        page={pagination.page}
+        pageSize={pagination.pageSize}
+        total={pagination.total}
+        totalPages={pagination.totalPages}
+        onPageChange={pagination.setPage}
+        onPageSizeChange={pagination.setPageSize}
+      />
     </section>
   );
 }

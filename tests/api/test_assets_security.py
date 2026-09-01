@@ -495,7 +495,7 @@ async def test_office_scope_blocks_idor_tampering_audit_and_export_leakage(
 
     async with await spawned_client() as restricted:
         await authenticate(restricted, office_admin["email"], "UserPass1!")
-        listed = await restricted.get("/api/v1/assets")
+        listed = await restricted.get("/api/v1/assets", params={"q": dxb_asset["assetCode"]})
         assert listed.status_code == 200
         listed_codes = {row["assetCode"] for row in listed.json()["items"]}
         assert dxb_asset["assetCode"] in listed_codes

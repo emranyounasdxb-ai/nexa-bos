@@ -55,7 +55,9 @@ async def test_office_scope_hides_other_offices(client: AsyncClient) -> None:
     other = await create_activated_user(authed, user_type_code="GM", office_id=abu_dhabi)
     async with await spawned_client() as other_client:
         await authenticate(other_client, viewer["email"], "UserPass1!")
-        directory = await other_client.get("/api/v1/users")
+        directory = await other_client.get(
+            "/api/v1/users", params={"q": viewer["employeeCode"]}
+        )
         ids = {item["id"] for item in directory.json()["items"]}
         assert viewer["id"] in ids
         assert other["id"] not in ids

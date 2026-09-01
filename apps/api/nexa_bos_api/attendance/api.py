@@ -7,6 +7,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends
 
 from nexa_bos_api.api.v1.deps import CurrentUser, require_permission
+from nexa_bos_api.api.v1.pagination import PaginationDep
 from nexa_bos_api.attendance.schemas import (
     AttendanceBulkRequest,
     AttendanceCorrectionRequest,
@@ -212,12 +213,19 @@ async def attendance_filters(
 async def attendance_day(
     session: SessionDep,
     actor: Annotated[CurrentUser, Depends(require_permission(ATTENDANCE_VIEW))],
+    pagination: PaginationDep,
     attendance_date: date,
     office_id: UUID | None = None,
     department_id: UUID | None = None,
 ) -> dict[str, object]:
     return await day_roster(
-        session, actor, attendance_date, office_id=office_id, department_id=department_id
+        session,
+        actor,
+        attendance_date,
+        office_id=office_id,
+        department_id=department_id,
+        page=pagination.page,
+        page_size=pagination.page_size,
     )
 
 
@@ -253,6 +261,7 @@ async def attendance_correct(
 async def attendance_reports(
     session: SessionDep,
     actor: Annotated[CurrentUser, Depends(require_permission(ATTENDANCE_REPORTS))],
+    pagination: PaginationDep,
     date_from: date,
     date_to: date,
     employee_id: UUID | None = None,
@@ -277,6 +286,8 @@ async def attendance_reports(
         late=late,
         early_exit=early_exit,
         incomplete=incomplete,
+        page=pagination.page,
+        page_size=pagination.page_size,
     )
 
 

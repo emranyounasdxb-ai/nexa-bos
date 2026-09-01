@@ -16,6 +16,7 @@ export default function CustomerDetailPage() {
   const [customer, setCustomer] = useState<CustomerRecord | null>(null);
   const [applications, setApplications] = useState<ApplicationRecord[]>([]);
   const [others, setOthers] = useState<CustomerRecord[]>([]);
+  const [otherQuery, setOtherQuery] = useState("");
   const [primaryId, setPrimaryId] = useState("");
   const [message, setMessage] = useState("");
   const [form, setForm] = useState({
@@ -45,8 +46,6 @@ export default function CustomerDetailPage() {
       employer: data.employer ?? "",
       trade_license: data.tradeLicense ?? "",
     });
-    const directory = await apiGet<{ items: CustomerRecord[] }>("/api/v1/customers", api);
-    setOthers(directory.items.filter((item) => item.id !== data.id && item.status !== "Merged"));
     try {
       const apps = await apiGet<{ items: ApplicationRecord[] }>(
         `/api/v1/customers/${params.id}/applications`,
@@ -61,6 +60,29 @@ export default function CustomerDetailPage() {
   useEffect(() => {
     void refresh().catch((err: unknown) => setMessage(err instanceof Error ? err.message : "Load failed"));
   }, [refresh]);
+
+  useEffect(() => {
+    if (!customer) return;
+    let active = true;
+    const query = new URLSearchParams({ page: "1", page_size: "50" });
+    if (otherQuery.trim()) query.set("q", otherQuery.trim());
+    void apiGet<{ items: CustomerRecord[] }>(`/api/v1/customers?${query}`, api)
+      .then((directory) => {
+        if (active) {
+          setOthers(
+            directory.items.filter(
+              (item) => item.id !== customer.id && item.status !== "Merged",
+            ),
+          );
+        }
+      })
+      .catch((err: unknown) => {
+        if (active) setMessage(err instanceof Error ? err.message : "Load failed");
+      });
+    return () => {
+      active = false;
+    };
+  }, [api, customer, otherQuery]);
 
   if (!customer) {
     return <p className="text-sm">{message || "Loading…"}</p>;
@@ -213,6 +235,12 @@ export default function CustomerDetailPage() {
           <p className="text-xs text-slate-500">
             Irreversible. This customer code is retired and never reused. History is preserved.
           </p>
+          <TextInput
+            aria-label="Search primary customers"
+            value={otherQuery}
+            placeholder="Search customer code, name, company, mobile, or identifier"
+            onChange={(event) => setOtherQuery(event.target.value)}
+          />
           <select
             className={controlClass}
             value={primaryId}

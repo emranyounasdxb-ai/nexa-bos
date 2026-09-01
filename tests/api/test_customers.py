@@ -30,7 +30,7 @@ async def test_customer_code_and_type_rules(client: AsyncClient) -> None:
     assert body["customerCode"].startswith("CUS-")
     assert body["status"] == "Active"
     assert body["customerType"] == "individual"
-    listed = await authed.get("/api/v1/customers")
+    listed = await authed.get("/api/v1/customers", params={"q": body["customerCode"]})
     assert any(item["id"] == body["id"] for item in listed.json()["items"])
     patched = await authed.patch(
         f"/api/v1/customers/{body['id']}", json={"customer_type": "company"}
@@ -128,7 +128,12 @@ async def test_merge_retires_code_and_is_irreversible(client: AsyncClient) -> No
         f"/api/v1/customers/{source.json()['id']}", json={"full_name": "Nope"}
     )
     assert edit.status_code == 422
-    codes = {item["customerCode"] for item in (await authed.get("/api/v1/customers")).json()["items"]}
+    codes = {
+        item["customerCode"]
+        for item in (
+            await authed.get("/api/v1/customers", params={"q": source_code})
+        ).json()["items"]
+    }
     assert source_code in codes
     newest = await create_individual(authed)
     assert newest.json()["customerCode"] != source_code

@@ -4,6 +4,13 @@ import { useCallback, useEffect, useState } from "react";
 
 import { DatePicker } from "@/components/date-picker";
 import {
+  PaginatedResponse,
+  Pagination,
+  SERVER_PAGE_SIZE_OPTIONS,
+  ServerPageSize,
+  useClientPagination,
+} from "@/components/pagination";
+import {
   Badge,
   Button,
   Card,
@@ -76,7 +83,8 @@ type Payout = {
   finalPayable: string;
   carryForward: string;
 };
-type StatementItem = Payout & {
+type StatementItem = Omit<Payout, "id"> & {
+  payoutId: string;
   eligibleCases: number;
   eligibleValue: string;
   grossAmount: string;
@@ -212,6 +220,11 @@ export default function FinancePage() {
   const [plans, setPlans] = useState<IncentivePlan[]>([]);
   const [periods, setPeriods] = useState<Period[]>([]);
   const [statementItems, setStatementItems] = useState<StatementItem[]>([]);
+  const [statementPage, setStatementPage] = useState(1);
+  const [statementPageSize, setStatementPageSize] = useState<ServerPageSize>(10);
+  const [statementTotal, setStatementTotal] = useState(0);
+  const [statementTotalPages, setStatementTotalPages] = useState(0);
+  const [statementLoading, setStatementLoading] = useState(false);
   const [components, setComponents] = useState<Component[]>([]);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -240,6 +253,8 @@ export default function FinancePage() {
   const [clawbackOriginal, setClawbackOriginal] = useState("");
   const [clawbackAmount, setClawbackAmount] = useState("");
   const [clawbackReason, setClawbackReason] = useState("");
+  const rulesPagination = useClientPagination(rules);
+  const plansPagination = useClientPagination(plans);
 
   const load = useCallback(async () => {
     setError("");
@@ -257,22 +272,35 @@ export default function FinancePage() {
         setProductId((current) => current || nextOptions.products[0]?.id || "");
       }
       if (can("Finance.View")) {
-        const nextPeriods = await apiGet<{ items: Period[] }>("/api/v1/finance/periods", api);
+        const nextPeriods = await apiGet<{ items: Period[] }>(
+          "/api/v1/finance/periods?include_payouts=false",
+          api,
+        );
         setPeriods(nextPeriods.items);
         if (nextPeriods.items.some((item) => item.periodMonth === month)) {
-          const statement = await apiGet<{ items: StatementItem[] }>(
-            `/api/v1/finance/statements?period_month=${encodeURIComponent(month)}`,
-            api,
-          );
-          setStatementItems(statement.items);
+          setStatementLoading(true);
+          try {
+            const statement = await apiGet<PaginatedResponse<StatementItem>>(
+              `/api/v1/finance/statements?period_month=${encodeURIComponent(month)}&page=${statementPage}&page_size=${statementPageSize}`,
+              api,
+            );
+            setStatementItems(statement.items);
+            setStatementPage(statement.pagination.page);
+            setStatementTotal(statement.pagination.total);
+            setStatementTotalPages(statement.pagination.totalPages);
+          } finally {
+            setStatementLoading(false);
+          }
         } else {
           setStatementItems([]);
+          setStatementTotal(0);
+          setStatementTotalPages(0);
         }
       }
     } catch (err) {
       setError(err instanceof ApiClientError ? err.message : "Unable to load Finance");
     }
-  }, [api, can, month]);
+  }, [api, can, month, statementPage, statementPageSize]);
 
   useEffect(() => {
     void load();
@@ -405,15 +433,7 @@ export default function FinancePage() {
   }
 
   const selectedPeriod = periods.find((item) => item.periodMonth === month);
-  const statementsByRecipient = new Map(
-    statementItems.map((item) => [item.recipientId, item]),
-  );
-  const payoutRows = (selectedPeriod?.payouts ?? []).map((payout) => ({
-    ...payout,
-    eligibleCases: statementsByRecipient.get(payout.recipientId)?.eligibleCases ?? 0,
-    eligibleValue: statementsByRecipient.get(payout.recipientId)?.eligibleValue ?? "0.00",
-    grossAmount: statementsByRecipient.get(payout.recipientId)?.grossAmount ?? "0.00",
-  }));
+  const payoutRows = statementItems.map((item) => ({ ...item, id: item.payoutId }));
 
   return (
     <section className="space-y-6">
@@ -436,7 +456,10 @@ export default function FinancePage() {
               <DatePicker
                 aria-label="Finance payout month"
                 value={month}
-                onChange={(value) => setMonth(monthFirst(value))}
+                onChange={(value) => {
+                  setStatementPage(1);
+                  setMonth(monthFirst(value));
+                }}
               />
             </Field>
             {can("Finance.GeneratePayout") && !selectedPeriod ? (
@@ -497,6 +520,7 @@ export default function FinancePage() {
       ) : null}
 
       {payoutRows.length ? (
+        <div className={statementLoading ? "opacity-60" : undefined} aria-busy={statementLoading}>
         <TableShell>
           <TableHead>
             <tr>
@@ -537,8 +561,24 @@ export default function FinancePage() {
             ))}
           </tbody>
         </TableShell>
+        </div>
       ) : can("Finance.View") ? (
         <EmptyState>No payout rows exist for the selected month.</EmptyState>
+      ) : null}
+
+      {selectedPeriod ? (
+        <Pagination
+          page={statementPage}
+          pageSize={statementPageSize}
+          pageSizeOptions={SERVER_PAGE_SIZE_OPTIONS}
+          total={statementTotal}
+          totalPages={statementTotalPages}
+          onPageChange={setStatementPage}
+          onPageSizeChange={(nextPageSize) => {
+            setStatementPage(1);
+            setStatementPageSize(nextPageSize as ServerPageSize);
+          }}
+        />
       ) : null}
 
       {components.length ? (
@@ -741,14 +781,18 @@ export default function FinancePage() {
       ) : null}
 
       {can("Finance.ViewCommissionRules") ? (
-        <TableShell>
+        <>
+        <TableShell className="rounded-b-none">
           <TableHead><tr><Th>Bank / Product</Th><Th>Milestone</Th><Th>Version</Th><Th>Effective</Th><Th>Mode</Th><Th>Recipients</Th><Th>Status</Th><Th>Actions</Th></tr></TableHead>
-          <tbody>{rules.map((rule) => <tr key={rule.id}><Td>{rule.bankName} / {rule.productName}</Td><Td>{rule.eligibilityMilestone}</Td><Td>{rule.version}</Td><Td>{rule.effectiveFrom} – {rule.effectiveTo ?? "open"}</Td><Td>{rule.payoutMode}</Td><Td>{rule.recipients.map((row) => `${row.roleName}: ${row.recipientSource}${row.hierarchyLevel ? ` ${row.hierarchyLevel}` : ""}`).join(", ")}</Td><Td><Badge>{rule.status}</Badge></Td><Td>{can("Finance.ManageCommissionRules") ? rule.status === "active" ? <Button type="button" variant="secondary" onClick={() => void action(`/api/v1/finance/commission-rules/${rule.id}/deactivate`, "Rule deactivated.")}>Deactivate</Button> : <Button type="button" onClick={() => void action(`/api/v1/finance/commission-rules/${rule.id}/activate`, "Rule activated.")}>Activate</Button> : null}</Td></tr>)}</tbody>
+          <tbody>{rulesPagination.pagedItems.map((rule) => <tr key={rule.id}><Td>{rule.bankName} / {rule.productName}</Td><Td>{rule.eligibilityMilestone}</Td><Td>{rule.version}</Td><Td>{rule.effectiveFrom} – {rule.effectiveTo ?? "open"}</Td><Td>{rule.payoutMode}</Td><Td>{rule.recipients.map((row) => `${row.roleName}: ${row.recipientSource}${row.hierarchyLevel ? ` ${row.hierarchyLevel}` : ""}`).join(", ")}</Td><Td><Badge>{rule.status}</Badge></Td><Td>{can("Finance.ManageCommissionRules") ? rule.status === "active" ? <Button type="button" variant="secondary" size="compact" onClick={() => void action(`/api/v1/finance/commission-rules/${rule.id}/deactivate`, "Rule deactivated.")}>Deactivate</Button> : <Button type="button" size="compact" onClick={() => void action(`/api/v1/finance/commission-rules/${rule.id}/activate`, "Rule activated.")}>Activate</Button> : null}</Td></tr>)}</tbody>
         </TableShell>
+        <Pagination className="-mt-6 rounded-b-[10px] border border-slate-200" page={rulesPagination.page} pageSize={rulesPagination.pageSize} total={rulesPagination.total} totalPages={rulesPagination.totalPages} onPageChange={rulesPagination.setPage} onPageSizeChange={rulesPagination.setPageSize} />
+        </>
       ) : null}
 
       {can("Finance.ViewCommissionRules") ? (
-        <TableShell>
+        <>
+        <TableShell className="rounded-b-none">
           <TableHead>
             <tr>
               <Th>Incentive plan</Th>
@@ -760,7 +804,7 @@ export default function FinancePage() {
             </tr>
           </TableHead>
           <tbody>
-            {plans.map((plan) => (
+            {plansPagination.pagedItems.map((plan) => (
               <tr key={plan.id}>
                 <Td>{plan.name}</Td>
                 <Td>{plan.version}</Td>
@@ -774,11 +818,11 @@ export default function FinancePage() {
                 <Td>
                   {can("Finance.ManageCommissionRules") ? (
                     plan.status === "active" ? (
-                      <Button type="button" variant="secondary" onClick={() => void action(`/api/v1/finance/incentive-plans/${plan.id}/deactivate`, "Incentive plan deactivated.")}>
+                      <Button type="button" variant="secondary" size="compact" onClick={() => void action(`/api/v1/finance/incentive-plans/${plan.id}/deactivate`, "Incentive plan deactivated.")}>
                         Deactivate
                       </Button>
                     ) : (
-                      <Button type="button" onClick={() => void action(`/api/v1/finance/incentive-plans/${plan.id}/activate`, "Incentive plan activated.")}>
+                      <Button type="button" size="compact" onClick={() => void action(`/api/v1/finance/incentive-plans/${plan.id}/activate`, "Incentive plan activated.")}>
                         Activate
                       </Button>
                     )
@@ -788,6 +832,8 @@ export default function FinancePage() {
             ))}
           </tbody>
         </TableShell>
+        <Pagination className="-mt-6 rounded-b-[10px] border border-slate-200" page={plansPagination.page} pageSize={plansPagination.pageSize} total={plansPagination.total} totalPages={plansPagination.totalPages} onPageChange={plansPagination.setPage} onPageSizeChange={plansPagination.setPageSize} />
+        </>
       ) : null}
     </section>
   );

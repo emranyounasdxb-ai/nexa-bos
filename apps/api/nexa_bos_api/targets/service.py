@@ -4,7 +4,7 @@ from datetime import UTC, date, datetime
 from decimal import Decimal
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -17,6 +17,7 @@ from nexa_bos_api.attendance.service import (
 )
 from nexa_bos_api.catalog.models import Bank, Product
 from nexa_bos_api.core.exceptions import AppError
+from nexa_bos_api.core.pagination import PageResult
 from nexa_bos_api.identity.access import has_permission
 from nexa_bos_api.identity.audit import record_audit
 from nexa_bos_api.identity.enums import VisibilityScope
@@ -699,6 +700,8 @@ async def list_targets(
     milestone: str | None = None,
     status: str | None = None,
     period: str = PERIOD_MONTH,
+    page: int,
+    page_size: int,
 ) -> dict[str, object]:
     access = await load_reporting_access(session, actor)
     users, teams, offices, products, banks = await _load_catalog(session)
@@ -718,21 +721,71 @@ async def list_targets(
         stmt = stmt.where(PerformanceTarget.milestone == milestone)
     if status:
         stmt = stmt.where(PerformanceTarget.status == status)
-    rows = list(
-        (await session.execute(stmt.order_by(PerformanceTarget.period_month.desc()))).scalars()
-    )
-    visible = [
-        row
-        for row in rows
+    visible_employees = [
+        entity_id
+        for entity_id in users
         if _entity_visible(
             access,
-            level=row.level,
-            entity_id=row.entity_id,
+            level=TARGET_LEVEL_EMPLOYEE,
+            entity_id=entity_id,
             users=users,
             teams=teams,
             offices=offices,
         )
     ]
+    visible_teams = [
+        entity_id
+        for entity_id in teams
+        if _entity_visible(
+            access,
+            level=TARGET_LEVEL_TEAM,
+            entity_id=entity_id,
+            users=users,
+            teams=teams,
+            offices=offices,
+        )
+    ]
+    visible_offices = [
+        entity_id
+        for entity_id in offices
+        if _entity_visible(
+            access,
+            level=TARGET_LEVEL_OFFICE,
+            entity_id=entity_id,
+            users=users,
+            teams=teams,
+            offices=offices,
+        )
+    ]
+    stmt = stmt.where(
+        or_(
+            and_(
+                PerformanceTarget.level == TARGET_LEVEL_EMPLOYEE,
+                PerformanceTarget.entity_id.in_(visible_employees),
+            ),
+            and_(
+                PerformanceTarget.level == TARGET_LEVEL_TEAM,
+                PerformanceTarget.entity_id.in_(visible_teams),
+            ),
+            and_(
+                PerformanceTarget.level == TARGET_LEVEL_OFFICE,
+                PerformanceTarget.entity_id.in_(visible_offices),
+            ),
+        )
+    )
+    count_stmt = select(func.count()).select_from(
+        stmt.with_only_columns(PerformanceTarget.id).order_by(None).subquery()
+    )
+    total = int((await session.scalar(count_stmt)) or 0)
+    visible = list(
+        (
+            await session.execute(
+                stmt.order_by(PerformanceTarget.period_month.desc(), PerformanceTarget.id.desc())
+                .offset((page - 1) * page_size)
+                .limit(page_size)
+            )
+        ).scalars()
+    )
     facts, *_rest = await load_facts(session)
     weekdays, holidays = await _calendar_context(session)
     items = []
@@ -764,6 +817,7 @@ async def list_targets(
         "items": items,
         "currency": CURRENCY,
         "lockedMonths": sorted(m.isoformat() for m in locked),
+        "pagination": PageResult(items=[], page=page, page_size=page_size, total=total).metadata(),
     }
 
 

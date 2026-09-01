@@ -4,7 +4,7 @@ from datetime import UTC, date, datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import String, and_, cast, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -38,6 +38,7 @@ from nexa_bos_api.assets.schemas import (
     OfficeTransferRequest,
 )
 from nexa_bos_api.core.exceptions import AppError
+from nexa_bos_api.core.pagination import PageResult
 from nexa_bos_api.identity.access import (
     has_permission,
     user_load_options,
@@ -664,6 +665,9 @@ async def list_assets(
     office_id: UUID | None = None,
     employee_id: UUID | None = None,
     outstanding: bool | None = None,
+    allocated: bool | None = None,
+    page: int | None = None,
+    page_size: int | None = None,
 ) -> dict[str, object]:
     stmt = await _visible_assets_stmt(session, actor)
     if q and (cleaned := _clean(q)):
@@ -694,11 +698,38 @@ async def list_assets(
                 )
             )
         )
-    stmt = stmt.order_by(Asset.asset_code)
-    rows = list((await session.execute(stmt)).unique().scalars())
+    if allocated is not None:
+        active_allocation = Asset.allocations.any(AssetAllocation.return_date.is_(None))
+        stmt = stmt.where(active_allocation if allocated else ~active_allocation)
     if outstanding is not None:
-        rows = [row for row in rows if bool(serialize_asset(row)["outstanding"]) is outstanding]
-    return {"items": [serialize_asset(row) for row in rows], "total": len(rows)}
+        outstanding_assets = (
+            select(AssetAllocation.asset_id)
+            .join(User, AssetAllocation.employee_id == User.id)
+            .where(
+                AssetAllocation.return_date.is_(None),
+                User.employment_status.in_(OUTSTANDING_EMPLOYMENT),
+            )
+        )
+        stmt = stmt.where(
+            Asset.id.in_(outstanding_assets) if outstanding else Asset.id.not_in(outstanding_assets)
+        )
+    count_stmt = select(func.count()).select_from(
+        stmt.with_only_columns(Asset.id).order_by(None).subquery()
+    )
+    total = int((await session.scalar(count_stmt)) or 0)
+    stmt = stmt.order_by(Asset.asset_code, Asset.id)
+    if page is not None and page_size is not None:
+        stmt = stmt.offset((page - 1) * page_size).limit(page_size)
+    rows = list((await session.execute(stmt)).unique().scalars())
+    payload: dict[str, object] = {
+        "items": [serialize_asset(row) for row in rows],
+        "total": total,
+    }
+    if page is not None and page_size is not None:
+        payload["pagination"] = PageResult(
+            items=[], page=page, page_size=page_size, total=total
+        ).metadata()
+    return payload
 
 
 async def get_asset(session: AsyncSession, actor: User, asset_id: UUID) -> dict[str, object]:
@@ -1319,29 +1350,35 @@ async def asset_audit(
     actor: User,
     *,
     asset_id: UUID | None = None,
+    page: int | None = None,
+    page_size: int | None = None,
 ) -> dict[str, object]:
     if asset_id is not None:
         asset = await _get_asset(session, actor, asset_id)
-        ids = {str(asset.id)}
+        visible_entity_ids = select(cast(Asset.id, String)).where(Asset.id == asset.id)
     else:
         stmt = await _visible_assets_stmt(session, actor)
-        rows = list((await session.execute(stmt)).unique().scalars())
-        ids = {str(row.id) for row in rows}
-    if not ids:
-        return {"items": [], "total": 0}
-    events = list(
-        (
-            await session.execute(
-                select(AuditEvent)
-                .where(
-                    AuditEvent.entity_type == "asset",
-                    AuditEvent.entity_id.in_(ids),
-                )
-                .order_by(AuditEvent.created_at.desc())
-            )
-        ).scalars()
+        visible_entity_ids = stmt.with_only_columns(cast(Asset.id, String)).order_by(None)
+    event_stmt = select(AuditEvent).where(
+        AuditEvent.entity_type == "asset",
+        AuditEvent.entity_id.in_(visible_entity_ids),
     )
-    return {"items": [_event_payload(row) for row in events], "total": len(events)}
+    total = int(
+        (await session.scalar(select(func.count()).select_from(event_stmt.subquery()))) or 0
+    )
+    event_stmt = event_stmt.order_by(AuditEvent.created_at.desc(), AuditEvent.id.desc())
+    if page is not None and page_size is not None:
+        event_stmt = event_stmt.offset((page - 1) * page_size).limit(page_size)
+    events = list((await session.execute(event_stmt)).scalars())
+    payload: dict[str, object] = {
+        "items": [_event_payload(row) for row in events],
+        "total": total,
+    }
+    if page is not None and page_size is not None:
+        payload["pagination"] = PageResult(
+            items=[], page=page, page_size=page_size, total=total
+        ).metadata()
+    return payload
 
 
 async def employee_assets(
@@ -1441,65 +1478,75 @@ async def asset_report(
     office_id: UUID | None = None,
     employee_id: UUID | None = None,
     category_id: UUID | None = None,
+    page: int | None = None,
+    page_size: int | None = None,
 ) -> dict[str, object]:
-    listed = await list_assets(
-        session,
-        actor,
-        office_id=office_id,
-        category_id=category_id,
-    )
-    assets = list(listed["items"])
+    status: AssetStatus | None = None
+    outstanding: bool | None = None
+    allocated: bool | None = None
     if report is AssetReport.AVAILABLE_STOCK:
-        assets = [row for row in assets if row["status"] == AssetStatus.IN_STOCK]
+        status = AssetStatus.IN_STOCK
     elif report in (AssetReport.ALLOCATED_ASSETS, AssetReport.EMPLOYEE_ASSETS):
-        assets = [row for row in assets if row["currentAllocation"] is not None]
+        allocated = True
     elif report is AssetReport.DAMAGED_ASSETS:
-        assets = [row for row in assets if row["status"] == AssetStatus.DAMAGED]
+        status = AssetStatus.DAMAGED
     elif report is AssetReport.LOST_ASSETS:
-        assets = [row for row in assets if row["status"] == AssetStatus.LOST]
+        status = AssetStatus.LOST
     elif report is AssetReport.UNDER_REPAIR_ASSETS:
-        assets = [row for row in assets if row["status"] == AssetStatus.UNDER_REPAIR]
+        status = AssetStatus.UNDER_REPAIR
     elif report is AssetReport.OUTSTANDING_ASSETS:
-        assets = [row for row in assets if row["outstanding"]]
-    if employee_id is not None and report is not AssetReport.RETURNED_ASSETS:
-        assets = [
-            row
-            for row in assets
-            if row["currentAllocation"]
-            and row["currentAllocation"]["employeeId"] == str(employee_id)
-        ]
+        outstanding = True
     if report is AssetReport.RETURNED_ASSETS:
-        stmt = await _visible_assets_stmt(session, actor)
+        visible_stmt = await _visible_assets_stmt(session, actor)
+        visible_ids = visible_stmt.with_only_columns(Asset.id).order_by(None)
+        stmt = (
+            select(Asset, AssetAllocation)
+            .join(AssetAllocation, AssetAllocation.asset_id == Asset.id)
+            .options(*_asset_options())
+            .where(
+                Asset.id.in_(visible_ids),
+                AssetAllocation.end_type == AllocationEndType.RETURN,
+            )
+        )
         if office_id is not None:
             stmt = stmt.where(Asset.office_id == office_id)
         if category_id is not None:
             stmt = stmt.where(Asset.category_id == category_id)
-        rows = list((await session.execute(stmt)).unique().scalars())
+        if employee_id is not None:
+            stmt = stmt.where(AssetAllocation.employee_id == employee_id)
+        total = int(
+            (await session.scalar(select(func.count()).select_from(stmt.order_by(None).subquery())))
+            or 0
+        )
+        stmt = stmt.order_by(
+            AssetAllocation.return_date.desc(),
+            Asset.asset_code,
+            AssetAllocation.id,
+        )
+        if page is not None and page_size is not None:
+            stmt = stmt.offset((page - 1) * page_size).limit(page_size)
+        rows = (await session.execute(stmt)).unique().all()
         items: list[dict[str, object]] = []
-        for asset in rows:
+        for asset, allocation in rows:
             base = _report_asset_row(serialize_asset(asset))
-            for allocation in asset.allocations:
-                if allocation.end_type != AllocationEndType.RETURN:
-                    continue
-                if employee_id is not None and allocation.employee_id != employee_id:
-                    continue
-                items.append(
-                    {
-                        **base,
-                        "Employee Code": allocation.employee.user_code,
-                        "Employee": allocation.employee.full_name,
-                        "Issue Date": allocation.issue_date.isoformat(),
-                        "Return Date": allocation.return_date.isoformat()
-                        if allocation.return_date
-                        else None,
-                        "Return Condition": allocation.return_condition,
-                        "Received By": allocation.received_by.full_name
-                        if allocation.received_by
-                        else None,
-                    }
-                )
+            items.append(
+                {
+                    **base,
+                    "Employee Code": allocation.employee.user_code,
+                    "Employee": allocation.employee.full_name,
+                    "Issue Date": allocation.issue_date.isoformat(),
+                    "Return Date": allocation.return_date.isoformat()
+                    if allocation.return_date
+                    else None,
+                    "Return Condition": allocation.return_condition,
+                    "Received By": allocation.received_by.full_name
+                    if allocation.received_by
+                    else None,
+                }
+            )
     elif report is AssetReport.ASSET_HISTORY:
-        audit = await asset_audit(session, actor)
+        audit = await asset_audit(session, actor, page=page, page_size=page_size)
+        total = int(audit["total"])
         items = [
             {
                 "Action": row["action"],
@@ -1513,8 +1560,22 @@ async def asset_report(
             for row in audit["items"]
         ]
     else:
+        listed = await list_assets(
+            session,
+            actor,
+            status=status,
+            office_id=office_id,
+            employee_id=employee_id,
+            category_id=category_id,
+            outstanding=outstanding,
+            allocated=allocated,
+            page=page,
+            page_size=page_size,
+        )
+        assets = list(listed["items"])
+        total = int(listed["total"])
         items = [_report_asset_row(row) for row in assets]
-    return {
+    payload: dict[str, object] = {
         "report": report.value,
         "title": REPORT_TITLES[report],
         "reportingScope": visibility_scope(actor).value,
@@ -1524,5 +1585,10 @@ async def asset_report(
             "categoryId": str(category_id) if category_id else None,
         },
         "items": items,
-        "total": len(items),
+        "total": total,
     }
+    if page is not None and page_size is not None:
+        payload["pagination"] = PageResult(
+            items=[], page=page, page_size=page_size, total=total
+        ).metadata()
+    return payload

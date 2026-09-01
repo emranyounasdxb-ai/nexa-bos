@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { DatePicker } from "@/components/date-picker";
+import { Pagination, useClientPagination } from "@/components/pagination";
 import {
   Button,
   ButtonLink,
@@ -39,6 +40,7 @@ export default function HolidaysPage() {
   const [message, setMessage] = useState("");
   const canManage = can("Attendance.Manage");
   const canSendUrgent = can("Notifications.SendUrgent");
+  const pagination = useClientPagination(items);
 
   const load = useCallback(async () => {
     try {
@@ -139,7 +141,7 @@ export default function HolidaysPage() {
           </div>
         </form>
       ) : null}
-      <TableShell>
+      <TableShell className="rounded-b-none">
         <TableHead>
           <tr>
             <Th>Date</Th>
@@ -156,12 +158,13 @@ export default function HolidaysPage() {
               </td>
             </tr>
           ) : (
-            items.map((item) => (
+            pagination.pagedItems.map((item) => (
               <tr key={item.id}>
                 <Td>{item.holidayDate}</Td>
                 <Td>
                   {editingId === item.id ? (
                     <TextInput
+                      className="mt-0 !min-h-8 !py-1 text-xs"
                       aria-label={`Edit ${item.name}`}
                       value={item.name}
                       onChange={(event) =>
@@ -179,6 +182,7 @@ export default function HolidaysPage() {
                 <Td>
                   {editingId === item.id ? (
                     <TextInput
+                      className="mt-0 !min-h-8 !py-1 text-xs"
                       aria-label={`Edit details ${item.name}`}
                       value={item.notes ?? ""}
                       onChange={(event) =>
@@ -195,15 +199,16 @@ export default function HolidaysPage() {
                 </Td>
                 <Td>
                   {item.automaticReminderDue ? <span className="text-sm">Automatic window</span> : null}
-                  <div className="mt-1 flex flex-wrap gap-2">
+                  <div className="mt-1 flex flex-wrap gap-1.5">
                     {canManage && editingId === item.id ? (
                       <>
-                        <Button type="button" onClick={() => void saveHolidayEdit(item)}>
+                        <Button type="button" size="compact" onClick={() => void saveHolidayEdit(item)}>
                           Save
                         </Button>
                         <Button
                           type="button"
                           variant="secondary"
+                          size="compact"
                           onClick={() => {
                             setEditingId(null);
                             void load();
@@ -214,7 +219,7 @@ export default function HolidaysPage() {
                       </>
                     ) : null}
                     {canManage && editingId !== item.id ? (
-                      <Button type="button" variant="secondary" onClick={() => setEditingId(item.id)}>
+                      <Button type="button" variant="secondary" size="compact" onClick={() => setEditingId(item.id)}>
                         Edit
                       </Button>
                     ) : null}
@@ -222,6 +227,7 @@ export default function HolidaysPage() {
                       <Button
                         type="button"
                         variant="secondary"
+                        size="compact"
                         onClick={() => void sendUrgent(item.id)}
                       >
                         Urgent reminder
@@ -234,6 +240,15 @@ export default function HolidaysPage() {
           )}
         </tbody>
       </TableShell>
+      <Pagination
+        className="-mt-6 rounded-b-[10px] border border-slate-200"
+        page={pagination.page}
+        pageSize={pagination.pageSize}
+        total={pagination.total}
+        totalPages={pagination.totalPages}
+        onPageChange={pagination.setPage}
+        onPageSizeChange={pagination.setPageSize}
+      />
     </section>
   );
 }

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { Pagination, useClientPagination } from "@/components/pagination";
 import {
   Button,
   ButtonLink,
@@ -57,6 +58,7 @@ export default function KpiScorecardsPage() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
+  const pagination = useClientPagination(items);
 
   const total = useMemo(
     () => rows.reduce((sum, row) => sum + (Number(row.weightPercent) || 0), 0),
@@ -255,7 +257,8 @@ export default function KpiScorecardsPage() {
       {items.length === 0 ? (
         <EmptyState>No KPI scorecards configured.</EmptyState>
       ) : (
-        <TableShell>
+        <>
+        <TableShell className="rounded-b-none">
           <TableHead>
             <tr>
               <Th>Name</Th>
@@ -266,7 +269,7 @@ export default function KpiScorecardsPage() {
             </tr>
           </TableHead>
           <tbody>
-            {items.map((item) => (
+            {pagination.pagedItems.map((item) => (
               <tr key={item.id}>
                 <Td>{item.name}</Td>
                 <Td>{item.status}</Td>
@@ -282,6 +285,7 @@ export default function KpiScorecardsPage() {
                       <Button
                         type="button"
                         variant="secondary"
+                        size="compact"
                         onClick={() => {
                           setEditingId(item.id);
                           setName(item.name);
@@ -292,12 +296,12 @@ export default function KpiScorecardsPage() {
                       </Button>
                     ) : null}
                     {can("Targets.Activate") && item.status !== "active" ? (
-                      <Button type="button" onClick={() => void activate(item.id)}>
+                      <Button type="button" size="compact" onClick={() => void activate(item.id)}>
                         Activate
                       </Button>
                     ) : null}
                     {can("Targets.Deactivate") && item.status === "active" ? (
-                      <Button type="button" variant="secondary" onClick={() => void deactivate(item.id)}>
+                      <Button type="button" variant="secondary" size="compact" onClick={() => void deactivate(item.id)}>
                         Deactivate
                       </Button>
                     ) : null}
@@ -307,6 +311,16 @@ export default function KpiScorecardsPage() {
             ))}
           </tbody>
         </TableShell>
+        <Pagination
+          className="-mt-6 rounded-b-[10px] border border-slate-200"
+          page={pagination.page}
+          pageSize={pagination.pageSize}
+          total={pagination.total}
+          totalPages={pagination.totalPages}
+          onPageChange={pagination.setPage}
+          onPageSizeChange={pagination.setPageSize}
+        />
+        </>
       )}
     </section>
   );

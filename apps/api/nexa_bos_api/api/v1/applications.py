@@ -6,6 +6,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends
 
 from nexa_bos_api.api.v1.deps import CurrentUser, require_permission
+from nexa_bos_api.api.v1.pagination import PaginationDep
 from nexa_bos_api.applications.models import Application
 from nexa_bos_api.applications.schemas import (
     ApplicationCreateRequest,
@@ -130,6 +131,7 @@ def _filters(
 async def applications_list(
     session: SessionDep,
     actor: Annotated[CurrentUser, Depends(require_permission(APPLICATIONS_VIEW))],
+    pagination: PaginationDep,
     q: str | None = None,
     application_id: str | None = None,
     bank_case_number: str | None = None,
@@ -194,8 +196,13 @@ async def applications_list(
             funded_min,
             funded_max,
         ),
+        page=pagination.page,
+        page_size=pagination.page_size,
     )
-    return {"items": await serialize_applications(session, rows)}
+    return {
+        "items": await serialize_applications(session, rows.items),
+        "pagination": rows.metadata(),
+    }
 
 
 @router.post("/applications")

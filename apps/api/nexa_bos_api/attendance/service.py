@@ -4,7 +4,7 @@ from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal
 from uuid import UUID
 
-from sqlalchemy import Select, or_, select
+from sqlalchemy import Select, func, or_, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -45,6 +45,7 @@ from nexa_bos_api.attendance.schemas import (
     ScheduleUpdateRequest,
 )
 from nexa_bos_api.core.exceptions import AppError
+from nexa_bos_api.core.pagination import PageResult
 from nexa_bos_api.identity.access import can_view_user, visible_user_ids
 from nexa_bos_api.identity.audit import record_audit
 from nexa_bos_api.identity.enums import AccountStatus, MasterStatus
@@ -756,6 +757,8 @@ async def day_roster(
     *,
     office_id: UUID | None = None,
     department_id: UUID | None = None,
+    page: int,
+    page_size: int,
 ) -> dict[str, object]:
     allowed = await visible_employee_ids(session, actor)
     stmt = (
@@ -765,7 +768,6 @@ async def day_roster(
         )
         .where(User.joining_date <= on_date)
         .where(or_(User.last_working_date.is_(None), User.last_working_date >= on_date))
-        .order_by(User.full_name)
     )
     if allowed is not None:
         stmt = stmt.where(User.id.in_(allowed))
@@ -795,7 +797,19 @@ async def day_roster(
                     status_code=404, code="NOT_FOUND", message="Department was not found"
                 )
         stmt = stmt.where(User.department_id == department_id)
-    employees = list((await session.execute(stmt)).scalars().all())
+    count_stmt = select(func.count()).select_from(
+        stmt.with_only_columns(User.id).order_by(None).subquery()
+    )
+    total = int((await session.scalar(count_stmt)) or 0)
+    employees = list(
+        (
+            await session.execute(
+                stmt.order_by(User.full_name, User.id)
+                .offset((page - 1) * page_size)
+                .limit(page_size)
+            )
+        ).scalars()
+    )
     employee_ids = [row.id for row in employees]
     records = (
         (
@@ -849,6 +863,7 @@ async def day_roster(
         "isWeeklyOff": date_is_weekly_off(on_date, working_days, holiday=holiday),
         "suggestedStatus": suggested,
         "items": items,
+        "pagination": PageResult(items=[], page=page, page_size=page_size, total=total).metadata(),
     }
 
 
@@ -1406,7 +1421,7 @@ def _scoped_record_query(
             selectinload(AttendanceRecord.schedule),
             selectinload(AttendanceRecord.corrections).selectinload(AttendanceCorrection.actor),
         )
-        .order_by(AttendanceRecord.attendance_date, User.full_name)
+        .order_by(AttendanceRecord.attendance_date, User.full_name, AttendanceRecord.id)
     )
     if allowed is not None:
         stmt = stmt.where(AttendanceRecord.employee_id.in_(allowed))
@@ -1485,6 +1500,8 @@ async def attendance_report(
     late: bool | None = None,
     early_exit: bool | None = None,
     incomplete: bool | None = None,
+    page: int,
+    page_size: int,
 ) -> dict[str, object]:
     if date_to < date_from:
         raise AppError(
@@ -1496,24 +1513,26 @@ async def attendance_report(
     await _assert_filter_scope(
         session, allowed, employee_id=employee_id, office_id=office_id, department_id=department_id
     )
+    stmt = _scoped_record_query(
+        allowed,
+        date_from=date_from,
+        date_to=date_to,
+        employee_id=employee_id,
+        office_id=office_id,
+        department_id=department_id,
+        status=status,
+        leave_type_id=leave_type_id,
+        late=late,
+        early_exit=early_exit,
+        incomplete=incomplete,
+    )
+    count_stmt = select(func.count()).select_from(
+        stmt.with_only_columns(AttendanceRecord.id).order_by(None).subquery()
+    )
+    total = int((await session.scalar(count_stmt)) or 0)
+    summary_records = list((await session.execute(stmt)).scalars().all())
     records = list(
-        (
-            await session.execute(
-                _scoped_record_query(
-                    allowed,
-                    date_from=date_from,
-                    date_to=date_to,
-                    employee_id=employee_id,
-                    office_id=office_id,
-                    department_id=department_id,
-                    status=status,
-                    leave_type_id=leave_type_id,
-                    late=late,
-                    early_exit=early_exit,
-                    incomplete=incomplete,
-                )
-            )
-        )
+        (await session.execute(stmt.offset((page - 1) * page_size).limit(page_size)))
         .scalars()
         .all()
     )
@@ -1528,9 +1547,10 @@ async def attendance_report(
     )
     return {
         "period": {"from": date_from.isoformat(), "to": date_to.isoformat()},
-        "summary": summarize_records(records, rules),
+        "summary": summarize_records(summary_records, rules),
         "items": [serialize_record(row) for row in records],
-        "count": len(records),
+        "count": total,
+        "pagination": PageResult(items=[], page=page, page_size=page_size, total=total).metadata(),
     }
 
 

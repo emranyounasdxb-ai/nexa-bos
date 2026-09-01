@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from nexa_bos_api.core.exceptions import AppError
+from nexa_bos_api.core.pagination import PageResult
 from nexa_bos_api.identity.access import (
     has_permission,
     load_user_with_type,
@@ -937,8 +938,23 @@ def _delivery_payload(row: NotificationDelivery) -> dict[str, object]:
 
 
 async def list_notifications(
-    session: AsyncSession, actor: User, *, limit: int = 100
+    session: AsyncSession, actor: User, *, page: int, page_size: int
 ) -> dict[str, object]:
+    filtered = select(NotificationDelivery.id).where(NotificationDelivery.recipient_id == actor.id)
+    total = int((await session.scalar(select(func.count()).select_from(filtered.subquery()))) or 0)
+    unread = int(
+        (
+            await session.scalar(
+                select(func.count())
+                .select_from(NotificationDelivery)
+                .where(
+                    NotificationDelivery.recipient_id == actor.id,
+                    NotificationDelivery.read_at.is_(None),
+                )
+            )
+        )
+        or 0
+    )
     rows = list(
         (
             await session.execute(
@@ -947,11 +963,16 @@ async def list_notifications(
                 .join(Notification, NotificationDelivery.notification_id == Notification.id)
                 .where(NotificationDelivery.recipient_id == actor.id)
                 .order_by(Notification.created_at.desc(), NotificationDelivery.id)
-                .limit(limit)
+                .offset((page - 1) * page_size)
+                .limit(page_size)
             )
         ).scalars()
     )
-    return {"items": [_delivery_payload(row) for row in rows]}
+    return {
+        "items": [_delivery_payload(row) for row in rows],
+        "unreadCount": unread,
+        "pagination": PageResult(items=[], page=page, page_size=page_size, total=total).metadata(),
+    }
 
 
 async def unread_count(session: AsyncSession, actor: User) -> dict[str, int]:
@@ -1050,7 +1071,9 @@ async def acknowledge(session: AsyncSession, actor: User, delivery_id: UUID) -> 
     return _delivery_payload(row)
 
 
-async def notification_audit(session: AsyncSession, actor: User) -> dict[str, object]:
+async def notification_audit(
+    session: AsyncSession, actor: User, *, page: int, page_size: int
+) -> dict[str, object]:
     allowed = await visible_user_ids(session, actor)
     stmt = select(AuditEvent).where(
         or_(
@@ -1062,8 +1085,18 @@ async def notification_audit(session: AsyncSession, actor: User) -> dict[str, ob
         stmt = stmt.where(
             or_(AuditEvent.actor_id.in_(allowed), AuditEvent.target_user_id.in_(allowed))
         )
+    count_stmt = select(func.count()).select_from(
+        stmt.with_only_columns(AuditEvent.id).order_by(None).subquery()
+    )
+    total = int((await session.scalar(count_stmt)) or 0)
     rows = list(
-        (await session.execute(stmt.order_by(AuditEvent.created_at.desc()).limit(200))).scalars()
+        (
+            await session.execute(
+                stmt.order_by(AuditEvent.created_at.desc(), AuditEvent.id.desc())
+                .offset((page - 1) * page_size)
+                .limit(page_size)
+            )
+        ).scalars()
     )
     return {
         "items": [
@@ -1079,7 +1112,8 @@ async def notification_audit(session: AsyncSession, actor: User) -> dict[str, ob
                 "note": row.note,
             }
             for row in rows
-        ]
+        ],
+        "pagination": PageResult(items=[], page=page, page_size=page_size, total=total).metadata(),
     }
 
 

@@ -15,6 +15,7 @@ from sqlalchemy.orm import selectinload
 from nexa_bos_api.applications.models import Application, ApplicationOwnerHistory
 from nexa_bos_api.catalog.models import Bank, BankProduct, Product
 from nexa_bos_api.core.exceptions import AppError
+from nexa_bos_api.core.pagination import PageResult
 from nexa_bos_api.finance.calc import (
     ZERO,
     calculate_component,
@@ -1690,7 +1691,9 @@ async def period_payload(session: AsyncSession, actor: User, period_id: UUID) ->
     }
 
 
-async def list_periods(session: AsyncSession, actor: User) -> dict[str, object]:
+async def list_periods(
+    session: AsyncSession, actor: User, *, include_payouts: bool = True
+) -> dict[str, object]:
     rows = list(
         (
             await session.execute(
@@ -1698,7 +1701,21 @@ async def list_periods(session: AsyncSession, actor: User) -> dict[str, object]:
             )
         ).scalars()
     )
-    return {"items": [await period_payload(session, actor, row.id) for row in rows]}
+    if include_payouts:
+        return {"items": [await period_payload(session, actor, row.id) for row in rows]}
+    access = await load_reporting_access(session, actor)
+    return {
+        "items": [
+            {
+                "id": str(row.id),
+                "periodMonth": row.period_month.isoformat(),
+                "status": row.status,
+                "reportingScope": access.label,
+                "payouts": [],
+            }
+            for row in rows
+        ]
+    }
 
 
 async def _assert_application_visible(
@@ -2186,29 +2203,60 @@ async def statement_payload(
     actor: User,
     requested_month: date,
     recipient_id: UUID | None = None,
+    *,
+    page: int | None = None,
+    page_size: int | None = None,
 ) -> dict[str, object]:
     period = await _get_period(session, requested_month)
     access = await load_reporting_access(session, actor)
     stmt = select(FinancePayout).where(FinancePayout.period_id == period.id)
     if recipient_id is not None:
         stmt = stmt.where(FinancePayout.recipient_id == recipient_id)
-    payouts = list((await session.execute(stmt.order_by(FinancePayout.recipient_id))).scalars())
-    items: list[dict[str, object]] = []
-    for payout in payouts:
-        if not await _payout_visible(session, access, period, payout):
-            continue
-        components = list(
+    if access.scope is not VisibilityScope.COMPANY:
+        moment = datetime(period.period_month.year, period.period_month.month, 1, tzinfo=UTC)
+        visible_recipients = [
+            user_id
+            for user_id in access.current_managers
+            if access.owner_visible(user_id, moment, access.office_at(user_id, moment))
+        ]
+        stmt = stmt.where(FinancePayout.recipient_id.in_(visible_recipients))
+    count_stmt = select(func.count()).select_from(
+        stmt.with_only_columns(FinancePayout.id).order_by(None).subquery()
+    )
+    total = int((await session.scalar(count_stmt)) or 0)
+    stmt = stmt.order_by(FinancePayout.recipient_id, FinancePayout.id)
+    if page is not None and page_size is not None:
+        stmt = stmt.offset((page - 1) * page_size).limit(page_size)
+    payouts = list((await session.execute(stmt)).scalars())
+    payout_recipient_ids = {payout.recipient_id for payout in payouts}
+    components_by_recipient: dict[UUID, list[FinanceComponent]] = {}
+    if payout_recipient_ids:
+        component_rows = list(
             (
                 await session.execute(
                     select(FinanceComponent).where(
                         FinanceComponent.period_id == period.id,
-                        FinanceComponent.recipient_id == payout.recipient_id,
+                        FinanceComponent.recipient_id.in_(payout_recipient_ids),
                     )
                 )
             ).scalars()
         )
+        for component in component_rows:
+            components_by_recipient.setdefault(component.recipient_id, []).append(component)
+        user_rows = (
+            await session.execute(
+                select(User.id, User.user_code, User.full_name).where(
+                    User.id.in_(payout_recipient_ids)
+                )
+            )
+        ).all()
+        users_by_id = {row.id: row for row in user_rows}
+    else:
+        users_by_id = {}
+    items: list[dict[str, object]] = []
+    for payout in payouts:
         eligible: dict[tuple[UUID, str], Decimal] = {}
-        for component in components:
+        for component in components_by_recipient.get(payout.recipient_id, []):
             if (
                 await _component_visible(session, access, component)
                 and component.component_type == FinanceComponentType.COMMISSION
@@ -2219,7 +2267,7 @@ async def statement_payload(
                 eligible[(component.application_id, component.eligibility_milestone)] = (
                     component.eligible_amount
                 )
-        user = await session.get(User, payout.recipient_id)
+        user = users_by_id.get(payout.recipient_id)
         items.append(
             {
                 "payoutId": str(payout.id),
@@ -2231,13 +2279,13 @@ async def statement_payload(
                 **_payout_totals(payout),
             }
         )
-    if recipient_id is not None and not items:
+    if recipient_id is not None and total == 0:
         raise AppError(
             status_code=404,
             code="FINANCE_STATEMENT_NOT_FOUND",
             message="Finance statement was not found",
         )
-    return {
+    payload: dict[str, object] = {
         "period": {
             "month": period.period_month.isoformat(),
             "label": period.period_month.strftime("%B %Y"),
@@ -2248,5 +2296,10 @@ async def statement_payload(
         "currency": "AED",
         "reportingScope": access.label,
         "items": items,
-        "total": len(items),
+        "total": total,
     }
+    if page is not None and page_size is not None:
+        payload["pagination"] = PageResult(
+            items=[], page=page, page_size=page_size, total=total
+        ).metadata()
+    return payload

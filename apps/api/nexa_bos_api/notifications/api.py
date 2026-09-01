@@ -3,9 +3,10 @@ from __future__ import annotations
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends
 
 from nexa_bos_api.api.v1.deps import CurrentUser, require_permission
+from nexa_bos_api.api.v1.pagination import PaginationDep
 from nexa_bos_api.db.session import SessionDep
 from nexa_bos_api.identity.permissions import (
     NOTIFICATIONS_MANAGE_RULES,
@@ -40,9 +41,11 @@ router = APIRouter(prefix="/notifications", tags=["notifications"])
 async def notifications_list(
     session: SessionDep,
     actor: Annotated[CurrentUser, Depends(require_permission(NOTIFICATIONS_VIEW))],
-    limit: Annotated[int, Query(ge=1, le=100)] = 100,
+    pagination: PaginationDep,
 ) -> dict[str, object]:
-    return await list_notifications(session, actor, limit=limit)
+    return await list_notifications(
+        session, actor, page=pagination.page, page_size=pagination.page_size
+    )
 
 
 @router.get("/unread-count")
@@ -154,5 +157,8 @@ async def notifications_urgent_send(
 async def notifications_audit(
     session: SessionDep,
     actor: Annotated[CurrentUser, Depends(require_permission(NOTIFICATIONS_VIEW_AUDIT))],
+    pagination: PaginationDep,
 ) -> dict[str, object]:
-    return await notification_audit(session, actor)
+    return await notification_audit(
+        session, actor, page=pagination.page, page_size=pagination.page_size
+    )

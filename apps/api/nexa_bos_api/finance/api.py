@@ -4,10 +4,11 @@ from datetime import date
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from fastapi.responses import HTMLResponse, Response
 
 from nexa_bos_api.api.v1.deps import CurrentUser, require_permission
+from nexa_bos_api.api.v1.pagination import PaginationDep
 from nexa_bos_api.db.session import SessionDep
 from nexa_bos_api.finance.export import build_excel, build_pdf, build_print_html
 from nexa_bos_api.finance.schemas import (
@@ -144,8 +145,9 @@ async def incentive_plan_deactivate(
 async def periods(
     session: SessionDep,
     actor: Annotated[CurrentUser, Depends(require_permission(FINANCE_VIEW))],
+    include_payouts: Annotated[bool, Query()] = True,
 ) -> dict[str, object]:
-    return await list_periods(session, actor)
+    return await list_periods(session, actor, include_payouts=include_payouts)
 
 
 @router.get("/periods/{period_id}")
@@ -219,9 +221,17 @@ async def statements(
     period_month: date,
     session: SessionDep,
     actor: Annotated[CurrentUser, Depends(require_permission(FINANCE_VIEW))],
+    pagination: PaginationDep,
     recipient_id: UUID | None = None,
 ) -> dict[str, object]:
-    return await statement_payload(session, actor, period_month, recipient_id)
+    return await statement_payload(
+        session,
+        actor,
+        period_month,
+        recipient_id,
+        page=pagination.page,
+        page_size=pagination.page_size,
+    )
 
 
 @router.get("/payouts/{payout_id}/components")

@@ -25,29 +25,46 @@ export const controlClass = cx(
 export const controlErrorClass = "border-red-700 focus:border-red-700";
 
 const buttonBaseClass = cx(
-  "inline-flex min-h-10 items-center justify-center gap-2 rounded-md px-3.5 py-2 text-sm font-medium transition-colors",
+  "inline-flex items-center justify-center rounded-md font-medium transition-colors",
   "disabled:cursor-not-allowed disabled:opacity-50",
   focusRing,
 );
 
+type ButtonSize = "default" | "compact";
+
+const buttonSizeClass: Record<ButtonSize, string> = {
+  default: "min-h-10 gap-2 px-3.5 py-2 text-sm",
+  compact: "min-h-8 gap-1.5 px-2.5 py-1 text-xs",
+};
+
+const primaryButtonTone = "bg-slate-900 text-white hover:bg-slate-800 active:bg-slate-950";
+const secondaryButtonTone =
+  "border border-slate-300 bg-white text-slate-700 hover:border-slate-400 hover:bg-slate-50 hover:text-slate-900";
+const ghostButtonTone = "text-slate-600 hover:bg-slate-100 hover:text-slate-900";
+const dangerButtonTone = "bg-red-700 text-white hover:bg-red-800 active:bg-red-900";
+
 export const primaryButtonClass = cx(
   buttonBaseClass,
-  "bg-slate-900 text-white hover:bg-slate-800 active:bg-slate-950",
+  buttonSizeClass.default,
+  primaryButtonTone,
 );
 
 export const secondaryButtonClass = cx(
   buttonBaseClass,
-  "border border-slate-300 bg-white text-slate-700 hover:border-slate-400 hover:bg-slate-50 hover:text-slate-900",
+  buttonSizeClass.default,
+  secondaryButtonTone,
 );
 
 export const ghostButtonClass = cx(
   buttonBaseClass,
-  "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
+  buttonSizeClass.default,
+  ghostButtonTone,
 );
 
 export const dangerButtonClass = cx(
   buttonBaseClass,
-  "bg-red-700 text-white hover:bg-red-800 active:bg-red-900",
+  buttonSizeClass.default,
+  dangerButtonTone,
 );
 
 export function PageHeader({
@@ -160,34 +177,42 @@ export function Textarea({
 
 type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
 
-const buttonClassFor = (variant: ButtonVariant) => {
-  if (variant === "secondary") return secondaryButtonClass;
-  if (variant === "ghost") return ghostButtonClass;
-  if (variant === "danger") return dangerButtonClass;
-  return primaryButtonClass;
+const buttonClassFor = (variant: ButtonVariant, size: ButtonSize) => {
+  const tone =
+    variant === "secondary"
+      ? secondaryButtonTone
+      : variant === "ghost"
+        ? ghostButtonTone
+        : variant === "danger"
+          ? dangerButtonTone
+          : primaryButtonTone;
+  return cx(buttonBaseClass, buttonSizeClass[size], tone);
 };
 
 export function Button({
   variant = "primary",
+  size = "default",
   className,
   ...props
-}: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: ButtonVariant }) {
-  return <button className={cx(buttonClassFor(variant), className)} {...props} />;
+}: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: ButtonVariant; size?: ButtonSize }) {
+  return <button className={cx(buttonClassFor(variant, size), className)} {...props} />;
 }
 
 export function ButtonLink({
   href,
   children,
   variant = "primary",
+  size = "default",
   className,
 }: {
   href: string;
   children: ReactNode;
   variant?: ButtonVariant;
+  size?: ButtonSize;
   className?: string;
 }) {
   return (
-    <Link href={href} className={cx(buttonClassFor(variant), className)}>
+    <Link href={href} className={cx(buttonClassFor(variant, size), className)}>
       {children}
     </Link>
   );
@@ -274,11 +299,11 @@ export function TableShell({ children, className }: { children: ReactNode; class
   return (
     <div
       className={cx(
-        "overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.03)]",
+        "overflow-x-auto rounded-[10px] border border-slate-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.03)]",
         className,
       )}
     >
-      <table className="min-w-full text-left text-sm [&_tbody_tr]:border-t [&_tbody_tr]:border-slate-100 [&_tbody_tr]:transition-colors [&_tbody_tr:hover]:bg-slate-50/80">
+      <table className="min-w-full text-left text-[13px] leading-5 [&_tbody_tr]:border-t [&_tbody_tr]:border-slate-100 [&_tbody_tr]:transition-colors [&_tbody_tr:hover]:bg-slate-50/80">
         {children}
       </table>
     </div>
@@ -286,15 +311,15 @@ export function TableShell({ children, className }: { children: ReactNode; class
 }
 
 export function TableHead({ children }: { children: ReactNode }) {
-  return <thead className="bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500">{children}</thead>;
+  return <thead className="bg-slate-50 text-[11px] uppercase tracking-[0.04em] text-slate-500">{children}</thead>;
 }
 
 export function Th({ children, className }: { children: ReactNode; className?: string }) {
-  return <th className={cx("whitespace-nowrap px-4 py-3 font-semibold", className)}>{children}</th>;
+  return <th className={cx("whitespace-nowrap px-3 py-2 font-semibold", className)}>{children}</th>;
 }
 
 export function Td({ children, className }: { children: ReactNode; className?: string }) {
-  return <td className={cx("px-4 py-3 text-slate-700", className)}>{children}</td>;
+  return <td className={cx("px-3 py-2 align-middle text-slate-700", className)}>{children}</td>;
 }
 
 export function DialogPanel({

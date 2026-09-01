@@ -9,6 +9,7 @@ from fastapi.responses import HTMLResponse, Response
 from pydantic import BaseModel
 
 from nexa_bos_api.api.v1.deps import CurrentUser, require_permission
+from nexa_bos_api.api.v1.pagination import PaginationDep
 from nexa_bos_api.core.exceptions import AppError
 from nexa_bos_api.db.session import SessionDep
 from nexa_bos_api.identity.access import has_permission
@@ -155,6 +156,7 @@ async def get_dashboard(
 async def get_drilldown(
     session: SessionDep,
     actor: ReportingReader,
+    pagination: PaginationDep,
     metric: str = Query(default="submitted"),
     period: str = DEFAULT_PERIOD,
     date_from: date | None = None,
@@ -185,6 +187,8 @@ async def get_drilldown(
             stage_id,
             terminal_outcome,
         ),
+        page=pagination.page,
+        page_size=pagination.page_size,
     )
 
 
