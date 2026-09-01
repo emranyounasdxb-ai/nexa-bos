@@ -248,7 +248,7 @@ export function DatePicker({
         />
         <button
           type="button"
-          className={cx(secondaryButtonClass, "shrink-0 px-3 py-2")}
+          className={cx(secondaryButtonClass, "shrink-0 px-3")}
           disabled={disabled}
           aria-label="Open calendar"
           aria-expanded={open}

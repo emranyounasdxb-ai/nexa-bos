@@ -170,6 +170,7 @@ test("list search and page actions share compact desktop rows", async ({ page, r
     expect(searchBox && actionBox).toBeTruthy();
     expect(searchBox!.x).toBeLessThan(actionBox!.x);
     expect(searchBox!.width).toBeGreaterThan(actionBox!.width);
+    expect(searchBox!.height).toBe(32);
     expect(Math.abs(searchBox!.y + searchBox!.height - actionBox!.y - actionBox!.height)).toBeLessThan(2);
     expect(actionBox!.height).toBe(32);
     await search.fill("layout verification");
@@ -187,6 +188,7 @@ test("list search and page actions share compact desktop rows", async ({ page, r
   expect(assetSearchBox && assetActionBox).toBeTruthy();
   expect(assetSearchBox!.x).toBeLessThan(assetActionBox!.x);
   expect(assetSearchBox!.width).toBeGreaterThan(assetActionBox!.width);
+  expect(assetSearchBox!.height).toBe(32);
   expect(Math.abs(assetSearchBox!.y + assetSearchBox!.height - assetActionBox!.y - assetActionBox!.height)).toBeLessThan(2);
   expect(assetActionBox!.height).toBe(32);
   await assetSearch.fill("AST-");
@@ -198,6 +200,18 @@ test("list search and page actions share compact desktop rows", async ({ page, r
     const button = page.getByRole("button", { name: label, exact: true }).first();
     await expect(button).toBeVisible();
     expect((await button.boundingBox())?.height).toBe(32);
+  }
+
+  await page.goto("/users/new");
+  await expect(page.getByRole("heading", { name: "Create user", exact: true })).toBeVisible();
+  for (const control of [
+    page.getByLabel("Full name", { exact: true }),
+    page.locator("label").filter({ hasText: "Designation" }).locator("select"),
+    page.getByLabel("Joining date", { exact: true }),
+    page.getByRole("button", { name: "Open calendar", exact: true }),
+  ]) {
+    await expect(control).toBeVisible();
+    expect((await control.boundingBox())?.height).toBe(32);
   }
 
   for (const path of ["/customers", "/users", "/applications", "/assets", "/finance"]) {

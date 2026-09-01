@@ -15,6 +15,7 @@ import {
   Select,
   Textarea,
   controlClass,
+  multilineControlClass,
   primaryButtonClass,
   secondaryButtonClass,
 } from "@/components/ui";
@@ -399,7 +400,7 @@ export default function ApplicationDetailPage() {
           />
           {selectedNext?.systemKey === "returned_requirement_pending" ? (
             <textarea
-              className={controlClass}
+              className={multilineControlClass}
               aria-label="Requirement reason"
               placeholder="Requirement / query (required)"
               value={requirement}
@@ -580,7 +581,7 @@ export default function ApplicationDetailPage() {
             <option>Withdrawn</option>
           </select>
           <textarea
-            className={controlClass}
+            className={multilineControlClass}
             aria-label="Outcome reason"
             placeholder="Reason (mandatory)"
             value={outcomeReason}
