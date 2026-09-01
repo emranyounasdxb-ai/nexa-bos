@@ -66,7 +66,7 @@ test("dashboard presents a compact executive summary with bounded detail", async
   await expect(page.getByText("Executive overview", { exact: true })).toHaveCount(0);
   await expect(page.getByTestId("dashboard-analysis-grid")).toBeVisible();
   const dashboardFilters = page.getByTestId("dashboard-filters");
-  await expect(dashboardFilters).not.toHaveAttribute("open", "");
+  await expect(dashboardFilters.getByTestId("dashboard-refine-panel")).toHaveCount(0);
   await expect(dashboardFilters.getByLabel("Reporting period", { exact: true })).toBeHidden();
 
   const shellHeader = page.locator("header").first();
@@ -92,7 +92,7 @@ test("dashboard presents a compact executive summary with bounded detail", async
   expect(shellBackgrounds.headerDivider).toBe("0px");
 
   const actionButtons = await page.getByTestId("dashboard-actions").getByRole("button").all();
-  expect(actionButtons).toHaveLength(3);
+  expect(actionButtons).toHaveLength(4);
   for (const button of actionButtons) {
     const box = await button.boundingBox();
     expect(box?.height ?? 0).toBeGreaterThanOrEqual(32);
@@ -102,7 +102,11 @@ test("dashboard presents a compact executive summary with bounded detail", async
     "Refresh",
     "Compare",
     "Export",
+    "Refine",
   ]);
+  const actionYPositions = await Promise.all(actionButtons.map(async (button) => (await button.boundingBox())?.y));
+  expect(Math.max(...actionYPositions.map((value) => value ?? 0)) - Math.min(...actionYPositions.map((value) => value ?? 0))).toBeLessThan(2);
+  expect(await page.getByTestId("dashboard-actions").evaluate((element) => element.closest('[data-testid="dashboard-filters"]') !== null)).toBeTruthy();
   await expect(page.getByLabel(/Notifications, \d+ unread/).locator("svg")).toBeVisible();
   await expect(page.getByLabel("Open user menu").locator("svg")).toBeVisible();
 
@@ -145,7 +149,7 @@ test("dashboard presents a compact executive summary with bounded detail", async
   });
 });
 
-test("holiday reminders are absent and dashboard actions remain accessible", async ({
+test("holiday reminders are absent and dashboard action panels remain accessible", async ({
   page,
   request,
 }) => {
@@ -156,23 +160,32 @@ test("holiday reminders are absent and dashboard actions remain accessible", asy
   await expect(page.getByLabel(/Notifications, \d+ unread/)).toBeVisible();
 
   const actions = page.getByTestId("dashboard-actions");
-  await expect(actions.getByRole("button")).toHaveText(["Refresh", "Compare", "Export"]);
+  await expect(actions.getByRole("button")).toHaveText(["Refresh", "Compare", "Export", "Refine"]);
+  const refineButton = actions.getByRole("button", { name: "Refine", exact: true });
+  const compareButton = actions.getByRole("button", { name: "Compare", exact: true });
   const exportButton = actions.getByRole("button", { name: "Export dashboard" });
-  await exportButton.focus();
-  await page.keyboard.press("Enter");
-  const exportMenu = page.getByRole("menu", { name: "Dashboard export formats" });
-  await expect(exportMenu).toBeVisible();
-  await expect(exportMenu.getByRole("menuitem")).toHaveText(["Excel", "PDF", "Print"]);
-  await expect(exportMenu.getByRole("menuitem", { name: "Excel" })).toBeFocused();
-  await page.keyboard.press("ArrowDown");
-  await expect(exportMenu.getByRole("menuitem", { name: "PDF" })).toBeFocused();
-  await page.keyboard.press("Escape");
-  await expect(exportMenu).toHaveCount(0);
-  await expect(exportButton).toBeFocused();
+  const refinePanel = page.getByTestId("dashboard-refine-panel");
+  const comparePanel = page.getByTestId("dashboard-compare-panel");
+  const exportPanel = page.getByTestId("dashboard-export-panel");
+
+  await refineButton.click();
+  await expect(refinePanel).toBeVisible();
+  await expect(comparePanel).toHaveCount(0);
+  await expect(exportPanel).toHaveCount(0);
+  await compareButton.click();
+  await expect(refinePanel).toHaveCount(0);
+  await expect(comparePanel).toBeVisible();
+  await expect(exportPanel).toHaveCount(0);
+  await expect(page).toHaveURL(/\/reports(?:\?|$)/);
+  await comparePanel.getByRole("button", { name: "Run comparison", exact: true }).click();
+  await expect(page.getByTestId("dashboard-comparison-result")).toBeVisible();
   await exportButton.click();
-  await expect(exportMenu).toBeVisible();
-  await page.getByRole("heading", { name: "Dashboard", exact: true }).click();
-  await expect(exportMenu).toHaveCount(0);
+  await expect(refinePanel).toHaveCount(0);
+  await expect(comparePanel).toHaveCount(0);
+  await expect(exportPanel).toBeVisible();
+  await expect(exportPanel.getByRole("button")).toHaveText(["Excel", "PDF", "Print"]);
+  await exportButton.click();
+  await expect(exportPanel).toHaveCount(0);
 
   for (const [path, title] of [
     ["/applications", "Applications"],
@@ -190,26 +203,22 @@ test("holiday reminders are absent and dashboard actions remain accessible", asy
   await expect(page.getByRole("complementary", { name: "Holiday reminders" })).toHaveCount(0);
   await actions.getByRole("button", { name: "Refresh", exact: true }).click();
   await expect(actions.getByRole("button", { name: "Refresh", exact: true })).toBeVisible();
-  await actions.getByRole("button", { name: "Compare", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Comparisons", exact: true })).toBeVisible();
-  await page.goto("/reports");
-  await expect(page.getByRole("complementary", { name: "Holiday reminders" })).toHaveCount(0);
 
   await exportButton.click();
   const [excel] = await Promise.all([
     page.waitForEvent("download"),
-    exportMenu.getByRole("menuitem", { name: "Excel" }).click(),
+    exportPanel.getByRole("button", { name: "Excel" }).click(),
   ]);
   expect(excel.suggestedFilename()).toContain("xlsx");
   await exportButton.click();
   const [pdf] = await Promise.all([
     page.waitForEvent("download"),
-    exportMenu.getByRole("menuitem", { name: "PDF" }).click(),
+    exportPanel.getByRole("button", { name: "PDF" }).click(),
   ]);
   expect(pdf.suggestedFilename()).toContain("pdf");
   await exportButton.click();
   const popupPromise = page.waitForEvent("popup");
-  await exportMenu.getByRole("menuitem", { name: "Print" }).click();
+  await exportPanel.getByRole("button", { name: "Print" }).click();
   const popup = await popupPromise;
   await expect(popup.getByText("NEXA BOS")).toBeVisible();
 
@@ -220,13 +229,14 @@ test("holiday reminders are absent and dashboard actions remain accessible", asy
     await page.setViewportSize(viewport);
     await expect(exportButton).toBeVisible();
     await exportButton.click();
-    await expect(exportMenu).toBeVisible();
+    await expect(exportPanel).toBeVisible();
     expect(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
       ),
     ).toBeTruthy();
-    await page.keyboard.press("Escape");
+    await exportButton.click();
+    await expect(exportPanel).toHaveCount(0);
   }
 });
 
@@ -307,7 +317,7 @@ test("dashboard loads primary data independently and preserves it during refresh
 
   mode = "filter";
   dashboardGate = deferred();
-  await page.getByTestId("dashboard-filters").locator("summary").click();
+  await page.getByTestId("dashboard-actions").getByRole("button", { name: "Refine", exact: true }).click();
   const dashboardRequestsBeforeSelection = starts.filter((entry) => entry.endpoint === "dashboard").length;
   await page.getByLabel("Reporting period", { exact: true }).selectOption("ytd");
   expect(starts.filter((entry) => entry.endpoint === "dashboard")).toHaveLength(dashboardRequestsBeforeSelection);
