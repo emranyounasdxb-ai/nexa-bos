@@ -196,3 +196,62 @@ test("application date ranges use two months and preserve existing query fields"
     await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth),
   ).toBeTruthy();
 });
+
+test("application filters use the compact responsive grid without resizing controls", async ({
+  page,
+  request,
+}) => {
+  await signIn(page, request);
+  await page.goto("/applications");
+  await expect(page.getByRole("heading", { name: "Applications" })).toBeVisible();
+
+  const filters = page.getByTestId("application-filters");
+  const layouts = [
+    { width: 1824, height: 1000, columns: 6, maxCardHeight: 300 },
+    { width: 1440, height: 900, columns: 4, maxCardHeight: 340 },
+    { width: 390, height: 844, columns: 1, maxCardHeight: 1200 },
+  ];
+
+  for (const layout of layouts) {
+    await page.setViewportSize({ width: layout.width, height: layout.height });
+    await expect
+      .poll(() =>
+        filters.evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(" ").length),
+      )
+      .toBe(layout.columns);
+
+    const metrics = await filters.evaluate((element) => {
+      const formRect = element.getBoundingClientRect();
+      const controls = [...element.querySelectorAll<HTMLElement>("input, select, button")];
+      return {
+        cardHeight: formRect.height,
+        controlHeights: controls.map((control) => control.getBoundingClientRect().height),
+        childrenFit: [...element.children].every((child) => {
+          const rect = child.getBoundingClientRect();
+          return rect.left >= formRect.left - 1 && rect.right <= formRect.right + 1;
+        }),
+        pageOverflows: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+      };
+    });
+
+    expect(metrics.cardHeight).toBeLessThan(layout.maxCardHeight);
+    expect(metrics.controlHeights.every((height) => height === 32)).toBeTruthy();
+    expect(metrics.childrenFit).toBeTruthy();
+    expect(metrics.pageOverflows).toBeFalsy();
+  }
+
+  await page.setViewportSize({ width: 1824, height: 1000 });
+  const fundedMaximum = page.getByLabel("Filter funded max", { exact: true });
+  const apply = page.getByRole("button", { name: "Apply filters", exact: true });
+  const clear = page.getByRole("button", { name: "Clear filters", exact: true });
+  const [fundedBox, applyBox, clearBox] = await Promise.all([
+    fundedMaximum.boundingBox(),
+    apply.boundingBox(),
+    clear.boundingBox(),
+  ]);
+  expect(fundedBox).not.toBeNull();
+  expect(applyBox).not.toBeNull();
+  expect(clearBox).not.toBeNull();
+  expect(Math.abs(fundedBox!.y + fundedBox!.height - (applyBox!.y + applyBox!.height))).toBeLessThanOrEqual(1);
+  expect(Math.abs(applyBox!.y - clearBox!.y)).toBeLessThanOrEqual(1);
+});
