@@ -176,12 +176,45 @@ test("company hierarchy filters, locates, expands, inspects, and refreshes repor
   );
 
   const csrfToken = await signIn(page, "owner@example.com", "OwnerPass1!");
+  await page.getByRole("button", { name: "People menu" }).click();
   await page.getByRole("link", { name: "Hierarchy", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Organization hierarchy" })).toBeVisible();
   await page.getByLabel("Office filter").selectOption(dxb.id);
   await page.getByLabel("Department filter").selectOption(department.id);
   await page.getByLabel("Team filter").selectOption(team.id);
+
+  const reportingTree = page.getByRole("list", { name: "Reporting tree" });
+  const ownerNode = page.getByTestId(`hierarchy-node-${owner.id}`);
+  await expect(ownerNode).toBeVisible();
+  await expect(page.getByTestId(`hierarchy-node-${firstManager.id}`)).toHaveCount(0);
+  await expect(page.getByTestId(`hierarchy-node-${employee.id}`)).toHaveCount(0);
+  const collapsedTreeHeight = (await reportingTree.boundingBox())?.height ?? 0;
+
+  const ownerExpand = page.getByRole("button", {
+    name: `Expand branch for ${owner.fullName}`,
+  });
+  await expect(ownerExpand).toHaveAttribute("aria-expanded", "false");
+  await ownerExpand.click();
   await expect(page.getByText(firstManager.fullName, { exact: true })).toBeVisible();
+  await expect(page.getByTestId(`hierarchy-node-${employee.id}`)).toHaveCount(0);
+
+  const managerExpand = page.getByRole("button", {
+    name: `Expand branch for ${firstManager.fullName}`,
+  });
+  await managerExpand.click();
+  await expect(page.getByTestId(`hierarchy-node-${employee.id}`)).toBeVisible();
+  expect((await reportingTree.boundingBox())?.height ?? 0).toBeGreaterThan(collapsedTreeHeight);
+  const managerNodeBox = await page.getByTestId(`hierarchy-node-${firstManager.id}`).boundingBox();
+  expect(managerNodeBox?.width).toBeLessThanOrEqual(224);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+    ),
+  ).toBeTruthy();
+  await page
+    .getByRole("button", { name: `Collapse branch for ${firstManager.fullName}` })
+    .click();
+  await expect(page.getByTestId(`hierarchy-node-${employee.id}`)).toHaveCount(0);
 
   await page.getByLabel("Employee search").fill(employee.employeeCode);
   await page.getByRole("button", { name: "Search", exact: true }).click();

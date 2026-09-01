@@ -49,7 +49,6 @@ export default function OrganizationHierarchyPage() {
     setData(loaded);
     setExpanded((current) => {
       const next = new Set(current);
-      if (next.size === 0) loaded.rootIds.forEach((id) => next.add(id));
       loaded.upwardChainIds.forEach((id) => next.add(id));
       return next;
     });
@@ -243,9 +242,9 @@ export default function OrganizationHierarchyPage() {
       </div>
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(18rem,1fr)]">
-        <Card className="overflow-x-auto p-4">
+        <Card className="overflow-x-auto p-3">
           {data?.rootIds.length ? (
-            <ul aria-label="Reporting tree" className="min-w-max space-y-4">
+            <ul aria-label="Reporting tree" className="min-w-max space-y-2">
               {data.rootIds.map((rootId) => (
                 <HierarchyBranch
                   key={rootId}
@@ -293,7 +292,7 @@ function HierarchyBranch({
         data-testid={`hierarchy-node-${node.id}`}
         data-highlighted={selectedId === node.id ? "true" : "false"}
         className={cx(
-          "inline-flex min-w-72 items-start gap-2 rounded-lg border bg-white p-3",
+          "inline-flex w-56 items-start gap-1.5 rounded-md border bg-white px-2 py-1.5",
           selectedId === node.id
             ? "border-[#0f4c81] bg-blue-50 ring-2 ring-[#0f4c81]/20"
             : "border-slate-200",
@@ -304,25 +303,29 @@ function HierarchyBranch({
             type="button"
             aria-label={`${open ? "Collapse" : "Expand"} branch for ${node.fullName}`}
             aria-expanded={open}
-            className="mt-0.5 h-6 w-6 rounded border border-slate-300 text-sm"
+            className="mt-0.5 size-5 shrink-0 rounded border border-slate-300 text-xs leading-none text-slate-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#0f4c81]"
             onClick={() => onToggle(node.id)}
           >
             {open ? "−" : "+"}
           </button>
         ) : (
-          <span className="mt-0.5 inline-block h-6 w-6" />
+          <span className="mt-0.5 inline-block size-5 shrink-0" />
         )}
-        <button type="button" className="min-w-0 flex-1 text-left" onClick={() => onSelect(node.id)}>
-          <span className="block font-semibold text-slate-900">{node.fullName}</span>
-          <span className="block text-xs text-slate-600">{node.employeeCode}</span>
-          <span className="mt-1 block text-xs text-slate-500">
+        <button
+          type="button"
+          className="min-w-0 flex-1 rounded-sm text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#0f4c81]"
+          onClick={() => onSelect(node.id)}
+        >
+          <span className="block text-sm font-semibold leading-5 text-slate-900">{node.fullName}</span>
+          <span className="block text-xs leading-4 text-slate-600">{node.employeeCode}</span>
+          <span className="block text-xs leading-4 text-slate-500">
             {node.designation?.name ?? "No designation"}
           </span>
           {node.contextOnly ? <Badge>Ancestor context</Badge> : null}
         </button>
       </div>
       {open && node.directReportIds.length ? (
-        <ul className="ml-6 mt-3 space-y-3 border-l border-slate-300 pl-5">
+        <ul className="ml-4 mt-2 space-y-2 border-l border-slate-300 pl-3">
           {node.directReportIds.map((childId) => (
             <HierarchyBranch
               key={childId}
