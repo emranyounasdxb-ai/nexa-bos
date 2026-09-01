@@ -26,7 +26,7 @@ from test_applications import _catalog, _create_app, _customer
 from test_reports import _reporting_user
 
 
-_UNIQUE_MONTH_SEQUENCE = count()
+_UNIQUE_MONTH_SEQUENCE = count(start=0, step=12)
 
 
 def _unique_month() -> date:
