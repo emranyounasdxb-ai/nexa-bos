@@ -148,6 +148,65 @@ test("dashboard presents a compact executive summary with bounded detail", async
   });
 });
 
+test("list search and page actions share compact desktop rows", async ({ page, request }) => {
+  test.setTimeout(120_000);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await signIn(page, request);
+
+  for (const item of [
+    { path: "/customers", heading: "Customers", search: "Search customers", action: "Create customer" },
+    { path: "/users", heading: "User directory", search: "Search users", action: "Create user" },
+    { path: "/applications", heading: "Applications", search: "Search applications", action: "Create application" },
+  ]) {
+    await page.goto(item.path);
+    await expect(page.getByRole("heading", { name: item.heading, exact: true })).toBeVisible();
+    const bar = page.getByTestId("search-action-bar");
+    const search = bar.getByLabel(item.search, { exact: true });
+    const action = bar.getByRole("link", { name: item.action, exact: true });
+    await expect(search).toBeVisible();
+    await expect(action).toBeVisible();
+    const searchBox = await search.boundingBox();
+    const actionBox = await action.boundingBox();
+    expect(searchBox && actionBox).toBeTruthy();
+    expect(searchBox!.x).toBeLessThan(actionBox!.x);
+    expect(searchBox!.width).toBeGreaterThan(actionBox!.width);
+    expect(Math.abs(searchBox!.y + searchBox!.height - actionBox!.y - actionBox!.height)).toBeLessThan(2);
+    expect(actionBox!.height).toBe(32);
+    await search.fill("layout verification");
+    await expect(search).toHaveValue("layout verification");
+    await search.fill("");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBeTruthy();
+  }
+
+  await page.goto("/assets");
+  await expect(page.getByRole("heading", { name: "Asset Register", exact: true })).toBeVisible();
+  const assetSearch = page.getByLabel("Search Assets", { exact: true });
+  const assetAction = page.getByRole("button", { name: "Apply filters", exact: true });
+  const assetSearchBox = await assetSearch.boundingBox();
+  const assetActionBox = await assetAction.boundingBox();
+  expect(assetSearchBox && assetActionBox).toBeTruthy();
+  expect(assetSearchBox!.x).toBeLessThan(assetActionBox!.x);
+  expect(assetSearchBox!.width).toBeGreaterThan(assetActionBox!.width);
+  expect(Math.abs(assetSearchBox!.y + assetSearchBox!.height - assetActionBox!.y - assetActionBox!.height)).toBeLessThan(2);
+  expect(assetActionBox!.height).toBe(32);
+  await assetSearch.fill("AST-");
+  await expect(assetSearch).toHaveValue("AST-");
+
+  await page.goto("/finance");
+  await expect(page.getByRole("heading", { name: "Finance", exact: true })).toBeVisible();
+  for (const label of ["Refresh", "Excel", "PDF", "Print"]) {
+    const button = page.getByRole("button", { name: label, exact: true }).first();
+    await expect(button).toBeVisible();
+    expect((await button.boundingBox())?.height).toBe(32);
+  }
+
+  for (const path of ["/customers", "/users", "/applications", "/assets", "/finance"]) {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(path);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBeTruthy();
+  }
+});
+
 test("holiday reminders are absent and dashboard action panels remain accessible", async ({
   page,
   request,

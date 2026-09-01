@@ -13,7 +13,7 @@ import {
   ButtonLink,
   EmptyState,
   ErrorText,
-  PageHeader,
+  SearchActionBar,
   TableHead,
   TableShell,
   Td,
@@ -75,23 +75,24 @@ export default function CustomersPage() {
 
   return (
     <section className="space-y-4">
-      <PageHeader
-        title="Customers"
+      <SearchActionBar
+        search={
+          <TextInput
+            className="mt-0"
+            placeholder="Search code, name, company, mobile, email, Emirates ID, passport, trade license"
+            value={query}
+            onChange={(event) => {
+              setQuery(event.target.value);
+              setPage(1);
+            }}
+            aria-label="Search customers"
+          />
+        }
         actions={
           can("Customers.Create") ? (
             <ButtonLink href="/customers/new">Create customer</ButtonLink>
           ) : null
         }
-      />
-      <TextInput
-        className="mt-0"
-        placeholder="Search code, name, company, mobile, email, Emirates ID, passport, trade license"
-        value={query}
-        onChange={(event) => {
-          setQuery(event.target.value);
-          setPage(1);
-        }}
-        aria-label="Search customers"
       />
       <ErrorText>{error}</ErrorText>
       <TableShell className={loading && items.length > 0 ? "opacity-70" : undefined}>

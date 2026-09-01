@@ -16,7 +16,7 @@ import {
   ButtonLink,
   EmptyState,
   ErrorText,
-  PageHeader,
+  SearchActionBar,
   Select,
   TableHead,
   TableShell,
@@ -167,23 +167,24 @@ export default function ApplicationsPage() {
 
   return (
     <section className="space-y-4">
-      <PageHeader
-        title="Applications"
+      <SearchActionBar
+        search={
+          <TextInput
+            className="mt-0"
+            placeholder="Search application ID, bank file, customer code, name, or mobile"
+            value={query}
+            onChange={(event) => {
+              setQuery(event.target.value);
+              setPage(1);
+            }}
+            aria-label="Search applications"
+          />
+        }
         actions={
           can("Applications.Create") ? (
             <ButtonLink href="/applications/new">Create application</ButtonLink>
           ) : null
         }
-      />
-      <TextInput
-        className="mt-0"
-        placeholder="Search application ID, bank file, customer code, name, or mobile"
-        value={query}
-        onChange={(event) => {
-          setQuery(event.target.value);
-          setPage(1);
-        }}
-        aria-label="Search applications"
       />
       <form
         className="grid gap-3 rounded-xl border border-slate-200 bg-white p-4 md:grid-cols-3"

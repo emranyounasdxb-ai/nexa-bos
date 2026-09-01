@@ -15,7 +15,7 @@ import {
   EmptyState,
   ErrorText,
   FilterBar,
-  PageHeader,
+  SearchActionBar,
   StatusBadge,
   TableHead,
   TableShell,
@@ -77,32 +77,30 @@ export default function UsersPage() {
 
   return (
     <section className="space-y-4">
-      <PageHeader
-        title="User directory"
-        description="Search and review employees visible within your authorized user scope."
-        actions={
-          can("Users.Create") ? <ButtonLink href="/users/new">Create user</ButtonLink> : null
-        }
-      />
-      <FilterBar className="sm:grid-cols-1 lg:grid-cols-1">
-        <label className="text-sm font-medium text-slate-700">
-          Search users
-          <div className="relative">
-            <span aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
-              ⌕
-            </span>
-            <TextInput
-              className="pl-9"
-              placeholder="Name, email, code, mobile, office or department"
-              value={query}
-              onChange={(event) => {
-                setQuery(event.target.value);
-                setPage(1);
-              }}
-              aria-label="Search users"
-            />
-          </div>
-        </label>
+      <FilterBar className="block">
+        <SearchActionBar
+          search={
+            <label className="block text-sm font-medium text-slate-700">
+              Search users
+              <div className="relative">
+                <span aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+                  ⌕
+                </span>
+                <TextInput
+                  className="pl-9"
+                  placeholder="Name, email, code, mobile, office or department"
+                  value={query}
+                  onChange={(event) => {
+                    setQuery(event.target.value);
+                    setPage(1);
+                  }}
+                  aria-label="Search users"
+                />
+              </div>
+            </label>
+          }
+          actions={can("Users.Create") ? <ButtonLink href="/users/new">Create user</ButtonLink> : null}
+        />
       </FilterBar>
       <ErrorText>{error}</ErrorText>
       <TableShell className={loading && items.length > 0 ? "opacity-70" : undefined}>

@@ -222,7 +222,7 @@ export default function AssetsPage() {
         description="Individually tracked company Assets and current Office or employee custody."
       />
 
-      <FilterBar>
+      <FilterBar className="sm:grid-cols-2 lg:grid-cols-[minmax(14rem,1.5fr)_repeat(3,minmax(9rem,1fr))_auto]">
         <Field label="Search">
           <TextInput
             aria-label="Search Assets"
