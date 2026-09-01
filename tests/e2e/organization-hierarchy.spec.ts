@@ -111,7 +111,7 @@ async function createUser(
 test("company hierarchy filters, locates, expands, inspects, and refreshes reporting updates", async ({
   page,
   request,
-}) => {
+}, testInfo) => {
   test.setTimeout(120_000);
   const { headers, owner } = await ownerHeaders(request);
   const tag = Date.now().toString(16).slice(-7).toUpperCase();
@@ -186,6 +186,13 @@ test("company hierarchy filters, locates, expands, inspects, and refreshes repor
   const reportingTree = page.getByRole("list", { name: "Reporting tree" });
   const ownerNode = page.getByTestId(`hierarchy-node-${owner.id}`);
   await expect(ownerNode).toBeVisible();
+  const hierarchyCanvas = page.getByTestId("hierarchy-canvas");
+  const ownerAvatar = page.getByTestId(`hierarchy-avatar-${owner.id}`);
+  await expect(ownerAvatar).toBeVisible();
+  const canvasBox = await hierarchyCanvas.boundingBox();
+  const ownerBox = await ownerNode.boundingBox();
+  expect(canvasBox && ownerBox).toBeTruthy();
+  expect(Math.abs(ownerBox!.x + ownerBox!.width / 2 - (canvasBox!.x + canvasBox!.width / 2))).toBeLessThan(3);
   await expect(page.getByTestId(`hierarchy-node-${firstManager.id}`)).toHaveCount(0);
   await expect(page.getByTestId(`hierarchy-node-${employee.id}`)).toHaveCount(0);
   const collapsedTreeHeight = (await reportingTree.boundingBox())?.height ?? 0;
@@ -197,20 +204,38 @@ test("company hierarchy filters, locates, expands, inspects, and refreshes repor
   await ownerExpand.click();
   await expect(page.getByText(firstManager.fullName, { exact: true })).toBeVisible();
   await expect(page.getByTestId(`hierarchy-node-${employee.id}`)).toHaveCount(0);
+  const firstManagerNode = page.getByTestId(`hierarchy-node-${firstManager.id}`);
+  const secondManagerNode = page.getByTestId(`hierarchy-node-${secondManager.id}`);
+  const firstManagerBox = await firstManagerNode.boundingBox();
+  const secondManagerBox = await secondManagerNode.boundingBox();
+  expect(firstManagerBox && secondManagerBox).toBeTruthy();
+  expect(firstManagerBox!.y).toBeCloseTo(secondManagerBox!.y, 0);
+  expect(firstManagerBox!.x).toBeLessThan(secondManagerBox!.x);
+  expect(firstManagerBox!.y).toBeGreaterThan(ownerBox!.y + ownerBox!.height);
+  await expect(page.getByTestId(`hierarchy-avatar-${firstManager.id}`)).toBeVisible();
+  await expect(page.getByTestId(`hierarchy-avatar-${secondManager.id}`)).toBeVisible();
 
   const managerExpand = page.getByRole("button", {
     name: `Expand branch for ${firstManager.fullName}`,
   });
   await managerExpand.click();
-  await expect(page.getByTestId(`hierarchy-node-${employee.id}`)).toBeVisible();
+  const employeeNode = page.getByTestId(`hierarchy-node-${employee.id}`);
+  await expect(employeeNode).toBeVisible();
+  const employeeBox = await employeeNode.boundingBox();
+  expect(employeeBox?.y).toBeGreaterThan(firstManagerBox!.y + firstManagerBox!.height);
+  await expect(page.getByTestId(`hierarchy-avatar-${employee.id}`)).toBeVisible();
   expect((await reportingTree.boundingBox())?.height ?? 0).toBeGreaterThan(collapsedTreeHeight);
-  const managerNodeBox = await page.getByTestId(`hierarchy-node-${firstManager.id}`).boundingBox();
+  const managerNodeBox = await firstManagerNode.boundingBox();
   expect(managerNodeBox?.width).toBeLessThanOrEqual(224);
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
     ),
   ).toBeTruthy();
+  await page.screenshot({
+    path: testInfo.outputPath("task16-5-centered-hierarchy.png"),
+    fullPage: true,
+  });
   await page
     .getByRole("button", { name: `Collapse branch for ${firstManager.fullName}` })
     .click();
