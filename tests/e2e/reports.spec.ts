@@ -49,12 +49,12 @@ async function signIn(page: Page, email = "owner@example.com", password = "Owner
 async function openDashboardFilters(page: Page) {
   const filters = page.getByTestId("dashboard-filters");
   if (!(await filters.getByLabel("Reporting period").isVisible())) {
-    await filters.locator("summary").click();
+    await page.getByTestId("dashboard-actions").getByRole("button", { name: "Refine", exact: true }).click();
   }
   return filters;
 }
 
-test("owner dashboard periods, drill-down, profile, ranking, comparison, delay, refresh, and exports", async ({
+test("owner dashboard periods, drill-down, profile, ranking, comparison, delay, and refresh", async ({
   page,
   request,
 }) => {
@@ -129,11 +129,11 @@ test("owner dashboard periods, drill-down, profile, ranking, comparison, delay, 
   await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible({
     timeout: 30_000,
   });
-  await expect(page.getByText(/MTD ·/)).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText(/MTD period ·/)).toBeVisible({ timeout: 30_000 });
   let filters = await openDashboardFilters(page);
   await filters.getByLabel("Reporting period").selectOption("ytd");
   await page.getByRole("button", { name: "Apply" }).click();
-  await expect(page.getByText(/YTD ·/)).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText(/YTD period ·/)).toBeVisible({ timeout: 30_000 });
   filters = await openDashboardFilters(page);
   await filters.getByLabel("Reporting period").selectOption("custom");
   await filters.getByLabel("Custom period start").fill("2026-01-01");
@@ -155,7 +155,7 @@ test("owner dashboard periods, drill-down, profile, ranking, comparison, delay, 
     timeout: 30_000,
   });
   await page.goto(`/reports/employees/${me.id}`);
-  await expect(page.getByRole("heading", { name: "Platform Owner" })).toBeVisible({
+  await expect(page.getByRole("heading", { name: "Employee report" })).toBeVisible({
     timeout: 30_000,
   });
   await page.getByLabel("Reporting period").selectOption("since_joining");
@@ -177,36 +177,19 @@ test("owner dashboard periods, drill-down, profile, ranking, comparison, delay, 
     await expect(page.getByText("Employment status")).toBeVisible({ timeout: 30_000 });
   }
   await page.goto("/reports");
-  await page.getByRole("button", { name: "Compare" }).click();
-  await expect(page.getByRole("heading", { name: "Comparisons" })).toBeVisible({
-    timeout: 30_000,
-  });
-  await page.getByRole("button", { name: "Compare" }).click();
+  await page.getByRole("button", { name: "Compare", exact: true }).click();
+  await expect(page.getByLabel("Comparison type", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Run comparison", exact: true }).click();
   await expect(page.getByText("Percentage change")).toBeVisible({ timeout: 20_000 });
+  await expect(page).toHaveURL(/\/reports(?:\?|$)/);
   await page.goto("/reports");
   await page.getByRole("button", { name: "Refresh" }).click();
   await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible({
     timeout: 30_000,
   });
-  await expect(page.getByText(/Company-wide/)).toBeVisible({ timeout: 30_000 });
-  const exportButton = page.getByRole("button", { name: "Export dashboard" });
-  await exportButton.click();
-  const [excel] = await Promise.all([
-    page.waitForEvent("download"),
-    page.getByRole("menuitem", { name: "Excel" }).click(),
-  ]);
-  expect(excel.suggestedFilename()).toContain("xlsx");
-  await exportButton.click();
-  const [pdf] = await Promise.all([
-    page.waitForEvent("download"),
-    page.getByRole("menuitem", { name: "PDF" }).click(),
-  ]);
-  expect(pdf.suggestedFilename()).toContain("pdf");
-  await exportButton.click();
-  const popupPromise = page.waitForEvent("popup");
-  await page.getByRole("menuitem", { name: "Print" }).click();
-  const popup = await popupPromise;
-  await expect(popup.getByText("NEXA BOS")).toBeVisible();
+  await expect(page.getByText(/All permitted records/)).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole("button", { name: "Export dashboard" })).toHaveCount(0);
+  await expect(page.getByTestId("dashboard-export-panel")).toHaveCount(0);
 });
 
 test("scoped reporter cannot see unauthorized data or export without permission", async ({

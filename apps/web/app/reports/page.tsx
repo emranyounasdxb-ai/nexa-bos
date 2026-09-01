@@ -8,7 +8,6 @@ import {
   useMemo,
   useRef,
   useState,
-  type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
@@ -27,28 +26,23 @@ import {
   IconCircleX,
   IconClock,
   IconCreditCard,
-  IconFileSpreadsheet,
-  IconFileTypePdf,
   IconFilter,
   IconInbox,
-  IconPrinter,
   IconRefresh,
 } from "@/components/icons";
 import {
   Badge,
   Button,
   Card,
-  cx,
   ErrorText,
-  focusRing,
-  PageHeader,
   Select,
   SectionHeader,
 } from "@/components/ui";
-import { apiDownload, apiGet, ApiClientError } from "@/lib/api";
+import { apiGet, ApiClientError } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { getBrowserApiUrl } from "@/lib/env";
 import {
+  formatAed,
   formatPct,
   queryFromSearch,
   toSearchParams,
@@ -68,7 +62,6 @@ import {
   StageDistribution,
   TargetProgress,
 } from "./dashboard-visuals";
-import { DashboardHolidayReminders } from "./dashboard-holiday-reminders";
 
 const comparisonPeriodFor: Partial<Record<string, string>> = {
   mtd: "month",
@@ -85,6 +78,10 @@ function comparisonSearch(query: ReportQuery): string | null {
     if (query[key]) params.set(key, query[key]);
   }
   return params.toString();
+}
+
+function formatComparisonValue(value: string | number) {
+  return typeof value === "number" ? value.toLocaleString("en-AE") : formatAed(value);
 }
 
 function DashboardSkeleton() {
@@ -123,124 +120,6 @@ function DashboardSkeleton() {
   );
 }
 
-function DashboardExportMenu({
-  canExportExcel,
-  canExportPdf,
-  canPrint,
-  onExport,
-}: {
-  canExportExcel: boolean;
-  canExportPdf: boolean;
-  canPrint: boolean;
-  onExport: (format: "xlsx" | "pdf" | "print") => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const options = [
-    { format: "xlsx" as const, label: "Excel", icon: IconFileSpreadsheet, visible: canExportExcel },
-    { format: "pdf" as const, label: "PDF", icon: IconFileTypePdf, visible: canExportPdf },
-    { format: "print" as const, label: "Print", icon: IconPrinter, visible: canPrint },
-  ].filter((option) => option.visible);
-
-  useEffect(() => {
-    if (!open) return;
-
-    function closeOnOutsideInteraction(event: PointerEvent) {
-      if (!containerRef.current?.contains(event.target as Node)) setOpen(false);
-    }
-
-    function closeOnEscape(event: KeyboardEvent) {
-      if (event.key !== "Escape") return;
-      setOpen(false);
-      containerRef.current
-        ?.querySelector<HTMLButtonElement>("[data-dashboard-export-trigger]")
-        ?.focus();
-    }
-
-    document.addEventListener("pointerdown", closeOnOutsideInteraction);
-    document.addEventListener("keydown", closeOnEscape);
-    return () => {
-      document.removeEventListener("pointerdown", closeOnOutsideInteraction);
-      document.removeEventListener("keydown", closeOnEscape);
-    };
-  }, [open]);
-
-  useEffect(() => {
-    if (!open) return;
-    containerRef.current?.querySelector<HTMLButtonElement>('[role="menuitem"]')?.focus();
-  }, [open]);
-
-  if (options.length === 0) return null;
-
-  function moveMenuFocus(event: ReactKeyboardEvent<HTMLButtonElement>, direction: -1 | 1) {
-    event.preventDefault();
-    const items = Array.from(
-      containerRef.current?.querySelectorAll<HTMLButtonElement>('[role="menuitem"]') ?? [],
-    );
-    const currentIndex = items.indexOf(event.currentTarget);
-    items[(currentIndex + direction + items.length) % items.length]?.focus();
-  }
-
-  return (
-    <div ref={containerRef} className="relative">
-      <Button
-        data-dashboard-export-trigger
-        type="button"
-        size="compact"
-        variant="secondary"
-        aria-label="Export dashboard"
-        aria-haspopup="menu"
-        aria-expanded={open}
-        aria-controls={open ? "dashboard-export-menu" : undefined}
-        onClick={() => setOpen((current) => !current)}
-        onKeyDown={(event) => {
-          if (event.key !== "ArrowDown") return;
-          event.preventDefault();
-          setOpen(true);
-        }}
-      >
-        <IconFileSpreadsheet className="size-4" />
-        Export
-        <IconChevronDown className={cx("size-3.5", open && "rotate-180")} />
-      </Button>
-      {open ? (
-        <div
-          id="dashboard-export-menu"
-          role="menu"
-          aria-label="Dashboard export formats"
-          className="absolute right-0 top-full z-20 mt-1 min-w-36 rounded-lg border border-slate-200 bg-white p-1 shadow-[0_10px_24px_rgba(15,23,42,0.12)]"
-        >
-          {options.map((option) => {
-            const Icon = option.icon;
-            return (
-              <button
-                key={option.format}
-                type="button"
-                role="menuitem"
-                className={cx(
-                  focusRing,
-                  "flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 hover:text-slate-900",
-                )}
-                onClick={() => {
-                  setOpen(false);
-                  onExport(option.format);
-                }}
-                onKeyDown={(event) => {
-                  if (event.key === "ArrowDown") moveMenuFocus(event, 1);
-                  if (event.key === "ArrowUp") moveMenuFocus(event, -1);
-                }}
-              >
-                <Icon className="size-4" />
-                {option.label}
-              </button>
-            );
-          })}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
 export function DashboardInner() {
   const { can } = useAuth();
   const router = useRouter();
@@ -254,6 +133,20 @@ export function DashboardInner() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [reloadVersion, setReloadVersion] = useState(0);
+  const [activePanel, setActivePanel] = useState<"refine" | "compare" | null>(null);
+  const [compareKind, setCompareKind] = useState("period");
+  const [comparePeriod, setComparePeriod] = useState("month");
+  const [compareMetric, setCompareMetric] = useState("funded_value");
+  const [compareDimension, setCompareDimension] = useState("employee");
+  const [compareLeftId, setCompareLeftId] = useState("");
+  const [compareRightId, setCompareRightId] = useState("");
+  const [compareDateFrom, setCompareDateFrom] = useState("");
+  const [compareDateTo, setCompareDateTo] = useState("");
+  const [compareFrom, setCompareFrom] = useState("");
+  const [compareTo, setCompareTo] = useState("");
+  const [comparisonResult, setComparisonResult] = useState<ReportComparisonPayload | null>(null);
+  const [comparisonError, setComparisonError] = useState("");
+  const [comparisonLoading, setComparisonLoading] = useState(false);
   const requestIdRef = useRef(0);
   const lastAutomaticLoadRef = useRef("");
 
@@ -265,6 +158,13 @@ export function DashboardInner() {
         .length,
     [query],
   );
+  const comparisonEntities = useMemo(() => {
+    if (compareDimension === "employee") return filters?.employees;
+    if (compareDimension === "team") return filters?.teams;
+    if (compareDimension === "office") return filters?.offices;
+    if (compareDimension === "bank") return filters?.banks;
+    return filters?.products;
+  }, [compareDimension, filters]);
 
   const load = useCallback(async () => {
     const requestId = ++requestIdRef.current;
@@ -324,42 +224,37 @@ export function DashboardInner() {
     router.replace(`/reports?${toSearchParams(query)}`);
   }
 
-  async function exportReport(format: "xlsx" | "pdf" | "print") {
-    try {
-      const result = await apiDownload("/api/v1/reports/export", api, {
-        method: "POST",
-        body: JSON.stringify({
-          format,
-          report: "dashboard",
-          period: appliedQuery.period,
-          date_from: appliedQuery.date_from || null,
-          date_to: appliedQuery.date_to || null,
-          office_id: appliedQuery.office_id || null,
-          department_id: appliedQuery.department_id || null,
-          team_id: appliedQuery.team_id || null,
-          employee_id: appliedQuery.employee_id || null,
-          bank_id: appliedQuery.bank_id || null,
-          product_id: appliedQuery.product_id || null,
-          stage_id: appliedQuery.stage_id || null,
-          terminal_outcome: appliedQuery.terminal_outcome || null,
-          ranking_metric: appliedQuery.ranking_metric,
-        }),
-      });
-      if (format === "print") {
-        const html = await result.blob.text();
-        const popup = window.open("", "_blank");
-        popup?.document.write(html);
-        popup?.document.close();
-        return;
+  function togglePanel(panel: "refine" | "compare") {
+    setActivePanel((current) => (current === panel ? null : panel));
+  }
+
+  async function runComparison() {
+    setComparisonError("");
+    setComparisonLoading(true);
+    const params = new URLSearchParams({ kind: compareKind, metric: compareMetric });
+    if (compareKind === "period") {
+      params.set("period", comparePeriod);
+      if (comparePeriod === "custom") {
+        params.set("date_from", compareDateFrom);
+        params.set("date_to", compareDateTo);
+        params.set("compare_from", compareFrom);
+        params.set("compare_to", compareTo);
       }
-      const url = URL.createObjectURL(result.blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = result.filename ?? `nexa-bos-dashboard.${format}`;
-      link.click();
-      URL.revokeObjectURL(url);
+    } else {
+      params.set("dimension", compareDimension);
+      params.set("left_id", compareLeftId);
+      params.set("right_id", compareRightId);
+      params.set("period", "mtd");
+    }
+    try {
+      setComparisonResult(
+        await apiGet<ReportComparisonPayload>(`/api/v1/reports/comparisons?${params}`, api),
+      );
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Export failed");
+      setComparisonResult(null);
+      setComparisonError(err instanceof Error ? err.message : "Comparison failed");
+    } finally {
+      setComparisonLoading(false);
     }
   }
 
@@ -381,16 +276,15 @@ export function DashboardInner() {
 
   return (
     <section className="space-y-4">
-      {can("Attendance.View") ? <DashboardHolidayReminders /> : null}
-      <PageHeader
-        title="Dashboard"
-        description={
-          data
-            ? `${data.period.label} · ${data.reportingScope ?? "No reporting scope"} · ${data.currency}`
-            : "Management overview"
-        }
-        actions={
-          <div data-testid="dashboard-actions" className="flex flex-wrap items-center justify-end gap-2">
+      <div data-testid="dashboard-filters" className="rounded-[10px] border border-slate-200/90 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.035)]">
+        <div className="flex min-w-0 flex-col gap-3 px-4 py-3 sm:px-5 md:flex-row md:items-center md:justify-between">
+          <div className="min-w-0">
+            <span className="block text-sm font-semibold text-slate-900">Reporting filters</span>
+            <span className="mt-0.5 block truncate text-xs text-slate-500">
+              {query.period.toUpperCase()} period · {activeFilterCount === 0 ? "All permitted records" : `${activeFilterCount} scope filters active`}
+            </span>
+          </div>
+          <div data-testid="dashboard-actions" className="flex min-w-0 flex-wrap items-center gap-2 md:flex-nowrap md:justify-end">
             <Button type="button" size="compact" aria-busy={loading && Boolean(data)} onClick={() => void load()}>
               {loading && data ? (
                 <span className="inline-flex items-center gap-2">
@@ -400,38 +294,36 @@ export function DashboardInner() {
               ) : <><IconRefresh className="size-4" />Refresh</>}
             </Button>
             {can("Reports.View") ? (
-              <Button type="button" size="compact" variant="secondary" onClick={() => router.push("/reports/compare")}>
+              <Button
+                type="button"
+                size="compact"
+                variant="secondary"
+                aria-expanded={activePanel === "compare"}
+                aria-controls="dashboard-compare-panel"
+                onClick={() => togglePanel("compare")}
+              >
                 <IconArrowsDiff className="size-4" />
                 Compare
+                <IconChevronDown className={`size-3.5 transition-transform ${activePanel === "compare" ? "rotate-180" : ""}`} />
               </Button>
             ) : null}
-            <DashboardExportMenu
-              canExportExcel={can("Reports.ExportExcel")}
-              canExportPdf={can("Reports.ExportPDF")}
-              canPrint={can("Reports.Print")}
-              onExport={(format) => void exportReport(format)}
-            />
-          </div>
-        }
-      />
-
-      <details data-testid="dashboard-filters" className="group rounded-[10px] border border-slate-200/90 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.035)]">
-        <summary className="cursor-pointer list-none px-4 py-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f4c81] sm:px-5">
-          <span className="flex items-center justify-between gap-4">
-            <span>
-              <span className="block text-sm font-semibold text-slate-900">Reporting filters</span>
-              <span className="mt-0.5 block text-xs text-slate-500">
-                {query.period.toUpperCase()} period · {activeFilterCount === 0 ? "All permitted records" : `${activeFilterCount} scope filters active`}
-              </span>
-            </span>
-            <span className="inline-flex items-center gap-2 text-sm font-semibold text-[#0f4c81]">
+            <Button
+              type="button"
+              size="compact"
+              variant="secondary"
+              aria-expanded={activePanel === "refine"}
+              aria-controls="dashboard-refine-panel"
+              onClick={() => togglePanel("refine")}
+            >
               <IconFilter className="size-4" />
               Refine
-              <IconChevronDown className="size-4 transition-transform group-open:rotate-180" />
-            </span>
-          </span>
-        </summary>
-        <div className="grid gap-3 border-t border-slate-200 bg-slate-50/40 p-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
+              <IconChevronDown className={`size-3.5 transition-transform ${activePanel === "refine" ? "rotate-180" : ""}`} />
+            </Button>
+          </div>
+        </div>
+
+        {activePanel === "refine" ? (
+          <div id="dashboard-refine-panel" data-testid="dashboard-refine-panel" className="grid gap-3 border-t border-slate-200 bg-slate-50/40 p-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
           <label className="text-sm font-medium text-slate-700">
             Reporting period
             <Select aria-label="Reporting period" value={query.period} onChange={(event) => setQuery({ ...query, period: event.target.value })}>
@@ -506,8 +398,114 @@ export function DashboardInner() {
           <div className="flex items-end">
             <Button type="button" className="w-full" onClick={applyFilters}><IconFilter className="size-4" />Apply filters</Button>
           </div>
-        </div>
-      </details>
+          </div>
+        ) : null}
+
+        {activePanel === "compare" ? (
+          <div id="dashboard-compare-panel" data-testid="dashboard-compare-panel" className="border-t border-slate-200 bg-slate-50/40 p-4">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <label className="text-sm font-medium text-slate-700">
+                Comparison type
+                <Select aria-label="Comparison type" value={compareKind} onChange={(event) => setCompareKind(event.target.value)}>
+                  <option value="period">Period vs period</option>
+                  <option value="entity">Entity vs entity</option>
+                </Select>
+              </label>
+              <label className="text-sm font-medium text-slate-700">
+                Metric
+                <Select aria-label="Comparison metric" value={compareMetric} onChange={(event) => setCompareMetric(event.target.value)}>
+                  <option value="submitted_value">Submitted Value</option>
+                  <option value="booked_value">Booked Value</option>
+                  <option value="funded_value">Funded Value</option>
+                  <option value="case_count">Case Count</option>
+                </Select>
+              </label>
+              {compareKind === "period" ? (
+                <label className="text-sm font-medium text-slate-700">
+                  Period pair
+                  <Select aria-label="Period pair" value={comparePeriod} onChange={(event) => setComparePeriod(event.target.value)}>
+                    <option value="month">Current Month vs Previous Month</option>
+                    <option value="quarter">Current Quarter vs Previous Quarter</option>
+                    <option value="half_year">Current Half-Year vs Previous Half-Year</option>
+                    <option value="year">Current Year vs Previous Year</option>
+                    <option value="custom">Custom Period vs Custom Period</option>
+                  </Select>
+                </label>
+              ) : (
+                <label className="text-sm font-medium text-slate-700">
+                  Dimension
+                  <Select aria-label="Dimension" value={compareDimension} onChange={(event) => setCompareDimension(event.target.value)}>
+                    <option value="employee">Employee</option>
+                    <option value="team">Team</option>
+                    <option value="office">Office</option>
+                    <option value="bank">Bank</option>
+                    <option value="product">Product</option>
+                  </Select>
+                </label>
+              )}
+              {compareKind === "entity" ? (
+                <>
+                  <label className="text-sm font-medium text-slate-700">
+                    Left entity
+                    <Select aria-label="Left entity" value={compareLeftId} onChange={(event) => setCompareLeftId(event.target.value)}>
+                      <option value="">Select</option>
+                      {comparisonEntities?.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+                    </Select>
+                  </label>
+                  <label className="text-sm font-medium text-slate-700">
+                    Right entity
+                    <Select aria-label="Right entity" value={compareRightId} onChange={(event) => setCompareRightId(event.target.value)}>
+                      <option value="">Select</option>
+                      {comparisonEntities?.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+                    </Select>
+                  </label>
+                </>
+              ) : null}
+              {compareKind === "period" && comparePeriod === "custom" ? (
+                <>
+                  <label className="text-sm font-medium text-slate-700">
+                    Current from
+                    <DatePicker aria-label="Current from" value={compareDateFrom} onChange={setCompareDateFrom} />
+                  </label>
+                  <label className="text-sm font-medium text-slate-700">
+                    Current to
+                    <DatePicker aria-label="Current to" value={compareDateTo} onChange={setCompareDateTo} />
+                  </label>
+                  <label className="text-sm font-medium text-slate-700">
+                    Comparison from
+                    <DatePicker aria-label="Comparison from" value={compareFrom} onChange={setCompareFrom} />
+                  </label>
+                  <label className="text-sm font-medium text-slate-700">
+                    Comparison to
+                    <DatePicker aria-label="Comparison to" value={compareTo} onChange={setCompareTo} />
+                  </label>
+                </>
+              ) : null}
+              <div className="flex items-end">
+                <Button type="button" className="w-full" aria-busy={comparisonLoading} onClick={() => void runComparison()}>
+                  <IconArrowsDiff className="size-4" />
+                  {comparisonLoading ? "Comparing…" : "Run comparison"}
+                </Button>
+              </div>
+            </div>
+            <ErrorText>{comparisonError}</ErrorText>
+            {comparisonResult ? (
+              <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3" data-testid="dashboard-comparison-result">
+                <p className="text-xs text-slate-500">
+                  {comparisonResult.kind} · {comparisonResult.reportingScope ?? "No reporting scope"}
+                </p>
+                <dl className="mt-2 grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-4">
+                  <div><dt className="text-xs text-slate-500">Current</dt><dd className="font-semibold text-slate-900">{formatComparisonValue(comparisonResult.current)}</dd></div>
+                  <div><dt className="text-xs text-slate-500">Previous</dt><dd className="font-semibold text-slate-900">{formatComparisonValue(comparisonResult.previous)}</dd></div>
+                  <div><dt className="text-xs text-slate-500">Difference</dt><dd className="font-semibold text-slate-900">{formatComparisonValue(comparisonResult.absoluteDifference)}</dd></div>
+                  <div><dt className="text-xs text-slate-500">Percentage change</dt><dd className="font-semibold text-slate-900">{formatPct(comparisonResult.percentageChange)}</dd></div>
+                </dl>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+
+      </div>
 
       <ErrorText>{error}</ErrorText>
       {loading && !data ? <DashboardSkeleton /> : null}

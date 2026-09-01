@@ -66,7 +66,7 @@ test("dashboard presents a compact executive summary with bounded detail", async
   await expect(page.getByText("Executive overview", { exact: true })).toHaveCount(0);
   await expect(page.getByTestId("dashboard-analysis-grid")).toBeVisible();
   const dashboardFilters = page.getByTestId("dashboard-filters");
-  await expect(dashboardFilters).not.toHaveAttribute("open", "");
+  await expect(dashboardFilters.getByTestId("dashboard-refine-panel")).toHaveCount(0);
   await expect(dashboardFilters.getByLabel("Reporting period", { exact: true })).toBeHidden();
 
   const shellHeader = page.locator("header").first();
@@ -101,8 +101,11 @@ test("dashboard presents a compact executive summary with bounded detail", async
   await expect(page.getByTestId("dashboard-actions").getByRole("button")).toHaveText([
     "Refresh",
     "Compare",
-    "Export",
+    "Refine",
   ]);
+  const actionYPositions = await Promise.all(actionButtons.map(async (button) => (await button.boundingBox())?.y));
+  expect(Math.max(...actionYPositions.map((value) => value ?? 0)) - Math.min(...actionYPositions.map((value) => value ?? 0))).toBeLessThan(2);
+  expect(await page.getByTestId("dashboard-actions").evaluate((element) => element.closest('[data-testid="dashboard-filters"]') !== null)).toBeTruthy();
   await expect(page.getByLabel(/Notifications, \d+ unread/).locator("svg")).toBeVisible();
   await expect(page.getByLabel("Open user menu").locator("svg")).toBeVisible();
 
@@ -145,57 +148,99 @@ test("dashboard presents a compact executive summary with bounded detail", async
   });
 });
 
-test("holiday reminders stay dashboard-only and dashboard actions remain accessible", async ({
+test("list search and page actions share compact desktop rows", async ({ page, request }) => {
+  test.setTimeout(120_000);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await signIn(page, request);
+
+  for (const item of [
+    { path: "/customers", heading: "Customers", search: "Search customers", action: "Create customer" },
+    { path: "/users", heading: "User directory", search: "Search users", action: "Create user" },
+    { path: "/applications", heading: "Applications", search: "Search applications", action: "Create application" },
+  ]) {
+    await page.goto(item.path);
+    await expect(page.getByRole("heading", { name: item.heading, exact: true })).toBeVisible();
+    const bar = page.getByTestId("search-action-bar");
+    const search = bar.getByLabel(item.search, { exact: true });
+    const action = bar.getByRole("link", { name: item.action, exact: true });
+    await expect(search).toBeVisible();
+    await expect(action).toBeVisible();
+    const searchBox = await search.boundingBox();
+    const actionBox = await action.boundingBox();
+    expect(searchBox && actionBox).toBeTruthy();
+    expect(searchBox!.x).toBeLessThan(actionBox!.x);
+    expect(searchBox!.width).toBeGreaterThan(actionBox!.width);
+    expect(Math.abs(searchBox!.y + searchBox!.height - actionBox!.y - actionBox!.height)).toBeLessThan(2);
+    expect(actionBox!.height).toBe(32);
+    await search.fill("layout verification");
+    await expect(search).toHaveValue("layout verification");
+    await search.fill("");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBeTruthy();
+  }
+
+  await page.goto("/assets");
+  await expect(page.getByRole("heading", { name: "Asset Register", exact: true })).toBeVisible();
+  const assetSearch = page.getByLabel("Search Assets", { exact: true });
+  const assetAction = page.getByRole("button", { name: "Apply filters", exact: true });
+  const assetSearchBox = await assetSearch.boundingBox();
+  const assetActionBox = await assetAction.boundingBox();
+  expect(assetSearchBox && assetActionBox).toBeTruthy();
+  expect(assetSearchBox!.x).toBeLessThan(assetActionBox!.x);
+  expect(assetSearchBox!.width).toBeGreaterThan(assetActionBox!.width);
+  expect(Math.abs(assetSearchBox!.y + assetSearchBox!.height - assetActionBox!.y - assetActionBox!.height)).toBeLessThan(2);
+  expect(assetActionBox!.height).toBe(32);
+  await assetSearch.fill("AST-");
+  await expect(assetSearch).toHaveValue("AST-");
+
+  await page.goto("/finance");
+  await expect(page.getByRole("heading", { name: "Finance", exact: true })).toBeVisible();
+  for (const label of ["Refresh", "Excel", "PDF", "Print"]) {
+    const button = page.getByRole("button", { name: label, exact: true }).first();
+    await expect(button).toBeVisible();
+    expect((await button.boundingBox())?.height).toBe(32);
+  }
+
+  for (const path of ["/customers", "/users", "/applications", "/assets", "/finance"]) {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(path);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBeTruthy();
+  }
+});
+
+test("holiday reminders are absent and dashboard action panels remain accessible", async ({
   page,
   request,
 }) => {
   test.setTimeout(120_000);
-  await page.route(`${apiOrigin}/api/v1/attendance/reminders`, async (route) => {
-    await route.fulfill({
-      json: {
-        items: [
-          {
-            id: "task-16-4-reminder",
-            kind: "urgent",
-            holiday: { name: "Review holiday", holidayDate: "2026-09-02" },
-            daysUntil: 1,
-          },
-        ],
-      },
-    });
-  });
-  await page.route(
-    `${apiOrigin}/api/v1/attendance/reminders/task-16-4-reminder/dismiss`,
-    async (route) => {
-      await route.fulfill({ json: { status: "dismissed" } });
-    },
-  );
-
   await page.setViewportSize({ width: 1440, height: 900 });
   await signIn(page, request);
-  const reminders = page.getByRole("complementary", { name: "Holiday reminders" });
-  await expect(reminders).toBeVisible();
-  await expect(reminders.getByText("Urgent", { exact: true })).toBeVisible();
+  await expect(page.getByRole("complementary", { name: "Holiday reminders" })).toHaveCount(0);
   await expect(page.getByLabel(/Notifications, \d+ unread/)).toBeVisible();
 
   const actions = page.getByTestId("dashboard-actions");
-  await expect(actions.getByRole("button")).toHaveText(["Refresh", "Compare", "Export"]);
-  const exportButton = actions.getByRole("button", { name: "Export dashboard" });
-  await exportButton.focus();
-  await page.keyboard.press("Enter");
-  const exportMenu = page.getByRole("menu", { name: "Dashboard export formats" });
-  await expect(exportMenu).toBeVisible();
-  await expect(exportMenu.getByRole("menuitem")).toHaveText(["Excel", "PDF", "Print"]);
-  await expect(exportMenu.getByRole("menuitem", { name: "Excel" })).toBeFocused();
-  await page.keyboard.press("ArrowDown");
-  await expect(exportMenu.getByRole("menuitem", { name: "PDF" })).toBeFocused();
-  await page.keyboard.press("Escape");
-  await expect(exportMenu).toHaveCount(0);
-  await expect(exportButton).toBeFocused();
-  await exportButton.click();
-  await expect(exportMenu).toBeVisible();
-  await page.getByRole("heading", { name: "Dashboard", exact: true }).click();
-  await expect(exportMenu).toHaveCount(0);
+  await expect(actions.getByRole("button")).toHaveText(["Refresh", "Compare", "Refine"]);
+  const refineButton = actions.getByRole("button", { name: "Refine", exact: true });
+  const compareButton = actions.getByRole("button", { name: "Compare", exact: true });
+  const refinePanel = page.getByTestId("dashboard-refine-panel");
+  const comparePanel = page.getByTestId("dashboard-compare-panel");
+  await expect(actions.getByRole("button", { name: "Export dashboard" })).toHaveCount(0);
+  await expect(page.getByTestId("dashboard-export-panel")).toHaveCount(0);
+
+  await refineButton.click();
+  await expect(refinePanel).toBeVisible();
+  await expect(comparePanel).toHaveCount(0);
+  await compareButton.click();
+  await expect(refinePanel).toHaveCount(0);
+  await expect(comparePanel).toBeVisible();
+  await expect(page).toHaveURL(/\/reports(?:\?|$)/);
+  await comparePanel.getByRole("button", { name: "Run comparison", exact: true }).click();
+  await expect(page.getByTestId("dashboard-comparison-result")).toBeVisible();
+  await compareButton.click();
+  await expect(comparePanel).toHaveCount(0);
+  await refineButton.click();
+  await expect(refinePanel).toBeVisible();
+  await refineButton.click();
+  await expect(refinePanel).toHaveCount(0);
 
   for (const [path, title] of [
     ["/applications", "Applications"],
@@ -210,49 +255,25 @@ test("holiday reminders stay dashboard-only and dashboard actions remain accessi
   }
 
   await page.goto("/reports");
-  await expect(reminders).toBeVisible();
+  await expect(page.getByRole("complementary", { name: "Holiday reminders" })).toHaveCount(0);
   await actions.getByRole("button", { name: "Refresh", exact: true }).click();
   await expect(actions.getByRole("button", { name: "Refresh", exact: true })).toBeVisible();
-  await actions.getByRole("button", { name: "Compare", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Comparisons", exact: true })).toBeVisible();
-  await page.goto("/reports");
-  await expect(reminders).toBeVisible();
-
-  await exportButton.click();
-  const [excel] = await Promise.all([
-    page.waitForEvent("download"),
-    exportMenu.getByRole("menuitem", { name: "Excel" }).click(),
-  ]);
-  expect(excel.suggestedFilename()).toContain("xlsx");
-  await exportButton.click();
-  const [pdf] = await Promise.all([
-    page.waitForEvent("download"),
-    exportMenu.getByRole("menuitem", { name: "PDF" }).click(),
-  ]);
-  expect(pdf.suggestedFilename()).toContain("pdf");
-  await exportButton.click();
-  const popupPromise = page.waitForEvent("popup");
-  await exportMenu.getByRole("menuitem", { name: "Print" }).click();
-  const popup = await popupPromise;
-  await expect(popup.getByText("NEXA BOS")).toBeVisible();
 
   for (const viewport of [
     { width: 900, height: 900 },
     { width: 390, height: 844 },
   ]) {
     await page.setViewportSize(viewport);
-    await expect(exportButton).toBeVisible();
-    await exportButton.click();
-    await expect(exportMenu).toBeVisible();
+    await expect(actions.getByRole("button", { name: "Refresh", exact: true })).toBeVisible();
+    await expect(actions.getByRole("button", { name: "Compare", exact: true })).toBeVisible();
+    await expect(actions.getByRole("button", { name: "Refine", exact: true })).toBeVisible();
+    await expect(actions.getByRole("button", { name: "Export dashboard" })).toHaveCount(0);
     expect(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
       ),
     ).toBeTruthy();
-    await page.keyboard.press("Escape");
   }
-  await reminders.getByRole("button", { name: "Dismiss" }).click();
-  await expect(reminders).toHaveCount(0);
 });
 
 test("dashboard loads primary data independently and preserves it during refreshes", async ({
@@ -332,7 +353,7 @@ test("dashboard loads primary data independently and preserves it during refresh
 
   mode = "filter";
   dashboardGate = deferred();
-  await page.getByTestId("dashboard-filters").locator("summary").click();
+  await page.getByTestId("dashboard-actions").getByRole("button", { name: "Refine", exact: true }).click();
   const dashboardRequestsBeforeSelection = starts.filter((entry) => entry.endpoint === "dashboard").length;
   await page.getByLabel("Reporting period", { exact: true }).selectOption("ytd");
   expect(starts.filter((entry) => entry.endpoint === "dashboard")).toHaveLength(dashboardRequestsBeforeSelection);

@@ -25,16 +25,17 @@ export const controlClass = cx(
 export const controlErrorClass = "border-red-700 focus:border-red-700";
 
 const buttonBaseClass = cx(
-  "inline-flex items-center justify-center rounded-md font-medium transition-colors",
+  "inline-flex items-center justify-center whitespace-nowrap rounded-md font-medium transition-colors",
   "disabled:cursor-not-allowed disabled:opacity-50",
   focusRing,
 );
 
-type ButtonSize = "default" | "compact";
+type ButtonSize = "default" | "compact" | "icon";
 
 const buttonSizeClass: Record<ButtonSize, string> = {
-  default: "min-h-10 gap-2 px-3.5 py-2 text-sm",
-  compact: "min-h-8 gap-1.5 px-2.5 py-1 text-xs",
+  default: "h-8 gap-1.5 px-3 py-0 text-sm",
+  compact: "h-8 gap-1.5 px-2.5 py-0 text-xs",
+  icon: "size-8 shrink-0 gap-0 p-0 text-sm",
 };
 
 const primaryButtonTone = "bg-slate-900 text-white hover:bg-slate-800 active:bg-slate-950";
@@ -76,6 +77,32 @@ export function PageHeader({
 }) {
   if (!actions) return null;
   return <div className="flex flex-wrap items-center justify-end gap-2">{actions}</div>;
+}
+
+export function SearchActionBar({
+  search,
+  actions,
+  className,
+}: {
+  search: ReactNode;
+  actions?: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      data-testid="search-action-bar"
+      className={cx("flex min-w-0 flex-col gap-2 sm:flex-row sm:items-end", className)}
+    >
+      <div data-testid="search-action-field" className="min-w-0 flex-1">
+        {search}
+      </div>
+      {actions ? (
+        <div data-testid="search-actions" className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+          {actions}
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 export function Card({ children, className }: { children: ReactNode; className?: string }) {
@@ -348,7 +375,7 @@ export function DialogPanel({
             </h2>
             {description ? <p className="mt-1 text-sm text-slate-500">{description}</p> : null}
           </div>
-          <Button type="button" variant="ghost" aria-label="Close dialog" onClick={onClose}>
+          <Button type="button" variant="ghost" size="icon" aria-label="Close dialog" onClick={onClose}>
             <IconX className="size-4" />
           </Button>
         </div>
