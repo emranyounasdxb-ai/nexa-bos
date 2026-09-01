@@ -26,11 +26,8 @@ import {
   IconCircleX,
   IconClock,
   IconCreditCard,
-  IconFileSpreadsheet,
-  IconFileTypePdf,
   IconFilter,
   IconInbox,
-  IconPrinter,
   IconRefresh,
 } from "@/components/icons";
 import {
@@ -41,7 +38,7 @@ import {
   Select,
   SectionHeader,
 } from "@/components/ui";
-import { apiDownload, apiGet, ApiClientError } from "@/lib/api";
+import { apiGet, ApiClientError } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { getBrowserApiUrl } from "@/lib/env";
 import {
@@ -136,7 +133,7 @@ export function DashboardInner() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [reloadVersion, setReloadVersion] = useState(0);
-  const [activePanel, setActivePanel] = useState<"refine" | "compare" | "export" | null>(null);
+  const [activePanel, setActivePanel] = useState<"refine" | "compare" | null>(null);
   const [compareKind, setCompareKind] = useState("period");
   const [comparePeriod, setComparePeriod] = useState("month");
   const [compareMetric, setCompareMetric] = useState("funded_value");
@@ -227,7 +224,7 @@ export function DashboardInner() {
     router.replace(`/reports?${toSearchParams(query)}`);
   }
 
-  function togglePanel(panel: "refine" | "compare" | "export") {
+  function togglePanel(panel: "refine" | "compare") {
     setActivePanel((current) => (current === panel ? null : panel));
   }
 
@@ -258,45 +255,6 @@ export function DashboardInner() {
       setComparisonError(err instanceof Error ? err.message : "Comparison failed");
     } finally {
       setComparisonLoading(false);
-    }
-  }
-
-  async function exportReport(format: "xlsx" | "pdf" | "print") {
-    try {
-      const result = await apiDownload("/api/v1/reports/export", api, {
-        method: "POST",
-        body: JSON.stringify({
-          format,
-          report: "dashboard",
-          period: appliedQuery.period,
-          date_from: appliedQuery.date_from || null,
-          date_to: appliedQuery.date_to || null,
-          office_id: appliedQuery.office_id || null,
-          department_id: appliedQuery.department_id || null,
-          team_id: appliedQuery.team_id || null,
-          employee_id: appliedQuery.employee_id || null,
-          bank_id: appliedQuery.bank_id || null,
-          product_id: appliedQuery.product_id || null,
-          stage_id: appliedQuery.stage_id || null,
-          terminal_outcome: appliedQuery.terminal_outcome || null,
-          ranking_metric: appliedQuery.ranking_metric,
-        }),
-      });
-      if (format === "print") {
-        const html = await result.blob.text();
-        const popup = window.open("", "_blank");
-        popup?.document.write(html);
-        popup?.document.close();
-        return;
-      }
-      const url = URL.createObjectURL(result.blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = result.filename ?? `nexa-bos-dashboard.${format}`;
-      link.click();
-      URL.revokeObjectURL(url);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Export failed");
     }
   }
 
@@ -347,21 +305,6 @@ export function DashboardInner() {
                 <IconArrowsDiff className="size-4" />
                 Compare
                 <IconChevronDown className={`size-3.5 transition-transform ${activePanel === "compare" ? "rotate-180" : ""}`} />
-              </Button>
-            ) : null}
-            {can("Reports.ExportExcel") || can("Reports.ExportPDF") || can("Reports.Print") ? (
-              <Button
-                type="button"
-                size="compact"
-                variant="secondary"
-                aria-label="Export dashboard"
-                aria-expanded={activePanel === "export"}
-                aria-controls="dashboard-export-panel"
-                onClick={() => togglePanel("export")}
-              >
-                <IconFileSpreadsheet className="size-4" />
-                Export
-                <IconChevronDown className={`size-3.5 transition-transform ${activePanel === "export" ? "rotate-180" : ""}`} />
               </Button>
             ) : null}
             <Button
@@ -562,25 +505,6 @@ export function DashboardInner() {
           </div>
         ) : null}
 
-        {activePanel === "export" ? (
-          <div id="dashboard-export-panel" data-testid="dashboard-export-panel" className="flex flex-wrap items-center gap-2 border-t border-slate-200 bg-slate-50/40 p-4" role="group" aria-label="Dashboard export formats">
-            {can("Reports.ExportExcel") ? (
-              <Button type="button" size="compact" variant="secondary" onClick={() => { setActivePanel(null); void exportReport("xlsx"); }}>
-                <IconFileSpreadsheet className="size-4" />Excel
-              </Button>
-            ) : null}
-            {can("Reports.ExportPDF") ? (
-              <Button type="button" size="compact" variant="secondary" onClick={() => { setActivePanel(null); void exportReport("pdf"); }}>
-                <IconFileTypePdf className="size-4" />PDF
-              </Button>
-            ) : null}
-            {can("Reports.Print") ? (
-              <Button type="button" size="compact" variant="secondary" onClick={() => { setActivePanel(null); void exportReport("print"); }}>
-                <IconPrinter className="size-4" />Print
-              </Button>
-            ) : null}
-          </div>
-        ) : null}
       </div>
 
       <ErrorText>{error}</ErrorText>
