@@ -79,6 +79,31 @@ async function seedBoundedLists(request: APIRequestContext) {
   for (const response of categoryResponses) expect(response.ok()).toBeTruthy();
 }
 
+async function seedServerUsers(request: APIRequestContext) {
+  const headers = await ownerHeaders(request);
+  const suffix = Date.now().toString(36);
+  const designations = await request.get(`${apiOrigin}/api/v1/designations`, { headers });
+  expect(designations.ok()).toBeTruthy();
+  const designationId = ((await designations.json()) as { items: Array<{ id: string }> }).items[0]?.id;
+  expect(designationId).toBeTruthy();
+  for (let index = 0; index < 22; index += 1) {
+    const response = await request.post(`${apiOrigin}/api/v1/users`, {
+      headers,
+      data: {
+        full_name: `Server pagination ${suffix} ${index.toString().padStart(3, "0")}`,
+        employee_code: `PGE2E-${suffix}-${index}`,
+        email: `pagination-${suffix}-${index}@example.com`,
+        mobile: "+971500000099",
+        designation_id: designationId,
+        employment_status: "Active",
+        joining_date: "2026-02-01",
+      },
+    });
+    expect(response.ok(), await response.text()).toBeTruthy();
+  }
+  return suffix;
+}
+
 test("bounded master lists paginate accessibly with compact responsive rows", async ({
   page,
   request,
@@ -145,4 +170,43 @@ test("bounded master lists paginate accessibly with compact responsive rows", as
     ).toBeTruthy();
     await expect(categoryPagination.getByLabel("Rows per page")).toBeVisible();
   }
+});
+
+test("large user directory requests only the selected server page", async ({ page, request }) => {
+  test.setTimeout(120_000);
+  const marker = await seedServerUsers(request);
+  const headers = await ownerHeaders(request);
+  const apiPage = await request.get(
+    `${apiOrigin}/api/v1/users?q=${encodeURIComponent(marker)}&page=1&page_size=10`,
+    { headers },
+  );
+  expect(apiPage.ok(), await apiPage.text()).toBeTruthy();
+  const apiPayload = (await apiPage.json()) as {
+    items: unknown[];
+    pagination: { page: number; pageSize: number; total: number; totalPages: number };
+  };
+  expect(apiPayload.items).toHaveLength(10);
+  expect(apiPayload.pagination).toEqual({ page: 1, pageSize: 10, total: 22, totalPages: 3 });
+
+  await signIn(page, request);
+  await page.goto("/users");
+  await page.getByLabel("Search users").fill(marker);
+  const pagination = page.getByRole("navigation", { name: "List pagination" });
+  await expect(page.locator("tbody tr")).toHaveCount(10);
+  await expect(pagination.getByText("Showing 1–10 of 22")).toBeVisible();
+  await expect(pagination.getByLabel("Rows per page").locator("option")).toHaveCount(3);
+  await expect(pagination.getByLabel("Rows per page").locator('option[value="all"]')).toHaveCount(0);
+
+  await pagination.getByRole("button", { name: "Next" }).click();
+  await expect(pagination.getByText("Showing 11–20 of 22")).toBeVisible();
+  await expect(page.locator("tbody tr")).toHaveCount(10);
+
+  await page.getByLabel("Search users").fill(`${marker} 00`);
+  await expect(pagination.getByText("Showing 1–10 of 10")).toBeVisible();
+  await expect(pagination.getByRole("button", { name: "Previous" })).toBeDisabled();
+
+  await page.getByLabel("Search users").fill(marker);
+  await pagination.getByLabel("Rows per page").selectOption("25");
+  await expect(page.locator("tbody tr")).toHaveCount(22);
+  await expect(pagination.getByText("Showing 1–22 of 22")).toBeVisible();
 });

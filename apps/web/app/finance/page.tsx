@@ -3,7 +3,13 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { DatePicker } from "@/components/date-picker";
-import { Pagination, useClientPagination } from "@/components/pagination";
+import {
+  PaginatedResponse,
+  Pagination,
+  SERVER_PAGE_SIZE_OPTIONS,
+  ServerPageSize,
+  useClientPagination,
+} from "@/components/pagination";
 import {
   Badge,
   Button,
@@ -77,7 +83,8 @@ type Payout = {
   finalPayable: string;
   carryForward: string;
 };
-type StatementItem = Payout & {
+type StatementItem = Omit<Payout, "id"> & {
+  payoutId: string;
   eligibleCases: number;
   eligibleValue: string;
   grossAmount: string;
@@ -213,6 +220,11 @@ export default function FinancePage() {
   const [plans, setPlans] = useState<IncentivePlan[]>([]);
   const [periods, setPeriods] = useState<Period[]>([]);
   const [statementItems, setStatementItems] = useState<StatementItem[]>([]);
+  const [statementPage, setStatementPage] = useState(1);
+  const [statementPageSize, setStatementPageSize] = useState<ServerPageSize>(10);
+  const [statementTotal, setStatementTotal] = useState(0);
+  const [statementTotalPages, setStatementTotalPages] = useState(0);
+  const [statementLoading, setStatementLoading] = useState(false);
   const [components, setComponents] = useState<Component[]>([]);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -260,22 +272,35 @@ export default function FinancePage() {
         setProductId((current) => current || nextOptions.products[0]?.id || "");
       }
       if (can("Finance.View")) {
-        const nextPeriods = await apiGet<{ items: Period[] }>("/api/v1/finance/periods", api);
+        const nextPeriods = await apiGet<{ items: Period[] }>(
+          "/api/v1/finance/periods?include_payouts=false",
+          api,
+        );
         setPeriods(nextPeriods.items);
         if (nextPeriods.items.some((item) => item.periodMonth === month)) {
-          const statement = await apiGet<{ items: StatementItem[] }>(
-            `/api/v1/finance/statements?period_month=${encodeURIComponent(month)}`,
-            api,
-          );
-          setStatementItems(statement.items);
+          setStatementLoading(true);
+          try {
+            const statement = await apiGet<PaginatedResponse<StatementItem>>(
+              `/api/v1/finance/statements?period_month=${encodeURIComponent(month)}&page=${statementPage}&page_size=${statementPageSize}`,
+              api,
+            );
+            setStatementItems(statement.items);
+            setStatementPage(statement.pagination.page);
+            setStatementTotal(statement.pagination.total);
+            setStatementTotalPages(statement.pagination.totalPages);
+          } finally {
+            setStatementLoading(false);
+          }
         } else {
           setStatementItems([]);
+          setStatementTotal(0);
+          setStatementTotalPages(0);
         }
       }
     } catch (err) {
       setError(err instanceof ApiClientError ? err.message : "Unable to load Finance");
     }
-  }, [api, can, month]);
+  }, [api, can, month, statementPage, statementPageSize]);
 
   useEffect(() => {
     void load();
@@ -408,15 +433,7 @@ export default function FinancePage() {
   }
 
   const selectedPeriod = periods.find((item) => item.periodMonth === month);
-  const statementsByRecipient = new Map(
-    statementItems.map((item) => [item.recipientId, item]),
-  );
-  const payoutRows = (selectedPeriod?.payouts ?? []).map((payout) => ({
-    ...payout,
-    eligibleCases: statementsByRecipient.get(payout.recipientId)?.eligibleCases ?? 0,
-    eligibleValue: statementsByRecipient.get(payout.recipientId)?.eligibleValue ?? "0.00",
-    grossAmount: statementsByRecipient.get(payout.recipientId)?.grossAmount ?? "0.00",
-  }));
+  const payoutRows = statementItems.map((item) => ({ ...item, id: item.payoutId }));
 
   return (
     <section className="space-y-6">
@@ -439,7 +456,10 @@ export default function FinancePage() {
               <DatePicker
                 aria-label="Finance payout month"
                 value={month}
-                onChange={(value) => setMonth(monthFirst(value))}
+                onChange={(value) => {
+                  setStatementPage(1);
+                  setMonth(monthFirst(value));
+                }}
               />
             </Field>
             {can("Finance.GeneratePayout") && !selectedPeriod ? (
@@ -500,6 +520,7 @@ export default function FinancePage() {
       ) : null}
 
       {payoutRows.length ? (
+        <div className={statementLoading ? "opacity-60" : undefined} aria-busy={statementLoading}>
         <TableShell>
           <TableHead>
             <tr>
@@ -540,8 +561,24 @@ export default function FinancePage() {
             ))}
           </tbody>
         </TableShell>
+        </div>
       ) : can("Finance.View") ? (
         <EmptyState>No payout rows exist for the selected month.</EmptyState>
+      ) : null}
+
+      {selectedPeriod ? (
+        <Pagination
+          page={statementPage}
+          pageSize={statementPageSize}
+          pageSizeOptions={SERVER_PAGE_SIZE_OPTIONS}
+          total={statementTotal}
+          totalPages={statementTotalPages}
+          onPageChange={setStatementPage}
+          onPageSizeChange={(nextPageSize) => {
+            setStatementPage(1);
+            setStatementPageSize(nextPageSize as ServerPageSize);
+          }}
+        />
       ) : null}
 
       {components.length ? (

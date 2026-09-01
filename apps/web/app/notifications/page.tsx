@@ -3,6 +3,12 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
+import {
+  Pagination,
+  type PaginatedResponse,
+  SERVER_PAGE_SIZE_OPTIONS,
+  type ServerPageSize,
+} from "@/components/pagination";
 import { Badge, Button, Card, EmptyState, ErrorText, LoadingState, PageHeader, StatusBadge } from "@/components/ui";
 import { apiGet, apiRequest } from "@/lib/api";
 import { getBrowserApiUrl } from "@/lib/env";
@@ -30,21 +36,34 @@ const label = (value: string) =>
 
 export default function NotificationsPage() {
   const [items, setItems] = useState<NotificationItem[]>([]);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState<ServerPageSize>(10);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const api = getBrowserApiUrl();
 
   const load = useCallback(async () => {
     try {
-      const data = await apiGet<{ items: NotificationItem[] }>("/api/v1/notifications", api);
+      setLoading(true);
+      const query = new URLSearchParams({ page: String(page), page_size: String(pageSize) });
+      const data = await apiGet<PaginatedResponse<NotificationItem> & { unreadCount: number }>(
+        `/api/v1/notifications?${query}`,
+        api,
+      );
       setItems(data.items);
+      setTotal(data.pagination.total);
+      setTotalPages(data.pagination.totalPages);
+      setUnreadCount(data.unreadCount);
       setError("");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Unable to load notifications");
     } finally {
       setLoading(false);
     }
-  }, [api]);
+  }, [api, page, pageSize]);
 
   useEffect(() => {
     void load();
@@ -56,6 +75,7 @@ export default function NotificationsPage() {
         method: "POST",
       });
       setItems((current) => current.map((item) => (item.id === id ? updated : item)));
+      setUnreadCount((current) => Math.max(0, current - 1));
       window.dispatchEvent(new Event("nexa-notifications-changed"));
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Unable to mark notification as read");
@@ -72,6 +92,7 @@ export default function NotificationsPage() {
           readAt: item.readAt ?? new Date().toISOString(),
         })),
       );
+      setUnreadCount(0);
       window.dispatchEvent(new Event("nexa-notifications-changed"));
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Unable to mark notifications as read");
@@ -91,8 +112,6 @@ export default function NotificationsPage() {
     }
   }
 
-  const unreadCount = items.filter((item) => item.unread).length;
-
   return (
     <section className="space-y-5">
       <PageHeader
@@ -105,13 +124,17 @@ export default function NotificationsPage() {
         }
       />
       <ErrorText>{error}</ErrorText>
-      {loading ? <LoadingState>Loading notifications…</LoadingState> : null}
+      {loading && items.length === 0 ? <LoadingState>Loading notifications…</LoadingState> : null}
       {!loading && items.length === 0 ? (
         <Card>
           <EmptyState>No notifications are available.</EmptyState>
         </Card>
       ) : null}
-      <div className="space-y-3" aria-live="polite">
+      <div
+        className={`space-y-3 ${loading && items.length > 0 ? "opacity-70" : ""}`}
+        aria-live="polite"
+        aria-busy={loading}
+      >
         {items.map((item) => (
           <Card
             key={item.id}
@@ -167,6 +190,17 @@ export default function NotificationsPage() {
           </Card>
         ))}
       </div>
+      <Pagination
+        page={page}
+        pageSize={pageSize}
+        total={total}
+        totalPages={totalPages}
+        pageSizeOptions={SERVER_PAGE_SIZE_OPTIONS}
+        onPageChange={setPage}
+        onPageSizeChange={(value) => {
+          if (value !== "all") setPageSize(value);
+        }}
+      />
     </section>
   );
 }

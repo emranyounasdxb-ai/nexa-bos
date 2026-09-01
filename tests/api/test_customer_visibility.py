@@ -70,7 +70,9 @@ async def test_company_customer_scope_sees_all_customers(client: AsyncClient) ->
     viewer = await create_activated_user(authed, user_type_code=code, password="UserPass1!")
     async with await spawned_client() as viewer_client:
         await authenticate(viewer_client, viewer["email"], "UserPass1!")
-        directory = await viewer_client.get("/api/v1/customers")
+        directory = await viewer_client.get(
+            "/api/v1/customers", params={"q": created["customerCode"]}
+        )
         assert directory.status_code == 200, directory.text
         ids = {item["id"] for item in directory.json()["items"]}
         assert created["id"] in ids

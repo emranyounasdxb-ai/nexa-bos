@@ -5,6 +5,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { DatePicker } from "@/components/date-picker";
 import {
+  Pagination,
+  type PaginatedResponse,
+  SERVER_PAGE_SIZE_OPTIONS,
+  type ServerPageSize,
+} from "@/components/pagination";
+import {
   Badge,
   Button,
   ButtonLink,
@@ -82,6 +88,11 @@ export default function TargetsPage() {
   const api = getBrowserApiUrl();
   const [options, setOptions] = useState<Options | null>(null);
   const [items, setItems] = useState<Target[]>([]);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState<ServerPageSize>(10);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [level, setLevel] = useState("employee");
@@ -117,16 +128,23 @@ export default function TargetsPage() {
       const query = new URLSearchParams({ period: filterPeriod });
       if (filterLevel) query.set("level", filterLevel);
       if (periodMonth) query.set("period_month", monthFirst(periodMonth));
+      query.set("page", String(page));
+      query.set("page_size", String(pageSize));
+      setLoading(true);
       const [opts, listed] = await Promise.all([
         apiGet<Options>("/api/v1/targets/options", api),
-        apiGet<{ items: Target[] }>(`/api/v1/targets?${query}`, api),
+        apiGet<PaginatedResponse<Target>>(`/api/v1/targets?${query}`, api),
       ]);
       setOptions(opts);
       setItems(listed.items);
+      setTotal(listed.pagination.total);
+      setTotalPages(listed.pagination.totalPages);
     } catch (err) {
       setError(err instanceof ApiClientError ? err.message : "Unable to load targets");
+    } finally {
+      setLoading(false);
     }
-  }, [api, filterLevel, filterPeriod, periodMonth]);
+  }, [api, filterLevel, filterPeriod, page, pageSize, periodMonth]);
 
   useEffect(() => {
     if (can("Targets.View")) void load();
@@ -254,7 +272,7 @@ export default function TargetsPage() {
       <FilterBar>
         <label className="text-sm">
           Level
-          <Select aria-label="Filter level" value={filterLevel} onChange={(event) => setFilterLevel(event.target.value)}>
+          <Select aria-label="Filter level" value={filterLevel} onChange={(event) => { setFilterLevel(event.target.value); setPage(1); }}>
             <option value="">All levels</option>
             <option value="employee">Employee</option>
             <option value="team">Team</option>
@@ -266,7 +284,7 @@ export default function TargetsPage() {
           <Select
             aria-label="Result period"
             value={filterPeriod}
-            onChange={(event) => setFilterPeriod(event.target.value)}
+            onChange={(event) => { setFilterPeriod(event.target.value); setPage(1); }}
           >
             <option value="month">Monthly</option>
             <option value="qtd">QTD</option>
@@ -302,7 +320,7 @@ export default function TargetsPage() {
               </Select>
             </Field>
             <Field label="Month">
-              <DatePicker aria-label="Target month" value={periodMonth} onChange={(value) => setPeriodMonth(monthFirst(value))} />
+              <DatePicker aria-label="Target month" value={periodMonth} onChange={(value) => { setPeriodMonth(monthFirst(value)); setPage(1); }} />
             </Field>
             <Field label="Product">
               <Select aria-label="Product" value={productId} onChange={(event) => setProductId(event.target.value)}>
@@ -393,10 +411,12 @@ export default function TargetsPage() {
       </Card>
       <ErrorText>{error}</ErrorText>
       {message ? <p className="text-sm text-slate-600">{message}</p> : null}
-      {items.length === 0 ? (
+      {loading && items.length === 0 ? (
+        <EmptyState>Loading targets…</EmptyState>
+      ) : items.length === 0 ? (
         <EmptyState>No targets in scope for the selected filters.</EmptyState>
       ) : (
-        <TableShell>
+        <TableShell className={loading ? "opacity-70" : undefined}>
           <TableHead>
             <tr>
               <Th>Level</Th>
@@ -477,6 +497,17 @@ export default function TargetsPage() {
           </tbody>
         </TableShell>
       )}
+      <Pagination
+        page={page}
+        pageSize={pageSize}
+        total={total}
+        totalPages={totalPages}
+        pageSizeOptions={SERVER_PAGE_SIZE_OPTIONS}
+        onPageChange={setPage}
+        onPageSizeChange={(value) => {
+          if (value !== "all") setPageSize(value);
+        }}
+      />
       {editId ? (
         <Card>
           <h3 className="text-sm font-semibold">Edit target</h3>

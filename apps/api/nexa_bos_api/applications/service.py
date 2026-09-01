@@ -44,6 +44,7 @@ from nexa_bos_api.applications.visibility import apply_owner_filter, visible_cas
 from nexa_bos_api.applications.workflow_service import latest_active_workflow, load_workflow
 from nexa_bos_api.catalog.models import Bank, BankProduct, Product
 from nexa_bos_api.core.exceptions import AppError
+from nexa_bos_api.core.pagination import PageResult
 from nexa_bos_api.customers.models import Customer
 from nexa_bos_api.identity.audit import record_audit
 from nexa_bos_api.identity.enums import (
@@ -678,7 +679,10 @@ async def list_applications(
     session: AsyncSession,
     actor: User,
     filters: dict[str, str | None],
-) -> list[Application]:
+    *,
+    page: int,
+    page_size: int,
+) -> PageResult[Application]:
     stmt = _list_stmt()
     allowed = await visible_case_owner_ids(session, actor)
     stmt = apply_owner_filter(stmt, allowed)
@@ -785,8 +789,17 @@ async def list_applications(
             stmt = stmt.where(column >= Decimal(low))
         if high:
             stmt = stmt.where(column <= Decimal(high))
-    stmt = stmt.order_by(Application.created_at.desc())
-    return list((await session.execute(stmt)).scalars().unique().all())
+    count_stmt = select(func.count()).select_from(
+        stmt.with_only_columns(Application.id).order_by(None).subquery()
+    )
+    total = int((await session.scalar(count_stmt)) or 0)
+    stmt = (
+        stmt.order_by(Application.created_at.desc(), Application.id.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+    )
+    items = list((await session.execute(stmt)).scalars().unique().all())
+    return PageResult(items=items, page=page, page_size=page_size, total=total)
 
 
 async def list_referenced_case_owners(session: AsyncSession, actor: User) -> list[User]:

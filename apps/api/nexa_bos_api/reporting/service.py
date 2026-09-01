@@ -20,6 +20,7 @@ from nexa_bos_api.applications.models import (
 from nexa_bos_api.attendance.service import employee_attendance_summary
 from nexa_bos_api.catalog.models import Bank, Product
 from nexa_bos_api.core.exceptions import AppError
+from nexa_bos_api.core.pagination import PageResult
 from nexa_bos_api.customers.models import Customer
 from nexa_bos_api.identity.access import has_permission
 from nexa_bos_api.identity.models import Department, Office, Team, User
@@ -1013,6 +1014,8 @@ async def drilldown_payload(
     date_from: date | None,
     date_to: date | None,
     filters: ReportFilters,
+    page: int | None = None,
+    page_size: int | None = None,
 ) -> dict[str, object]:
     access = await load_reporting_access(session, actor)
     facts, users, _offices, _teams = await load_facts(session)
@@ -1028,18 +1031,42 @@ async def drilldown_payload(
     if access.scope is None:
         empty = empty_payload(access, period_payload)
         empty["metric"] = metric
+        if page is not None and page_size is not None:
+            empty["pagination"] = PageResult(
+                items=[], page=page, page_size=page_size, total=0
+            ).metadata()
         return empty
     engine = MetricEngine(facts, access, window, filters)
     items = engine.for_metric(metric)
-    return {
+    total = len(items)
+    if page is not None and page_size is not None and items:
+        item_by_id = {item.id: item for item in items}
+        page_ids = list(
+            (
+                await session.execute(
+                    select(Application.id)
+                    .where(Application.id.in_(item_by_id))
+                    .order_by(Application.application_code, Application.id)
+                    .offset((page - 1) * page_size)
+                    .limit(page_size)
+                )
+            ).scalars()
+        )
+        items = [item_by_id[item_id] for item_id in page_ids]
+    payload: dict[str, object] = {
         "reportingScope": access.label,
         "currency": "AED",
         "period": period_payload,
         "metric": metric,
-        "total": len(items),
+        "total": total,
         "items": [serialize_application(item) for item in items],
         "generatedAt": datetime.now(UTC).isoformat(),
     }
+    if page is not None and page_size is not None:
+        payload["pagination"] = PageResult(
+            items=[], page=page, page_size=page_size, total=total
+        ).metadata()
+    return payload
 
 
 async def rankings_payload(

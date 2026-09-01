@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from nexa_bos_api.core.config import get_settings
 from nexa_bos_api.core.exceptions import AppError
+from nexa_bos_api.core.pagination import PageResult
 from nexa_bos_api.identity.access import (
     can_view_user,
     descendant_ids,
@@ -604,7 +605,9 @@ async def list_users(
     office_id: UUID | None,
     department_id: UUID | None,
     user_type_id: UUID | None,
-) -> list[User]:
+    page: int,
+    page_size: int,
+) -> PageResult[User]:
     stmt = (
         select(User)
         .options(*user_load_options())
@@ -642,8 +645,13 @@ async def list_users(
                 func.lower(func.coalesce(Designation.name, "")).like(like),
             )
         )
-    stmt = stmt.order_by(User.user_code)
-    return list((await session.execute(stmt)).scalars().unique().all())
+    count_stmt = select(func.count()).select_from(
+        stmt.with_only_columns(User.id).order_by(None).subquery()
+    )
+    total = int((await session.scalar(count_stmt)) or 0)
+    stmt = stmt.order_by(User.user_code, User.id).offset((page - 1) * page_size).limit(page_size)
+    items = list((await session.execute(stmt)).scalars().unique().all())
+    return PageResult(items=items, page=page, page_size=page_size, total=total)
 
 
 async def list_reporting_managers(

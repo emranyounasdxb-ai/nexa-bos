@@ -940,7 +940,7 @@ async def test_concurrent_duplicate_email_returns_controlled_conflict(client: As
     assert statuses == [200, 409]
     loser = first if first.status_code == 409 else second
     assert loser.json()["error"]["code"] == "EMAIL_DUPLICATE"
-    listed = (await authed.get("/api/v1/users")).json()["items"]
+    listed = (await authed.get("/api/v1/users", params={"q": email})).json()["items"]
     assert sum(1 for item in listed if item["email"] == email) == 1
 
 
@@ -973,7 +973,7 @@ async def test_concurrent_duplicate_employee_code_returns_controlled_conflict(
     assert statuses == [200, 409]
     loser = first if first.status_code == 409 else second
     assert loser.json()["error"]["code"] == "EMPLOYEE_CODE_DUPLICATE"
-    listed = (await authed.get("/api/v1/users")).json()["items"]
+    listed = (await authed.get("/api/v1/users", params={"q": employee_code})).json()["items"]
     assert sum(1 for item in listed if item["employeeCode"] == employee_code) == 1
 
 

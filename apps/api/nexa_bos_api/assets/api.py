@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, Query
 from fastapi.responses import Response
 
 from nexa_bos_api.api.v1.deps import CurrentUser, require_permission
+from nexa_bos_api.api.v1.pagination import PaginationDep
 from nexa_bos_api.assets.enums import AssetReport, AssetStatus
 from nexa_bos_api.assets.export import build_excel, build_pdf, build_print_html
 from nexa_bos_api.assets.schemas import (
@@ -132,6 +133,7 @@ async def report_view(
     report: AssetReport,
     session: SessionDep,
     actor: Annotated[CurrentUser, Depends(require_permission(ASSETS_VIEW))],
+    pagination: PaginationDep,
     office_id: Annotated[UUID | None, Query(alias="officeId")] = None,
     employee_id: Annotated[UUID | None, Query(alias="employeeId")] = None,
     category_id: Annotated[UUID | None, Query(alias="categoryId")] = None,
@@ -144,6 +146,8 @@ async def report_view(
         office_id=office_id,
         employee_id=employee_id,
         category_id=category_id,
+        page=pagination.page,
+        page_size=pagination.page_size,
     )
 
 
@@ -198,9 +202,16 @@ async def report_export(
 async def audit_list(
     session: SessionDep,
     actor: Annotated[CurrentUser, Depends(require_permission(ASSETS_VIEW_AUDIT))],
+    pagination: PaginationDep,
     asset_id: Annotated[UUID | None, Query(alias="assetId")] = None,
 ) -> dict[str, object]:
-    return await asset_audit(session, actor, asset_id=asset_id)
+    return await asset_audit(
+        session,
+        actor,
+        asset_id=asset_id,
+        page=pagination.page,
+        page_size=pagination.page_size,
+    )
 
 
 @router.get("/employees/{employee_id}")
@@ -216,6 +227,7 @@ async def employee_asset_profile(
 async def assets_list(
     session: SessionDep,
     actor: Annotated[CurrentUser, Depends(require_permission(ASSETS_VIEW))],
+    pagination: PaginationDep,
     q: str | None = None,
     status: AssetStatus | None = None,
     category_id: Annotated[UUID | None, Query(alias="categoryId")] = None,
@@ -232,6 +244,8 @@ async def assets_list(
         office_id=office_id,
         employee_id=employee_id,
         outstanding=outstanding,
+        page=pagination.page,
+        page_size=pagination.page_size,
     )
 
 

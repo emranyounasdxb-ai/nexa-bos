@@ -2,8 +2,14 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 
+import {
+  PaginatedResponse,
+  Pagination,
+  SERVER_PAGE_SIZE_OPTIONS,
+  ServerPageSize,
+} from "@/components/pagination";
 import {
   EmptyState,
   ErrorText,
@@ -17,47 +23,62 @@ import { apiGet, ApiClientError } from "@/lib/api";
 import { getBrowserApiUrl } from "@/lib/env";
 import { formatAed, queryFromSearch } from "@/lib/reports";
 
-type Drilldown = {
+type DrilldownItem = {
+  id: string;
+  applicationCode: string;
+  customerName: string;
+  bankCode: string;
+  productCode: string;
+  currentStage: string;
+  terminalOutcome: string | null;
+  fundedAmount: string | null;
+  requestedAmount: string | null;
+  activeDelayType: string | null;
+};
+
+type Drilldown = PaginatedResponse<DrilldownItem> & {
   metric: string;
   total: number;
   reportingScope: string | null;
   period: { label: string; from: string; to: string };
-  items: {
-    id: string;
-    applicationCode: string;
-    customerName: string;
-    bankCode: string;
-    productCode: string;
-    currentStage: string;
-    terminalOutcome: string | null;
-    fundedAmount: string | null;
-    requestedAmount: string | null;
-    activeDelayType: string | null;
-  }[];
 };
 
 function DrillDownInner() {
   const searchParams = useSearchParams();
   const api = getBrowserApiUrl();
+  const queryString = searchParams.toString();
   const [data, setData] = useState<Drilldown | null>(null);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    const query = queryFromSearch(searchParams.toString());
-    const metric = searchParams.get("metric") ?? "submitted";
+  const load = useCallback(async (page: number, pageSize: ServerPageSize) => {
+    const query = queryFromSearch(queryString);
+    const sourceParams = new URLSearchParams(queryString);
+    const metric = sourceParams.get("metric") ?? "submitted";
     const params = new URLSearchParams();
     params.set("metric", metric);
+    params.set("page", String(page));
+    params.set("page_size", String(pageSize));
     for (const [key, value] of Object.entries(query)) {
       if (value) {
         params.set(key, value);
       }
     }
-    void apiGet<Drilldown>(`/api/v1/reports/applications?${params}`, api)
-      .then(setData)
-      .catch((err: unknown) => {
-        setError(err instanceof ApiClientError ? err.message : "Unable to load drill-down");
-      });
-  }, [api, searchParams]);
+    setLoading(true);
+    setError("");
+    try {
+      setData(await apiGet<Drilldown>(`/api/v1/reports/applications?${params}`, api));
+    } catch (err) {
+      setError(err instanceof ApiClientError ? err.message : "Unable to load drill-down");
+    } finally {
+      setLoading(false);
+    }
+  }, [api, queryString]);
+
+  useEffect(() => {
+    setData(null);
+    void load(1, 10);
+  }, [load]);
 
   return (
     <section className="space-y-4">
@@ -75,6 +96,7 @@ function DrillDownInner() {
         <EmptyState>No applications match this metric, period, and reporting scope.</EmptyState>
       ) : null}
       {data && data.items.length > 0 ? (
+        <div className={loading ? "opacity-60" : undefined} aria-busy={loading}>
         <TableShell>
           <TableHead>
             <tr>
@@ -103,6 +125,20 @@ function DrillDownInner() {
             ))}
           </tbody>
         </TableShell>
+        </div>
+      ) : null}
+      {data ? (
+        <Pagination
+          page={data.pagination.page}
+          pageSize={data.pagination.pageSize as ServerPageSize}
+          pageSizeOptions={SERVER_PAGE_SIZE_OPTIONS}
+          total={data.pagination.total}
+          totalPages={data.pagination.totalPages}
+          onPageChange={(page) =>
+            void load(page, data.pagination.pageSize as ServerPageSize)
+          }
+          onPageSizeChange={(pageSize) => void load(1, pageSize as ServerPageSize)}
+        />
       ) : null}
     </section>
   );

@@ -321,7 +321,11 @@ async def test_pending_is_current_state_and_can_include_earlier_created(
         await session.commit()
     dashboard = (await authed.get("/api/v1/reports/dashboard?period=mtd")).json()
     assert dashboard["kpis"]["pending"]["count"] >= 1
-    pending = (await authed.get("/api/v1/reports/applications?metric=pending&period=mtd")).json()
+    pending = (
+        await authed.get(
+            "/api/v1/reports/applications?metric=pending&period=mtd&page_size=50"
+        )
+    ).json()
     assert pending_app["applicationCode"] in {item["applicationCode"] for item in pending["items"]}
     stages = {row["name"] for row in dashboard["stageBreakdown"]}
     assert stages

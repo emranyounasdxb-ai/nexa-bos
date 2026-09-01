@@ -331,6 +331,8 @@ test("sidebar groups are folded by default and toggle across desktop and mobile"
   );
   await expect(sidebar.getByTestId("sidebar-main-icon")).toHaveCount(7);
   await expect(sidebar.getByTestId("sidebar-group-chevron")).toHaveCount(0);
+  const dashboardIconFrame = sidebar.locator('a[href="/reports"] span[aria-hidden="true"]');
+  const collapsedIconX = (await dashboardIconFrame.boundingBox())?.x ?? 0;
   for (const group of groups) {
     await expect(sidebar.getByRole("button", { name: `${group.label} menu` })).toHaveAttribute(
       "aria-expanded",
@@ -343,13 +345,25 @@ test("sidebar groups are folded by default and toggle across desktop and mobile"
     path: testInfo.outputPath("task16-sidebar-folded.png"),
   });
 
-  await page.mouse.move(40, 300);
-  await expect(sidebar).toHaveCSS("width", "224px");
-  await expect(sidebar).toHaveAttribute("data-expanded", "true");
+  for (let cycle = 0; cycle < 5; cycle += 1) {
+    await page.mouse.move(40, 300);
+    await expect(sidebar).toHaveCSS("width", "224px");
+    await expect(sidebar).toHaveAttribute("data-expanded", "true");
+    expect((await dashboardIconFrame.boundingBox())?.x ?? 0).toBeCloseTo(collapsedIconX, 0);
+    await page.mouse.move(1200, 300);
+    await expect(sidebar).toHaveCSS("width", "80px");
+    await expect(sidebar).toHaveAttribute("data-expanded", "false");
+    expect((await dashboardIconFrame.boundingBox())?.x ?? 0).toBeCloseTo(collapsedIconX, 0);
+  }
   await expect(sidebar.getByTestId("sidebar-group-chevron")).toHaveCount(0);
+
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.mouse.move(40, 300);
+  await expect(sidebar).toHaveCSS("transition-duration", "0s");
+  await expect(sidebar).toHaveCSS("width", "224px");
   await page.mouse.move(1200, 300);
   await expect(sidebar).toHaveCSS("width", "80px");
-  await expect(sidebar.getByTestId("sidebar-group-chevron")).toHaveCount(0);
+  await page.emulateMedia({ reducedMotion: "no-preference" });
 
   await sidebar.getByRole("link", { name: "Dashboard", exact: true }).focus();
   await expect(sidebar).toHaveCSS("width", "224px");
@@ -400,6 +414,17 @@ test("sidebar groups are folded by default and toggle across desktop and mobile"
   await expect(peopleMenu).toHaveClass(/bg-blue-50/);
   await page.mouse.move(1200, 300);
   await page.getByLabel(/Notifications, \d+ unread/).focus();
+  await expect(sidebar).toHaveCSS("width", "80px");
+
+  await page.setViewportSize({ width: 1100, height: 800 });
+  await page.mouse.move(40, 300);
+  await expect(sidebar).toHaveCSS("width", "224px");
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+    ),
+  ).toBeTruthy();
+  await page.mouse.move(900, 300);
   await expect(sidebar).toHaveCSS("width", "80px");
 
   await page.setViewportSize({ width: 390, height: 844 });

@@ -3,6 +3,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
+  PaginatedResponse,
+  Pagination,
+  SERVER_PAGE_SIZE_OPTIONS,
+  ServerPageSize,
+} from "@/components/pagination";
+import {
   Button,
   EmptyState,
   ErrorText,
@@ -20,7 +26,7 @@ import { useAuth } from "@/lib/auth-context";
 import { getBrowserApiUrl } from "@/lib/env";
 import type { AssetOptions } from "@/lib/types";
 
-type ReportPayload = {
+type ReportPayload = PaginatedResponse<Record<string, unknown>> & {
   report: string;
   title: string;
   reportingScope: string;
@@ -38,6 +44,8 @@ export default function AssetReportsPage() {
   const [employeeId, setEmployeeId] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [data, setData] = useState<ReportPayload | null>(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState<ServerPageSize>(10);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -49,31 +57,36 @@ export default function AssetReportsPage() {
     [can, options],
   );
 
-  const query = useCallback(() => {
+  const query = useCallback((requestedPage: number, requestedPageSize: ServerPageSize) => {
     const params = new URLSearchParams();
     if (officeId) params.set("officeId", officeId);
     if (employeeId) params.set("employeeId", employeeId);
     if (categoryId) params.set("categoryId", categoryId);
-    const suffix = params.size ? `?${params.toString()}` : "";
-    return suffix;
+    params.set("page", String(requestedPage));
+    params.set("page_size", String(requestedPageSize));
+    return `?${params.toString()}`;
   }, [categoryId, employeeId, officeId]);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (
+    requestedPage = page,
+    requestedPageSize = pageSize,
+  ) => {
     setLoading(true);
     setError("");
     try {
       const payload = await apiGet<ReportPayload>(
-        `/api/v1/assets/reports/${report}${query()}`,
+        `/api/v1/assets/reports/${report}${query(requestedPage, requestedPageSize)}`,
         api,
       );
       setData(payload);
+      setPage(payload.pagination.page);
+      setPageSize(payload.pagination.pageSize as ServerPageSize);
     } catch (reason) {
-      setData(null);
       setError(reason instanceof Error ? reason.message : "Unable to load Asset report");
     } finally {
       setLoading(false);
     }
-  }, [api, query, report]);
+  }, [api, page, pageSize, query, report]);
 
   useEffect(() => {
     if (!can("Assets.View")) return;
@@ -152,37 +165,51 @@ export default function AssetReportsPage() {
 
       <FilterBar>
         <Field label="Report">
-          <Select aria-label="Asset report" value={report} onChange={(event) => setReport(event.target.value)}>
+          <Select aria-label="Asset report" value={report} onChange={(event) => {
+            setData(null);
+            setPage(1);
+            setReport(event.target.value);
+          }}>
             {availableReports.map((item) => <option key={item.key} value={item.key}>{item.title}</option>)}
           </Select>
         </Field>
         <Field label="Office">
-          <Select aria-label="Report Office" value={officeId} onChange={(event) => setOfficeId(event.target.value)}>
+          <Select aria-label="Report Office" value={officeId} onChange={(event) => {
+            setPage(1);
+            setOfficeId(event.target.value);
+          }}>
             <option value="">All authorized Offices</option>
             {options?.offices.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
           </Select>
         </Field>
         <Field label="Employee">
-          <Select aria-label="Report Employee" value={employeeId} onChange={(event) => setEmployeeId(event.target.value)}>
+          <Select aria-label="Report Employee" value={employeeId} onChange={(event) => {
+            setPage(1);
+            setEmployeeId(event.target.value);
+          }}>
             <option value="">All authorized employees</option>
             {options?.employees.map((item) => <option key={item.id} value={item.id}>{item.userCode} — {item.fullName}</option>)}
           </Select>
         </Field>
         <Field label="Category">
-          <Select aria-label="Report Category" value={categoryId} onChange={(event) => setCategoryId(event.target.value)}>
+          <Select aria-label="Report Category" value={categoryId} onChange={(event) => {
+            setPage(1);
+            setCategoryId(event.target.value);
+          }}>
             <option value="">All categories</option>
             {options?.categories.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
           </Select>
         </Field>
         <div className="flex items-end">
-          <Button type="button" onClick={() => void load()}>Run report</Button>
+          <Button type="button" onClick={() => void load(1, pageSize)}>Run report</Button>
         </div>
       </FilterBar>
 
       {error ? <ErrorText>{error}</ErrorText> : null}
-      {loading ? <p className="text-sm text-slate-500">Loading report…</p> : null}
+      {loading && !data ? <p className="text-sm text-slate-500">Loading report…</p> : null}
       {!loading && data && data.items.length === 0 ? <EmptyState>No rows match the authorized filters.</EmptyState> : null}
-      {!loading && data && data.items.length ? (
+      {data && data.items.length ? (
+        <div className={loading ? "opacity-60" : undefined} aria-busy={loading}>
         <TableShell>
           <TableHead><tr>{columns.map((column) => <Th key={column}>{column}</Th>)}</tr></TableHead>
           <tbody>
@@ -193,6 +220,20 @@ export default function AssetReportsPage() {
             ))}
           </tbody>
         </TableShell>
+        </div>
+      ) : null}
+      {data ? (
+        <Pagination
+          page={data.pagination.page}
+          pageSize={data.pagination.pageSize as ServerPageSize}
+          pageSizeOptions={SERVER_PAGE_SIZE_OPTIONS}
+          total={data.pagination.total}
+          totalPages={data.pagination.totalPages}
+          onPageChange={(nextPage) => void load(nextPage, pageSize)}
+          onPageSizeChange={(nextPageSize) =>
+            void load(1, nextPageSize as ServerPageSize)
+          }
+        />
       ) : null}
     </section>
   );

@@ -7,6 +7,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query
 
 from nexa_bos_api.api.v1.deps import CurrentUser, require_permission
+from nexa_bos_api.api.v1.pagination import PaginationDep
 from nexa_bos_api.db.session import SessionDep
 from nexa_bos_api.identity.permissions import (
     TARGETS_ACTIVATE,
@@ -144,6 +145,7 @@ async def kpi_deactivate(
 async def targets_list(
     session: SessionDep,
     actor: Annotated[CurrentUser, Depends(require_permission(TARGETS_VIEW))],
+    pagination: PaginationDep,
     level: str | None = None,
     entity_id: UUID | None = None,
     period_month: date | None = None,
@@ -164,6 +166,8 @@ async def targets_list(
         milestone=milestone,
         status=status,
         period=period,
+        page=pagination.page,
+        page_size=pagination.page_size,
     )
 
 

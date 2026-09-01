@@ -6,6 +6,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends
 
 from nexa_bos_api.api.v1.deps import CurrentUser, require_permission
+from nexa_bos_api.api.v1.pagination import PaginationDep
 from nexa_bos_api.core.exceptions import AppError
 from nexa_bos_api.customers.schemas import (
     CustomerCreateRequest,
@@ -40,11 +41,22 @@ router = APIRouter(prefix="/customers", tags=["customers"])
 async def customers_list(
     session: SessionDep,
     actor: Annotated[CurrentUser, Depends(require_permission(CUSTOMERS_VIEW))],
+    pagination: PaginationDep,
     q: str | None = None,
     status: str | None = None,
 ) -> dict[str, object]:
-    rows = await list_customers(session, actor, q=q, status=status)
-    return {"items": [serialize_customer(row) for row in rows]}
+    rows = await list_customers(
+        session,
+        actor,
+        q=q,
+        status=status,
+        page=pagination.page,
+        page_size=pagination.page_size,
+    )
+    return {
+        "items": [serialize_customer(row) for row in rows.items],
+        "pagination": rows.metadata(),
+    }
 
 
 @router.post("")

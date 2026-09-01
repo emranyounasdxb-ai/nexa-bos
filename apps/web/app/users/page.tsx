@@ -4,6 +4,12 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import {
+  Pagination,
+  type PaginatedResponse,
+  SERVER_PAGE_SIZE_OPTIONS,
+  type ServerPageSize,
+} from "@/components/pagination";
+import {
   Badge,
   ButtonLink,
   EmptyState,
@@ -26,6 +32,10 @@ export default function UsersPage() {
   const { can } = useAuth();
   const [query, setQuery] = useState("");
   const [items, setItems] = useState<UserRecord[]>([]);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState<ServerPageSize>(10);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 
@@ -35,14 +45,18 @@ export default function UsersPage() {
     if (query) {
       params.set("q", query);
     }
+    params.set("page", String(page));
+    params.set("page_size", String(pageSize));
     const suffix = params.toString() ? `?${params.toString()}` : "";
     setLoading(true);
-    void apiGet<{ items: UserRecord[] }>(`/api/v1/users${suffix}`, getBrowserApiUrl())
+    void apiGet<PaginatedResponse<UserRecord>>(`/api/v1/users${suffix}`, getBrowserApiUrl())
       .then((data) => {
         if (!active) {
           return;
         }
         setItems(data.items);
+        setTotal(data.pagination.total);
+        setTotalPages(data.pagination.totalPages);
         setError("");
       })
       .catch((err: unknown) => {
@@ -59,7 +73,7 @@ export default function UsersPage() {
     return () => {
       active = false;
     };
-  }, [query]);
+  }, [page, pageSize, query]);
 
   return (
     <section className="space-y-4">
@@ -81,14 +95,17 @@ export default function UsersPage() {
               className="pl-9"
               placeholder="Name, email, code, mobile, office or department"
               value={query}
-              onChange={(event) => setQuery(event.target.value)}
+              onChange={(event) => {
+                setQuery(event.target.value);
+                setPage(1);
+              }}
               aria-label="Search users"
             />
           </div>
         </label>
       </FilterBar>
       <ErrorText>{error}</ErrorText>
-      <TableShell>
+      <TableShell className={loading && items.length > 0 ? "opacity-70" : undefined}>
         <TableHead>
           <tr>
             <Th>User code</Th>
@@ -99,7 +116,7 @@ export default function UsersPage() {
           </tr>
         </TableHead>
         <tbody>
-          {loading ? (
+          {loading && items.length === 0 ? (
             <tr>
               <td colSpan={5}>
                 <EmptyState>Loading users…</EmptyState>
@@ -142,6 +159,17 @@ export default function UsersPage() {
           )}
         </tbody>
       </TableShell>
+      <Pagination
+        page={page}
+        pageSize={pageSize}
+        total={total}
+        totalPages={totalPages}
+        pageSizeOptions={SERVER_PAGE_SIZE_OPTIONS}
+        onPageChange={setPage}
+        onPageSizeChange={(value) => {
+          if (value !== "all") setPageSize(value);
+        }}
+      />
     </section>
   );
 }

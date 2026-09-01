@@ -6,8 +6,17 @@ import { Button, Select, cx } from "@/components/ui";
 
 export const DEFAULT_PAGE_SIZE = 10;
 export const PAGE_SIZE_OPTIONS = [10, 25, 50, "all"] as const;
+export const SERVER_PAGE_SIZE_OPTIONS = [10, 25, 50] as const;
 
 export type PageSize = (typeof PAGE_SIZE_OPTIONS)[number];
+export type ServerPageSize = (typeof SERVER_PAGE_SIZE_OPTIONS)[number];
+export type PaginationMeta = {
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+};
+export type PaginatedResponse<T> = { items: T[]; pagination: PaginationMeta };
 
 function pageWindow(currentPage: number, totalPages: number): Array<number | "ellipsis"> {
   if (totalPages <= 7) return Array.from({ length: totalPages }, (_, index) => index + 1);
@@ -54,6 +63,7 @@ export function Pagination({
   totalPages,
   onPageChange,
   onPageSizeChange,
+  pageSizeOptions = PAGE_SIZE_OPTIONS,
   className,
 }: {
   page: number;
@@ -62,6 +72,7 @@ export function Pagination({
   totalPages: number;
   onPageChange: (page: number) => void;
   onPageSizeChange: (pageSize: PageSize) => void;
+  pageSizeOptions?: readonly PageSize[];
   className?: string;
 }) {
   if (total === 0) return null;
@@ -132,7 +143,7 @@ export function Pagination({
               onPageSizeChange(event.target.value === "all" ? "all" : (Number(event.target.value) as PageSize))
             }
           >
-            {PAGE_SIZE_OPTIONS.map((option) => (
+            {pageSizeOptions.map((option) => (
               <option key={option} value={option}>
                 {option === "all" ? "All" : option}
               </option>

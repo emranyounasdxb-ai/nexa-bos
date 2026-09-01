@@ -5,6 +5,12 @@ import { useEffect, useMemo, useState } from "react";
 
 import { DatePicker } from "@/components/date-picker";
 import {
+  Pagination,
+  type PaginatedResponse,
+  SERVER_PAGE_SIZE_OPTIONS,
+  type ServerPageSize,
+} from "@/components/pagination";
+import {
   Badge,
   Button,
   ButtonLink,
@@ -64,6 +70,11 @@ export default function ApplicationsPage() {
   const [filters, setFilters] = useState(emptyFilters);
   const [applied, setApplied] = useState(emptyFilters);
   const [items, setItems] = useState<ApplicationRecord[]>([]);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState<ServerPageSize>(10);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [banks, setBanks] = useState<CatalogItem[]>([]);
   const [products, setProducts] = useState<CatalogItem[]>([]);
@@ -106,13 +117,18 @@ export default function ApplicationsPage() {
         params.set(key, value);
       }
     }
+    params.set("page", String(page));
+    params.set("page_size", String(pageSize));
     const suffix = params.toString() ? `?${params.toString()}` : "";
-    void apiGet<{ items: ApplicationRecord[] }>(`/api/v1/applications${suffix}`, api)
+    setLoading(true);
+    void apiGet<PaginatedResponse<ApplicationRecord>>(`/api/v1/applications${suffix}`, api)
       .then((data) => {
         if (!active) {
           return;
         }
         setItems(data.items);
+        setTotal(data.pagination.total);
+        setTotalPages(data.pagination.totalPages);
         setError("");
       })
       .catch((err: unknown) => {
@@ -120,11 +136,14 @@ export default function ApplicationsPage() {
           return;
         }
         setError(err instanceof ApiClientError ? err.message : "Unable to load applications");
+      })
+      .finally(() => {
+        if (active) setLoading(false);
       });
     return () => {
       active = false;
     };
-  }, [api, applied, query]);
+  }, [api, applied, page, pageSize, query]);
 
   const stages = useMemo(
     () =>
@@ -160,13 +179,17 @@ export default function ApplicationsPage() {
         className="mt-0"
         placeholder="Search application ID, bank file, customer code, name, or mobile"
         value={query}
-        onChange={(event) => setQuery(event.target.value)}
+        onChange={(event) => {
+          setQuery(event.target.value);
+          setPage(1);
+        }}
         aria-label="Search applications"
       />
       <form
         className="grid gap-3 rounded-xl border border-slate-200 bg-white p-4 md:grid-cols-3"
         onSubmit={(event) => {
           event.preventDefault();
+          setPage(1);
           setApplied({ ...filters });
         }}
       >
@@ -365,6 +388,7 @@ export default function ApplicationsPage() {
             onClick={() => {
               setFilters(emptyFilters);
               setApplied(emptyFilters);
+              setPage(1);
             }}
           >
             Clear filters
@@ -372,7 +396,7 @@ export default function ApplicationsPage() {
         </div>
       </form>
       <ErrorText>{error}</ErrorText>
-      <TableShell>
+      <TableShell className={loading && items.length > 0 ? "opacity-70" : undefined}>
         <TableHead>
           <tr>
             <Th>Application ID</Th>
@@ -386,7 +410,13 @@ export default function ApplicationsPage() {
           </tr>
         </TableHead>
         <tbody>
-          {items.length === 0 ? (
+          {loading && items.length === 0 ? (
+            <tr>
+              <td colSpan={8}>
+                <EmptyState>Loading applications…</EmptyState>
+              </td>
+            </tr>
+          ) : items.length === 0 ? (
             <tr>
               <td colSpan={8}>
                 <EmptyState>No applications match the current filters.</EmptyState>
@@ -426,6 +456,17 @@ export default function ApplicationsPage() {
           )}
         </tbody>
       </TableShell>
+      <Pagination
+        page={page}
+        pageSize={pageSize}
+        total={total}
+        totalPages={totalPages}
+        pageSizeOptions={SERVER_PAGE_SIZE_OPTIONS}
+        onPageChange={setPage}
+        onPageSizeChange={(value) => {
+          if (value !== "all") setPageSize(value);
+        }}
+      />
     </section>
   );
 }

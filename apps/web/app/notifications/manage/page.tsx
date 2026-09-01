@@ -3,7 +3,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { IconX } from "@/components/icons";
-import { Pagination, useClientPagination } from "@/components/pagination";
+import {
+  Pagination,
+  type PaginatedResponse,
+  SERVER_PAGE_SIZE_OPTIONS,
+  type ServerPageSize,
+  useClientPagination,
+} from "@/components/pagination";
 import {
   Badge,
   Button,
@@ -179,6 +185,10 @@ export default function NotificationManagementPage() {
   const [options, setOptions] = useState<Options | null>(null);
   const [rules, setRules] = useState<Rule[]>([]);
   const [audit, setAudit] = useState<AuditItem[]>([]);
+  const [auditPage, setAuditPage] = useState(1);
+  const [auditPageSize, setAuditPageSize] = useState<ServerPageSize>(10);
+  const [auditTotal, setAuditTotal] = useState(0);
+  const [auditTotalPages, setAuditTotalPages] = useState(0);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -203,14 +213,26 @@ export default function NotificationManagementPage() {
         requests.push(apiGet<{ items: Rule[] }>("/api/v1/notifications/rules", api).then((data) => setRules(data.items)));
       }
       if (viewAudit) {
-        requests.push(apiGet<{ items: AuditItem[] }>("/api/v1/notifications/audit", api).then((data) => setAudit(data.items)));
+        const query = new URLSearchParams({
+          page: String(auditPage),
+          page_size: String(auditPageSize),
+        });
+        requests.push(
+          apiGet<PaginatedResponse<AuditItem>>(`/api/v1/notifications/audit?${query}`, api).then(
+            (data) => {
+              setAudit(data.items);
+              setAuditTotal(data.pagination.total);
+              setAuditTotalPages(data.pagination.totalPages);
+            },
+          ),
+        );
       }
       await Promise.all(requests);
       setError("");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Unable to load notification administration");
     }
-  }, [api, manageRules, sendUrgent, viewAudit]);
+  }, [api, auditPage, auditPageSize, manageRules, sendUrgent, viewAudit]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -351,6 +373,17 @@ export default function NotificationManagementPage() {
               {audit.map((item) => <tr key={item.id} className="border-t border-slate-100"><Td>{new Date(item.createdAt).toLocaleString()}</Td><Td>{item.action}</Td><Td>{item.entityType} · {item.entityId}</Td><Td>{item.note ?? "—"}</Td></tr>)}
             </tbody></TableShell>
           )}
+          <Pagination
+            page={auditPage}
+            pageSize={auditPageSize}
+            total={auditTotal}
+            totalPages={auditTotalPages}
+            pageSizeOptions={SERVER_PAGE_SIZE_OPTIONS}
+            onPageChange={setAuditPage}
+            onPageSizeChange={(value) => {
+              if (value !== "all") setAuditPageSize(value);
+            }}
+          />
         </div>
       ) : null}
     </section>
