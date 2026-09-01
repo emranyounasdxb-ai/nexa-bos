@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 
 import {
-  Badge,
   Button,
   ButtonLink,
   Card,
@@ -49,7 +48,6 @@ export default function OrganizationHierarchyPage() {
     setData(loaded);
     setExpanded((current) => {
       const next = new Set(current);
-      if (next.size === 0) loaded.rootIds.forEach((id) => next.add(id));
       loaded.upwardChainIds.forEach((id) => next.add(id));
       return next;
     });
@@ -242,26 +240,31 @@ export default function OrganizationHierarchyPage() {
         </div>
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(18rem,1fr)]">
-        <Card className="overflow-x-auto p-4">
-          {data?.rootIds.length ? (
-            <ul aria-label="Reporting tree" className="min-w-max space-y-4">
-              {data.rootIds.map((rootId) => (
-                <HierarchyBranch
-                  key={rootId}
-                  nodeId={rootId}
-                  nodes={nodes}
-                  expanded={expanded}
-                  selectedId={selectedId}
-                  onToggle={toggle}
-                  onSelect={chooseNode}
-                />
-              ))}
-            </ul>
-          ) : (
-            <EmptyState>No employees match the authorized hierarchy filters.</EmptyState>
-          )}
-        </Card>
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_20rem]">
+        <div data-testid="hierarchy-canvas" className="min-w-0">
+          <Card className="min-w-0 overflow-x-auto p-3">
+            {data?.rootIds.length ? (
+              <ul
+                aria-label="Reporting tree"
+                className="flex w-max min-w-full items-start justify-center py-1"
+              >
+                {data.rootIds.map((rootId) => (
+                  <HierarchyBranch
+                    key={rootId}
+                    nodeId={rootId}
+                    nodes={nodes}
+                    expanded={expanded}
+                    selectedId={selectedId}
+                    onToggle={toggle}
+                    onSelect={chooseNode}
+                  />
+                ))}
+              </ul>
+            ) : (
+              <EmptyState>No employees match the authorized hierarchy filters.</EmptyState>
+            )}
+          </Card>
+        </div>
         <SelectedContext node={selected} payload={data} nodes={nodes} />
       </div>
     </section>
@@ -275,6 +278,8 @@ function HierarchyBranch({
   selectedId,
   onToggle,
   onSelect,
+  siblingIndex,
+  siblingCount,
 }: {
   nodeId: string;
   nodes: Map<string, HierarchyNode>;
@@ -282,62 +287,130 @@ function HierarchyBranch({
   selectedId: string;
   onToggle: (id: string) => void;
   onSelect: (id: string) => void;
+  siblingIndex?: number;
+  siblingCount?: number;
 }) {
   const node = nodes.get(nodeId);
   if (!node) return null;
   const open = expanded.has(node.id);
+  const hasParentConnector = siblingIndex !== undefined && siblingCount !== undefined;
+  const multipleSiblings = hasParentConnector && siblingCount > 1;
   return (
-    <li>
+    <li className={cx("relative flex flex-col items-center px-2", hasParentConnector && "pt-5")}>
+      {hasParentConnector ? (
+        <>
+          <span
+            aria-hidden="true"
+            className="absolute left-1/2 top-0 h-5 border-l border-slate-300"
+          />
+          {multipleSiblings ? (
+            <span
+              aria-hidden="true"
+              className={cx(
+                "absolute top-0 border-t border-slate-300",
+                siblingIndex === 0
+                  ? "left-1/2 right-0"
+                  : siblingIndex === siblingCount - 1
+                    ? "left-0 right-1/2"
+                    : "inset-x-0",
+              )}
+            />
+          ) : null}
+        </>
+      ) : null}
       <div
         id={`hierarchy-node-${node.id}`}
         data-testid={`hierarchy-node-${node.id}`}
         data-highlighted={selectedId === node.id ? "true" : "false"}
         className={cx(
-          "inline-flex min-w-72 items-start gap-2 rounded-lg border bg-white p-3",
+          "flex w-52 items-center gap-1.5 rounded-md border bg-white px-2 py-2 shadow-[0_1px_2px_rgba(15,23,42,0.05)]",
           selectedId === node.id
             ? "border-[#0f4c81] bg-blue-50 ring-2 ring-[#0f4c81]/20"
             : "border-slate-200",
         )}
       >
+        <button
+          type="button"
+          aria-label={`Select ${node.fullName}`}
+          className="flex min-w-0 flex-1 items-center gap-2 rounded-sm text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#0f4c81]"
+          onClick={() => onSelect(node.id)}
+        >
+          <span
+            data-testid={`hierarchy-avatar-${node.id}`}
+            aria-hidden="true"
+            className="inline-flex size-9 shrink-0 items-center justify-center rounded-full bg-slate-200 text-xs font-semibold text-slate-700"
+          >
+            {employeeInitials(node.fullName)}
+          </span>
+          <span className="min-w-0 flex-1">
+            <span
+              className="line-clamp-2 block text-sm font-semibold leading-4 text-slate-900"
+              title={node.fullName}
+            >
+              {node.fullName}
+            </span>
+            <span
+              className="mt-0.5 block truncate text-xs leading-4 text-slate-500"
+              title={node.designation?.name ?? "No designation"}
+            >
+              {node.designation?.name ?? "No designation"}
+            </span>
+            <span className="flex min-w-0 items-center gap-1.5 text-[10px] leading-3 text-slate-400">
+              <span className="min-w-0 truncate">{node.employeeCode}</span>
+              {node.contextOnly ? (
+                <span className="rounded bg-slate-100 px-1 text-slate-500">Context</span>
+              ) : null}
+            </span>
+          </span>
+        </button>
         {node.directReportIds.length ? (
           <button
             type="button"
             aria-label={`${open ? "Collapse" : "Expand"} branch for ${node.fullName}`}
             aria-expanded={open}
-            className="mt-0.5 h-6 w-6 rounded border border-slate-300 text-sm"
+            className="mt-0.5 size-5 shrink-0 rounded border border-slate-300 text-xs leading-none text-slate-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#0f4c81]"
             onClick={() => onToggle(node.id)}
           >
             {open ? "−" : "+"}
           </button>
         ) : (
-          <span className="mt-0.5 inline-block h-6 w-6" />
+          <span className="mt-0.5 inline-block size-5 shrink-0" />
         )}
-        <button type="button" className="min-w-0 flex-1 text-left" onClick={() => onSelect(node.id)}>
-          <span className="block font-semibold text-slate-900">{node.fullName}</span>
-          <span className="block text-xs text-slate-600">{node.employeeCode}</span>
-          <span className="mt-1 block text-xs text-slate-500">
-            {node.designation?.name ?? "No designation"}
-          </span>
-          {node.contextOnly ? <Badge>Ancestor context</Badge> : null}
-        </button>
       </div>
       {open && node.directReportIds.length ? (
-        <ul className="ml-6 mt-3 space-y-3 border-l border-slate-300 pl-5">
-          {node.directReportIds.map((childId) => (
-            <HierarchyBranch
-              key={childId}
-              nodeId={childId}
-              nodes={nodes}
-              expanded={expanded}
-              selectedId={selectedId}
-              onToggle={onToggle}
-              onSelect={onSelect}
-            />
-          ))}
-        </ul>
+        <div className="relative mt-5 flex flex-col items-center">
+          <span
+            aria-hidden="true"
+            className="absolute -top-5 left-1/2 h-5 border-l border-slate-300"
+          />
+          <ul className="flex items-start justify-center">
+            {node.directReportIds.map((childId, index) => (
+              <HierarchyBranch
+                key={childId}
+                nodeId={childId}
+                nodes={nodes}
+                expanded={expanded}
+                selectedId={selectedId}
+                onToggle={onToggle}
+                onSelect={onSelect}
+                siblingIndex={index}
+                siblingCount={node.directReportIds.length}
+              />
+            ))}
+          </ul>
+        </div>
       ) : null}
     </li>
   );
+}
+
+function employeeInitials(fullName: string) {
+  return fullName
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toUpperCase())
+    .join("") || "?";
 }
 
 function SelectedContext({

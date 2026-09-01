@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { DatePicker } from "@/components/date-picker";
+import { DateRangePicker } from "@/components/date-picker";
 import {
   Pagination,
   type PaginatedResponse,
@@ -130,12 +130,17 @@ export default function AttendanceReportsPage() {
       />
       <FilterBar>
         <label className="text-sm">
-          From
-          <DatePicker aria-label="Report from" value={dateFrom} onChange={setDateFrom} required />
-        </label>
-        <label className="text-sm">
-          To
-          <DatePicker aria-label="Report to" value={dateTo} onChange={setDateTo} required />
+          Report date
+          <DateRangePicker
+            aria-label="Report date"
+            from={dateFrom}
+            to={dateTo}
+            onChange={({ from, to }) => {
+              setDateFrom(from);
+              setDateTo(to);
+            }}
+            required
+          />
         </label>
         <label className="text-sm">
           Office
