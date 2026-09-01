@@ -1,7 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { DatePicker } from "@/components/date-picker";
@@ -26,7 +34,17 @@ import {
   IconPrinter,
   IconRefresh,
 } from "@/components/icons";
-import { Badge, Button, Card, ErrorText, PageHeader, Select, SectionHeader } from "@/components/ui";
+import {
+  Badge,
+  Button,
+  Card,
+  cx,
+  ErrorText,
+  focusRing,
+  PageHeader,
+  Select,
+  SectionHeader,
+} from "@/components/ui";
 import { apiDownload, apiGet, ApiClientError } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { getBrowserApiUrl } from "@/lib/env";
@@ -50,6 +68,7 @@ import {
   StageDistribution,
   TargetProgress,
 } from "./dashboard-visuals";
+import { DashboardHolidayReminders } from "./dashboard-holiday-reminders";
 
 const comparisonPeriodFor: Partial<Record<string, string>> = {
   mtd: "month",
@@ -100,6 +119,124 @@ function DashboardSkeleton() {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function DashboardExportMenu({
+  canExportExcel,
+  canExportPdf,
+  canPrint,
+  onExport,
+}: {
+  canExportExcel: boolean;
+  canExportPdf: boolean;
+  canPrint: boolean;
+  onExport: (format: "xlsx" | "pdf" | "print") => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const options = [
+    { format: "xlsx" as const, label: "Excel", icon: IconFileSpreadsheet, visible: canExportExcel },
+    { format: "pdf" as const, label: "PDF", icon: IconFileTypePdf, visible: canExportPdf },
+    { format: "print" as const, label: "Print", icon: IconPrinter, visible: canPrint },
+  ].filter((option) => option.visible);
+
+  useEffect(() => {
+    if (!open) return;
+
+    function closeOnOutsideInteraction(event: PointerEvent) {
+      if (!containerRef.current?.contains(event.target as Node)) setOpen(false);
+    }
+
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      setOpen(false);
+      containerRef.current
+        ?.querySelector<HTMLButtonElement>("[data-dashboard-export-trigger]")
+        ?.focus();
+    }
+
+    document.addEventListener("pointerdown", closeOnOutsideInteraction);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOnOutsideInteraction);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    containerRef.current?.querySelector<HTMLButtonElement>('[role="menuitem"]')?.focus();
+  }, [open]);
+
+  if (options.length === 0) return null;
+
+  function moveMenuFocus(event: ReactKeyboardEvent<HTMLButtonElement>, direction: -1 | 1) {
+    event.preventDefault();
+    const items = Array.from(
+      containerRef.current?.querySelectorAll<HTMLButtonElement>('[role="menuitem"]') ?? [],
+    );
+    const currentIndex = items.indexOf(event.currentTarget);
+    items[(currentIndex + direction + items.length) % items.length]?.focus();
+  }
+
+  return (
+    <div ref={containerRef} className="relative">
+      <Button
+        data-dashboard-export-trigger
+        type="button"
+        size="compact"
+        variant="secondary"
+        aria-label="Export dashboard"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-controls={open ? "dashboard-export-menu" : undefined}
+        onClick={() => setOpen((current) => !current)}
+        onKeyDown={(event) => {
+          if (event.key !== "ArrowDown") return;
+          event.preventDefault();
+          setOpen(true);
+        }}
+      >
+        <IconFileSpreadsheet className="size-4" />
+        Export
+        <IconChevronDown className={cx("size-3.5", open && "rotate-180")} />
+      </Button>
+      {open ? (
+        <div
+          id="dashboard-export-menu"
+          role="menu"
+          aria-label="Dashboard export formats"
+          className="absolute right-0 top-full z-20 mt-1 min-w-36 rounded-lg border border-slate-200 bg-white p-1 shadow-[0_10px_24px_rgba(15,23,42,0.12)]"
+        >
+          {options.map((option) => {
+            const Icon = option.icon;
+            return (
+              <button
+                key={option.format}
+                type="button"
+                role="menuitem"
+                className={cx(
+                  focusRing,
+                  "flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 hover:text-slate-900",
+                )}
+                onClick={() => {
+                  setOpen(false);
+                  onExport(option.format);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "ArrowDown") moveMenuFocus(event, 1);
+                  if (event.key === "ArrowUp") moveMenuFocus(event, -1);
+                }}
+              >
+                <Icon className="size-4" />
+                {option.label}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -244,6 +381,7 @@ export function DashboardInner() {
 
   return (
     <section className="space-y-4">
+      {can("Attendance.View") ? <DashboardHolidayReminders /> : null}
       <PageHeader
         title="Dashboard"
         description={
@@ -252,8 +390,8 @@ export function DashboardInner() {
             : "Management overview"
         }
         actions={
-          <div data-testid="dashboard-actions" className="flex flex-wrap gap-2 rounded-lg border border-slate-200 bg-slate-50 p-1.5">
-            <Button type="button" className="min-w-28" aria-busy={loading && Boolean(data)} onClick={() => void load()}>
+          <div data-testid="dashboard-actions" className="flex flex-wrap items-center justify-end gap-2">
+            <Button type="button" size="compact" aria-busy={loading && Boolean(data)} onClick={() => void load()}>
               {loading && data ? (
                 <span className="inline-flex items-center gap-2">
                   <IconRefresh className="size-4 animate-spin" />
@@ -261,30 +399,18 @@ export function DashboardInner() {
                 </span>
               ) : <><IconRefresh className="size-4" />Refresh</>}
             </Button>
-            {can("Reports.ExportExcel") ? (
-              <Button type="button" variant="secondary" className="min-w-20" onClick={() => void exportReport("xlsx")}>
-                <IconFileSpreadsheet className="size-4" />
-                Excel
-              </Button>
-            ) : null}
-            {can("Reports.ExportPDF") ? (
-              <Button type="button" variant="secondary" className="min-w-20" onClick={() => void exportReport("pdf")}>
-                <IconFileTypePdf className="size-4" />
-                PDF
-              </Button>
-            ) : null}
-            {can("Reports.Print") ? (
-              <Button type="button" variant="secondary" className="min-w-20" onClick={() => void exportReport("print")}>
-                <IconPrinter className="size-4" />
-                Print
-              </Button>
-            ) : null}
             {can("Reports.View") ? (
-              <Button type="button" variant="secondary" className="min-w-20" onClick={() => router.push("/reports/compare")}>
+              <Button type="button" size="compact" variant="secondary" onClick={() => router.push("/reports/compare")}>
                 <IconArrowsDiff className="size-4" />
                 Compare
               </Button>
             ) : null}
+            <DashboardExportMenu
+              canExportExcel={can("Reports.ExportExcel")}
+              canExportPdf={can("Reports.ExportPDF")}
+              canPrint={can("Reports.Print")}
+              onExport={(format) => void exportReport(format)}
+            />
           </div>
         }
       />

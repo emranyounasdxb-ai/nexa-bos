@@ -189,18 +189,22 @@ test("owner dashboard periods, drill-down, profile, ranking, comparison, delay, 
     timeout: 30_000,
   });
   await expect(page.getByText(/Company-wide/)).toBeVisible({ timeout: 30_000 });
+  const exportButton = page.getByRole("button", { name: "Export dashboard" });
+  await exportButton.click();
   const [excel] = await Promise.all([
     page.waitForEvent("download"),
-    page.getByRole("button", { name: "Excel" }).click(),
+    page.getByRole("menuitem", { name: "Excel" }).click(),
   ]);
   expect(excel.suggestedFilename()).toContain("xlsx");
+  await exportButton.click();
   const [pdf] = await Promise.all([
     page.waitForEvent("download"),
-    page.getByRole("button", { name: "PDF" }).click(),
+    page.getByRole("menuitem", { name: "PDF" }).click(),
   ]);
   expect(pdf.suggestedFilename()).toContain("pdf");
+  await exportButton.click();
   const popupPromise = page.waitForEvent("popup");
-  await page.getByRole("button", { name: "Print" }).click();
+  await page.getByRole("menuitem", { name: "Print" }).click();
   const popup = await popupPromise;
   await expect(popup.getByText("NEXA BOS")).toBeVisible();
 });
@@ -265,8 +269,7 @@ test("scoped reporter cannot see unauthorized data or export without permission"
   await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible({
     timeout: 30_000,
   });
-  await expect(page.getByRole("button", { name: "Excel" })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "PDF" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Export dashboard" })).toHaveCount(0);
   await expect(page.getByRole("link", { name: /Open targets/ })).toHaveCount(0);
   const me = await page.request.get(`${apiOrigin}/api/v1/auth/me`);
   const csrf = ((await me.json()) as { csrfToken?: string }).csrfToken;
