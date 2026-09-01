@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { IconX } from "@/components/icons";
 import {
   Badge,
   Button,
@@ -159,7 +160,8 @@ function TargetBuilder({
             variant="secondary"
             onClick={() => onChange(targets.filter((_target, targetIndex) => index !== targetIndex))}
           >
-            {friendly(item.target_type)}{item.target_id ? " (selected)" : ""} ×
+            {friendly(item.target_type)}{item.target_id ? " (selected)" : ""}
+            <IconX className="size-4" />
           </Button>
         ))}
       </div>

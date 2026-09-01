@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 
+import { IconChevronLeft, IconChevronRight, IconChevronsLeft, IconChevronsRight } from "@/components/icons";
 import { Button, controlClass, controlErrorClass, cx, focusRing, secondaryButtonClass } from "@/components/ui";
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
@@ -280,7 +281,7 @@ export function DatePicker({
               aria-label="Previous year"
               onClick={() => shiftView(-12)}
             >
-              «
+              <IconChevronsLeft className="size-4" />
             </button>
             <button
               type="button"
@@ -288,7 +289,7 @@ export function DatePicker({
               aria-label="Previous month"
               onClick={() => shiftView(-1)}
             >
-              ‹
+              <IconChevronLeft className="size-4" />
             </button>
             <p className="min-w-[8.5rem] text-center text-sm font-semibold text-slate-900">
               {MONTHS[view.getMonth()]} {view.getFullYear()}
@@ -299,7 +300,7 @@ export function DatePicker({
               aria-label="Next month"
               onClick={() => shiftView(1)}
             >
-              ›
+              <IconChevronRight className="size-4" />
             </button>
             <button
               type="button"
@@ -307,7 +308,7 @@ export function DatePicker({
               aria-label="Next year"
               onClick={() => shiftView(12)}
             >
-              »
+              <IconChevronsRight className="size-4" />
             </button>
           </div>
           <div className="grid grid-cols-7 gap-1 text-center text-xs text-slate-600">

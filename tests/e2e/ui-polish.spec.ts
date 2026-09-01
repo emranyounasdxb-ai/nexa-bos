@@ -37,6 +37,14 @@ async function signIn(page: Page, request: APIRequestContext) {
   });
 }
 
+function deferred() {
+  let resolve!: () => void;
+  const promise = new Promise<void>((done) => {
+    resolve = done;
+  });
+  return { promise, resolve };
+}
+
 test("dashboard presents a compact executive summary with bounded detail", async ({
   page,
   request,
@@ -50,15 +58,38 @@ test("dashboard presents a compact executive summary with bounded detail", async
   await expect(kpiGrid.getByRole("link", { name: "Funded KPI", exact: true })).toBeVisible();
   await expect(kpiGrid.getByRole("link", { name: "Pending KPI", exact: true })).toBeVisible();
   await expect(kpiGrid.getByRole("link")).toHaveCount(4);
+  for (const label of ["Submitted KPI", "Approved KPI", "Funded KPI", "Pending KPI"]) {
+    await expect(kpiGrid.getByRole("link", { name: label, exact: true }).locator("svg").first()).toBeVisible();
+  }
   await expect(kpiGrid.getByText(/vs Previous Month/).first()).toBeVisible({ timeout: 30_000 });
   await expect(page.getByTestId("dashboard-trend-insufficient")).toBeVisible();
+  await expect(page.getByText("Executive overview", { exact: true })).toHaveCount(0);
+  await expect(page.getByTestId("dashboard-analysis-grid")).toBeVisible();
   const dashboardFilters = page.getByTestId("dashboard-filters");
   await expect(dashboardFilters).not.toHaveAttribute("open", "");
   await expect(dashboardFilters.getByLabel("Reporting period", { exact: true })).toBeHidden();
 
   const shellHeader = page.locator("header").first();
-  await expect(shellHeader.getByText("Workspace", { exact: true })).toBeVisible();
-  await expect(shellHeader.getByText("Dashboard", { exact: true })).toBeVisible();
+  const breadcrumb = shellHeader.getByRole("navigation", { name: "Breadcrumb" });
+  await expect(breadcrumb.getByText("Workspace", { exact: true })).toBeVisible();
+  await expect(breadcrumb.getByRole("heading", { name: "Dashboard", exact: true })).toBeVisible();
+  await expect(breadcrumb).toHaveCSS("flex-wrap", "nowrap");
+  await expect(page.getByRole("heading", { name: "Dashboard", exact: true })).toHaveCount(1);
+  const shellBackgrounds = await page.evaluate(() => {
+    const sidebar = document.querySelector<HTMLElement>('[aria-label="Application sidebar"]');
+    const header = document.querySelector<HTMLElement>("header");
+    return {
+      body: window.getComputedStyle(document.body).backgroundColor,
+      sidebar: sidebar ? window.getComputedStyle(sidebar).backgroundColor : null,
+      header: header ? window.getComputedStyle(header).backgroundColor : null,
+      sidebarDivider: sidebar ? window.getComputedStyle(sidebar).borderRightWidth : null,
+      headerDivider: header ? window.getComputedStyle(header).borderBottomWidth : null,
+    };
+  });
+  expect(shellBackgrounds.sidebar).toBe(shellBackgrounds.body);
+  expect(shellBackgrounds.header).toBe(shellBackgrounds.body);
+  expect(shellBackgrounds.sidebarDivider).toBe("0px");
+  expect(shellBackgrounds.headerDivider).toBe("0px");
 
   const actionButtons = await page.getByTestId("dashboard-actions").getByRole("button").all();
   expect(actionButtons).toHaveLength(5);
@@ -66,6 +97,9 @@ test("dashboard presents a compact executive summary with bounded detail", async
     const box = await button.boundingBox();
     expect(box?.height ?? 0).toBeGreaterThanOrEqual(40);
   }
+  await expect(page.getByTestId("dashboard-actions").locator("svg")).toHaveCount(5);
+  await expect(page.getByLabel(/Notifications, \d+ unread/).locator("svg")).toBeVisible();
+  await expect(page.getByLabel("Open user menu").locator("svg")).toBeVisible();
 
   await expect(page.getByTestId("stage-breakdown-panel")).toBeVisible();
   const stageScroll = page.getByTestId("stage-breakdown-scroll");
@@ -75,8 +109,8 @@ test("dashboard presents a compact executive summary with bounded detail", async
       maxHeight: window.getComputedStyle(element).maxHeight,
       overflowY: window.getComputedStyle(element).overflowY,
     }));
-    expect(bounds.clientHeight).toBeLessThanOrEqual(256);
-    expect(bounds.maxHeight).toBe("256px");
+    expect(bounds.clientHeight).toBeLessThanOrEqual(192);
+    expect(bounds.maxHeight).toBe("192px");
     expect(["auto", "scroll"]).toContain(bounds.overflowY);
   }
 
@@ -86,7 +120,7 @@ test("dashboard presents a compact executive summary with bounded detail", async
     ),
   ).toBeTruthy();
   await page.screenshot({
-    path: testInfo.outputPath("task16-1-dashboard-desktop.png"),
+    path: testInfo.outputPath("task16-2-tabler-dashboard-desktop.png"),
     fullPage: true,
   });
   await shellHeader.evaluate((element) => {
@@ -94,16 +128,116 @@ test("dashboard presents a compact executive summary with bounded detail", async
   });
   await page
     .getByTestId("dashboard-kpi-charts")
-    .screenshot({ path: testInfo.outputPath("task16-1-dashboard-kpi-primary-charts.png") });
+    .screenshot({ path: testInfo.outputPath("task16-2-tabler-kpi-cards.png") });
   await shellHeader.evaluate((element) => {
     element.style.visibility = "";
   });
-  await page.getByRole("button", { name: "Collapse sidebar" }).click();
+  await page.mouse.move(1200, 300);
   await expect(page.getByRole("complementary", { name: "Application sidebar" })).toHaveCSS("width", "80px");
   await page.screenshot({
-    path: testInfo.outputPath("task16-1-dashboard-collapsed-sidebar.png"),
+    path: testInfo.outputPath("task16-2-tabler-sidebar-collapsed.png"),
     fullPage: true,
   });
+});
+
+test("dashboard loads primary data independently and preserves it during refreshes", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  await signIn(page, request);
+  await expect(page.getByTestId("dashboard-kpi-grid")).toBeVisible({ timeout: 30_000 });
+
+  const [filtersResponse, dashboardResponse, comparisonResponse] = await Promise.all([
+    page.request.get(`${apiOrigin}/api/v1/reports/filters`),
+    page.request.get(`${apiOrigin}/api/v1/reports/dashboard?period=mtd&ranking_metric=funded_value`),
+    page.request.get(`${apiOrigin}/api/v1/reports/comparisons?kind=period&period=month&metric=funded_value`),
+  ]);
+  expect(filtersResponse.ok()).toBeTruthy();
+  expect(dashboardResponse.ok()).toBeTruthy();
+  expect(comparisonResponse.ok()).toBeTruthy();
+  const filtersPayload = await filtersResponse.json();
+  const dashboardPayload = await dashboardResponse.json();
+  const comparisonPayload = await comparisonResponse.json();
+
+  type LoadMode = "initial" | "refresh" | "filter" | "failure";
+  let mode: LoadMode = "initial";
+  const initialComparison = deferred();
+  let dashboardGate = deferred();
+  dashboardGate.resolve();
+  const starts: { endpoint: string; at: number; mode: LoadMode }[] = [];
+
+  await page.route(`${apiOrigin}/api/v1/reports/filters`, async (route) => {
+    starts.push({ endpoint: "filters", at: Date.now(), mode });
+    await route.fulfill({ json: filtersPayload });
+  });
+  await page.route(`${apiOrigin}/api/v1/reports/dashboard**`, async (route) => {
+    starts.push({ endpoint: "dashboard", at: Date.now(), mode });
+    if (mode === "initial") {
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    } else {
+      await dashboardGate.promise;
+    }
+    if (mode === "failure") {
+      await route.fulfill({
+        status: 503,
+        json: { error: { code: "TEMPORARY_FAILURE", message: "Temporary dashboard failure" } },
+      });
+      return;
+    }
+    await route.fulfill({ json: dashboardPayload });
+  });
+  await page.route(`${apiOrigin}/api/v1/reports/comparisons**`, async (route) => {
+    starts.push({ endpoint: "comparison", at: Date.now(), mode });
+    if (mode === "initial") await initialComparison.promise;
+    await route.fulfill({ json: comparisonPayload });
+  });
+
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await expect(page.getByTestId("dashboard-loading-skeleton")).toBeVisible();
+  await expect.poll(() => starts.filter((entry) => entry.mode === "initial").length).toBe(3);
+  const initialStarts = starts.filter((entry) => entry.mode === "initial");
+  expect(Math.max(...initialStarts.map((entry) => entry.at)) - Math.min(...initialStarts.map((entry) => entry.at)))
+    .toBeLessThan(150);
+  await expect(page.getByTestId("dashboard-kpi-grid")).toBeVisible();
+  await expect(page.getByTestId("dashboard-loading-skeleton")).toHaveCount(0);
+  await expect(page.getByText("Loading dashboard metrics…", { exact: true })).toBeHidden();
+  expect(starts.filter((entry) => entry.mode === "initial" && entry.endpoint === "dashboard")).toHaveLength(1);
+  initialComparison.resolve();
+  await expect(page.getByText(/vs Previous Month/).first()).toBeVisible();
+
+  mode = "refresh";
+  dashboardGate = deferred();
+  await page.getByRole("button", { name: "Refresh", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Refreshing…", exact: true })).toBeVisible();
+  await expect(page.getByTestId("dashboard-kpi-grid")).toBeVisible();
+  await expect(page.getByTestId("dashboard-loading-skeleton")).toHaveCount(0);
+  dashboardGate.resolve();
+  await expect(page.getByRole("button", { name: "Refresh", exact: true })).toBeVisible();
+
+  mode = "filter";
+  dashboardGate = deferred();
+  await page.getByTestId("dashboard-filters").locator("summary").click();
+  const dashboardRequestsBeforeSelection = starts.filter((entry) => entry.endpoint === "dashboard").length;
+  await page.getByLabel("Reporting period", { exact: true }).selectOption("ytd");
+  expect(starts.filter((entry) => entry.endpoint === "dashboard")).toHaveLength(dashboardRequestsBeforeSelection);
+  await page.getByRole("button", { name: "Apply filters", exact: true }).click();
+  await expect.poll(() => starts.filter((entry) => entry.mode === "filter" && entry.endpoint === "dashboard").length).toBe(1);
+  await expect(page.getByTestId("dashboard-kpi-grid")).toBeVisible();
+  dashboardGate.resolve();
+  await expect(page.getByRole("button", { name: "Refresh", exact: true })).toBeVisible();
+  await expect(page).toHaveURL(/period=ytd/);
+
+  mode = "failure";
+  dashboardGate = deferred();
+  await page.getByRole("button", { name: "Refresh", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Refreshing…", exact: true })).toBeVisible();
+  dashboardGate.resolve();
+  await expect(page.getByText("Temporary dashboard failure", { exact: true })).toBeVisible();
+  await expect(page.getByTestId("dashboard-kpi-grid")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Refresh", exact: true })).toBeVisible();
+
+  await page.unrouteAll({ behavior: "wait" });
 });
 
 test("dashboard charts render contract data responsively and preserve drill-down navigation", async ({
@@ -152,10 +286,14 @@ test("dashboard charts render contract data responsively and preserve drill-down
   await expect(page.getByRole("heading", { name: "Report drill-down" })).toBeVisible({ timeout: 30_000 });
 
   await page.goto("/reports?period=ytd");
-  const expandedWidth = (await page.getByTestId("dashboard-trend-chart").boundingBox())?.width ?? 0;
-  await page.getByRole("button", { name: "Collapse sidebar" }).click();
+  const sidebar = page.getByRole("complementary", { name: "Application sidebar" });
+  await page.mouse.move(1200, 300);
+  await expect(sidebar).toHaveCSS("width", "80px");
+  const collapsedWidth = (await page.getByTestId("dashboard-trend-chart").boundingBox())?.width ?? 0;
+  await page.mouse.move(40, 300);
+  await expect(sidebar).toHaveCSS("width", "224px");
   await expect.poll(async () => (await page.getByTestId("dashboard-trend-chart").boundingBox())?.width ?? 0)
-    .toBeGreaterThan(expandedWidth);
+    .toBeLessThan(collapsedWidth);
 
   await page.setViewportSize({ width: 900, height: 900 });
   await expect(page.getByTestId("dashboard-trend-chart")).toBeVisible();
@@ -164,6 +302,7 @@ test("dashboard charts render contract data responsively and preserve drill-down
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.getByTestId("stage-distribution-chart")).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBeTruthy();
+  await page.unrouteAll({ behavior: "wait" });
 });
 
 test("sidebar groups are folded by default and toggle across desktop and mobile", async ({
@@ -174,6 +313,9 @@ test("sidebar groups are folded by default and toggle across desktop and mobile"
   await signIn(page, request);
 
   const sidebar = page.getByRole("complementary", { name: "Application sidebar" });
+  await page.mouse.move(1200, 300);
+  await expect(sidebar).toHaveCSS("width", "80px");
+  await expect(sidebar).toHaveAttribute("data-expanded", "false");
   const groups = [
     { label: "Operations", firstItem: "Customers" },
     { label: "People", firstItem: "Users" },
@@ -188,6 +330,7 @@ test("sidebar groups are folded by default and toggle across desktop and mobile"
     "page",
   );
   await expect(sidebar.getByTestId("sidebar-main-icon")).toHaveCount(7);
+  await expect(sidebar.getByTestId("sidebar-group-chevron")).toHaveCount(0);
   for (const group of groups) {
     await expect(sidebar.getByRole("button", { name: `${group.label} menu` })).toHaveAttribute(
       "aria-expanded",
@@ -200,15 +343,40 @@ test("sidebar groups are folded by default and toggle across desktop and mobile"
     path: testInfo.outputPath("task16-sidebar-folded.png"),
   });
 
+  await page.mouse.move(40, 300);
+  await expect(sidebar).toHaveCSS("width", "224px");
+  await expect(sidebar).toHaveAttribute("data-expanded", "true");
+  await expect(sidebar.getByTestId("sidebar-group-chevron")).toHaveCount(0);
+  await page.mouse.move(1200, 300);
+  await expect(sidebar).toHaveCSS("width", "80px");
+  await expect(sidebar.getByTestId("sidebar-group-chevron")).toHaveCount(0);
+
+  await sidebar.getByRole("link", { name: "Dashboard", exact: true }).focus();
+  await expect(sidebar).toHaveCSS("width", "224px");
+  await page.getByLabel(/Notifications, \d+ unread/).focus();
+  await expect(sidebar).toHaveCSS("width", "80px");
+
   for (const group of groups) {
     const parent = sidebar.getByRole("button", { name: `${group.label} menu` });
     await parent.focus();
     await parent.press("Enter");
     await expect(parent).toHaveAttribute("aria-expanded", "true");
+    await expect(sidebar).toHaveAttribute("data-expanded", "true");
     await expect(sidebar.getByRole("link", { name: group.firstItem, exact: true })).toBeVisible();
+    await expect(sidebar.getByRole("link", { name: group.firstItem, exact: true }).locator("svg")).toBeVisible();
+    const clippedLabels = await sidebar.locator("nav span.truncate").evaluateAll((labels) =>
+      labels
+        .filter((label) => {
+          const style = window.getComputedStyle(label);
+          return style.display !== "none" && style.visibility !== "hidden";
+        })
+        .filter((label) => label.scrollWidth > label.clientWidth + 1)
+        .map((label) => label.textContent?.trim()),
+    );
+    expect(clippedLabels).toEqual([]);
     if (group.label === "Operations") {
       await page.screenshot({
-        path: testInfo.outputPath("task16-sidebar-expanded.png"),
+        path: testInfo.outputPath("task16-2-tabler-sidebar-expanded.png"),
       });
     }
     await parent.press(" ");
@@ -218,21 +386,21 @@ test("sidebar groups are folded by default and toggle across desktop and mobile"
 
   const peopleMenu = sidebar.getByRole("button", { name: "People menu" });
   await peopleMenu.click();
+  await expect(sidebar).toHaveAttribute("data-expanded", "true");
   await sidebar.getByRole("link", { name: "Users", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "User directory" })).toBeVisible();
-  await expect(sidebar.getByRole("link", { name: "Users", exact: true })).toHaveAttribute(
-    "aria-current",
-    "page",
-  );
-  await expect(peopleMenu).toHaveClass(/bg-blue-50/);
-
-  await page.getByRole("button", { name: "Collapse sidebar" }).click();
+  await expect(page.getByRole("heading", { name: "User directory", exact: true })).toHaveCount(1);
+  await expect(sidebar).toHaveAttribute("data-expanded", "false");
   await expect(sidebar).toHaveCSS("width", "80px");
-  await expect(peopleMenu).toHaveAttribute("aria-expanded", "true");
-  await peopleMenu.click();
+  await expect(sidebar.getByRole("link", { name: "Users", exact: true })).toBeHidden();
   await expect(peopleMenu).toHaveAttribute("aria-expanded", "false");
-  await peopleMenu.click();
-  await expect(sidebar.getByRole("link", { name: "Users", exact: true })).toBeVisible();
+  await page.mouse.move(40, 300);
+  await expect(sidebar).toHaveCSS("width", "224px");
+  await expect(sidebar.getByRole("link", { name: "Users", exact: true })).toBeHidden();
+  await expect(sidebar.locator('a[href="/users"]')).toHaveAttribute("aria-current", "page");
+  await expect(peopleMenu).toHaveClass(/bg-blue-50/);
+  await page.mouse.move(1200, 300);
+  await page.getByLabel(/Notifications, \d+ unread/).focus();
+  await expect(sidebar).toHaveCSS("width", "80px");
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.reload();
@@ -249,9 +417,13 @@ test("sidebar groups are folded by default and toggle across desktop and mobile"
   await expect(sidebar.getByRole("link", { name: "Customers", exact: true })).toBeVisible();
   await mobileOperations.click();
   await expect(sidebar.getByRole("link", { name: "Customers", exact: true })).toBeHidden();
+  await mobileOperations.click();
+  await sidebar.getByRole("link", { name: "Customers", exact: true }).click();
+  await expect(page).toHaveURL(/\/customers(?:\?|$)/);
+  await expect(page.getByRole("button", { name: "Open navigation" })).toBeVisible();
 });
 
-test("shared shell supports dashboard landing, collapse, user menu, and mobile navigation", async ({
+test("shared shell supports breadcrumbs, auto expansion, user menu, and mobile navigation", async ({
   page,
   request,
 }, testInfo) => {
@@ -262,23 +434,77 @@ test("shared shell supports dashboard landing, collapse, user menu, and mobile n
   await expect(sidebar).toBeVisible();
   await expect(page.getByRole("navigation", { name: "Primary" })).toBeVisible();
   await expect(page.getByLabel(/Notifications, \d+ unread/)).toBeVisible();
+  const breadcrumb = page.getByRole("navigation", { name: "Breadcrumb" });
+  await expect(breadcrumb.getByText("Workspace", { exact: true })).toBeVisible();
+  await expect(breadcrumb.getByRole("heading", { name: "Dashboard", exact: true })).toBeVisible();
+  await expect(page.locator("main h1")).toHaveCount(0);
 
-  const expandedWidth = await sidebar.evaluate((element) => element.getBoundingClientRect().width);
-  expect(expandedWidth).toBeGreaterThanOrEqual(280);
-  await page.getByRole("button", { name: "Collapse sidebar" }).click();
+  await page.mouse.move(1200, 300);
   await expect(sidebar).toHaveCSS("width", "80px");
-  const collapsedWidth = await sidebar.evaluate((element) => element.getBoundingClientRect().width);
-  expect(collapsedWidth).toBeLessThanOrEqual(82);
+  const authenticatedContent = page.getByTestId("authenticated-content");
+  const shellHeader = page.locator("header").first();
+  const shellMain = page.locator("main");
+  const collapsedGeometry = await Promise.all([
+    authenticatedContent.boundingBox(),
+    shellHeader.boundingBox(),
+    shellMain.boundingBox(),
+    breadcrumb.boundingBox(),
+  ]);
+  for (const box of collapsedGeometry.slice(0, 3)) {
+    expect(box?.x).toBeCloseTo(80, 0);
+    expect(box?.width).toBeCloseTo(1360, 0);
+  }
+  expect(collapsedGeometry[3]?.x).toBeCloseTo(112, 0);
+  await expect(shellMain).toHaveCSS("max-width", "none");
+  await page.mouse.move(40, 300);
+  await expect(sidebar).toHaveCSS("width", "224px");
+  const expandedGeometry = await Promise.all([
+    authenticatedContent.boundingBox(),
+    shellHeader.boundingBox(),
+    shellMain.boundingBox(),
+    breadcrumb.boundingBox(),
+  ]);
+  for (const box of expandedGeometry.slice(0, 3)) {
+    expect(box?.x).toBeCloseTo(224, 0);
+    expect(box?.width).toBeCloseTo(1216, 0);
+  }
+  expect(expandedGeometry[3]?.x).toBeCloseTo(256, 0);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+    ),
+  ).toBeTruthy();
+  await page.mouse.move(1200, 300);
+  await expect(sidebar).toHaveCSS("width", "80px");
 
   await page.getByLabel("Open user menu").click();
   await expect(page.getByRole("link", { name: "My profile" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
   await page.getByLabel("Open user menu").click();
 
-  await page.getByRole("button", { name: "People menu" }).click();
-  await page.getByRole("link", { name: "Users", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "User directory" })).toBeVisible();
-  await expect(page.getByLabel("Search users")).toBeVisible();
+  const operationsMenu = page.getByRole("button", { name: "Operations menu" });
+  await operationsMenu.click();
+  await expect(operationsMenu).toHaveAttribute("aria-expanded", "true");
+  await expect(sidebar).toHaveAttribute("data-expanded", "true");
+  await page.getByRole("link", { name: "Applications", exact: true }).click();
+  await expect(sidebar).toHaveAttribute("data-expanded", "false");
+  await expect(sidebar).toHaveCSS("width", "80px");
+  await expect(breadcrumb.getByText("Operations", { exact: true })).toBeVisible();
+  await expect(breadcrumb.getByRole("heading", { name: "Applications", exact: true })).toBeVisible();
+  await expect(page.locator("main h1")).toHaveCount(0);
+  await expect(sidebar.locator('a[href="/applications"]')).toHaveAttribute("aria-current", "page");
+
+  const peopleMenu = page.getByRole("button", { name: "People menu" });
+  await peopleMenu.click();
+  await expect(peopleMenu).toHaveAttribute("aria-expanded", "true");
+  await expect(sidebar).toHaveAttribute("data-expanded", "true");
+  await page.getByRole("link", { name: "Organization", exact: true }).click();
+  await expect(sidebar).toHaveAttribute("data-expanded", "false");
+  await expect(sidebar).toHaveCSS("width", "80px");
+  await expect(breadcrumb.getByText("People", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Organization masters", exact: true })).toHaveCount(1);
+  await expect(page.locator("main h1")).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Offices", exact: true })).toBeVisible();
 
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.getByRole("button", { name: "Open navigation" })).toBeVisible();
@@ -289,13 +515,14 @@ test("shared shell supports dashboard landing, collapse, user menu, and mobile n
   ).toBeTruthy();
   await page.getByRole("button", { name: "Open navigation" }).click();
   await expect(page.getByRole("navigation", { name: "Primary" })).toBeVisible();
+  await expect(sidebar).toHaveCSS("width", "288px");
   const mobilePeopleMenu = page.getByRole("button", { name: "People menu" });
   if ((await mobilePeopleMenu.getAttribute("aria-expanded")) !== "true") {
     await mobilePeopleMenu.click();
   }
-  await expect(page.getByRole("link", { name: "Users", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Organization", exact: true })).toBeVisible();
   await page.screenshot({
-    path: testInfo.outputPath("task16-users-mobile.png"),
+    path: testInfo.outputPath("task16-organization-mobile.png"),
     fullPage: true,
   });
   await page.getByRole("button", { name: "Close navigation" }).last().click();

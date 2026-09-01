@@ -67,17 +67,17 @@ export function DonutChart({
   );
 
   return (
-    <div className="relative mt-2">
+    <div className="relative mt-2 min-w-0 max-w-full overflow-hidden">
       <BosChart
         option={option}
         accessibleDescription={accessibleDescription}
         empty={total === 0}
         emptyMessage="No active delays are currently in scope."
         testId={total === 0 ? `${testId}-empty` : testId}
-        height={226}
+        height={196}
       />
       {total > 0 ? (
-        <div aria-hidden="true" className="pointer-events-none absolute left-1/2 top-[43%] -translate-x-1/2 -translate-y-1/2 text-center">
+        <div aria-hidden="true" className="pointer-events-none absolute left-1/2 top-[42%] -translate-x-1/2 -translate-y-1/2 text-center">
           <strong className="block text-2xl font-semibold tabular-nums text-slate-950">{formatCount(total)}</strong>
           <span className="text-[11px] font-medium uppercase tracking-wide text-slate-500">Active</span>
         </div>
