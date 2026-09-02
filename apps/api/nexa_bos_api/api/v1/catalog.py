@@ -14,24 +14,32 @@ from nexa_bos_api.catalog.schemas import (
     ProductCreateRequest,
     ProductFieldRulesUpdate,
     ProductNameUpdateRequest,
+    ProductVariantCreateRequest,
+    ProductVariantUpdateRequest,
 )
 from nexa_bos_api.catalog.service import (
     create_bank,
     create_bank_product,
     create_product,
+    create_product_variant,
     delete_catalog_forbidden,
+    get_product_variant,
     list_bank_products,
     list_banks,
+    list_product_variants,
     list_products,
     rename_bank,
     rename_product,
     serialize_bank,
     serialize_bank_product,
     serialize_product,
+    serialize_product_variant,
     set_bank_product_status,
     set_bank_status,
     set_product_status,
+    set_product_variant_status,
     update_product_field_rules,
+    update_product_variant,
 )
 from nexa_bos_api.core.exceptions import AppError
 from nexa_bos_api.db.session import SessionDep
@@ -45,6 +53,10 @@ from nexa_bos_api.identity.permissions import (
     BANKS_CREATE,
     BANKS_DEACTIVATE,
     BANKS_EDIT,
+    PRODUCT_VARIANTS_ACTIVATE,
+    PRODUCT_VARIANTS_CREATE,
+    PRODUCT_VARIANTS_DEACTIVATE,
+    PRODUCT_VARIANTS_EDIT,
     PRODUCTS_ACTIVATE,
     PRODUCTS_CREATE,
     PRODUCTS_DEACTIVATE,
@@ -272,4 +284,89 @@ async def bank_products_activate(
 
 @router.delete("/bank-products/{mapping_id}")
 async def bank_products_delete(mapping_id: UUID) -> None:
+    delete_catalog_forbidden()
+
+
+@router.get("/product-variants")
+async def product_variants_list(
+    session: SessionDep,
+    actor: CurrentUser,
+    bank_product_id: Annotated[UUID | None, Query(alias="bankProductId")] = None,
+    bank_id: Annotated[UUID | None, Query(alias="bankId")] = None,
+    product_id: Annotated[UUID | None, Query(alias="productId")] = None,
+    include_inactive: Annotated[bool, Query(alias="includeInactive")] = False,
+) -> dict[str, object]:
+    rows = await list_product_variants(
+        session,
+        bank_product_id=bank_product_id,
+        bank_id=bank_id,
+        product_id=product_id,
+        include_inactive=_include_inactive(actor, PRODUCT_VARIANTS_EDIT, include_inactive),
+    )
+    return {"items": [serialize_product_variant(row) for row in rows]}
+
+
+@router.post("/product-variants")
+async def product_variants_create(
+    payload: ProductVariantCreateRequest,
+    session: SessionDep,
+    actor: Annotated[CurrentUser, Depends(require_permission(PRODUCT_VARIANTS_CREATE))],
+) -> dict[str, object]:
+    return serialize_product_variant(
+        await create_product_variant(
+            session,
+            actor,
+            bank_product_id=payload.bank_product_id,
+            name=payload.name,
+            code=payload.code,
+            description=payload.description,
+        )
+    )
+
+
+@router.patch("/product-variants/{variant_id}")
+async def product_variants_update(
+    variant_id: UUID,
+    payload: ProductVariantUpdateRequest,
+    session: SessionDep,
+    actor: Annotated[CurrentUser, Depends(require_permission(PRODUCT_VARIANTS_EDIT))],
+) -> dict[str, object]:
+    row = await get_product_variant(session, variant_id)
+    return serialize_product_variant(
+        await update_product_variant(
+            session,
+            actor,
+            row,
+            name=payload.name,
+            description=payload.description,
+        )
+    )
+
+
+@router.post("/product-variants/{variant_id}/deactivate")
+async def product_variants_deactivate(
+    variant_id: UUID,
+    session: SessionDep,
+    actor: Annotated[CurrentUser, Depends(require_permission(PRODUCT_VARIANTS_DEACTIVATE))],
+) -> dict[str, object]:
+    row = await get_product_variant(session, variant_id)
+    return serialize_product_variant(
+        await set_product_variant_status(session, actor, row, MasterStatus.INACTIVE)
+    )
+
+
+@router.post("/product-variants/{variant_id}/activate")
+async def product_variants_activate(
+    variant_id: UUID,
+    session: SessionDep,
+    actor: Annotated[CurrentUser, Depends(require_permission(PRODUCT_VARIANTS_ACTIVATE))],
+) -> dict[str, object]:
+    row = await get_product_variant(session, variant_id)
+    return serialize_product_variant(
+        await set_product_variant_status(session, actor, row, MasterStatus.ACTIVE)
+    )
+
+
+@router.delete("/product-variants/{variant_id}")
+async def product_variants_delete(variant_id: UUID) -> None:
     delete_catalog_forbidden()

@@ -3,7 +3,17 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, String, UniqueConstraint, Uuid
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Index,
+    String,
+    UniqueConstraint,
+    Uuid,
+    func,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from nexa_bos_api.db.base import Base
@@ -84,3 +94,41 @@ class BankProduct(Base):
 
     bank: Mapped[Bank] = relationship(back_populates="products")
     product: Mapped[Product] = relationship(back_populates="banks")
+    variants: Mapped[list[ProductVariant]] = relationship(back_populates="bank_product")
+
+
+class ProductVariant(Base):
+    __tablename__ = "product_variants"
+    __table_args__ = (
+        UniqueConstraint(
+            "bank_product_id",
+            "code",
+            name="uq_product_variants_bank_product_code",
+        ),
+        CheckConstraint(
+            "status IN ('active', 'inactive')",
+            name="product_variants_status_check",
+        ),
+        Index("ix_product_variants_bank_product_status", "bank_product_id", "status"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_uuid)
+    bank_product_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("bank_products.id"), nullable=False
+    )
+    code: Mapped[str] = mapped_column(String(32), nullable=False)
+    name: Mapped[str] = mapped_column(String(120), nullable=False)
+    description: Mapped[str | None] = mapped_column(String(500))
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    bank_product: Mapped[BankProduct] = relationship(back_populates="variants")
+
+
+Index(
+    "uq_product_variants_bank_product_name_ci",
+    ProductVariant.bank_product_id,
+    func.lower(ProductVariant.name),
+    unique=True,
+)

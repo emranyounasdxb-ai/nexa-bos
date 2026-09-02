@@ -17,6 +17,7 @@ from helpers import (
     OWNER_PASSWORD,
     authenticate,
     create_activated_user,
+    create_product_variant,
     designation_id,
     office_id,
     owner_client,
@@ -140,12 +141,14 @@ async def _create_app(
 ) -> dict:
     await _enable_case_owner(client)
     await _ensure_workflow(client, bank_id, product_id)
+    variant = await create_product_variant(client, bank_id=bank_id, product_id=product_id)
     response = await client.post(
         "/api/v1/applications",
         json={
             "customer_id": customer_id,
             "bank_id": bank_id,
             "product_id": product_id,
+            "product_variant_id": variant["id"],
             "case_owner_id": case_owner_id,
             "requested_amount": requested_amount,
         },

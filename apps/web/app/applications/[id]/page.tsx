@@ -27,6 +27,7 @@ import type {
   ApplicationEventRecord,
   ApplicationRecord,
   ManagerOption,
+  ProductVariantRecord,
   WorkflowRecord,
   WorkflowStageRecord,
 } from "@/lib/types";
@@ -44,6 +45,13 @@ export default function ApplicationDetailPage() {
   const [workflow, setWorkflow] = useState<WorkflowRecord | null>(null);
   const [owners, setOwners] = useState<ManagerOption[]>([]);
   const [versions, setVersions] = useState<WorkflowRecord[]>([]);
+  const [variants, setVariants] = useState<ProductVariantRecord[]>([]);
+  const [variantId, setVariantId] = useState("");
+  const [variantSaving, setVariantSaving] = useState(false);
+  const [variantFeedback, setVariantFeedback] = useState<{
+    tone: "success" | "error";
+    text: string;
+  } | null>(null);
   const [message, setMessage] = useState("");
   const [caseNumber, setCaseNumber] = useState("");
   const [caseReason, setCaseReason] = useState("");
@@ -73,7 +81,7 @@ export default function ApplicationDetailPage() {
     const data = await apiGet<ApplicationRecord>(`/api/v1/applications/${params.id}`, api);
     setItem(data);
     setCaseNumber(data.bankCaseNumber ?? "");
-    const [progressData, timelineData, workflowData, ownerData, versionData] = await Promise.all([
+    const [progressData, timelineData, workflowData, ownerData, versionData, variantData] = await Promise.all([
       apiGet<{ version: number; stages: WorkflowStageRecord[] }>(
         `/api/v1/applications/${params.id}/progress`,
         api,
@@ -90,6 +98,10 @@ export default function ApplicationDetailPage() {
         `/api/v1/workflows?bank_id=${data.bankId}&product_id=${data.productId}`,
         api,
       ),
+      apiGet<{ items: ProductVariantRecord[] }>(
+        `/api/v1/product-variants?bankId=${data.bankId}&productId=${data.productId}`,
+        api,
+      ),
     ]);
     setProgress(progressData.stages);
     setVersion(progressData.version);
@@ -97,6 +109,8 @@ export default function ApplicationDetailPage() {
     setWorkflow(workflowData);
     setOwners(ownerData.items);
     setVersions(versionData.items);
+    setVariants(variantData.items);
+    setVariantId(data.productVariantId ?? "");
   }, [api, can, params.id]);
 
   useEffect(() => {
@@ -124,13 +138,34 @@ export default function ApplicationDetailPage() {
     }
   }
 
+  async function saveVariant() {
+    if (!variantId || !item) return;
+    setVariantSaving(true);
+    setVariantFeedback(null);
+    try {
+      await apiRequest(`/api/v1/applications/${item.id}`, api, {
+        method: "PATCH",
+        body: JSON.stringify({ product_variant_id: variantId }),
+      });
+      await refresh();
+      setVariantFeedback({ tone: "success", text: "Product Variant saved." });
+    } catch (error) {
+      setVariantFeedback({
+        tone: "error",
+        text: error instanceof Error ? error.message : "Product Variant could not be saved",
+      });
+    } finally {
+      setVariantSaving(false);
+    }
+  }
+
   const selectedNext = nextStages.find((stage) => stage.id === stageId);
 
   return (
     <section className="space-y-6">
       <PageHeader
         title={item.applicationCode}
-        description={`${item.customerCode} · ${item.customerName} · ${item.bankCode} / ${item.productCode} · Case Owner ${item.caseOwnerName}${item.terminalOutcome ? ` · ${item.terminalOutcome}` : ""}`}
+        description={`${item.customerCode} · ${item.customerName} · ${item.bankCode} / ${item.productCode}${item.productVariantCode ? ` / ${item.productVariantCode}` : ""} · Case Owner ${item.caseOwnerName}${item.terminalOutcome ? ` · ${item.terminalOutcome}` : ""}`}
         actions={
           item.hasActiveDelay && item.activeDelay ? (
             <Badge>{`Delay · ${item.activeDelay.delayType}`}</Badge>
@@ -138,9 +173,80 @@ export default function ApplicationDetailPage() {
         }
       />
       <p className="text-sm text-slate-500">
-        Bank and Product are immutable. Workflow version {item.workflowVersion}.
+        Bank and Product Category are immutable. Workflow version {item.workflowVersion}.
       </p>
       <ErrorText>{message}</ErrorText>
+
+      <Card>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h3 className="font-semibold">Product classification</h3>
+            <p className="mt-1 text-xs text-slate-500">
+              The Product Variant belongs to the saved Bank–Product mapping.
+            </p>
+          </div>
+          {item.productVariantStatus ? <Badge>{item.productVariantStatus}</Badge> : null}
+        </div>
+        <div className="mt-3 grid gap-3 md:grid-cols-3">
+          <Field label="Bank">
+            <Select aria-label="Bank" value={item.bankId} disabled>
+              <option value={item.bankId}>{item.bankName} ({item.bankCode})</option>
+            </Select>
+          </Field>
+          <Field label="Product Category">
+            <Select aria-label="Product Category" value={item.productId} disabled>
+              <option value={item.productId}>{item.productName} ({item.productCode})</option>
+            </Select>
+          </Field>
+          <Field label="Product Variant">
+            {can("Applications.Edit") && !item.submitted && !item.terminal ? (
+              <Select
+                aria-label="Product Variant"
+                value={variantId}
+                disabled={variantSaving}
+                onChange={(event) => setVariantId(event.target.value)}
+              >
+                <option value="">Select product variant</option>
+                {item.productVariantId && !variants.some((variant) => variant.id === item.productVariantId) ? (
+                  <option value={item.productVariantId} disabled>
+                    {item.productVariantName} ({item.productVariantCode}) — unavailable for new selection
+                  </option>
+                ) : null}
+                {variants.map((variant) => (
+                  <option key={variant.id} value={variant.id}>
+                    {variant.name} ({variant.code})
+                  </option>
+                ))}
+              </Select>
+            ) : (
+              <p className="flex h-8 items-center rounded-md border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700">
+                {item.productVariantName
+                  ? `${item.productVariantName} (${item.productVariantCode})`
+                  : "No Product Variant assigned (legacy application)"}
+              </p>
+            )}
+          </Field>
+        </div>
+        {variantFeedback?.tone === "error" ? (
+          <div className="mt-3"><ErrorText>{variantFeedback.text}</ErrorText></div>
+        ) : null}
+        {variantFeedback?.tone === "success" ? (
+          <p role="status" className="mt-3 text-sm font-medium text-emerald-700">
+            {variantFeedback.text}
+          </p>
+        ) : null}
+        {can("Applications.Edit") && !item.submitted && !item.terminal ? (
+          <div className="mt-3 flex justify-end">
+            <Button
+              type="button"
+              disabled={variantSaving || !variantId || variantId === item.productVariantId}
+              onClick={() => void saveVariant()}
+            >
+              {variantSaving ? "Saving…" : "Save Product Variant"}
+            </Button>
+          </div>
+        ) : null}
+      </Card>
 
       <Card>
         <h3 className="font-semibold">Turnaround time</h3>

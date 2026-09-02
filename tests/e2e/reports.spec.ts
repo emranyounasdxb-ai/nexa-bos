@@ -97,6 +97,30 @@ test("owner dashboard periods, drill-down, profile, ranking, comparison, delay, 
     expect(createdWorkflow.ok()).toBeTruthy();
     workflow = (await createdWorkflow.json()) as { id: string; stages?: { systemKey?: string }[] };
   }
+  const mapping = (
+    (await (
+      await request.get(
+        `${apiOrigin}/api/v1/bank-products?bankId=${dib!.id}&productId=${pf!.id}`,
+      )
+    ).json()) as { items: { id: string }[] }
+  ).items[0];
+  let variant = (
+    (await (
+      await request.get(`${apiOrigin}/api/v1/product-variants?bankProductId=${mapping.id}`)
+    ).json()) as { items: { id: string }[] }
+  ).items[0];
+  if (!variant) {
+    const createdVariant = await request.post(`${apiOrigin}/api/v1/product-variants`, {
+      headers,
+      data: {
+        bank_product_id: mapping.id,
+        name: "Dashboard Personal Finance",
+        code: `DASH-PF-${Date.now()}`,
+      },
+    });
+    expect(createdVariant.ok(), await createdVariant.text()).toBeTruthy();
+    variant = (await createdVariant.json()) as { id: string };
+  }
   const suffix = Date.now().toString().slice(-8);
   const customer = await request.post(`${apiOrigin}/api/v1/customers`, {
     headers,
@@ -114,6 +138,7 @@ test("owner dashboard periods, drill-down, profile, ranking, comparison, delay, 
       customer_id: customerBody.id,
       bank_id: dib!.id,
       product_id: pf!.id,
+      product_variant_id: variant.id,
       case_owner_id: me.id,
       requested_amount: "18000",
     },
@@ -136,8 +161,7 @@ test("owner dashboard periods, drill-down, profile, ranking, comparison, delay, 
   await expect(page.getByText(/YTD period ·/)).toBeVisible({ timeout: 30_000 });
   filters = await openDashboardFilters(page);
   await filters.getByLabel("Reporting period").selectOption("custom");
-  await filters.getByLabel("Custom period start").fill("2026-01-01");
-  await filters.getByLabel("Custom period end").fill("2026-12-31");
+  await filters.getByLabel("Custom period").fill("2026-01-01 – 2026-12-31");
   await page.getByRole("button", { name: "Apply" }).click();
   await expect(page.getByRole("link", { name: "Submitted KPI" })).toBeVisible({
     timeout: 30_000,

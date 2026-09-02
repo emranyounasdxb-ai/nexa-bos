@@ -11,6 +11,7 @@ from sqlalchemy import select
 from helpers import (
     authenticate,
     create_activated_user,
+    create_product_variant,
     office_id,
     owner_client,
     spawned_client,
@@ -139,6 +140,8 @@ async def _create_app(
     }
     await _enable_case_owner(client)
     await _ensure_workflow(client, bank_id, product_id)
+    variant = await create_product_variant(client, bank_id=bank_id, product_id=product_id)
+    payload["product_variant_id"] = variant["id"]
     response = await client.post("/api/v1/applications", json=payload)
     assert response.status_code == 200, response.text
     return response.json()

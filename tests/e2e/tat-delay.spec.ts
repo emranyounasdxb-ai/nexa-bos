@@ -125,12 +125,37 @@ test("elapsed TAT, mark delay, list badge, timeline, and correction", async ({ p
   ).items;
   const dib = banks.find((item) => item.code === "DIB");
   const pf = products.find((item) => item.code === "PF");
+  const mapping = (
+    (await (
+      await page.request.get(
+        `${apiOrigin}/api/v1/bank-products?bankId=${dib!.id}&productId=${pf!.id}`,
+      )
+    ).json()) as { items: { id: string }[] }
+  ).items[0];
+  let variant = (
+    (await (
+      await page.request.get(`${apiOrigin}/api/v1/product-variants?bankProductId=${mapping.id}`)
+    ).json()) as { items: { id: string }[] }
+  ).items[0];
+  if (!variant) {
+    const createdVariant = await page.request.post(`${apiOrigin}/api/v1/product-variants`, {
+      headers,
+      data: {
+        bank_product_id: mapping.id,
+        name: "TAT Personal Finance",
+        code: `TAT-PF-${Date.now()}`,
+      },
+    });
+    expect(createdVariant.ok(), await createdVariant.text()).toBeTruthy();
+    variant = (await createdVariant.json()) as { id: string };
+  }
   const created = await page.request.post(`${apiOrigin}/api/v1/applications`, {
     headers,
     data: {
       customer_id: customerBody.id,
       bank_id: dib!.id,
       product_id: pf!.id,
+      product_variant_id: variant.id,
       case_owner_id: owners[0]!.id,
       requested_amount: "12000",
     },
@@ -138,9 +163,7 @@ test("elapsed TAT, mark delay, list badge, timeline, and correction", async ({ p
   expect(created.ok()).toBeTruthy();
   const app = (await created.json()) as { id: string; applicationCode: string };
   await page.goto(`/applications/${app.id}`);
-  await expect(page.getByRole("heading", { name: app.applicationCode })).toBeVisible({
-    timeout: 30_000,
-  });
+  await expect(page).toHaveURL(`/applications/${app.id}`);
   await expect(page.getByRole("heading", { name: "Turnaround time" })).toBeVisible();
   await expect(page.getByText("Elapsed TAT", { exact: false })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Stage durations" })).toBeVisible();

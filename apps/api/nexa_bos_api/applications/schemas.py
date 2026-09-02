@@ -20,12 +20,14 @@ class ApplicationCreateRequest(BaseModel):
     customer_id: UUID
     bank_id: UUID
     product_id: UUID
+    product_variant_id: UUID
     case_owner_id: UUID
     requested_amount: Decimal | None = None
     bank_case_number: str | None = Field(default=None, max_length=64)
 
 
 class ApplicationUpdateRequest(BaseModel):
+    product_variant_id: UUID | None = None
     requested_amount: Decimal | None = None
     approved_amount: Decimal | None = None
     booked_amount: Decimal | None = None
