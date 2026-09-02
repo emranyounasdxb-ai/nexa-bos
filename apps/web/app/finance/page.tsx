@@ -415,7 +415,7 @@ export default function FinancePage() {
       const url = URL.createObjectURL(result.blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = result.filename ?? `nexa-bos-finance.${format}`;
+      link.download = result.filename ?? `amafh-core-finance.${format}`;
       link.click();
       URL.revokeObjectURL(url);
     } catch (err) {
