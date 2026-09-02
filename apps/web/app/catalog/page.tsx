@@ -15,10 +15,10 @@ import {
   IconArrowsDiff,
   IconBuildingBank,
   IconEdit,
-  IconInfoCircle,
   IconPackages,
 } from "@/components/icons";
 import { Pagination, useClientPagination } from "@/components/pagination";
+import { Tooltip as InfoTooltip } from "@/components/tooltip";
 import {
   Badge,
   Button,
@@ -149,29 +149,6 @@ function friendlyError(error: unknown, fallback: string): string {
     }
   }
   return error instanceof Error ? error.message : fallback;
-}
-
-function InfoTooltip({ label, text, align = "left" }: { label: string; text: string; align?: "left" | "right" }) {
-  return (
-    <span className="group relative inline-flex shrink-0">
-      <button
-        type="button"
-        aria-label={label}
-        className={cx("rounded text-slate-400 hover:text-slate-700", focusRing)}
-      >
-        <IconInfoCircle className="size-4" />
-      </button>
-      <span
-        role="tooltip"
-        className={cx(
-          "pointer-events-none invisible absolute top-full z-40 mt-2 w-48 max-w-[calc(100vw-2rem)] rounded-lg bg-slate-950 px-3 py-2 text-left text-xs font-normal leading-5 text-white opacity-0 shadow-xl transition-opacity group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100 sm:w-72",
-          align === "right" ? "left-0 sm:left-auto sm:right-0" : "left-0",
-        )}
-      >
-        {text}
-      </span>
-    </span>
-  );
 }
 
 function CatalogInner() {
