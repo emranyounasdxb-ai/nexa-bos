@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 
@@ -89,11 +90,11 @@ const routeContext = (pathname: string) => {
     { prefix: "/user-types", group: "Administration", title: "User types" },
     { prefix: "/security", group: "Administration", title: "Security settings" },
     { prefix: "/account", group: "Account", title: "My profile" },
-    { prefix: "/status", group: "NEXA BOS", title: "Foundation smoke page" },
+    { prefix: "/status", group: "AMAFH CORE", title: "Foundation smoke page" },
   ];
   return (
     routes.find((route) => pathname === route.prefix || pathname.startsWith(`${route.prefix}/`)) ?? {
-      group: "NEXA BOS",
+      group: "AMAFH CORE",
       title: "Workspace",
     }
   );
@@ -277,7 +278,7 @@ function Shell({ children }: { children: ReactNode }) {
     context.group.split(" / ")[0];
   const dashboardItem = visibleGroups.find((group) => group.label === "Workspace")?.items[0];
   const menuGroups = visibleGroups.filter((group) => group.label !== "Workspace");
-  const initials = (user?.fullName ?? "NEXA User")
+  const initials = (user?.fullName ?? "AMAFH User")
     .split(/\s+/)
     .slice(0, 2)
     .map((part) => part.charAt(0).toUpperCase())
@@ -338,23 +339,39 @@ function Shell({ children }: { children: ReactNode }) {
           <Link
             href={can("Dashboard.View") ? "/reports" : "/users"}
             onClick={closeNavigationAfterRouteClick}
-            aria-label="NEXA BOS home"
+            aria-label="AMAFH CORE home"
             className={cx(focusRing, "flex min-w-0 items-center gap-3 rounded-md")}
           >
-            <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-md bg-[#0f4c81] text-sm font-bold tracking-tight text-white">
-              NX
-            </span>
-            <span
-              className={cx(
-                "min-w-0 overflow-hidden whitespace-nowrap transition-[max-width,opacity] duration-200 ease-out motion-reduce:duration-0 motion-reduce:transition-none",
-                sidebarExpanded
-                  ? "lg:max-w-36 lg:opacity-100"
-                  : "lg:invisible lg:max-w-0 lg:opacity-0",
-              )}
-            >
-              <span className="block text-sm font-bold tracking-[0.12em] text-slate-900">NEXA BOS</span>
-              <span className="block truncate text-[11px] text-slate-500">Business operations</span>
-            </span>
+            <Image
+              src="/brand/amafh-core-full-logo-exact.svg"
+              alt=""
+              width={1551}
+              height={479}
+              className="h-10 w-auto max-w-[9.5rem] shrink-0 lg:hidden"
+              priority
+              unoptimized
+            />
+            {sidebarExpanded ? (
+              <Image
+                src="/brand/amafh-core-full-logo-exact.svg"
+                alt=""
+                width={1551}
+                height={479}
+                className="hidden h-10 w-auto max-w-[9.5rem] shrink-0 lg:block"
+                priority
+                unoptimized
+              />
+            ) : (
+              <Image
+                src="/brand/amafh-core-mark-exact.svg"
+                alt=""
+                width={801}
+                height={908}
+                className="hidden h-9 w-auto shrink-0 lg:block"
+                priority
+                unoptimized
+              />
+            )}
           </Link>
           <button
             type="button"
@@ -552,7 +569,7 @@ function Shell({ children }: { children: ReactNode }) {
                 <span className="hidden max-w-40 text-left sm:block">
                   <span className="block truncate text-xs font-semibold text-slate-900">{user?.fullName}</span>
                   <span className="block truncate text-[10px] text-slate-500">
-                    {user?.userType?.name ?? "NEXA user"}
+                    {user?.userType?.name ?? "AMAFH user"}
                   </span>
                 </span>
                 <IconChevronDown className="hidden size-4 text-slate-400 transition-transform group-open:rotate-180 sm:block" />
@@ -657,7 +674,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             className="size-5 animate-spin rounded-full border-2 border-slate-200 border-t-[#0f4c81]"
             aria-hidden="true"
           />
-          Loading NEXA BOS…
+          Loading AMAFH CORE…
         </span>
       </div>
     );

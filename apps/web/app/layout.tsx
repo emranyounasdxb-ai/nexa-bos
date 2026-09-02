@@ -6,8 +6,8 @@ import { AppShell } from "@/components/app-shell";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "NEXA BOS",
-  description: "NEXA BOS user management",
+  title: "AMAFH CORE",
+  description: "AMAFH CORE business operations workspace",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

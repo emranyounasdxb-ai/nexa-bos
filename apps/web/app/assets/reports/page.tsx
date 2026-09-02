@@ -125,7 +125,7 @@ export default function AssetReportsPage() {
       const url = URL.createObjectURL(result.blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = result.filename ?? `nexa-bos-${report}.${format}`;
+      link.download = result.filename ?? `amafh-core-${report}.${format}`;
       link.click();
       URL.revokeObjectURL(url);
     } catch (reason) {

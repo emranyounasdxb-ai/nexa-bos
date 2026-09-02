@@ -63,7 +63,7 @@ export default function LoginPage() {
 
   return (
     <PublicScreen
-      title="Sign in to NEXA BOS"
+      title="Sign in to AMAFH CORE"
       description={
         mfaToken
           ? "Enter the authenticator code for this account."

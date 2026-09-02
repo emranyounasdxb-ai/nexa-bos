@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import type {
   ButtonHTMLAttributes,
   InputHTMLAttributes,
@@ -403,21 +404,23 @@ export function PublicScreen({
   return (
     <main className="flex min-h-screen items-center justify-center bg-[#f4f6f8] px-4 py-10 sm:px-6">
       <div className={cx("w-full", wide ? "max-w-xl" : "max-w-md")}>
-        <div className="mb-6 flex items-center justify-center gap-3">
-          <span className="inline-flex size-10 items-center justify-center rounded-md bg-[#0f4c81] text-sm font-bold tracking-tight text-white">
-            NX
-          </span>
-          <div>
-            <p className="text-sm font-bold tracking-[0.12em] text-slate-900">NEXA BOS</p>
-            <p className="text-[11px] text-slate-500">Business operations</p>
-          </div>
+        <div className="mb-6 flex items-center justify-center">
+          <Image
+            src="/brand/amafh-core-full-logo-exact.svg"
+            alt="AMAFH CORE"
+            width={1551}
+            height={479}
+            className="h-14 w-auto max-w-full"
+            priority
+            unoptimized
+          />
         </div>
         <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-[0_8px_24px_rgba(15,23,42,0.08)] sm:p-8">
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">{title}</h1>
           {description ? <p className="mt-2 text-sm leading-6 text-slate-600">{description}</p> : null}
           {children}
         </section>
-        <p className="mt-5 text-center text-xs text-slate-500">Secure NEXA business operations workspace</p>
+        <p className="mt-5 text-center text-xs text-slate-500">Secure AMAFH CORE workspace</p>
       </div>
     </main>
   );
