@@ -585,6 +585,8 @@ async def create_application(
         payload={
             "applicationCode": application.application_code,
             "productVariantId": str(variant.id),
+            "productVariantCode": variant.code,
+            "productVariantName": variant.name,
         },
         at=now,
     )
@@ -607,6 +609,8 @@ async def create_application(
         new_values={
             "applicationCode": application.application_code,
             "productVariantId": str(variant.id),
+            "productVariantCode": variant.code,
+            "productVariantName": variant.name,
         },
     )
     await session.commit()
@@ -729,6 +733,7 @@ def _list_stmt() -> Select:
         .join(Customer, Application.customer_id == Customer.id)
         .join(Bank, Application.bank_id == Bank.id)
         .join(Product, Application.product_id == Product.id)
+        .outerjoin(ProductVariant, Application.product_variant_id == ProductVariant.id)
         .join(owner, Application.case_owner_id == owner.id)
         .join(WorkflowStage, Application.current_stage_id == WorkflowStage.id)
         .outerjoin(Office, owner.office_id == Office.id)
@@ -756,6 +761,7 @@ async def list_applications(
         "customer_mobile": Customer.mobile,
         "bank_id": Application.bank_id,
         "product_id": Application.product_id,
+        "product_variant_id": Application.product_variant_id,
         "office_id": Office.id,
         "department_id": Department.id,
         "team_id": Team.id,
@@ -765,6 +771,7 @@ async def list_applications(
     uuid_keys = {
         "bank_id",
         "product_id",
+        "product_variant_id",
         "office_id",
         "department_id",
         "team_id",
@@ -799,6 +806,12 @@ async def list_applications(
                 func.lower(func.coalesce(Customer.full_name, "")).like(like),
                 func.lower(func.coalesce(Customer.company_name, "")).like(like),
                 func.lower(Customer.mobile).like(like),
+                func.lower(Bank.code).like(like),
+                func.lower(Bank.name).like(like),
+                func.lower(Product.code).like(like),
+                func.lower(Product.name).like(like),
+                func.lower(func.coalesce(ProductVariant.code, "")).like(like),
+                func.lower(func.coalesce(ProductVariant.name, "")).like(like),
             )
         )
     for field, column in (
@@ -881,6 +894,26 @@ async def list_referenced_case_owners(session: AsyncSession, actor: User) -> lis
     return list((await session.execute(stmt)).scalars().all())
 
 
+async def list_referenced_product_variants(
+    session: AsyncSession, actor: User
+) -> list[ProductVariant]:
+    allowed = await visible_case_owner_ids(session, actor)
+    visible_apps = apply_owner_filter(
+        select(Application.product_variant_id).where(Application.product_variant_id.is_not(None)),
+        allowed,
+    )
+    stmt = (
+        select(ProductVariant)
+        .options(
+            selectinload(ProductVariant.bank_product).selectinload(BankProduct.bank),
+            selectinload(ProductVariant.bank_product).selectinload(BankProduct.product),
+        )
+        .where(ProductVariant.id.in_(visible_apps))
+        .order_by(ProductVariant.name, ProductVariant.code)
+    )
+    return list((await session.execute(stmt)).scalars().unique().all())
+
+
 async def list_customer_applications(
     session: AsyncSession, actor: User, customer_id: UUID
 ) -> list[Application]:
@@ -898,6 +931,7 @@ async def update_application(
     _reject_terminal(application)
     submitted = application.submitted_at is not None
     data = payload.model_dump(exclude_unset=True)
+    audit_old_values: dict[str, object] | None = None
     if "bank_case_number" in data:
         value = _blank(payload.bank_case_number)
         if value and value != application.bank_case_number:
@@ -940,8 +974,27 @@ async def update_application(
             )
         mapping = await _require_mapping(session, bank, product)
         variant = await _require_variant(session, mapping, payload.product_variant_id)
+        previous_variant = (
+            await session.get(ProductVariant, application.product_variant_id)
+            if application.product_variant_id
+            else None
+        )
+        audit_old_values = {
+            "productVariantId": str(application.product_variant_id)
+            if application.product_variant_id
+            else None,
+            "productVariantCode": previous_variant.code if previous_variant else None,
+            "productVariantName": previous_variant.name if previous_variant else None,
+        }
         application.product_variant_id = variant.id
-        data["product_variant_id"] = str(variant.id)
+        data.pop("product_variant_id")
+        data.update(
+            {
+                "productVariantId": str(variant.id),
+                "productVariantCode": variant.code,
+                "productVariantName": variant.name,
+            }
+        )
     for field in ("requested_amount", "approved_amount", "booked_amount", "funded_amount"):
         if field in data:
             setattr(application, field, data[field])
@@ -952,6 +1005,7 @@ async def update_application(
         entity_type="application",
         entity_id=str(application.id),
         actor_id=actor.id,
+        old_values=audit_old_values,
         new_values=data,
     )
     await session.commit()
@@ -983,12 +1037,34 @@ async def correct_submitted(
             code="NOT_SUBMITTED",
             message="Submitted-data correction applies after submission",
         )
+    old_variant = (
+        await session.get(ProductVariant, application.product_variant_id)
+        if application.product_variant_id
+        else None
+    )
     old = {
+        "productVariantId": str(application.product_variant_id)
+        if application.product_variant_id
+        else None,
+        "productVariantCode": old_variant.code if old_variant else None,
+        "productVariantName": old_variant.name if old_variant else None,
         "requestedAmount": _money(application.requested_amount),
         "approvedAmount": _money(application.approved_amount),
         "bookedAmount": _money(application.booked_amount),
         "fundedAmount": _money(application.funded_amount),
     }
+    if payload.product_variant_id is not None:
+        bank = await session.get(Bank, application.bank_id)
+        product = await session.get(Product, application.product_id)
+        if bank is None or product is None:
+            raise AppError(
+                status_code=404,
+                code="BANK_PRODUCT_NOT_FOUND",
+                message="Bank or Product not found",
+            )
+        mapping = await _require_mapping(session, bank, product)
+        variant = await _require_variant(session, mapping, payload.product_variant_id)
+        application.product_variant_id = variant.id
     if payload.requested_amount is not None:
         application.requested_amount = payload.requested_amount
     if payload.approved_amount is not None:
@@ -998,6 +1074,22 @@ async def correct_submitted(
     if payload.funded_amount is not None:
         application.funded_amount = payload.funded_amount
     application.updated_at = utcnow()
+    new_variant = (
+        await session.get(ProductVariant, application.product_variant_id)
+        if application.product_variant_id
+        else None
+    )
+    new = {
+        "productVariantId": str(application.product_variant_id)
+        if application.product_variant_id
+        else None,
+        "productVariantCode": new_variant.code if new_variant else None,
+        "productVariantName": new_variant.name if new_variant else None,
+        "requestedAmount": _money(application.requested_amount),
+        "approvedAmount": _money(application.approved_amount),
+        "bookedAmount": _money(application.booked_amount),
+        "fundedAmount": _money(application.funded_amount),
+    }
     await _add_event(
         session,
         application=application,
@@ -1006,12 +1098,7 @@ async def correct_submitted(
         reason=payload.reason,
         payload={
             "old": old,
-            "new": {
-                "requestedAmount": _money(application.requested_amount),
-                "approvedAmount": _money(application.approved_amount),
-                "bookedAmount": _money(application.booked_amount),
-                "fundedAmount": _money(application.funded_amount),
-            },
+            "new": new,
         },
     )
     await record_audit(
@@ -1022,6 +1109,7 @@ async def correct_submitted(
         actor_id=actor.id,
         note=payload.reason,
         old_values=old,
+        new_values=new,
     )
     await session.commit()
     return application

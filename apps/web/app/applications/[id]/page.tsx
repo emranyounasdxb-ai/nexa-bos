@@ -34,6 +34,24 @@ import type {
 
 const today = () => new Date().toISOString().slice(0, 10);
 
+function correctionVariant(
+  payload: Record<string, unknown> | null,
+  side: "old" | "new",
+): { id: string | null; label: string } | null {
+  const value = payload?.[side];
+  if (!value || typeof value !== "object") return null;
+  const record = value as Record<string, unknown>;
+  const id = typeof record.productVariantId === "string" ? record.productVariantId : null;
+  const name =
+    typeof record.productVariantName === "string" ? record.productVariantName : null;
+  const code =
+    typeof record.productVariantCode === "string" ? record.productVariantCode : null;
+  return {
+    id,
+    label: name ? `${name}${code ? ` (${code})` : ""}` : "No Product Variant (legacy)",
+  };
+}
+
 export default function ApplicationDetailPage() {
   const params = useParams<{ id: string }>();
   const { can } = useAuth();
@@ -71,6 +89,7 @@ export default function ApplicationDetailPage() {
   const [migrateStageId, setMigrateStageId] = useState("");
   const [migrateReason, setMigrateReason] = useState("");
   const [correctionAmount, setCorrectionAmount] = useState("");
+  const [correctionVariantId, setCorrectionVariantId] = useState("");
   const [delayType, setDelayType] = useState("Bank");
   const [delayReason, setDelayReason] = useState("");
   const [delayOther, setDelayOther] = useState("");
@@ -128,13 +147,15 @@ export default function ApplicationDetailPage() {
     .map((row) => workflow?.stages.find((stage) => stage.id === row.toStageId))
     .filter((stage): stage is WorkflowStageRecord => Boolean(stage && stage.status === "active"));
 
-  async function post(path: string, body: Record<string, unknown>) {
+  async function post(path: string, body: Record<string, unknown>): Promise<boolean> {
     setMessage("");
     try {
       await apiRequest(path, api, { method: "POST", body: JSON.stringify(body) });
       await refresh();
+      return true;
     } catch (err) {
       setMessage(err instanceof Error ? err.message : "Action failed");
+      return false;
     }
   }
 
@@ -600,10 +621,33 @@ export default function ApplicationDetailPage() {
             void post(`/api/v1/applications/${item.id}/correct-submitted`, {
               reason: correctReason,
               requested_amount: correctionAmount || null,
+              product_variant_id: correctionVariantId || undefined,
+            }).then((saved) => {
+              if (saved) setCorrectionVariantId("");
             });
           }}
         >
           <h3 className="font-semibold">Correct submitted data</h3>
+          <p className="text-xs text-slate-500">
+            Select a Product Variant only when correcting the saved classification. The current
+            historical value is preserved unless a new active Variant is explicitly selected.
+          </p>
+          <Select
+            aria-label="Corrected Product Variant"
+            value={correctionVariantId}
+            onChange={(event) => setCorrectionVariantId(event.target.value)}
+          >
+            <option value="">
+              Keep current — {item.productVariantName
+                ? `${item.productVariantName} (${item.productVariantCode})`
+                : "No Product Variant (legacy)"}
+            </option>
+            {variants.map((variant) => (
+              <option key={variant.id} value={variant.id}>
+                {variant.name} ({variant.code})
+              </option>
+            ))}
+          </Select>
           <input
             className={controlClass}
             aria-label="Corrected requested amount"
@@ -762,41 +806,48 @@ export default function ApplicationDetailPage() {
       <div>
         <h3 className="font-semibold">Timeline</h3>
         <ol className="mt-3 space-y-3">
-          {timeline.map((event) => (
-            <li key={event.id} className="rounded-xl border border-slate-200 bg-white p-3 text-sm shadow-[0_1px_2px_rgba(15,23,42,0.03)]">
-              <p className="font-medium">{event.eventType.replaceAll("_", " ")}</p>
-              <p className="text-slate-600">
-                {event.previousStage ? `${event.previousStage} → ` : ""}
-                {event.newStage ?? ""}
-              </p>
-              {event.bankStageDate ? <p>Bank Stage Date: {event.bankStageDate}</p> : null}
-              {event.stageNote ? <p>Note: {event.stageNote}</p> : null}
-              {event.reason ? <p>Reason: {event.reason}</p> : null}
-              {event.payload &&
-              typeof event.payload.delayType === "string" ? (
-                <p>
-                  Delay: {event.payload.delayType}
-                  {typeof event.payload.otherExplanation === "string" && event.payload.otherExplanation
-                    ? ` · ${event.payload.otherExplanation}`
-                    : ""}
+          {timeline.map((event) => {
+            const oldVariant = correctionVariant(event.payload, "old");
+            const newVariant = correctionVariant(event.payload, "new");
+            return (
+              <li key={event.id} className="rounded-xl border border-slate-200 bg-white p-3 text-sm shadow-[0_1px_2px_rgba(15,23,42,0.03)]">
+                <p className="font-medium">{event.eventType.replaceAll("_", " ")}</p>
+                <p className="text-slate-600">
+                  {event.previousStage ? `${event.previousStage} → ` : ""}
+                  {event.newStage ?? ""}
                 </p>
-              ) : null}
-              {event.payload && typeof event.payload.startedAt === "string" ? (
+                {event.bankStageDate ? <p>Bank Stage Date: {event.bankStageDate}</p> : null}
+                {event.stageNote ? <p>Note: {event.stageNote}</p> : null}
+                {event.reason ? <p>Reason: {event.reason}</p> : null}
+                {event.payload && typeof event.payload.delayType === "string" ? (
+                  <p>
+                    Delay: {event.payload.delayType}
+                    {typeof event.payload.otherExplanation === "string" &&
+                    event.payload.otherExplanation
+                      ? ` · ${event.payload.otherExplanation}`
+                      : ""}
+                  </p>
+                ) : null}
+                {event.payload && typeof event.payload.startedAt === "string" ? (
+                  <p className="text-xs text-slate-500">
+                    Delay start {event.payload.startedAt}
+                    {typeof event.payload.endedAt === "string" && event.payload.endedAt
+                      ? ` · end ${event.payload.endedAt}`
+                      : ""}
+                    {typeof event.payload.durationSeconds === "number"
+                      ? ` · ${formatDuration(event.payload.durationSeconds)}`
+                      : ""}
+                  </p>
+                ) : null}
+                {oldVariant && newVariant && oldVariant.id !== newVariant.id ? (
+                  <p>Product Variant: {oldVariant.label} → {newVariant.label}</p>
+                ) : null}
                 <p className="text-xs text-slate-500">
-                  Delay start {event.payload.startedAt}
-                  {typeof event.payload.endedAt === "string" && event.payload.endedAt
-                    ? ` · end ${event.payload.endedAt}`
-                    : ""}
-                  {typeof event.payload.durationSeconds === "number"
-                    ? ` · ${formatDuration(event.payload.durationSeconds)}`
-                    : ""}
+                  BOS {event.bosUpdatedAt} · {event.updatedBy}
                 </p>
-              ) : null}
-              <p className="text-xs text-slate-500">
-                BOS {event.bosUpdatedAt} · {event.updatedBy}
-              </p>
-            </li>
-          ))}
+              </li>
+            );
+          })}
         </ol>
       </div>
       <p className="text-sm">

@@ -42,6 +42,7 @@ class CaseNumberRequest(BaseModel):
 
 class CorrectSubmittedRequest(BaseModel):
     reason: str = Field(min_length=1, max_length=2000)
+    product_variant_id: UUID | None = None
     requested_amount: Decimal | None = None
     approved_amount: Decimal | None = None
     booked_amount: Decimal | None = None

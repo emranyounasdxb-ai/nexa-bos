@@ -53,7 +53,14 @@ type Profile = {
   conversions: Record<string, number | null>;
   stageBreakdown: { name: string; count: number }[];
   ranking: { rank: number; value: string | number } | null;
-  applications: { id: string; applicationCode: string; currentStage: string; productCode: string }[];
+  applications: {
+    id: string;
+    applicationCode: string;
+    currentStage: string;
+    bankCode: string;
+    productCode: string;
+    productVariantCode: string | null;
+  }[];
   attendanceSummary: {
     presentCount: number;
     absentCount: number;
@@ -368,7 +375,7 @@ function ProfileInner() {
             <TableHead>
               <tr>
                 <Th>Application</Th>
-                <Th>Product</Th>
+                <Th>Bank / Product / Variant</Th>
                 <Th>Stage</Th>
               </tr>
             </TableHead>
@@ -380,7 +387,9 @@ function ProfileInner() {
                       {item.applicationCode}
                     </Link>
                   </Td>
-                  <Td>{item.productCode}</Td>
+                  <Td>
+                    {item.bankCode} / {item.productCode} / {item.productVariantCode ?? "Legacy"}
+                  </Td>
                   <Td>{item.currentStage}</Td>
                 </tr>
               ))}

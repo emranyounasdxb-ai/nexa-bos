@@ -31,6 +31,7 @@ from nexa_bos_api.applications.service import (
     list_applications,
     list_customer_applications,
     list_referenced_case_owners,
+    list_referenced_product_variants,
     migrate_application,
     reassign_case_owner,
     save_case_number,
@@ -72,6 +73,7 @@ def _filters(
     customer_mobile: str | None,
     bank_id: str | None,
     product_id: str | None,
+    product_variant_id: str | None,
     case_owner_id: str | None,
     office_id: str | None,
     department_id: str | None,
@@ -103,6 +105,7 @@ def _filters(
         "customer_mobile": customer_mobile,
         "bank_id": bank_id,
         "product_id": product_id,
+        "product_variant_id": product_variant_id,
         "case_owner_id": case_owner_id,
         "office_id": office_id,
         "department_id": department_id,
@@ -140,6 +143,7 @@ async def applications_list(
     customer_mobile: str | None = None,
     bank_id: str | None = None,
     product_id: str | None = None,
+    product_variant_id: str | None = None,
     case_owner_id: str | None = None,
     office_id: str | None = None,
     department_id: str | None = None,
@@ -174,6 +178,7 @@ async def applications_list(
             customer_mobile,
             bank_id,
             product_id,
+            product_variant_id,
             case_owner_id,
             office_id,
             department_id,
@@ -231,6 +236,27 @@ async def applications_case_owners(
                 "teamId": str(user.team_id) if user.team_id else None,
             }
             for user in users
+        ]
+    }
+
+
+@router.get("/applications/product-variants")
+async def applications_product_variants(
+    session: SessionDep,
+    actor: Annotated[CurrentUser, Depends(require_permission(APPLICATIONS_VIEW))],
+) -> dict[str, object]:
+    variants = await list_referenced_product_variants(session, actor)
+    return {
+        "items": [
+            {
+                "id": str(variant.id),
+                "bankId": str(variant.bank_product.bank_id),
+                "productId": str(variant.bank_product.product_id),
+                "code": variant.code,
+                "name": variant.name,
+                "status": variant.status,
+            }
+            for variant in variants
         ]
     }
 

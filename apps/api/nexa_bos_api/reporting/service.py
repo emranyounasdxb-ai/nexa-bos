@@ -18,7 +18,7 @@ from nexa_bos_api.applications.models import (
     WorkflowStage,
 )
 from nexa_bos_api.attendance.service import employee_attendance_summary
-from nexa_bos_api.catalog.models import Bank, Product
+from nexa_bos_api.catalog.models import Bank, Product, ProductVariant
 from nexa_bos_api.core.exceptions import AppError
 from nexa_bos_api.core.pagination import PageResult
 from nexa_bos_api.customers.models import Customer
@@ -115,8 +115,14 @@ class AppFact:
     customer_name: str
     bank_id: UUID
     bank_code: str
+    bank_name: str
     product_id: UUID
     product_code: str
+    product_name: str
+    product_variant_id: UUID | None
+    product_variant_code: str | None
+    product_variant_name: str | None
+    product_variant_status: str | None
     created_at: datetime
     submitted_at: datetime | None
     approved_at: datetime | None
@@ -240,9 +246,10 @@ async def load_facts(
     stage = aliased(WorkflowStage)
     rows = (
         await session.execute(
-            select(Application, Product, Bank, stage, Customer)
+            select(Application, Product, Bank, ProductVariant, stage, Customer)
             .join(Product, Application.product_id == Product.id)
             .join(Bank, Application.bank_id == Bank.id)
+            .outerjoin(ProductVariant, Application.product_variant_id == ProductVariant.id)
             .join(stage, Application.current_stage_id == stage.id)
             .join(Customer, Application.customer_id == Customer.id)
         )
@@ -305,7 +312,7 @@ async def load_facts(
     offices = {row.id: row for row in (await session.execute(select(Office))).scalars()}
     teams = {row.id: row for row in (await session.execute(select(Team))).scalars()}
     facts: list[AppFact] = []
-    for app, product, bank, current_stage, customer in rows:
+    for app, product, bank, variant, current_stage, customer in rows:
         hist = histories.get(app.id, [])
         occ = occupancies.get(app.id, [])
         evs = events.get(app.id, [])
@@ -337,8 +344,14 @@ async def load_facts(
                 customer_name=customer.full_name or customer.company_name or customer.customer_code,
                 bank_id=app.bank_id,
                 bank_code=bank.code,
+                bank_name=bank.name,
                 product_id=app.product_id,
                 product_code=product.code,
+                product_name=product.name,
+                product_variant_id=app.product_variant_id,
+                product_variant_code=variant.code if variant else None,
+                product_variant_name=variant.name if variant else None,
+                product_variant_status=variant.status if variant else None,
                 created_at=app.created_at,
                 submitted_at=app.submitted_at,
                 approved_at=app.approved_at,
@@ -858,8 +871,14 @@ def serialize_application(fact: AppFact) -> dict[str, object]:
         "id": str(fact.id),
         "applicationCode": fact.code,
         "customerName": fact.customer_name,
+        "bankName": fact.bank_name,
         "bankCode": fact.bank_code,
+        "productName": fact.product_name,
         "productCode": fact.product_code,
+        "productVariantId": str(fact.product_variant_id) if fact.product_variant_id else None,
+        "productVariantCode": fact.product_variant_code,
+        "productVariantName": fact.product_variant_name,
+        "productVariantStatus": fact.product_variant_status,
         "currentStage": fact.current_stage_name,
         "terminalOutcome": fact.terminal_outcome,
         "requestedAmount": money(fact.requested_amount),

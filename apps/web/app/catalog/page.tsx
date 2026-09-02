@@ -217,7 +217,10 @@ function CatalogInner() {
   const [ruleFeedback, setRuleFeedback] = useState<Feedback | null>(null);
 
   const canSeeInactive = can("Banks.Edit") || can("Products.Edit") || can("BankProducts.Create");
-  const canSeeInactiveVariants = can("ProductVariants.Edit");
+  const canSeeInactiveVariants =
+    can("ProductVariants.Edit") ||
+    can("ProductVariants.Activate") ||
+    can("ProductVariants.Deactivate");
 
   const refresh = useCallback(async () => {
     const suffix = canSeeInactive ? "?includeInactive=true" : "";
