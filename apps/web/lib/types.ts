@@ -110,6 +110,22 @@ export type BankProductRecord = {
   product: CatalogItem | null;
 };
 
+export type ProductVariantRecord = {
+  id: string;
+  bankProductId: string;
+  bankId: string;
+  productId: string;
+  code: string;
+  name: string;
+  description: string | null;
+  status: string;
+  mappingStatus: string;
+  bank: CatalogItem | null;
+  product: CatalogItem | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type ApplicationRecord = {
   id: string;
   applicationCode: string;
@@ -123,6 +139,10 @@ export type ApplicationRecord = {
   productId: string;
   productCode: string | null;
   productName: string | null;
+  productVariantId: string | null;
+  productVariantCode: string | null;
+  productVariantName: string | null;
+  productVariantStatus: string | null;
   workflowId: string;
   workflowVersion: number | null;
   currentStageId: string;

@@ -9,6 +9,7 @@ from sqlalchemy import event
 from helpers import (
     authenticate,
     create_activated_user,
+    create_product_variant,
     office_id,
     owner_client,
     spawned_client,
@@ -126,6 +127,8 @@ async def _create_app(
         payload["bank_case_number"] = bank_case_number
     await _enable_case_owner(client)
     await _ensure_test_workflow(client, bank_id, product_id)
+    variant = await create_product_variant(client, bank_id=bank_id, product_id=product_id)
+    payload["product_variant_id"] = variant["id"]
     response = await client.post("/api/v1/applications", json=payload)
     assert response.status_code == 200, response.text
     return response.json()
@@ -188,6 +191,11 @@ async def test_application_requires_manually_configured_workflow(client: AsyncCl
         json={"bank_id": dib["id"], "product_id": product.json()["id"]},
     )
     assert mapping.status_code == 200, mapping.text
+    variant = await create_product_variant(
+        authed,
+        bank_id=dib["id"],
+        product_id=product.json()["id"],
+    )
     workflows = await authed.get(
         f"/api/v1/workflows?bank_id={dib['id']}&product_id={product.json()['id']}"
     )
@@ -199,6 +207,7 @@ async def test_application_requires_manually_configured_workflow(client: AsyncCl
             "customer_id": customer["id"],
             "bank_id": dib["id"],
             "product_id": product.json()["id"],
+            "product_variant_id": variant["id"],
             "case_owner_id": owner["id"],
         },
     )
@@ -217,6 +226,7 @@ async def test_application_requires_manually_configured_workflow(client: AsyncCl
             "customer_id": customer["id"],
             "bank_id": dib["id"],
             "product_id": product.json()["id"],
+            "product_variant_id": variant["id"],
             "case_owner_id": owner["id"],
         },
     )
@@ -266,6 +276,7 @@ async def test_duplicate_active_blocked_and_parallel_bank_product(client: AsyncC
             "customer_id": customer["id"],
             "bank_id": dib["id"],
             "product_id": pf["id"],
+            "product_variant_id": first["productVariantId"],
             "case_owner_id": owner["id"],
             "requested_amount": "1",
         },
@@ -850,6 +861,9 @@ async def test_ineligible_case_owner_and_completed_not_manual(client: AsyncClien
             "customer_id": customer["id"],
             "bank_id": dib["id"],
             "product_id": pf["id"],
+            "product_variant_id": (await create_product_variant(
+                authed, bank_id=dib["id"], product_id=pf["id"]
+            ))["id"],
             "case_owner_id": hr_user["id"],
             "requested_amount": "1",
         },
@@ -878,6 +892,9 @@ async def test_ineligible_case_owner_and_completed_not_manual(client: AsyncClien
             "customer_id": later["id"],
             "bank_id": dib["id"],
             "product_id": pf["id"],
+            "product_variant_id": (await create_product_variant(
+                authed, bank_id=dib["id"], product_id=pf["id"]
+            ))["id"],
             "case_owner_id": owner["id"],
             "requested_amount": "1",
         },

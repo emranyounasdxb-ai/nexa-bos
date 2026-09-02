@@ -40,6 +40,10 @@ BANK_PRODUCTS_CREATE = "BankProducts.Create"
 BANK_PRODUCTS_EDIT = "BankProducts.Edit"
 BANK_PRODUCTS_ACTIVATE = "BankProducts.Activate"
 BANK_PRODUCTS_DEACTIVATE = "BankProducts.Deactivate"
+PRODUCT_VARIANTS_CREATE = "ProductVariants.Create"
+PRODUCT_VARIANTS_EDIT = "ProductVariants.Edit"
+PRODUCT_VARIANTS_ACTIVATE = "ProductVariants.Activate"
+PRODUCT_VARIANTS_DEACTIVATE = "ProductVariants.Deactivate"
 APPLICATIONS_VIEW = "Applications.View"
 APPLICATIONS_CREATE = "Applications.Create"
 APPLICATIONS_EDIT = "Applications.Edit"
@@ -137,6 +141,10 @@ PERMISSION_CATALOG: tuple[tuple[str, str], ...] = (
     (BANK_PRODUCTS_EDIT, "Edit bank-product mappings"),
     (BANK_PRODUCTS_ACTIVATE, "Activate bank-product mappings"),
     (BANK_PRODUCTS_DEACTIVATE, "Deactivate bank-product mappings"),
+    (PRODUCT_VARIANTS_CREATE, "Create product variants for valid bank-product mappings"),
+    (PRODUCT_VARIANTS_EDIT, "Edit product variant names and descriptions"),
+    (PRODUCT_VARIANTS_ACTIVATE, "Activate product variants"),
+    (PRODUCT_VARIANTS_DEACTIVATE, "Deactivate product variants"),
     (APPLICATIONS_VIEW, "View applications within assigned application visibility scope"),
     (APPLICATIONS_CREATE, "Create applications"),
     (APPLICATIONS_EDIT, "Edit allowed application fields"),

@@ -192,6 +192,30 @@ test("owner targets, KPI scorecards, profile section, and scoped isolation", asy
   expect(dib && pf && cc).toBeTruthy();
   await ensureWorkflow(request, headers, dib!.id, pf!.id);
   await ensureWorkflow(request, headers, dib!.id, cc!.id);
+  const mapping = (
+    (await (
+      await request.get(
+        `${apiOrigin}/api/v1/bank-products?bankId=${dib!.id}&productId=${pf!.id}`,
+      )
+    ).json()) as { items: { id: string }[] }
+  ).items[0];
+  let variant = (
+    (await (
+      await request.get(`${apiOrigin}/api/v1/product-variants?bankProductId=${mapping.id}`)
+    ).json()) as { items: { id: string }[] }
+  ).items[0];
+  if (!variant) {
+    const createdVariant = await request.post(`${apiOrigin}/api/v1/product-variants`, {
+      headers,
+      data: {
+        bank_product_id: mapping.id,
+        name: "Target Personal Finance",
+        code: `TARGET-PF-${Date.now()}`,
+      },
+    });
+    expect(createdVariant.ok(), await createdVariant.text()).toBeTruthy();
+    variant = (await createdVariant.json()) as { id: string };
+  }
   const customer = await request.post(`${apiOrigin}/api/v1/customers`, {
     headers,
     data: {
@@ -208,6 +232,7 @@ test("owner targets, KPI scorecards, profile section, and scoped isolation", asy
       customer_id: customerId,
       bank_id: dib!.id,
       product_id: pf!.id,
+      product_variant_id: variant.id,
       case_owner_id: employee.id,
       requested_amount: "4000",
     },
@@ -277,13 +302,14 @@ test("owner targets, KPI scorecards, profile section, and scoped isolation", asy
   expect(setPw.ok(), await setPw.text()).toBeTruthy();
 
   await signIn(page);
+  await page.getByRole("button", { name: "Performance menu" }).click();
   await page.getByRole("link", { name: "Targets", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Targets" })).toBeVisible();
 
   await page.getByLabel("Target level").selectOption("employee");
   await page.getByLabel("Target entity").selectOption(employee.id);
   await page.getByLabel("Target month").fill(month);
-  await page.getByLabel("Product").selectOption(pf!.id);
+  await page.getByLabel("Product", { exact: true }).selectOption(pf!.id);
   await page.getByLabel("Milestone").selectOption("submitted");
   await page.getByLabel("Measurement").selectOption("amount");
   await page.getByLabel("Target value").fill("10000");
@@ -297,7 +323,7 @@ test("owner targets, KPI scorecards, profile section, and scoped isolation", asy
 
   await page.getByLabel("Target level").selectOption("team");
   await page.getByLabel("Target entity").selectOption(teamId);
-  await page.getByLabel("Product").selectOption(pf!.id);
+  await page.getByLabel("Product", { exact: true }).selectOption(pf!.id);
   await page.getByLabel("Target value").fill("20000");
   await page.getByRole("button", { name: "Save target" }).click();
   await expect(page.getByText("Target saved.")).toBeVisible();
@@ -305,7 +331,7 @@ test("owner targets, KPI scorecards, profile section, and scoped isolation", asy
   await page.getByLabel("Target level").selectOption("office");
   await page.getByLabel("Target entity").selectOption(dxb!.id);
   await page.getByLabel("Target month").fill(officeMonth);
-  await page.getByLabel("Product").selectOption(cc!.id);
+  await page.getByLabel("Product", { exact: true }).selectOption(cc!.id);
   await page.getByLabel("Measurement").selectOption("count");
   await page.getByLabel("Target value").fill("5");
   await page.getByRole("button", { name: "Save target" }).click();
@@ -328,6 +354,7 @@ test("owner targets, KPI scorecards, profile section, and scoped isolation", asy
   await page.getByRole("button", { name: "Reopen month" }).click();
   await expect(page.getByText("Target period reopened.")).toBeVisible();
 
+  await page.getByRole("button", { name: "Performance menu" }).click();
   await page.getByRole("navigation").getByRole("link", { name: "KPI scorecards" }).click();
   await expect(page.getByRole("heading", { name: "KPI scorecards" })).toBeVisible();
   await page.getByLabel("Scorecard name").fill(`Card ${tag}`);

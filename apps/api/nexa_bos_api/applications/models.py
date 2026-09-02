@@ -113,6 +113,9 @@ class Application(Base):
     )
     bank_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("banks.id"), nullable=False)
     product_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("products.id"), nullable=False)
+    product_variant_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("product_variants.id"), nullable=True, index=True
+    )
     workflow_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("workflows.id"), nullable=False)
     current_stage_id: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey("workflow_stages.id"), nullable=False

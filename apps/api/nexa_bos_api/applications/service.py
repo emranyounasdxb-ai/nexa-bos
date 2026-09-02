@@ -42,7 +42,7 @@ from nexa_bos_api.applications.tat import (
 )
 from nexa_bos_api.applications.visibility import apply_owner_filter, visible_case_owner_ids
 from nexa_bos_api.applications.workflow_service import latest_active_workflow, load_workflow
-from nexa_bos_api.catalog.models import Bank, BankProduct, Product
+from nexa_bos_api.catalog.models import Bank, BankProduct, Product, ProductVariant
 from nexa_bos_api.core.exceptions import AppError
 from nexa_bos_api.core.pagination import PageResult
 from nexa_bos_api.customers.models import Customer
@@ -75,6 +75,7 @@ class ApplicationSerializationContext:
     customers: dict[UUID, Customer]
     banks: dict[UUID, Bank]
     products: dict[UUID, Product]
+    variants: dict[UUID, ProductVariant]
     stages: dict[UUID, WorkflowStage]
     workflows: dict[UUID, Workflow]
     users: dict[UUID, User]
@@ -102,6 +103,13 @@ async def serialize_application(
         context.products.get(application.product_id)
         if context is not None
         else await session.get(Product, application.product_id)
+    )
+    variant = (
+        context.variants.get(application.product_variant_id)
+        if context is not None and application.product_variant_id is not None
+        else await session.get(ProductVariant, application.product_variant_id)
+        if application.product_variant_id is not None
+        else None
     )
     stage = (
         context.stages.get(application.current_stage_id)
@@ -131,6 +139,12 @@ async def serialize_application(
         "productId": str(application.product_id),
         "productCode": product.code if product else None,
         "productName": product.name if product else None,
+        "productVariantId": str(application.product_variant_id)
+        if application.product_variant_id
+        else None,
+        "productVariantCode": variant.code if variant else None,
+        "productVariantName": variant.name if variant else None,
+        "productVariantStatus": variant.status if variant else None,
         "workflowId": str(application.workflow_id),
         "workflowVersion": workflow.version if workflow else None,
         "currentStageId": str(application.current_stage_id),
@@ -231,6 +245,20 @@ async def serialize_applications(
             )
         ).scalars()
     )
+    variant_ids = {
+        row.product_variant_id for row in applications if row.product_variant_id is not None
+    }
+    variants = (
+        list(
+            (
+                await session.execute(
+                    select(ProductVariant).where(ProductVariant.id.in_(variant_ids))
+                )
+            ).scalars()
+        )
+        if variant_ids
+        else []
+    )
     stages = list(
         (
             await session.execute(select(WorkflowStage).where(WorkflowStage.id.in_(stage_ids)))
@@ -254,6 +282,7 @@ async def serialize_applications(
         customers={row.id: row for row in customers},
         banks={row.id: row for row in banks},
         products={row.id: row for row in products},
+        variants={row.id: row for row in variants},
         stages={row.id: row for row in stages},
         workflows={row.id: row for row in workflows},
         users={row.id: row for row in users},
@@ -276,7 +305,7 @@ async def next_application_code(session: AsyncSession, product: Product, bank: B
     return f"{product.code}-{bank.code}-{year}-{counter.last_value:06d}"
 
 
-async def _require_mapping(session: AsyncSession, bank: Bank, product: Product) -> None:
+async def _require_mapping(session: AsyncSession, bank: Bank, product: Product) -> BankProduct:
     if bank.status != MasterStatus.ACTIVE or product.status != MasterStatus.ACTIVE:
         raise AppError(
             status_code=422,
@@ -298,6 +327,28 @@ async def _require_mapping(session: AsyncSession, bank: Bank, product: Product) 
             code="BANK_PRODUCT_MAPPING_REQUIRED",
             message="An active Bank-Product mapping is required",
         )
+    return mapping
+
+
+async def _require_variant(
+    session: AsyncSession,
+    mapping: BankProduct,
+    variant_id: UUID,
+) -> ProductVariant:
+    variant = await session.get(ProductVariant, variant_id)
+    if variant is None or variant.bank_product_id != mapping.id:
+        raise AppError(
+            status_code=422,
+            code="PRODUCT_VARIANT_MAPPING_MISMATCH",
+            message="Select a Product Variant for the chosen Bank and Product",
+        )
+    if variant.status != MasterStatus.ACTIVE:
+        raise AppError(
+            status_code=422,
+            code="PRODUCT_VARIANT_INACTIVE",
+            message="The selected Product Variant is inactive",
+        )
+    return variant
 
 
 async def _require_case_owner(session: AsyncSession, owner_id: UUID) -> User:
@@ -493,7 +544,8 @@ async def create_application(
         raise AppError(
             status_code=404, code="BANK_PRODUCT_NOT_FOUND", message="Bank or Product not found"
         )
-    await _require_mapping(session, bank, product)
+    mapping = await _require_mapping(session, bank, product)
+    variant = await _require_variant(session, mapping, payload.product_variant_id)
     owner = await _require_case_owner(session, payload.case_owner_id)
     await _assert_active_unique(session, customer.id, bank.id, product.id)
     if product.requested_amount_required and payload.requested_amount is None:
@@ -511,6 +563,7 @@ async def create_application(
         customer_id=customer.id,
         bank_id=bank.id,
         product_id=product.id,
+        product_variant_id=variant.id,
         workflow_id=workflow.id,
         current_stage_id=start.id,
         terminal_outcome=None,
@@ -529,7 +582,10 @@ async def create_application(
         event_type=ApplicationEventType.CREATED,
         actor_id=actor.id,
         new_stage_id=start.id,
-        payload={"applicationCode": application.application_code},
+        payload={
+            "applicationCode": application.application_code,
+            "productVariantId": str(variant.id),
+        },
         at=now,
     )
     await open_occupancy(
@@ -548,7 +604,10 @@ async def create_application(
         entity_type="application",
         entity_id=str(application.id),
         actor_id=actor.id,
-        new_values={"applicationCode": application.application_code},
+        new_values={
+            "applicationCode": application.application_code,
+            "productVariantId": str(variant.id),
+        },
     )
     await session.commit()
     return (await session.get(Application, application.id)) or application
@@ -628,6 +687,9 @@ async def _first_or_correct_case_number(
             "customerId": str(application.customer_id),
             "bankId": str(application.bank_id),
             "productId": str(application.product_id),
+            "productVariantId": str(application.product_variant_id)
+            if application.product_variant_id
+            else None,
             "caseOwnerId": str(application.case_owner_id),
             "requestedAmount": _money(application.requested_amount),
         }
@@ -848,13 +910,38 @@ async def update_application(
             await _first_or_correct_case_number(session, actor, application, value, reason=None)
         data.pop("bank_case_number", None)
     if submitted:
-        locked = {"requested_amount", "approved_amount", "booked_amount", "funded_amount"}
+        locked = {
+            "product_variant_id",
+            "requested_amount",
+            "approved_amount",
+            "booked_amount",
+            "funded_amount",
+        }
         if locked.intersection(data):
             raise AppError(
                 status_code=422,
                 code="SUBMITTED_DATA_LOCKED",
                 message="Submitted core data requires Applications.CorrectSubmittedData",
             )
+    if "product_variant_id" in data:
+        if payload.product_variant_id is None:
+            raise AppError(
+                status_code=422,
+                code="PRODUCT_VARIANT_REQUIRED",
+                message="Product Variant is required",
+            )
+        bank = await session.get(Bank, application.bank_id)
+        product = await session.get(Product, application.product_id)
+        if bank is None or product is None:
+            raise AppError(
+                status_code=404,
+                code="BANK_PRODUCT_NOT_FOUND",
+                message="Bank or Product not found",
+            )
+        mapping = await _require_mapping(session, bank, product)
+        variant = await _require_variant(session, mapping, payload.product_variant_id)
+        application.product_variant_id = variant.id
+        data["product_variant_id"] = str(variant.id)
     for field in ("requested_amount", "approved_amount", "booked_amount", "funded_amount"):
         if field in data:
             setattr(application, field, data[field])

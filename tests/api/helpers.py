@@ -58,6 +58,33 @@ def unique_tag() -> str:
     return uuid4().hex[:10]
 
 
+async def create_product_variant(
+    client: AsyncClient,
+    *,
+    bank_id: str,
+    product_id: str,
+) -> dict:
+    mappings = (
+        await client.get(
+            "/api/v1/bank-products",
+            params={"bankId": bank_id, "productId": product_id},
+        )
+    ).json()["items"]
+    assert len(mappings) == 1, mappings
+    tag = unique_tag().upper()
+    response = await client.post(
+        "/api/v1/product-variants",
+        json={
+            "bank_product_id": mappings[0]["id"],
+            "name": f"Test Variant {tag}",
+            "code": f"TV{tag}",
+            "description": "Isolated automated-test variant",
+        },
+    )
+    assert response.status_code == 200, response.text
+    return response.json()
+
+
 async def designation_id(client: AsyncClient) -> str:
     rows = (await client.get("/api/v1/designations")).json()["items"]
     assert rows

@@ -3,7 +3,8 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, or_, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -13,6 +14,7 @@ from nexa_bos_api.catalog.models import (
     BankProduct,
     Product,
     ProductNameHistory,
+    ProductVariant,
 )
 from nexa_bos_api.core.exceptions import AppError
 from nexa_bos_api.identity.audit import record_audit
@@ -65,6 +67,25 @@ def serialize_bank_product(row: BankProduct) -> dict[str, object]:
         "status": row.status,
         "bank": serialize_bank(row.bank) if row.bank else None,
         "product": serialize_product(row.product) if row.product else None,
+        "createdAt": row.created_at.isoformat(),
+        "updatedAt": row.updated_at.isoformat(),
+    }
+
+
+def serialize_product_variant(row: ProductVariant) -> dict[str, object]:
+    mapping = row.bank_product
+    return {
+        "id": str(row.id),
+        "bankProductId": str(row.bank_product_id),
+        "bankId": str(mapping.bank_id),
+        "productId": str(mapping.product_id),
+        "code": row.code,
+        "name": row.name,
+        "description": row.description,
+        "status": row.status,
+        "bank": serialize_bank(mapping.bank) if mapping.bank else None,
+        "product": serialize_product(mapping.product) if mapping.product else None,
+        "mappingStatus": mapping.status,
         "createdAt": row.created_at.isoformat(),
         "updatedAt": row.updated_at.isoformat(),
     }
@@ -496,3 +517,244 @@ async def set_bank_product_status(
             select(BankProduct).options(*_mapping_load()).where(BankProduct.id == row.id)
         )
     ).scalar_one()
+
+
+def _variant_load():
+    return (
+        selectinload(ProductVariant.bank_product).selectinload(BankProduct.bank),
+        selectinload(ProductVariant.bank_product).selectinload(BankProduct.product),
+    )
+
+
+async def list_product_variants(
+    session: AsyncSession,
+    *,
+    bank_product_id: UUID | None,
+    bank_id: UUID | None,
+    product_id: UUID | None,
+    include_inactive: bool,
+) -> list[ProductVariant]:
+    stmt = (
+        select(ProductVariant)
+        .join(BankProduct, ProductVariant.bank_product_id == BankProduct.id)
+        .options(*_variant_load())
+        .order_by(BankProduct.bank_id, BankProduct.product_id, ProductVariant.code)
+    )
+    if bank_product_id:
+        stmt = stmt.where(ProductVariant.bank_product_id == bank_product_id)
+    if bank_id:
+        stmt = stmt.where(BankProduct.bank_id == bank_id)
+    if product_id:
+        stmt = stmt.where(BankProduct.product_id == product_id)
+    if not include_inactive:
+        stmt = stmt.where(
+            ProductVariant.status == MasterStatus.ACTIVE,
+            BankProduct.status == MasterStatus.ACTIVE,
+            BankProduct.bank.has(Bank.status == MasterStatus.ACTIVE),
+            BankProduct.product.has(Product.status == MasterStatus.ACTIVE),
+        )
+    return list((await session.execute(stmt)).scalars().unique().all())
+
+
+async def get_product_variant(session: AsyncSession, variant_id: UUID) -> ProductVariant:
+    row = (
+        await session.execute(
+            select(ProductVariant).options(*_variant_load()).where(ProductVariant.id == variant_id)
+        )
+    ).scalar_one_or_none()
+    if row is None:
+        raise AppError(
+            status_code=404,
+            code="PRODUCT_VARIANT_NOT_FOUND",
+            message="Product variant not found",
+        )
+    return row
+
+
+def _normalize_variant_values(name: str, code: str | None, description: str | None):
+    normalized_name = name.strip()
+    if not normalized_name:
+        raise AppError(
+            status_code=422,
+            code="PRODUCT_VARIANT_NAME_REQUIRED",
+            message="Product variant name is required",
+        )
+    normalized_code = code.strip().upper() if code is not None else None
+    normalized_description = description.strip() if description and description.strip() else None
+    return normalized_name, normalized_code, normalized_description
+
+
+async def _assert_variant_unique(
+    session: AsyncSession,
+    *,
+    bank_product_id: UUID,
+    code: str,
+    name: str,
+    exclude_id: UUID | None = None,
+) -> None:
+    stmt = select(ProductVariant).where(
+        ProductVariant.bank_product_id == bank_product_id,
+        or_(ProductVariant.code == code, func.lower(ProductVariant.name) == name.lower()),
+    )
+    if exclude_id:
+        stmt = stmt.where(ProductVariant.id != exclude_id)
+    existing = (await session.execute(stmt)).scalar_one_or_none()
+    if existing:
+        raise AppError(
+            status_code=409,
+            code="PRODUCT_VARIANT_DUPLICATE",
+            message=(
+                "A variant with this code or name already exists for the selected bank and product"
+            ),
+        )
+
+
+async def create_product_variant(
+    session: AsyncSession,
+    actor: User,
+    *,
+    bank_product_id: UUID,
+    name: str,
+    code: str,
+    description: str | None,
+) -> ProductVariant:
+    mapping = (
+        await session.execute(
+            select(BankProduct).options(*_mapping_load()).where(BankProduct.id == bank_product_id)
+        )
+    ).scalar_one_or_none()
+    if mapping is None:
+        raise AppError(
+            status_code=404,
+            code="BANK_PRODUCT_NOT_FOUND",
+            message="Bank-product mapping not found",
+        )
+    if (
+        mapping.status != MasterStatus.ACTIVE
+        or mapping.bank.status != MasterStatus.ACTIVE
+        or mapping.product.status != MasterStatus.ACTIVE
+    ):
+        raise AppError(
+            status_code=422,
+            code="PRODUCT_VARIANT_PARENT_INACTIVE",
+            message="Variants can only be created for an active Bank–Product mapping",
+        )
+    normalized_name, normalized_code, normalized_description = _normalize_variant_values(
+        name, code, description
+    )
+    assert normalized_code is not None
+    await _assert_variant_unique(
+        session,
+        bank_product_id=mapping.id,
+        code=normalized_code,
+        name=normalized_name,
+    )
+    now = utcnow()
+    row = ProductVariant(
+        id=new_uuid(),
+        bank_product_id=mapping.id,
+        code=normalized_code,
+        name=normalized_name,
+        description=normalized_description,
+        status=MasterStatus.ACTIVE,
+        created_at=now,
+        updated_at=now,
+    )
+    session.add(row)
+    try:
+        await session.flush()
+    except IntegrityError as error:
+        await session.rollback()
+        raise AppError(
+            status_code=409,
+            code="PRODUCT_VARIANT_DUPLICATE",
+            message="A variant with this code already exists for the selected bank and product",
+        ) from error
+    await record_audit(
+        session,
+        action="product_variant.create",
+        entity_type="product_variant",
+        entity_id=str(row.id),
+        actor_id=actor.id,
+        new_values={
+            "bankProductId": str(mapping.id),
+            "bankCode": mapping.bank.code,
+            "productCode": mapping.product.code,
+            "code": row.code,
+            "name": row.name,
+            "description": row.description,
+            "status": row.status,
+        },
+    )
+    await session.commit()
+    return await get_product_variant(session, row.id)
+
+
+async def update_product_variant(
+    session: AsyncSession,
+    actor: User,
+    row: ProductVariant,
+    *,
+    name: str,
+    description: str | None,
+) -> ProductVariant:
+    normalized_name, _, normalized_description = _normalize_variant_values(name, None, description)
+    await _assert_variant_unique(
+        session,
+        bank_product_id=row.bank_product_id,
+        code=row.code,
+        name=normalized_name,
+        exclude_id=row.id,
+    )
+    old_values = {"name": row.name, "description": row.description}
+    row.name = normalized_name
+    row.description = normalized_description
+    row.updated_at = utcnow()
+    await record_audit(
+        session,
+        action="product_variant.update",
+        entity_type="product_variant",
+        entity_id=str(row.id),
+        actor_id=actor.id,
+        old_values=old_values,
+        new_values={"name": row.name, "description": row.description},
+    )
+    await session.commit()
+    return await get_product_variant(session, row.id)
+
+
+async def set_product_variant_status(
+    session: AsyncSession,
+    actor: User,
+    row: ProductVariant,
+    status: MasterStatus,
+) -> ProductVariant:
+    if status == MasterStatus.ACTIVE:
+        mapping = row.bank_product
+        if (
+            mapping.status != MasterStatus.ACTIVE
+            or mapping.bank.status != MasterStatus.ACTIVE
+            or mapping.product.status != MasterStatus.ACTIVE
+        ):
+            raise AppError(
+                status_code=422,
+                code="PRODUCT_VARIANT_PARENT_INACTIVE",
+                message=(
+                    "The Bank, Product, and Bank–Product mapping must be active before this "
+                    "variant can be activated"
+                ),
+            )
+    old_status = row.status
+    row.status = status
+    row.updated_at = utcnow()
+    await record_audit(
+        session,
+        action="product_variant.status",
+        entity_type="product_variant",
+        entity_id=str(row.id),
+        actor_id=actor.id,
+        old_values={"status": old_status},
+        new_values={"status": status},
+    )
+    await session.commit()
+    return await get_product_variant(session, row.id)

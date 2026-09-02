@@ -12,6 +12,7 @@ import type {
   CatalogItem,
   CustomerRecord,
   ManagerOption,
+  ProductVariantRecord,
 } from "@/lib/types";
 
 export default function CreateApplicationPage() {
@@ -22,10 +23,13 @@ export default function CreateApplicationPage() {
   const [customerQuery, setCustomerQuery] = useState("");
   const [mappings, setMappings] = useState<BankProductRecord[]>([]);
   const [products, setProducts] = useState<CatalogItem[]>([]);
+  const [variants, setVariants] = useState<ProductVariantRecord[]>([]);
   const [owners, setOwners] = useState<ManagerOption[]>([]);
   const [form, setForm] = useState({
     customer_id: "",
-    mapping_id: "",
+    bank_id: "",
+    product_id: "",
+    product_variant_id: "",
     case_owner_id: "",
     requested_amount: "",
     bank_case_number: "",
@@ -35,11 +39,13 @@ export default function CreateApplicationPage() {
     void Promise.all([
       apiGet<{ items: BankProductRecord[] }>("/api/v1/bank-products", api),
       apiGet<{ items: CatalogItem[] }>("/api/v1/products", api),
+      apiGet<{ items: ProductVariantRecord[] }>("/api/v1/product-variants", api),
       apiGet<{ items: ManagerOption[] }>("/api/v1/users/case-owners", api),
     ])
-      .then(([mappingData, productData, ownerData]) => {
+      .then(([mappingData, productData, variantData, ownerData]) => {
         setMappings(mappingData.items.filter((item) => item.status === "active"));
         setProducts(productData.items);
+        setVariants(variantData.items);
         setOwners(ownerData.items);
       })
       .catch((err: unknown) => setError(err instanceof Error ? err.message : "Load failed"));
@@ -61,14 +67,23 @@ export default function CreateApplicationPage() {
     };
   }, [api, customerQuery]);
 
-  const selectedMapping = mappings.find((item) => item.id === form.mapping_id);
-  const selectedProduct = products.find((item) => item.id === selectedMapping?.productId);
+  const bankOptions = Array.from(
+    new Map(
+      mappings
+        .filter((item) => item.bank)
+        .map((item) => [item.bankId, item.bank!]),
+    ).entries(),
+  );
+  const productMappings = mappings.filter((item) => item.bankId === form.bank_id);
+  const selectedMapping = productMappings.find((item) => item.productId === form.product_id);
+  const variantOptions = variants.filter((item) => item.bankProductId === selectedMapping?.id);
+  const selectedProduct = products.find((item) => item.id === form.product_id);
   const requestedRequired = Boolean(selectedProduct?.requestedAmountRequired);
 
   async function submit() {
     setError("");
-    if (!selectedMapping) {
-      setError("Select an active Bank and Product mapping");
+    if (!selectedMapping || !form.product_variant_id) {
+      setError("Select an active Bank, Product Category, and Product Variant");
       return;
     }
     try {
@@ -78,6 +93,7 @@ export default function CreateApplicationPage() {
           customer_id: form.customer_id,
           bank_id: selectedMapping.bankId,
           product_id: selectedMapping.productId,
+          product_variant_id: form.product_variant_id,
           case_owner_id: form.case_owner_id,
           requested_amount: form.requested_amount ? form.requested_amount : null,
           bank_case_number: form.bank_case_number || null,
@@ -129,20 +145,68 @@ export default function CreateApplicationPage() {
           </Select>
         </label>
         <label className="block text-sm">
-          Bank and product
+          Bank
           <Select
             required
-            aria-label="Bank and product"
-            value={form.mapping_id}
-            onChange={(event) => setForm({ ...form, mapping_id: event.target.value })}
+            aria-label="Bank"
+            value={form.bank_id}
+            onChange={(event) =>
+              setForm({
+                ...form,
+                bank_id: event.target.value,
+                product_id: "",
+                product_variant_id: "",
+              })
+            }
           >
-            <option value="">Select mapping</option>
-            {mappings.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.bank?.code} / {item.product?.code}
+            <option value="">Select bank</option>
+            {bankOptions.map(([id, bank]) => (
+              <option key={id} value={id}>
+                {bank.name} ({bank.code})
               </option>
             ))}
           </Select>
+        </label>
+        <label className="block text-sm">
+          Product Category
+          <Select
+            required
+            aria-label="Product Category"
+            value={form.product_id}
+            disabled={!form.bank_id}
+            onChange={(event) =>
+              setForm({ ...form, product_id: event.target.value, product_variant_id: "" })
+            }
+          >
+            <option value="">Select product category</option>
+            {productMappings.map((item) => (
+              <option key={item.id} value={item.productId}>
+                {item.product?.name} ({item.product?.code})
+              </option>
+            ))}
+          </Select>
+        </label>
+        <label className="block text-sm">
+          Product Variant
+          <Select
+            required
+            aria-label="Product Variant"
+            value={form.product_variant_id}
+            disabled={!selectedMapping}
+            onChange={(event) => setForm({ ...form, product_variant_id: event.target.value })}
+          >
+            <option value="">Select product variant</option>
+            {variantOptions.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.name} ({item.code})
+              </option>
+            ))}
+          </Select>
+          {selectedMapping && variantOptions.length === 0 ? (
+            <span className="mt-1 block text-xs text-amber-700">
+              No active Product Variants are configured for this Bank and Product Category.
+            </span>
+          ) : null}
         </label>
         <label className="block text-sm">
           Case Owner
