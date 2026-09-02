@@ -15,6 +15,7 @@ import {
   EmptyState,
   ErrorText,
   FilterBar,
+  PageHeader,
   SearchActionBar,
   StatusBadge,
   TableHead,
@@ -77,6 +78,10 @@ export default function UsersPage() {
 
   return (
     <section className="space-y-4">
+      <PageHeader
+        title="Users"
+        description="Search the user directory and open profiles or administration actions allowed by your permissions."
+      />
       <FilterBar className="block">
         <SearchActionBar
           search={

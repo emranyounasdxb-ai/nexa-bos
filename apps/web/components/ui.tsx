@@ -9,6 +9,7 @@ import type {
 } from "react";
 
 import { IconAlertTriangle, IconInfoCircle, IconX } from "@/components/icons";
+import { Tooltip } from "@/components/tooltip";
 
 export function cx(...parts: Array<string | false | null | undefined>): string {
   return parts.filter(Boolean).join(" ");
@@ -75,14 +76,24 @@ export const dangerButtonClass = cx(
 );
 
 export function PageHeader({
+  description,
   actions,
 }: {
   title: string;
   description?: string;
   actions?: ReactNode;
 }) {
-  if (!actions) return null;
-  return <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">{actions}</div>;
+  if (!description && !actions) return null;
+  return (
+    <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 sm:gap-3">
+      {description ? (
+        <p data-testid="page-purpose" className="min-w-0 max-w-4xl text-sm leading-5 text-text-secondary">
+          {description}
+        </p>
+      ) : <span aria-hidden="true" />}
+      {actions ? <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">{actions}</div> : null}
+    </div>
+  );
 }
 
 export function SearchActionBar({
@@ -149,15 +160,22 @@ export function Field({
   htmlFor,
   children,
   className,
+  help,
+  helpLabel,
 }: {
   label: string;
   htmlFor?: string;
   children: ReactNode;
   className?: string;
+  help?: string;
+  helpLabel?: string;
 }) {
   return (
     <label className={cx("block text-sm font-medium text-text-primary", className)} htmlFor={htmlFor}>
-      {label}
+      <span className="inline-flex items-center gap-1.5">
+        {label}
+        {help ? <Tooltip label={helpLabel ?? `About ${label}`} text={help} /> : null}
+      </span>
       {children}
     </label>
   );

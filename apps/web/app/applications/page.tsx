@@ -16,6 +16,7 @@ import {
   ButtonLink,
   EmptyState,
   ErrorText,
+  PageHeader,
   SearchActionBar,
   Select,
   TableHead,
@@ -191,6 +192,10 @@ export default function ApplicationsPage() {
 
   return (
     <section className="space-y-4">
+      <PageHeader
+        title="Applications"
+        description="Search and filter applications in your current scope, then open permitted workflow records."
+      />
       <SearchActionBar
         search={
           <TextInput

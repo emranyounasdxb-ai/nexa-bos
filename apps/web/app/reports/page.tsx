@@ -35,6 +35,7 @@ import {
   Button,
   Card,
   ErrorText,
+  PageHeader,
   Select,
   SectionHeader,
 } from "@/components/ui";
@@ -276,6 +277,10 @@ export function DashboardInner() {
 
   return (
     <section className="space-y-4">
+      <PageHeader
+        title="Dashboard"
+        description="Review application performance, pipeline movement, target progress, and items that may need attention."
+      />
       <div data-testid="dashboard-filters" className="rounded-[10px] border border-slate-200/90 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.035)]">
         <div className="flex min-w-0 flex-col gap-3 px-4 py-3 sm:px-5 md:flex-row md:items-center md:justify-between">
           <div className="min-w-0">

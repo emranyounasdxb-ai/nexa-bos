@@ -13,6 +13,7 @@ import {
   ButtonLink,
   EmptyState,
   ErrorText,
+  PageHeader,
   SearchActionBar,
   TableHead,
   TableShell,
@@ -75,6 +76,10 @@ export default function CustomersPage() {
 
   return (
     <section className="space-y-4">
+      <PageHeader
+        title="Customers"
+        description="Search the customer directory and open records available within your current access scope."
+      />
       <SearchActionBar
         search={
           <TextInput

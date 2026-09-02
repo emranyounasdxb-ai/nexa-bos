@@ -7,9 +7,9 @@ import {
   IconAlertTriangle,
   IconArrowBack,
   IconChevronDown,
-  IconInfoCircle,
   IconShieldLock,
 } from "@/components/icons";
+import { Tooltip as InfoTooltip } from "@/components/tooltip";
 import {
   Badge,
   Button,
@@ -226,62 +226,16 @@ function countTone(selectedCount: number, totalCount: number): "neutral" | "blue
   return "blue";
 }
 
-function InfoTooltip({
-  id,
-  label,
-  text,
-  align = "left",
-}: {
-  id: string;
-  label: string;
-  text: string;
-  align?: "left" | "right";
-}) {
-  return (
-    <span className="group relative inline-flex shrink-0">
-      <button
-        type="button"
-        aria-label={label}
-        aria-describedby={id}
-        className={cx("rounded text-slate-400 hover:text-slate-700", focusRing)}
-      >
-        <IconInfoCircle className="size-4" />
-      </button>
-      <span
-        id={id}
-        role="tooltip"
-        className={cx(
-          "pointer-events-none invisible absolute top-full z-40 mt-2 w-72 rounded-lg bg-slate-950 px-3 py-2 text-left text-xs font-normal leading-5 text-white opacity-0 shadow-xl transition-opacity group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100",
-          align === "right" ? "right-0" : "left-0",
-        )}
-      >
-        {text}
-      </span>
-    </span>
-  );
-}
-
 function SystemTypeBadge() {
   return (
-    <span className="group relative inline-flex">
-      <button
-        type="button"
-        aria-label="About System Type restrictions"
-        aria-describedby="system-type-restrictions"
-        className={cx("rounded-md", focusRing)}
-      >
-        <Badge tone="blue">System Type</Badge>
-      </button>
-      <span
-        id="system-type-restrictions"
-        role="tooltip"
-        className="pointer-events-none invisible absolute right-0 top-full z-40 mt-2 w-72 rounded-lg bg-slate-950 px-3 py-2 text-left text-xs font-normal leading-5 text-white opacity-0 shadow-xl transition-opacity group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100"
-      >
-        System User Types keep their seeded identity details and reporting-manager eligibility locked.
-        Existing separately authorized case-owner, scope, and permission controls remain available.
-        OWNER has additional full-access protection.
-      </span>
-    </span>
+    <InfoTooltip
+      id="system-type-restrictions"
+      label="About System Type restrictions"
+      align="right"
+      text="System User Types keep their seeded identity details and reporting-manager eligibility locked. Existing separately authorized case-owner, scope, and permission controls remain available. OWNER has additional full-access protection."
+    >
+      <Badge tone="blue">System Type</Badge>
+    </InfoTooltip>
   );
 }
 
