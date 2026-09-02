@@ -67,7 +67,7 @@ const PERMISSION_MODULES = [
   {
     key: "banks-products",
     label: "Banks & Products",
-    description: "Bank, product, and bank-product catalogue configuration.",
+    description: "Bank, Product Category, mapping, and Product Variant catalogue configuration.",
     prefixes: ["Banks.", "Products.", "BankProducts.", "ProductVariants."],
   },
   {

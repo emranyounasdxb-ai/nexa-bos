@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from html import escape
 from io import BytesIO
 from typing import Any
 
@@ -43,6 +44,12 @@ def _pdf_safe(value: object) -> str:
     return str(value).encode("latin-1", "replace").decode("latin-1")
 
 
+def _spreadsheet_safe(value: object) -> object:
+    if isinstance(value, str) and value.startswith(("=", "+", "-", "@")):
+        return f"'{value}"
+    return value
+
+
 def build_excel(
     *,
     title: str,
@@ -71,7 +78,7 @@ def build_excel(
     rows = _tabular_rows(payload)
     for row_index, row in enumerate(rows, start=1):
         for col_index, value in enumerate(row, start=1):
-            cell = data_sheet.cell(row_index, col_index, value)
+            cell = data_sheet.cell(row_index, col_index, _spreadsheet_safe(value))
             if row_index == 1:
                 cell.font = header
             data_sheet.column_dimensions[get_column_letter(col_index)].width = min(
@@ -145,7 +152,7 @@ def build_print_html(
     filters: dict[str, Any],
 ) -> str:
     meta = "".join(
-        f"<tr><th>{label}</th><td>{value}</td></tr>"
+        f"<tr><th>{escape(str(label))}</th><td>{escape(str(value))}</td></tr>"
         for label, value in _meta_rows(
             title=title,
             actor=actor,
@@ -158,16 +165,17 @@ def build_print_html(
     rows = _tabular_rows(payload)
     body = ""
     if rows:
-        header = "".join(f"<th>{item}</th>" for item in rows[0])
+        header = "".join(f"<th>{escape(str(item))}</th>" for item in rows[0])
         data = "".join(
-            "<tr>" + "".join(f"<td>{item}</td>" for item in row) + "</tr>" for row in rows[1:]
+            "<tr>" + "".join(f"<td>{escape(str(item))}</td>" for item in row) + "</tr>"
+            for row in rows[1:]
         )
         body = f"<table><thead><tr>{header}</tr></thead><tbody>{data}</tbody></table>"
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
-  <title>{title}</title>
+  <title>{escape(title)}</title>
   <style>
     body {{ font-family: Arial, sans-serif; color: #0f172a; margin: 24px; }}
     h1 {{ font-size: 20px; margin-bottom: 4px; }}
@@ -179,7 +187,7 @@ def build_print_html(
 </head>
 <body>
   <button onclick="window.print()">Print</button>
-  <h1>NEXA BOS - {title}</h1>
+  <h1>NEXA BOS - {escape(title)}</h1>
   <table>{meta}</table>
   {body}
 </body>

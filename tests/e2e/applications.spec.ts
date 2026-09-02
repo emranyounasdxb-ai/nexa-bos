@@ -68,15 +68,62 @@ async function prepareApplicationPrereqs(request: APIRequestContext) {
   const workflows = (
     (await (
       await request.get(`${apiOrigin}/api/v1/workflows?bank_id=${dib!.id}&product_id=${pf!.id}`)
-    ).json()) as { items: { id: string; status: string }[] }
+    ).json()) as {
+      items: {
+        id: string;
+        status: string;
+        stages: { id: string; systemKey: string | null }[];
+      }[];
+    }
   ).items;
-  if (!workflows.some((item) => item.status === "active")) {
+  let workflow = workflows.find(
+    (item) =>
+      item.status === "active" &&
+      item.stages.some((stage) => stage.systemKey === "submitted"),
+  );
+  if (!workflow) {
     const created = await request.post(`${apiOrigin}/api/v1/workflows`, {
       headers,
       data: { bank_id: dib!.id, product_id: pf!.id },
     });
     expect(created.ok()).toBeTruthy();
+    const createdWorkflow = (await created.json()) as {
+      id: string;
+      stages: { id: string; systemKey: string | null }[];
+    };
+    const added = await request.post(
+      `${apiOrigin}/api/v1/workflows/${createdWorkflow.id}/stages`,
+      {
+        headers,
+        data: { name: "Submitted", code: "SUBMITTED", sort_order: 2 },
+      },
+    );
+    expect(added.ok(), await added.text()).toBeTruthy();
+    const refreshed = (await (
+      await request.get(`${apiOrigin}/api/v1/workflows/${createdWorkflow.id}`)
+    ).json()) as { stages: { id: string; systemKey: string | null }[] };
+    const entry = refreshed.stages.find(
+      (stage) => stage.systemKey === "application_created",
+    );
+    const submitted = refreshed.stages.find((stage) => stage.systemKey === "submitted");
+    expect(entry && submitted).toBeTruthy();
+    const transitions = await request.put(
+      `${apiOrigin}/api/v1/workflows/${createdWorkflow.id}/transitions`,
+      {
+        headers,
+        data: {
+          items: [{ from_stage_id: entry!.id, to_stage_id: submitted!.id }],
+        },
+      },
+    );
+    expect(transitions.ok(), await transitions.text()).toBeTruthy();
+    workflow = {
+      id: createdWorkflow.id,
+      status: "active",
+      stages: refreshed.stages,
+    };
   }
+  expect(workflow).toBeTruthy();
   const mappings = (
     (await (
       await request.get(
@@ -185,7 +232,13 @@ test("owner can create an application and filter the list", async ({ page, reque
   expect(replacement.ok(), await replacement.text()).toBeTruthy();
   const replacementBody = (await replacement.json()) as { id: string };
   await page.reload();
-  await page.getByLabel("Product Variant", { exact: true }).selectOption({ label: `${replacementName} (${replacementCode})` });
+  const detailVariant = page.getByLabel("Product Variant", { exact: true });
+  await expect(detailVariant).toHaveValue(prerequisites.variant.id);
+  await expect(
+    detailVariant.locator("option").filter({ hasText: `${replacementName} (${replacementCode})` }),
+  ).toHaveCount(1);
+  await detailVariant.selectOption({ label: `${replacementName} (${replacementCode})` });
+  await expect(detailVariant).toHaveValue(replacementBody.id);
   await page.getByRole("button", { name: "Save Product Variant" }).click();
   await expect(page.getByRole("status")).toContainText("Product Variant saved");
   await expect(page.getByLabel("Product Variant", { exact: true })).toHaveValue(replacementBody.id);
@@ -199,11 +252,37 @@ test("owner can create an application and filter the list", async ({ page, reque
   await expect(page.getByLabel("Product Variant", { exact: true }).locator("option:checked")).toContainText("unavailable for new selection");
   await expect(page.getByText("inactive", { exact: true }).first()).toBeVisible();
   await page.goto("/applications");
+  await page.getByLabel("Filter product variant").selectOption({
+    label: `${replacementName} (${replacementCode}) — Inactive`,
+  });
+  await page.getByRole("button", { name: "Apply filters" }).click();
+  const variantRow = page.getByRole("row").filter({ has: page.getByRole("link", { name: applicationId }) });
+  await expect(variantRow).toContainText(replacementName);
+  await expect(variantRow).toContainText(replacementCode);
+  await page.getByRole("button", { name: "Clear filters" }).click();
+  await page.getByLabel("Search applications").fill(replacementCode);
+  await expect(page.getByRole("link", { name: applicationId })).toBeVisible();
+  await page.getByRole("link", { name: applicationId }).click();
+  await page.getByLabel("Bank File / Case Number").fill(`REVIEW-${suffix}`);
+  await page.getByRole("button", { name: "Save and submit" }).click();
+  await expect(page.getByRole("heading", { name: "Correct submitted data" })).toBeVisible();
+  await page.getByLabel("Corrected Product Variant").selectOption(prerequisites.variant.id);
+  await page.getByLabel("Submitted data correction reason").fill("Correct Variant classification");
+  await page.getByRole("button", { name: "Correct submitted data" }).click();
+  await expect(page.getByText(`${prerequisites.variant.name} (${prerequisites.variant.code})`, { exact: true }).first()).toBeVisible();
+  await expect(page.getByText(/Product Variant: .* → /)).toContainText(prerequisites.variant.code);
+  await page.goto("/applications");
   await page.getByLabel("Search applications").fill(applicationId);
-  await page.getByLabel("Filter by bank").selectOption({ label: "DIB" });
+  await page.getByLabel("Filter by bank").selectOption(prerequisites.bank.id);
   await page.getByRole("button", { name: "Apply filters" }).click();
   await expect(page.getByRole("link", { name: applicationId })).toBeVisible();
-  await page.getByLabel("Filter by bank").selectOption({ label: "EIB" });
+  const eibValue = await page
+    .getByLabel("Filter by bank")
+    .locator("option")
+    .filter({ hasText: "(EIB)" })
+    .getAttribute("value");
+  expect(eibValue).toBeTruthy();
+  await page.getByLabel("Filter by bank").selectOption(eibValue!);
   await page.getByRole("button", { name: "Apply filters" }).click();
   await expect(page.getByRole("link", { name: applicationId })).toHaveCount(0);
   const me = await page.request.get(`${apiOrigin}/api/v1/auth/me`);

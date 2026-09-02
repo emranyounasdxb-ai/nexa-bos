@@ -3,9 +3,6 @@ from __future__ import annotations
 from datetime import date
 
 import pytest
-from httpx import AsyncClient, Response
-from sqlalchemy import event
-
 from helpers import (
     authenticate,
     create_activated_user,
@@ -15,7 +12,10 @@ from helpers import (
     spawned_client,
     unique_tag,
 )
+from httpx import AsyncClient, Response
+from nexa_bos_api.identity.models import AuditEvent
 from nexa_bos_api.main import app
+from sqlalchemy import event, select
 
 
 async def _customer(client: AsyncClient, name: str) -> dict:
@@ -336,6 +336,80 @@ async def test_submission_case_number_lock_and_correction(client: AsyncClient) -
     )
     assert corrected.status_code == 200, corrected.text
     assert corrected.json()["requestedAmount"] == "12000.00"
+    replacement = await create_product_variant(
+        authed,
+        bank_id=dib["id"],
+        product_id=pf["id"],
+    )
+    corrected_variant = await authed.post(
+        f"/api/v1/applications/{created['id']}/correct-submitted",
+        json={
+            "reason": "Correct Product Variant",
+            "product_variant_id": replacement["id"],
+        },
+    )
+    assert corrected_variant.status_code == 200, corrected_variant.text
+    assert corrected_variant.json()["productVariantId"] == replacement["id"]
+    timeline = (await authed.get(f"/api/v1/applications/{created['id']}/timeline")).json()["items"]
+    variant_event = next(
+        event
+        for event in reversed(timeline)
+        if event["eventType"] == "submitted_data_corrected"
+        and event["payload"]["new"]["productVariantId"] == replacement["id"]
+    )
+    assert variant_event["payload"]["old"]["productVariantId"] == created["productVariantId"]
+    async with app.state.session_factory() as session:
+        audit = (
+            (
+                await session.execute(
+                    select(AuditEvent)
+                    .where(
+                        AuditEvent.action == "application.correct_submitted",
+                        AuditEvent.entity_id == created["id"],
+                    )
+                    .order_by(AuditEvent.created_at.desc())
+                )
+            )
+            .scalars()
+            .first()
+        )
+        assert audit is not None
+    assert audit.old_values["productVariantId"] == created["productVariantId"]
+    assert audit.new_values["productVariantId"] == replacement["id"]
+    inactive_candidate = await create_product_variant(
+        authed,
+        bank_id=dib["id"],
+        product_id=pf["id"],
+    )
+    deactivated_candidate = await authed.post(
+        f"/api/v1/product-variants/{inactive_candidate['id']}/deactivate"
+    )
+    assert deactivated_candidate.status_code == 200, deactivated_candidate.text
+    inactive_correction = await authed.post(
+        f"/api/v1/applications/{created['id']}/correct-submitted",
+        json={
+            "reason": "Attempt inactive Variant",
+            "product_variant_id": inactive_candidate["id"],
+        },
+    )
+    assert inactive_correction.status_code == 422
+    assert inactive_correction.json()["error"]["code"] == "PRODUCT_VARIANT_INACTIVE"
+    mismatched_variant = await create_product_variant(
+        authed,
+        bank_id=dib["id"],
+        product_id=_cc["id"],
+    )
+    mismatched_correction = await authed.post(
+        f"/api/v1/applications/{created['id']}/correct-submitted",
+        json={
+            "reason": "Attempt mismatched Variant",
+            "product_variant_id": mismatched_variant["id"],
+        },
+    )
+    assert mismatched_correction.status_code == 422
+    assert mismatched_correction.json()["error"]["code"] == "PRODUCT_VARIANT_MAPPING_MISMATCH"
+    unchanged = await authed.get(f"/api/v1/applications/{created['id']}")
+    assert unchanged.json()["productVariantId"] == replacement["id"]
     other = await _create_app(
         authed,
         customer_id=(await _customer(authed, "Other"))["id"],
@@ -632,6 +706,11 @@ async def test_search_respects_application_scope(client: AsyncClient) -> None:
         assert app["id"] not in ids
         hidden = await other.get(f"/api/v1/applications/{app['id']}")
         assert hidden.status_code == 404
+        hidden_variants = await other.get("/api/v1/applications/product-variants")
+        assert hidden_variants.status_code == 200
+        assert app["productVariantId"] not in {
+            item["id"] for item in hidden_variants.json()["items"]
+        }
         customer_apps = await other.get(f"/api/v1/customers/{customer['id']}/applications")
         assert customer_apps.status_code in {200, 403}
         if customer_apps.status_code == 200:
@@ -861,9 +940,9 @@ async def test_ineligible_case_owner_and_completed_not_manual(client: AsyncClien
             "customer_id": customer["id"],
             "bank_id": dib["id"],
             "product_id": pf["id"],
-            "product_variant_id": (await create_product_variant(
-                authed, bank_id=dib["id"], product_id=pf["id"]
-            ))["id"],
+            "product_variant_id": (
+                await create_product_variant(authed, bank_id=dib["id"], product_id=pf["id"])
+            )["id"],
             "case_owner_id": hr_user["id"],
             "requested_amount": "1",
         },
@@ -892,9 +971,9 @@ async def test_ineligible_case_owner_and_completed_not_manual(client: AsyncClien
             "customer_id": later["id"],
             "bank_id": dib["id"],
             "product_id": pf["id"],
-            "product_variant_id": (await create_product_variant(
-                authed, bank_id=dib["id"], product_id=pf["id"]
-            ))["id"],
+            "product_variant_id": (
+                await create_product_variant(authed, bank_id=dib["id"], product_id=pf["id"])
+            )["id"],
             "case_owner_id": owner["id"],
             "requested_amount": "1",
         },

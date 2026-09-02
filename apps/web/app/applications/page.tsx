@@ -33,14 +33,21 @@ import type {
   CatalogItem,
   ManagerOption,
   OrgRef,
+  ProductVariantRecord,
   WorkflowRecord,
 } from "@/lib/types";
+
+type ApplicationVariantFilter = Pick<
+  ProductVariantRecord,
+  "id" | "bankId" | "productId" | "code" | "name" | "status"
+>;
 
 const OUTCOMES = ["Completed", "Final Rejected", "Cancelled", "Withdrawn"];
 
 const emptyFilters = {
   bank_id: "",
   product_id: "",
+  product_variant_id: "",
   case_owner_id: "",
   office_id: "",
   department_id: "",
@@ -78,6 +85,7 @@ export default function ApplicationsPage() {
   const [error, setError] = useState("");
   const [banks, setBanks] = useState<CatalogItem[]>([]);
   const [products, setProducts] = useState<CatalogItem[]>([]);
+  const [variants, setVariants] = useState<ApplicationVariantFilter[]>([]);
   const [owners, setOwners] = useState<ManagerOption[]>([]);
   const [offices, setOffices] = useState<OrgRef[]>([]);
   const [departments, setDepartments] = useState<OrgRef[]>([]);
@@ -88,15 +96,26 @@ export default function ApplicationsPage() {
     void Promise.all([
       apiGet<{ items: CatalogItem[] }>("/api/v1/banks", api),
       apiGet<{ items: CatalogItem[] }>("/api/v1/products", api),
+      apiGet<{ items: ApplicationVariantFilter[] }>("/api/v1/applications/product-variants", api),
       apiGet<{ items: OrgRef[] }>("/api/v1/offices", api),
       apiGet<{ items: OrgRef[] }>("/api/v1/departments", api),
       apiGet<{ items: OrgRef[] }>("/api/v1/teams", api),
       apiGet<{ items: WorkflowRecord[] }>("/api/v1/workflows", api),
       apiGet<{ items: ManagerOption[] }>("/api/v1/applications/case-owners", api),
     ])
-      .then(([bankData, productData, officeData, deptData, teamData, workflowData, ownerData]) => {
+      .then(([
+        bankData,
+        productData,
+        variantData,
+        officeData,
+        deptData,
+        teamData,
+        workflowData,
+        ownerData,
+      ]) => {
         setBanks(bankData.items);
         setProducts(productData.items);
+        setVariants(variantData.items);
         setOffices(officeData.items);
         setDepartments(deptData.items);
         setTeams(teamData.items);
@@ -164,6 +183,11 @@ export default function ApplicationsPage() {
       (!filters.office_id || item.officeId === filters.office_id) &&
       (!filters.department_id || item.departmentId === filters.department_id),
   );
+  const applicableVariants = variants.filter(
+    (item) =>
+      (!filters.bank_id || item.bankId === filters.bank_id) &&
+      (!filters.product_id || item.productId === filters.product_id),
+  );
 
   return (
     <section className="space-y-4">
@@ -171,7 +195,7 @@ export default function ApplicationsPage() {
         search={
           <TextInput
             className="mt-0"
-            placeholder="Search application ID, bank file, customer code, name, or mobile"
+            placeholder="Search application, customer, Bank, Product Category, or Product Variant"
             value={query}
             onChange={(event) => {
               setQuery(event.target.value);
@@ -199,12 +223,27 @@ export default function ApplicationsPage() {
           className="mt-0 self-end"
           aria-label="Filter by bank"
           value={filters.bank_id}
-          onChange={(event) => setFilters({ ...filters, bank_id: event.target.value })}
+          onChange={(event) => {
+            const bankId = event.target.value;
+            setFilters({
+              ...filters,
+              bank_id: bankId,
+              product_variant_id:
+                !filters.product_variant_id ||
+                variants.some(
+                  (item) =>
+                    item.id === filters.product_variant_id &&
+                    (!bankId || item.bankId === bankId),
+                )
+                  ? filters.product_variant_id
+                  : "",
+            });
+          }}
         >
           <option value="">All banks</option>
           {banks.map((item) => (
             <option key={item.id} value={item.id}>
-              {item.code}
+              {item.name} ({item.code})
             </option>
           ))}
         </Select>
@@ -212,12 +251,42 @@ export default function ApplicationsPage() {
           className="mt-0 self-end"
           aria-label="Filter product"
           value={filters.product_id}
-          onChange={(event) => setFilters({ ...filters, product_id: event.target.value })}
+          onChange={(event) => {
+            const productId = event.target.value;
+            setFilters({
+              ...filters,
+              product_id: productId,
+              product_variant_id:
+                !filters.product_variant_id ||
+                variants.some(
+                  (item) =>
+                    item.id === filters.product_variant_id &&
+                    (!productId || item.productId === productId),
+                )
+                  ? filters.product_variant_id
+                  : "",
+            });
+          }}
         >
           <option value="">All products</option>
           {products.map((item) => (
             <option key={item.id} value={item.id}>
-              {item.code}
+              {item.name} ({item.code})
+            </option>
+          ))}
+        </Select>
+        <Select
+          className="mt-0 self-end"
+          aria-label="Filter product variant"
+          value={filters.product_variant_id}
+          onChange={(event) =>
+            setFilters({ ...filters, product_variant_id: event.target.value })
+          }
+        >
+          <option value="">All Product Variants</option>
+          {applicableVariants.map((item) => (
+            <option key={item.id} value={item.id}>
+              {item.name} ({item.code}){item.status === "inactive" ? " — Inactive" : ""}
             </option>
           ))}
         </Select>
@@ -382,7 +451,7 @@ export default function ApplicationsPage() {
           <tr>
             <Th>Application ID</Th>
             <Th>Customer</Th>
-            <Th>Bank / Product</Th>
+            <Th>Bank / Product Category / Variant</Th>
             <Th>Case Owner</Th>
             <Th>Stage</Th>
             <Th>Outcome</Th>
@@ -415,7 +484,15 @@ export default function ApplicationsPage() {
                   {item.customerCode} · {item.customerName}
                 </Td>
                 <Td>
-                  {item.bankCode} / {item.productCode}
+                  <p>
+                    {item.bankName ?? item.bankCode} ({item.bankCode})
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    {item.productName ?? item.productCode} ({item.productCode}) ·{" "}
+                    {item.productVariantName
+                      ? `${item.productVariantName} (${item.productVariantCode})`
+                      : "Legacy: no Product Variant"}
+                  </p>
                 </Td>
                 <Td>{item.caseOwnerName}</Td>
                 <Td>{item.currentStage}</Td>

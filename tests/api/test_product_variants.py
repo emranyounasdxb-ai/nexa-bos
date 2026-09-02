@@ -3,9 +3,6 @@ from __future__ import annotations
 import asyncio
 
 import pytest
-from httpx import AsyncClient
-from sqlalchemy import inspect, select, update
-
 from helpers import (
     authenticate,
     create_activated_user,
@@ -13,10 +10,13 @@ from helpers import (
     spawned_client,
     unique_tag,
 )
+from httpx import AsyncClient
 from nexa_bos_api.applications.models import Application
 from nexa_bos_api.core.config import get_settings
 from nexa_bos_api.db.session import create_engine, create_session_factory
 from nexa_bos_api.identity.models import AuditEvent
+from sqlalchemy import inspect, select, update
+
 
 @pytest.mark.asyncio
 async def test_product_variant_migration_contract() -> None:
@@ -57,8 +57,7 @@ async def test_product_variant_migration_contract() -> None:
         for index in schema["variant_indexes"]
     )
     assert any(
-        index["name"] == "uq_product_variants_bank_product_name_ci"
-        and index["unique"] is True
+        index["name"] == "uq_product_variants_bank_product_name_ci" and index["unique"] is True
         for index in schema["variant_indexes"]
     )
     application_variant = next(
@@ -232,9 +231,12 @@ async def test_product_variant_crud_scope_status_application_and_legacy_compatib
         ),
     )
     assert sorted(response.status_code for response in concurrent) == [200, 409]
-    assert next(response for response in concurrent if response.status_code == 409).json()[
-        "error"
-    ]["code"] == "PRODUCT_VARIANT_DUPLICATE"
+    assert (
+        next(response for response in concurrent if response.status_code == 409).json()["error"][
+            "code"
+        ]
+        == "PRODUCT_VARIANT_DUPLICATE"
+    )
 
     second_bank_response = await owner.post(
         "/api/v1/banks",
@@ -346,6 +348,21 @@ async def test_product_variant_crud_scope_status_application_and_legacy_compatib
     assert preserved.json()["productVariantId"] == replacement["id"]
     assert preserved.json()["productVariantStatus"] == "inactive"
 
+    filtered = await owner.get(
+        "/api/v1/applications",
+        params={"product_variant_id": replacement["id"]},
+    )
+    assert application["id"] in {item["id"] for item in filtered.json()["items"]}
+    searched = await owner.get("/api/v1/applications", params={"q": replacement["name"]})
+    assert application["id"] in {item["id"] for item in searched.json()["items"]}
+    referenced = await owner.get("/api/v1/applications/product-variants")
+    referenced_variant = next(
+        item for item in referenced.json()["items"] if item["id"] == replacement["id"]
+    )
+    assert referenced_variant["status"] == "inactive"
+    assert referenced_variant["bankId"] == bank["id"]
+    assert referenced_variant["productId"] == product["id"]
+
     engine = create_engine(get_settings())
     session_factory = create_session_factory(engine)
     try:
@@ -410,9 +427,7 @@ async def test_product_variant_permissions_csrf_and_parent_activation(
             json={"name": "Denied edit"},
         )
         assert denied_edit.status_code == 403
-        assert denied_edit.json()["error"]["details"] == [
-            {"permission": "ProductVariants.Edit"}
-        ]
+        assert denied_edit.json()["error"]["details"] == [{"permission": "ProductVariants.Edit"}]
         denied_deactivate = await restricted.post(
             f"/api/v1/product-variants/{created.json()['id']}/deactivate"
         )
@@ -438,3 +453,22 @@ async def test_product_variant_permissions_csrf_and_parent_activation(
     blocked_activation = await owner.post(f"/api/v1/product-variants/{variant['id']}/activate")
     assert blocked_activation.status_code == 422
     assert blocked_activation.json()["error"]["code"] == "PRODUCT_VARIANT_PARENT_INACTIVE"
+
+
+@pytest.mark.asyncio
+async def test_variant_status_permissions_can_load_inactive_records(client: AsyncClient) -> None:
+    owner, _ = await owner_client(client)
+    _bank, _product, mapping = await _catalog_mapping(owner)
+    variant = await _variant(owner, mapping["id"])
+    await owner.post(f"/api/v1/product-variants/{variant['id']}/deactivate")
+    activate_type = await _type_with(owner, ["ProductVariants.Activate"])
+    activate_user = await create_activated_user(owner, user_type_code=activate_type)
+
+    async with await spawned_client() as restricted:
+        await authenticate(restricted, activate_user["email"], "UserPass1!")
+        listed = await restricted.get(
+            "/api/v1/product-variants",
+            params={"bankProductId": mapping["id"], "includeInactive": True},
+        )
+        assert listed.status_code == 200, listed.text
+        assert variant["id"] in {item["id"] for item in listed.json()["items"]}

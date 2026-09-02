@@ -27,8 +27,12 @@ type DrilldownItem = {
   id: string;
   applicationCode: string;
   customerName: string;
+  bankName: string;
   bankCode: string;
+  productName: string;
   productCode: string;
+  productVariantName: string | null;
+  productVariantCode: string | null;
   currentStage: string;
   terminalOutcome: string | null;
   fundedAmount: string | null;
@@ -102,7 +106,7 @@ function DrillDownInner() {
             <tr>
               <Th>Application</Th>
               <Th>Customer</Th>
-              <Th>Bank / Product</Th>
+              <Th>Bank / Product Category / Variant</Th>
               <Th>Stage</Th>
               <Th>Amount</Th>
             </tr>
@@ -117,7 +121,12 @@ function DrillDownInner() {
                 </Td>
                 <Td>{item.customerName}</Td>
                 <Td>
-                  {item.bankCode} / {item.productCode}
+                  <p>{item.bankName} ({item.bankCode})</p>
+                  <p className="text-xs text-slate-500">
+                    {item.productName} ({item.productCode}) · {item.productVariantName
+                      ? `${item.productVariantName} (${item.productVariantCode})`
+                      : "Legacy: no Product Variant"}
+                  </p>
                 </Td>
                 <Td>{item.terminalOutcome ?? item.currentStage}</Td>
                 <Td>{formatAed(item.fundedAmount ?? item.requestedAmount)}</Td>

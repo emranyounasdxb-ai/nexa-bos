@@ -1,12 +1,10 @@
 from __future__ import annotations
 
 from datetime import UTC, date, datetime, time, timedelta
+from io import BytesIO
 from uuid import UUID
 
 import pytest
-from httpx import AsyncClient
-from sqlalchemy import select, text
-
 from helpers import (
     authenticate,
     create_activated_user,
@@ -15,9 +13,12 @@ from helpers import (
     spawned_client,
     unique_tag,
 )
+from httpx import AsyncClient
 from nexa_bos_api.identity.models import AuditEvent
 from nexa_bos_api.main import app
-from test_applications import _catalog, _create_app, _customer, _stage_by_key
+from openpyxl import load_workbook
+from sqlalchemy import select, text
+from test_applications import _catalog, _create_app, _customer
 from test_tat_delay import _move
 
 
@@ -147,8 +148,16 @@ async def test_owner_company_wide_dashboard_and_mtd_default(client: AsyncClient)
     assert body["kpis"]["personalFinance"]["count"] >= 1
     assert body["conversions"]["submittedToApproved"] is not None
     drill = await authed.get("/api/v1/reports/applications?metric=funded")
-    codes = {item["applicationCode"] for item in drill.json()["items"]}
+    drill_items = drill.json()["items"]
+    codes = {item["applicationCode"] for item in drill_items}
     assert created["applicationCode"] in codes
+    drill_item = next(
+        item for item in drill_items if item["applicationCode"] == created["applicationCode"]
+    )
+    assert drill_item["bankName"] == created["bankName"]
+    assert drill_item["productName"] == created["productName"]
+    assert drill_item["productVariantId"] == created["productVariantId"]
+    assert drill_item["productVariantCode"] == created["productVariantCode"]
 
 
 @pytest.mark.asyncio
@@ -171,9 +180,7 @@ async def test_own_office_team_scopes_and_query_param_cannot_bypass(client: Asyn
     report = await _reporting_user(
         authed, scope="team", permissions=VIEW_PERMS, office_id=dxb, manager_id=manager["id"]
     )
-    other_office = await _reporting_user(
-        authed, scope="own", permissions=VIEW_PERMS, office_id=auh
-    )
+    other_office = await _reporting_user(authed, scope="own", permissions=VIEW_PERMS, office_id=auh)
     own_app = await _create_app(
         authed,
         customer_id=(await _customer(authed, "OwnApp"))["id"],
@@ -284,7 +291,9 @@ async def test_event_time_attribution_survives_reassignment(client: AsyncClient)
         assert first_dash["kpis"]["booked"]["count"] == 0
         assert first_dash["kpis"]["funded"]["count"] == 0
         submitted = (await scoped.get("/api/v1/reports/applications?metric=submitted")).json()
-        assert created["applicationCode"] in {item["applicationCode"] for item in submitted["items"]}
+        assert created["applicationCode"] in {
+            item["applicationCode"] for item in submitted["items"]
+        }
         funded = (await scoped.get("/api/v1/reports/applications?metric=funded")).json()
         assert created["applicationCode"] not in {
             item["applicationCode"] for item in funded["items"]
@@ -316,15 +325,16 @@ async def test_pending_is_current_state_and_can_include_earlier_created(
     async with app.state.session_factory() as session:
         await session.execute(
             text("UPDATE applications SET created_at = :created_at WHERE id = :id"),
-            {"created_at": datetime.combine(earlier, time.min, tzinfo=UTC), "id": UUID(pending_app["id"])},
+            {
+                "created_at": datetime.combine(earlier, time.min, tzinfo=UTC),
+                "id": UUID(pending_app["id"]),
+            },
         )
         await session.commit()
     dashboard = (await authed.get("/api/v1/reports/dashboard?period=mtd")).json()
     assert dashboard["kpis"]["pending"]["count"] >= 1
     pending = (
-        await authed.get(
-            "/api/v1/reports/applications?metric=pending&period=mtd&page_size=50"
-        )
+        await authed.get("/api/v1/reports/applications?metric=pending&period=mtd&page_size=50")
     ).json()
     assert pending_app["applicationCode"] in {item["applicationCode"] for item in pending["items"]}
     stages = {row["name"] for row in dashboard["stageBreakdown"]}
@@ -378,7 +388,9 @@ async def test_conversions_rankings_ties_comparisons_custom_and_since_joining(
     rankings = (await authed.get("/api/v1/reports/rankings?ranking_metric=funded_value")).json()[
         "rankings"
     ]
-    employee_rows = [row for row in rankings["employees"] if row["id"] in {first["id"], second["id"]}]
+    employee_rows = [
+        row for row in rankings["employees"] if row["id"] in {first["id"], second["id"]}
+    ]
     assert len(employee_rows) == 2
     assert employee_rows[0]["rank"] == employee_rows[1]["rank"]
     dashboard = (await authed.get("/api/v1/reports/dashboard")).json()
@@ -433,9 +445,7 @@ async def test_active_delay_drilldown_and_exports(client: AsyncClient) -> None:
     dashboard = (await authed.get("/api/v1/reports/dashboard")).json()
     assert dashboard["activeDelays"]["Bank"] >= 1
     delay_rows = (await authed.get("/api/v1/reports/applications?metric=delay_bank")).json()
-    assert delayed["applicationCode"] in {
-        item["applicationCode"] for item in delay_rows["items"]
-    }
+    assert delayed["applicationCode"] in {item["applicationCode"] for item in delay_rows["items"]}
     excel = await authed.post(
         "/api/v1/reports/export",
         json={"format": "xlsx", "report": "dashboard", "period": "mtd"},
@@ -456,8 +466,10 @@ async def test_active_delay_drilldown_and_exports(client: AsyncClient) -> None:
     assert "text/html" in printed.headers["content-type"]
     async with app.state.session_factory() as session:
         events = (
-            await session.execute(select(AuditEvent).where(AuditEvent.action == "reports.export"))
-        ).scalars().all()
+            (await session.execute(select(AuditEvent).where(AuditEvent.action == "reports.export")))
+            .scalars()
+            .all()
+        )
         assert events
         assert events[-1].new_values["exportType"] in {"xlsx", "pdf", "print"}
         assert "file" not in (events[-1].new_values or {})
@@ -488,6 +500,12 @@ async def test_active_delay_drilldown_and_exports(client: AsyncClient) -> None:
         case_owner_id=exporter["id"],
         requested_amount="2500",
     )
+    variant_injection = '=HYPERLINK("https://invalid.example","<script>alert(1)</script>")'
+    renamed_variant = await authed.patch(
+        f"/api/v1/product-variants/{own_app['productVariantId']}",
+        json={"name": variant_injection, "description": "Export safety coverage"},
+    )
+    assert renamed_variant.status_code == 200, renamed_variant.text
     await _submit_and_fund(authed, own_app, "2500")
     async with await spawned_client() as other:
         await authenticate(other, exporter["email"], "UserPass1!")
@@ -496,10 +514,30 @@ async def test_active_delay_drilldown_and_exports(client: AsyncClient) -> None:
             json={"format": "xlsx", "report": "drill_down", "period": "mtd", "metric": "funded"},
         )
         assert exported.status_code == 200, exported.text
-        scoped_drill = (
-            await other.get("/api/v1/reports/applications?metric=funded")
-        ).json()
-        assert all(item["applicationCode"] != delayed["applicationCode"] for item in scoped_drill["items"])
+        workbook = load_workbook(BytesIO(exported.content), read_only=True, data_only=False)
+        result_rows = list(workbook["Results"].iter_rows(values_only=True))
+        headers = list(result_rows[0])
+        assert "productVariantCode" in headers
+        assert "productVariantName" in headers
+        application_index = headers.index("applicationCode")
+        variant_index = headers.index("productVariantCode")
+        variant_name_index = headers.index("productVariantName")
+        own_export_row = next(
+            row for row in result_rows[1:] if row[application_index] == own_app["applicationCode"]
+        )
+        assert own_export_row[variant_index] == own_app["productVariantCode"]
+        assert own_export_row[variant_name_index] == f"'{variant_injection}"
+        printed_drill = await other.post(
+            "/api/v1/reports/export",
+            json={"format": "print", "report": "drill_down", "period": "mtd", "metric": "funded"},
+        )
+        assert printed_drill.status_code == 200, printed_drill.text
+        assert "<script>alert(1)</script>" not in printed_drill.text
+        assert "&lt;script&gt;alert(1)&lt;/script&gt;" in printed_drill.text
+        scoped_drill = (await other.get("/api/v1/reports/applications?metric=funded")).json()
+        assert all(
+            item["applicationCode"] != delayed["applicationCode"] for item in scoped_drill["items"]
+        )
         assert own_app["applicationCode"] in {
             item["applicationCode"] for item in scoped_drill["items"]
         }

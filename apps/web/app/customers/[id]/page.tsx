@@ -216,7 +216,8 @@ export default function CustomerDetailPage() {
                 <Link className="underline" href={`/applications/${app.id}`}>
                   {app.applicationCode}
                 </Link>{" "}
-                · {app.bankCode}/{app.productCode} · {app.currentStage}
+                · {app.bankCode}/{app.productCode}/{app.productVariantCode ?? "Legacy"} ·{" "}
+                {app.currentStage}
                 {app.terminalOutcome ? ` · ${app.terminalOutcome}` : ""}
                 {app.hasActiveDelay && app.activeDelay ? (
                   <>

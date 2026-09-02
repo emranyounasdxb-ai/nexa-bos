@@ -8,13 +8,7 @@ from uuid import UUID, uuid4
 
 import pyotp
 import pytest
-from httpx import AsyncClient
-from sqlalchemy import insert, select
-from sqlalchemy.exc import IntegrityError
-
 from helpers import (
-    OWNER_EMAIL,
-    OWNER_PASSWORD,
     authenticate,
     create_activated_user,
     create_product_variant,
@@ -24,6 +18,7 @@ from helpers import (
     spawned_client,
     unique_tag,
 )
+from httpx import AsyncClient
 from nexa_bos_api.attendance.enums import AttendanceStatus, ImpactCondition, ImpactMethod
 from nexa_bos_api.attendance.service import compute_score
 from nexa_bos_api.catalog.service import seed_catalog
@@ -42,6 +37,8 @@ from nexa_bos_api.reporting.service import (
 )
 from nexa_bos_api.targets.calc import default_measurement, month_end
 from nexa_bos_api.targets.service import _period_bounds
+from sqlalchemy import insert, select
+from sqlalchemy.exc import IntegrityError
 
 _TEST_STAGES = (
     ("SUBMITTED", "Submitted", 20),
@@ -182,8 +179,14 @@ def _fact(
         customer_name="Test",
         bank_id=uuid4(),
         bank_code="DIB",
+        bank_name="Dubai Islamic Bank",
         product_id=uuid4(),
         product_code="PF",
+        product_name="Personal Finance",
+        product_variant_id=None,
+        product_variant_code=None,
+        product_variant_name=None,
+        product_variant_status=None,
         created_at=now,
         submitted_at=submitted_at,
         approved_at=approved_at,
@@ -453,7 +456,11 @@ async def test_merge_blocks_conflicting_active_applications(client: AsyncClient)
     source = await _customer(authed, "MergeSrc")
     primary = await _customer(authed, "MergePri")
     await _create_app(
-        authed, customer_id=source["id"], bank_id=dib["id"], product_id=pf["id"], case_owner_id=owner["id"]
+        authed,
+        customer_id=source["id"],
+        bank_id=dib["id"],
+        product_id=pf["id"],
+        case_owner_id=owner["id"],
     )
     await _create_app(
         authed,
@@ -536,9 +543,7 @@ async def test_catalog_seed_does_not_overwrite_configured_state(client: AsyncCli
     async with app.state.session_factory() as session:
         await seed_catalog(session)
         await session.commit()
-    after = {
-        item["code"]: item for item in (await authed.get("/api/v1/products")).json()["items"]
-    }
+    after = {item["code"]: item for item in (await authed.get("/api/v1/products")).json()["items"]}
     assert after["PF"]["bookedAmountRequired"] is True
     assert after["PF"]["targetMeasurement"] == "count"
     restore = await authed.put(
@@ -638,7 +643,11 @@ async def test_workflow_in_use_is_immutable_and_new_version_is_explicit(
     dib, _eib, pf, _cc = await _catalog(authed)
     customer = await _customer(authed, "WfLock")
     app = await _create_app(
-        authed, customer_id=customer["id"], bank_id=dib["id"], product_id=pf["id"], case_owner_id=owner["id"]
+        authed,
+        customer_id=customer["id"],
+        bank_id=dib["id"],
+        product_id=pf["id"],
+        case_owner_id=owner["id"],
     )
     original = (await authed.get(f"/api/v1/workflows/{app['workflowId']}")).json()
     mutated = await authed.post(
@@ -826,9 +835,7 @@ async def test_historical_email_and_employee_code_are_reserved(client: AsyncClie
         assert reserved_code is not None
         with pytest.raises(IntegrityError):
             await session.execute(
-                insert(ReservedEmail).values(
-                    email_normalized=old_email.lower(), user_id=uuid4()
-                )
+                insert(ReservedEmail).values(email_normalized=old_email.lower(), user_id=uuid4())
             )
             await session.flush()
         await session.rollback()
@@ -859,9 +866,7 @@ async def test_owner_singleton_prevents_second_owner_row(client: AsyncClient) ->
         row = (await session.execute(select(OwnerSingleton))).scalar_one()
         assert str(row.user_id) == owner["id"]
         with pytest.raises(IntegrityError):
-            await session.execute(
-                insert(OwnerSingleton).values(slot=1, user_id=UUID(owner["id"]))
-            )
+            await session.execute(insert(OwnerSingleton).values(slot=1, user_id=UUID(owner["id"])))
             await session.flush()
         await session.rollback()
 
@@ -882,9 +887,7 @@ async def test_mfa_off_unchanged_and_enabled_user_cannot_bypass(client: AsyncCli
     setup = await other.post("/api/v1/auth/mfa/setup")
     assert setup.status_code == 200, setup.text
     secret = setup.json()["secret"]
-    confirm = await other.post(
-        "/api/v1/auth/mfa/confirm", json={"code": pyotp.TOTP(secret).now()}
-    )
+    confirm = await other.post("/api/v1/auth/mfa/confirm", json={"code": pyotp.TOTP(secret).now()})
     assert confirm.status_code == 200, confirm.text
     challenger = await spawned_client()
     challenge = await challenger.post(
@@ -986,7 +989,9 @@ async def _enable_mfa(client: AsyncClient, email: str, password: str) -> str:
     setup = await session.post("/api/v1/auth/mfa/setup")
     assert setup.status_code == 200, setup.text
     secret = setup.json()["secret"]
-    confirm = await session.post("/api/v1/auth/mfa/confirm", json={"code": pyotp.TOTP(secret).now()})
+    confirm = await session.post(
+        "/api/v1/auth/mfa/confirm", json={"code": pyotp.TOTP(secret).now()}
+    )
     assert confirm.status_code == 200, confirm.text
     return secret
 

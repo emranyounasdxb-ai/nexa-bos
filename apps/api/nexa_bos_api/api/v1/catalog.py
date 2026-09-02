@@ -66,8 +66,9 @@ from nexa_bos_api.identity.permissions import (
 router = APIRouter(tags=["catalog"])
 
 
-def _include_inactive(actor, permission: str, requested: bool) -> bool:
-    return requested and has_permission(actor, permission)
+def _include_inactive(actor, permission: str | tuple[str, ...], requested: bool) -> bool:
+    permissions = (permission,) if isinstance(permission, str) else permission
+    return requested and any(has_permission(actor, code) for code in permissions)
 
 
 @router.get("/banks")
@@ -301,7 +302,15 @@ async def product_variants_list(
         bank_product_id=bank_product_id,
         bank_id=bank_id,
         product_id=product_id,
-        include_inactive=_include_inactive(actor, PRODUCT_VARIANTS_EDIT, include_inactive),
+        include_inactive=_include_inactive(
+            actor,
+            (
+                PRODUCT_VARIANTS_EDIT,
+                PRODUCT_VARIANTS_ACTIVATE,
+                PRODUCT_VARIANTS_DEACTIVATE,
+            ),
+            include_inactive,
+        ),
     )
     return {"items": [serialize_product_variant(row) for row in rows]}
 
