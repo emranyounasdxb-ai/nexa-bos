@@ -306,37 +306,49 @@ test("owner targets, KPI scorecards, profile section, and scoped isolation", asy
   await page.getByRole("link", { name: "Targets", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Targets" })).toBeVisible();
 
-  await page.getByLabel("Target level").selectOption("employee");
-  await page.getByLabel("Target entity").selectOption(employee.id);
-  await page.getByLabel("Target month").fill(month);
-  await page.getByLabel("Product", { exact: true }).selectOption(pf!.id);
-  await page.getByLabel("Milestone").selectOption("submitted");
-  await page.getByLabel("Measurement").selectOption("amount");
-  await page.getByLabel("Target value").fill("10000");
-  await page.getByLabel("Prorate").selectOption("no");
-  await page.getByRole("button", { name: "Save target" }).click();
+  await expect(page.getByRole("tab", { name: "Targets" })).toHaveAttribute("aria-selected", "true");
+  await page.getByRole("button", { name: "Create target" }).first().click();
+  let targetDrawer = page.getByRole("dialog", { name: "Create target" });
+  await expect(targetDrawer).toBeVisible();
+  await expect(targetDrawer.getByRole("group", { name: "Assignment" })).toBeVisible();
+  await expect(targetDrawer.getByRole("group", { name: "Target period" })).toBeVisible();
+  await expect(targetDrawer.getByRole("group", { name: "Measurement" })).toBeVisible();
+  await targetDrawer.getByLabel("Target level").selectOption("employee");
+  await targetDrawer.getByLabel("Target entity").selectOption(employee.id);
+  await targetDrawer.getByLabel("Target month").fill(month);
+  await targetDrawer.getByLabel("Product", { exact: true }).selectOption(pf!.id);
+  await targetDrawer.getByLabel("Milestone").selectOption("submitted");
+  await targetDrawer.getByLabel("Measurement").selectOption("amount");
+  await targetDrawer.getByLabel("Target value").fill("10000");
+  await targetDrawer.getByLabel("Prorate").selectOption("no");
+  await expect(targetDrawer.getByLabel("Target summary")).toContainText("10000");
+  await targetDrawer.getByRole("button", { name: "Save target" }).click();
   await expect(page.getByText("Target saved.")).toBeVisible();
   await expect(page.getByRole("row", { name: new RegExp(`Target User ${tag}`) })).toBeVisible();
   await expect(
     page.getByRole("row", { name: new RegExp(`Target User ${tag}`) }).getByText("AED 4000.00"),
   ).toBeVisible();
 
-  await page.getByLabel("Target level").selectOption("team");
-  await page.getByLabel("Target entity").selectOption(teamId);
-  await page.getByLabel("Product", { exact: true }).selectOption(pf!.id);
-  await page.getByLabel("Target value").fill("20000");
-  await page.getByRole("button", { name: "Save target" }).click();
+  await page.getByRole("button", { name: "Create target" }).first().click();
+  targetDrawer = page.getByRole("dialog", { name: "Create target" });
+  await targetDrawer.getByLabel("Target level").selectOption("team");
+  await targetDrawer.getByLabel("Target entity").selectOption(teamId);
+  await targetDrawer.getByLabel("Product", { exact: true }).selectOption(pf!.id);
+  await targetDrawer.getByLabel("Target value").fill("20000");
+  await targetDrawer.getByRole("button", { name: "Save target" }).click();
   await expect(page.getByText("Target saved.")).toBeVisible();
 
-  await page.getByLabel("Target level").selectOption("office");
-  await page.getByLabel("Target entity").selectOption(dxb!.id);
-  await page.getByLabel("Target month").fill(officeMonth);
-  await page.getByLabel("Product", { exact: true }).selectOption(cc!.id);
-  await page.getByLabel("Measurement").selectOption("count");
-  await page.getByLabel("Target value").fill("5");
-  await page.getByRole("button", { name: "Save target" }).click();
+  await page.getByRole("button", { name: "Create target" }).first().click();
+  targetDrawer = page.getByRole("dialog", { name: "Create target" });
+  await targetDrawer.getByLabel("Target level").selectOption("office");
+  await targetDrawer.getByLabel("Target entity").selectOption(dxb!.id);
+  await targetDrawer.getByLabel("Target month").fill(officeMonth);
+  await targetDrawer.getByLabel("Product", { exact: true }).selectOption(cc!.id);
+  await targetDrawer.getByLabel("Measurement").selectOption("count");
+  await targetDrawer.getByLabel("Target value").fill("5");
+  await targetDrawer.getByRole("button", { name: "Save target" }).click();
   await expect(page.getByText("Target saved.")).toBeVisible();
-  await page.getByLabel("Target month").fill(month);
+  await page.getByLabel("Target month filter").fill(month);
   await expect(page.getByRole("row", { name: new RegExp(`Target User ${tag}`) })).toBeVisible();
   await expect(page.getByRole("columnheader", { name: "Run-rate" })).toBeVisible();
 
@@ -347,11 +359,19 @@ test("owner targets, KPI scorecards, profile section, and scoped isolation", asy
   await expect(page.getByText("Target updated.")).toBeVisible();
   await page.getByRole("row", { name: new RegExp(`Target User ${tag}`) }).getByRole("button", { name: "History" }).click();
   await expect(page.getByText("Board adjustment")).toBeVisible();
+  await page.getByRole("button", { name: "Close dialog" }).click();
 
+  await page.getByRole("tab", { name: "Period Management" }).click();
+  await expect(page.getByRole("tab", { name: "Period Management" })).toHaveAttribute("aria-selected", "true");
   await page.getByRole("button", { name: "Lock month" }).click();
+  const lockDialog = page.getByRole("dialog", { name: "Confirm period lock" });
+  await expect(lockDialog).toContainText("prevents edits");
+  await lockDialog.getByRole("button", { name: "Lock month" }).click();
   await expect(page.getByText("Target period locked.")).toBeVisible();
-  await page.getByLabel("Reopen reason").fill("Month-end correction");
   await page.getByRole("button", { name: "Reopen month" }).click();
+  const reopenDialog = page.getByRole("dialog", { name: "Reopen target period" });
+  await reopenDialog.getByLabel("Reopen reason").fill("Month-end correction");
+  await reopenDialog.getByRole("button", { name: "Reopen month" }).click();
   await expect(page.getByText("Target period reopened.")).toBeVisible();
 
   await page.getByRole("button", { name: "Performance menu" }).click();
