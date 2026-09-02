@@ -91,7 +91,7 @@ export function KpiCard({
     <Link
       href={href}
       aria-label={`${label} KPI`}
-      className="group flex min-h-32 flex-col rounded-[10px] border border-slate-200/90 bg-white p-3.5 shadow-[0_1px_2px_rgba(15,23,42,0.035)] transition hover:border-slate-300 hover:shadow-[0_3px_8px_rgba(15,23,42,0.07)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f4c81]"
+      className="group flex min-h-32 flex-col rounded-[10px] border border-slate-200/90 bg-white p-3.5 shadow-[0_1px_2px_rgba(15,23,42,0.035)] transition hover:border-slate-300 hover:shadow-[0_3px_8px_rgba(15,23,42,0.07)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary"
     >
       <div className="flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2.5">
@@ -131,7 +131,7 @@ export function PipelineMetric({
     <Link
       href={href}
       aria-label={`${label} KPI`}
-      className="group flex min-w-0 items-center gap-2 rounded-lg border border-slate-200 bg-slate-50/60 px-2.5 py-2 hover:border-slate-300 hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f4c81]"
+      className="group flex min-w-0 items-center gap-2 rounded-lg border border-slate-200 bg-slate-50/60 px-2.5 py-2 hover:border-slate-300 hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary"
     >
       <span aria-hidden="true" className={`inline-flex size-7 shrink-0 items-center justify-center rounded-md ${metricToneClasses[tone].icon}`}>
         <MetricIcon className="size-4" />
@@ -171,7 +171,7 @@ export function StageDistribution({
       />
       <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-2.5 text-xs text-slate-500"><span>{total.toLocaleString()} pending applications</span><span>{rows.length} workflow stages</span></div>
       <details className="group mt-2 rounded-lg border border-slate-200 bg-slate-50/60">
-        <summary className="cursor-pointer list-none px-3 py-2 text-sm font-semibold text-[#0f4c81] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f4c81]"><span className="inline-flex w-full items-center justify-between gap-3">All stage details<IconChevronDown className="size-4 transition-transform group-open:rotate-180" /></span></summary>
+        <summary className="cursor-pointer list-none px-3 py-2 text-sm font-semibold text-brand-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary"><span className="inline-flex w-full items-center justify-between gap-3">All stage details<IconChevronDown className="size-4 transition-transform group-open:rotate-180" /></span></summary>
         <div data-testid="stage-breakdown-scroll" className="max-h-48 overflow-y-auto border-t border-slate-200 bg-white p-1.5">
           {rows.map((row) => (
             <Link key={`${row.stageId ?? "none"}:${row.name}:detail`} className="flex items-center justify-between gap-4 rounded-md px-2 py-1.5 text-sm hover:bg-slate-50" href={drill("stage", row.stageId ? { stage_id: row.stageId } : {})}>
@@ -197,8 +197,8 @@ export function ConversionSummary({ values, drill }: { values: DashboardPayload[
       {rows.map(([label, value, metric, color]) => {
         const bounded = value === null || value === undefined ? 0 : Math.min(100, Math.max(0, value));
         return (
-          <Link key={metric} href={drill(metric)} className="group block rounded-lg px-1 py-0.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f4c81]">
-            <div className="mb-1 flex items-center justify-between gap-3 text-sm"><span className="font-medium text-slate-700 group-hover:text-[#0f4c81]">{label}</span><span className="shrink-0 font-semibold tabular-nums text-slate-950">{formatPct(value)}</span></div>
+          <Link key={metric} href={drill(metric)} className="group block rounded-lg px-1 py-0.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary">
+            <div className="mb-1 flex items-center justify-between gap-3 text-sm"><span className="font-medium text-slate-700 group-hover:text-brand-link">{label}</span><span className="shrink-0 font-semibold tabular-nums text-slate-950">{formatPct(value)}</span></div>
             <div className="h-1.5 overflow-hidden rounded-full bg-slate-100"><div className={`h-full rounded-full ${color}`} style={{ width: `${bounded}%` }} /></div>
           </Link>
         );
@@ -219,7 +219,7 @@ export function TargetProgress({ summary }: { summary: NonNullable<DashboardPayl
           <div key={item.id} className="rounded-lg border border-slate-200 bg-slate-50/50 p-3">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0"><div className="flex items-center gap-2"><Badge>{item.level}</Badge><p className="truncate text-sm font-semibold text-slate-900">{item.entityName ?? "Company"}</p></div><p className="mt-1 truncate text-xs text-slate-500">{[item.bankCode, item.productCode].filter(Boolean).join(" / ") || "All products"}</p></div>
-              <span className="shrink-0 text-sm font-semibold tabular-nums text-[#0f4c81]">{formatPct(achievement)}</span>
+              <span className="shrink-0 text-sm font-semibold tabular-nums text-brand-primary">{formatPct(achievement)}</span>
             </div>
             <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-200"><div className="h-full rounded-full bg-blue-600" style={{ width: `${bounded}%` }} /></div>
             <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
@@ -251,9 +251,9 @@ export function RankingList({ title, rows, metric, hrefFor }: { title: string; r
       {rows.length === 0 ? <p className="px-3 py-4 text-sm text-slate-500">No ranking rows for the selected period.</p> : (
         <div className="max-h-56 divide-y divide-slate-100 overflow-y-auto px-1.5 py-1">
           {rows.slice(0, 8).map((row) => (
-            <Link key={row.id} href={hrefFor(row)} className="group flex items-center gap-2 rounded-md px-2 py-2 hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f4c81]">
+            <Link key={row.id} href={hrefFor(row)} className="group flex items-center gap-2 rounded-md px-2 py-2 hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary">
               <span className={`inline-flex size-7 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${row.rank <= 3 ? "bg-blue-50 text-blue-700" : "bg-slate-100 text-slate-600"}`}>{row.rank}</span>
-              <span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold text-slate-800 group-hover:text-[#0f4c81]">{row.name}</span>{row.count !== null && row.count !== undefined ? <span className="block text-xs text-slate-500">{row.count.toLocaleString()} cases</span> : null}</span>
+              <span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold text-slate-800 group-hover:text-brand-link">{row.name}</span>{row.count !== null && row.count !== undefined ? <span className="block text-xs text-slate-500">{row.count.toLocaleString()} cases</span> : null}</span>
               <span className="shrink-0 text-right text-xs font-semibold tabular-nums text-slate-950">{formatValue(row)}</span>
             </Link>
           ))}

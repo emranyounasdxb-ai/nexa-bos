@@ -318,7 +318,7 @@ export default function AssetsPage() {
         <tbody>
           {assets.map((asset) => (
             <tr key={asset.id} className="border-t border-slate-100">
-              <Td><Link className="font-medium text-[#0f4c81] underline" href={`/assets/${asset.id}`}>{asset.assetCode}</Link></Td>
+              <Td><Link className="font-medium text-brand-link underline" href={`/assets/${asset.id}`}>{asset.assetCode}</Link></Td>
               <Td>{asset.category.name}</Td>
               <Td>{identity(asset)}</Td>
               <Td>{asset.office?.name ?? "—"}</Td>

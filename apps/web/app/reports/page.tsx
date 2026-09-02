@@ -588,7 +588,7 @@ export function DashboardInner() {
             </Card>
             {data.targetsSummary && data.targetsSummary.items.length > 0 ? (
               <Card className="min-w-0 p-4 sm:p-4">
-                <SectionHeader title="Target performance" description="Progress against effective targets in scope." actions={<Link className="inline-flex items-center gap-1 text-sm font-semibold text-[#0f4c81] hover:underline" href="/targets">Open targets <IconArrowUpRight className="size-4" /></Link>} />
+                <SectionHeader title="Target performance" description="Progress against effective targets in scope." actions={<Link className="inline-flex items-center gap-1 text-sm font-semibold text-brand-link hover:underline" href="/targets">Open targets <IconArrowUpRight className="size-4" /></Link>} />
                 <TargetProgress summary={data.targetsSummary} />
               </Card>
             ) : (

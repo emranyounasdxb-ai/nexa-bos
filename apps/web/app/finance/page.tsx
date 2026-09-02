@@ -780,9 +780,9 @@ export default function FinancePage() {
                 aria-controls={`finance-panel-${tab}`}
                 tabIndex={selected ? 0 : -1}
                 className={cx(
-                  "h-10 shrink-0 border-b-2 px-3 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#0f4c81]",
+                  "h-10 shrink-0 border-b-2 px-3 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-brand-primary",
                   selected
-                    ? "border-[#0f4c81] text-[#0f4c81]"
+                    ? "border-brand-primary text-brand-primary"
                     : "border-transparent text-slate-600 hover:text-slate-900",
                 )}
                 onClick={() => selectTab(tab)}
@@ -902,9 +902,9 @@ export default function FinancePage() {
                       role="menu"
                       className="absolute right-0 z-20 mt-1 w-40 rounded-lg border border-slate-200 bg-white p-1 shadow-lg"
                     >
-                      <button role="menuitem" type="button" className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-sm text-slate-700 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#0f4c81]" onClick={() => void exportStatement("xlsx")}><IconFileSpreadsheet className="size-4" />Excel</button>
-                      <button role="menuitem" type="button" className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-sm text-slate-700 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#0f4c81]" onClick={() => void exportStatement("pdf")}><IconFileTypePdf className="size-4" />PDF</button>
-                      <button role="menuitem" type="button" className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-sm text-slate-700 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#0f4c81]" onClick={() => void exportStatement("print")}><IconPrinter className="size-4" />Print</button>
+                      <button role="menuitem" type="button" className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-sm text-slate-700 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-primary" onClick={() => void exportStatement("xlsx")}><IconFileSpreadsheet className="size-4" />Excel</button>
+                      <button role="menuitem" type="button" className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-sm text-slate-700 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-primary" onClick={() => void exportStatement("pdf")}><IconFileTypePdf className="size-4" />PDF</button>
+                      <button role="menuitem" type="button" className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-sm text-slate-700 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-primary" onClick={() => void exportStatement("print")}><IconPrinter className="size-4" />Print</button>
                     </div>
                   ) : null}
                 </div>

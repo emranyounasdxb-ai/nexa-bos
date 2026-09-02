@@ -391,7 +391,7 @@ export function DatePicker({
                     isSelected
                       ? "bg-slate-900 text-white"
                       : isToday
-                        ? "text-[#0f4c81] ring-1 ring-[#0f4c81]"
+                        ? "text-brand-primary ring-1 ring-brand-primary"
                         : "text-slate-900",
                   )}
                   onClick={() => commit(cell.iso)}
@@ -676,7 +676,7 @@ export function DateRangePicker({
                     : isInRange
                       ? "bg-blue-100 text-blue-900"
                       : isToday
-                        ? "text-[#0f4c81] ring-1 ring-[#0f4c81]"
+                        ? "text-brand-primary ring-1 ring-brand-primary"
                         : "text-slate-900",
                 )}
                 onClick={() => selectDate(cell.iso)}

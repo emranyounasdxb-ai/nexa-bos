@@ -329,8 +329,8 @@ function SwitchControl({
           <span
             aria-hidden="true"
             className={cx(
-              "flex h-5 w-9 items-center rounded-full p-0.5 transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-[#0f4c81] peer-focus-visible:ring-offset-2",
-              checked ? "bg-[#0f4c81]" : "bg-slate-300",
+              "flex h-5 w-9 items-center rounded-full p-0.5 transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-brand-primary peer-focus-visible:ring-offset-2",
+              checked ? "bg-brand-primary" : "bg-slate-300",
               disabled && "opacity-55",
             )}
           >
@@ -688,7 +688,7 @@ export default function UserTypeDetailPage() {
           >
             <input
               type="checkbox"
-              className="mt-0.5 size-4 shrink-0 rounded border-slate-300 text-[#0f4c81]"
+              className="mt-0.5 size-4 shrink-0 rounded border-slate-300 text-brand-primary"
               aria-label={permission.description}
               checked={selectedSet.has(permission.code)}
               disabled={saving}
@@ -1052,7 +1052,7 @@ export default function UserTypeDetailPage() {
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0" aria-live="polite">
               {saving ? (
-                <p className="text-sm font-medium text-[#0f4c81]">Saving changes…</p>
+                <p className="text-sm font-medium text-brand-primary">Saving changes…</p>
               ) : feedback?.tone === "success" ? (
                 <p role="status" className="text-sm font-medium text-emerald-700">{feedback.text}</p>
               ) : feedback?.tone === "error" ? (
