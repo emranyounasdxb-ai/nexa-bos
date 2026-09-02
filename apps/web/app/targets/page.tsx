@@ -361,9 +361,9 @@ export default function TargetsPage() {
                 aria-selected={activeView === value}
                 aria-controls={`${value}-panel`}
                 className={cx(
-                  "inline-flex h-9 shrink-0 items-center gap-2 border-b-2 px-3 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f4c81]",
+                  "inline-flex h-9 shrink-0 items-center gap-2 border-b-2 px-3 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary",
                   activeView === value
-                    ? "border-[#0f4c81] text-[#0f4c81]"
+                    ? "border-brand-primary text-brand-primary"
                     : "border-transparent text-slate-600 hover:border-slate-300 hover:text-slate-900",
                 )}
                 onClick={() => setActiveView(value)}
@@ -431,7 +431,7 @@ export default function TargetsPage() {
                   {items.map((item) => (
                     <tr key={item.id}>
                       <Td className="capitalize">{item.level}</Td>
-                      <Td>{item.level === "employee" ? <Link className="font-medium text-[#0f4c81] underline-offset-2 hover:underline" href={`/reports/employees/${item.entityId}`}>{item.entityName}</Link> : item.entityName}</Td>
+                      <Td>{item.level === "employee" ? <Link className="font-medium text-brand-link underline-offset-2 hover:underline" href={`/reports/employees/${item.entityId}`}>{item.entityName}</Link> : item.entityName}</Td>
                       <Td>{item.periodMonth}</Td><Td>{item.productCode}</Td><Td>{item.bankCode ?? "Overall"}</Td><Td className="capitalize">{item.milestone}</Td>
                       <Td className="font-medium text-slate-900">{item.measurement === "amount" ? formatAed(item.result?.effectiveTarget ?? item.targetValue) : item.result?.effectiveTarget ?? item.targetValue}</Td>
                       <Td>{item.measurement === "amount" ? formatAed(item.result?.actual) : item.result?.actual}</Td><Td>{formatPct(item.result?.achievementPct)}</Td><Td>{item.result?.gap}</Td><Td>{item.result?.dailyRequiredRunRate ?? "—"}</Td>

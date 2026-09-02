@@ -1,19 +1,19 @@
 import type { LegendComponentOption, TooltipComponentOption } from "echarts/components";
 
 export const chartPalette = {
-  navy: "#0f4c81",
-  blue: "#2563eb",
-  blueSoft: "rgba(37, 99, 235, 0.10)",
-  emerald: "#10b981",
-  emeraldSoft: "rgba(16, 185, 129, 0.08)",
-  violet: "#8b5cf6",
-  amber: "#f59e0b",
-  red: "#dc2626",
-  slate900: "#0f172a",
-  slate700: "#334155",
-  slate500: "#64748b",
-  slate300: "#cbd5e1",
-  slate200: "#e2e8f0",
+  navy: "#6f0d83",
+  blue: "#4c56d7",
+  blueSoft: "rgba(76, 86, 215, 0.10)",
+  emerald: "#15805d",
+  emeraldSoft: "rgba(21, 128, 93, 0.08)",
+  violet: "#e026aa",
+  amber: "#9a5a00",
+  red: "#c93646",
+  slate900: "#1e1e1e",
+  slate700: "#5f5b6b",
+  slate500: "#8b8495",
+  slate300: "#ddd8e5",
+  slate200: "#f9f7fa",
   white: "#ffffff",
 } as const;
 

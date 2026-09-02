@@ -15,11 +15,11 @@ export function cx(...parts: Array<string | false | null | undefined>): string {
 }
 
 export const focusRing =
-  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f4c81]";
+  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary";
 
 const controlSurfaceClass = cx(
-  "w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 shadow-[0_1px_1px_rgba(15,23,42,0.03)] transition-colors placeholder:text-slate-400",
-  "hover:border-slate-400 focus:border-[#0f4c81] disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-500",
+  "w-full rounded-md border border-brand-border bg-surface px-3 text-sm text-text-primary shadow-[0_1px_1px_rgba(30,30,30,0.03)] transition-colors placeholder:text-text-disabled",
+  "hover:border-brand-primary focus:border-brand-primary disabled:cursor-not-allowed disabled:bg-surface-subtle disabled:text-text-disabled",
   focusRing,
 );
 
@@ -27,7 +27,7 @@ export const controlClass = cx("h-8 py-0", controlSurfaceClass);
 
 export const multilineControlClass = cx("min-h-10 py-2", controlSurfaceClass);
 
-export const controlErrorClass = "border-red-700 focus:border-red-700";
+export const controlErrorClass = "border-danger focus:border-danger";
 
 const buttonBaseClass = cx(
   "inline-flex items-center justify-center whitespace-nowrap rounded-md font-medium transition-colors",
@@ -43,11 +43,12 @@ const buttonSizeClass: Record<ButtonSize, string> = {
   icon: "size-8 shrink-0 gap-0 p-0 text-sm",
 };
 
-const primaryButtonTone = "bg-slate-900 text-white hover:bg-slate-800 active:bg-slate-950";
+const primaryButtonTone =
+  "bg-brand-primary text-white hover:bg-brand-primary-hover active:bg-brand-primary-pressed";
 const secondaryButtonTone =
-  "border border-slate-300 bg-white text-slate-700 hover:border-slate-400 hover:bg-slate-50 hover:text-slate-900";
-const ghostButtonTone = "text-slate-600 hover:bg-slate-100 hover:text-slate-900";
-const dangerButtonTone = "bg-red-700 text-white hover:bg-red-800 active:bg-red-900";
+  "border border-brand-primary bg-surface text-brand-primary hover:bg-brand-soft active:bg-brand-soft";
+const ghostButtonTone = "text-text-secondary hover:bg-brand-soft hover:text-brand-primary";
+const dangerButtonTone = "bg-danger text-white hover:bg-danger active:bg-danger";
 
 export const primaryButtonClass = cx(
   buttonBaseClass,
@@ -114,7 +115,7 @@ export function Card({ children, className }: { children: ReactNode; className?:
   return (
     <div
       className={cx(
-        "rounded-[10px] border border-slate-200/90 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.035)]",
+        "rounded-[10px] border border-brand-border bg-surface p-4 shadow-[0_1px_2px_rgba(30,30,30,0.035)]",
         className,
       )}
     >
@@ -135,8 +136,8 @@ export function SectionHeader({
   return (
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div>
-        <h2 className="text-base font-semibold text-slate-900">{title}</h2>
-        {description ? <p className="mt-1 text-sm text-slate-500">{description}</p> : null}
+        <h2 className="text-base font-semibold text-text-primary">{title}</h2>
+        {description ? <p className="mt-1 text-sm text-text-secondary">{description}</p> : null}
       </div>
       {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}
     </div>
@@ -155,7 +156,7 @@ export function Field({
   className?: string;
 }) {
   return (
-    <label className={cx("block text-sm font-medium text-slate-700", className)} htmlFor={htmlFor}>
+    <label className={cx("block text-sm font-medium text-text-primary", className)} htmlFor={htmlFor}>
       {label}
       {children}
     </label>
@@ -255,8 +256,8 @@ export function ErrorText({ children }: { children: ReactNode }) {
     return null;
   }
   return (
-    <p role="alert" className="flex items-start gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
-      <IconAlertTriangle className="mt-0.5 size-4 shrink-0" />
+    <p role="alert" className="flex items-start gap-2 rounded-md border border-danger-soft bg-danger-soft px-3 py-2 text-sm text-text-primary">
+      <IconAlertTriangle className="mt-0.5 size-4 shrink-0 text-danger" />
       <span>{children}</span>
     </p>
   );
@@ -265,12 +266,12 @@ export function ErrorText({ children }: { children: ReactNode }) {
 type BadgeTone = "neutral" | "blue" | "green" | "amber" | "red" | "purple";
 
 const badgeToneClass: Record<BadgeTone, string> = {
-  neutral: "border-slate-200 bg-slate-50 text-slate-700",
-  blue: "border-blue-200 bg-blue-50 text-blue-800",
-  green: "border-emerald-200 bg-emerald-50 text-emerald-800",
-  amber: "border-amber-200 bg-amber-50 text-amber-800",
-  red: "border-red-200 bg-red-50 text-red-800",
-  purple: "border-violet-200 bg-violet-50 text-violet-800",
+  neutral: "border-brand-border bg-surface-subtle text-text-secondary",
+  blue: "border-information-soft bg-information-soft text-information",
+  green: "border-success-soft bg-success-soft text-text-primary",
+  amber: "border-warning-soft bg-warning-soft text-warning",
+  red: "border-danger-soft bg-danger-soft text-text-primary",
+  purple: "border-brand-soft bg-brand-soft text-brand-primary",
 };
 
 export function Badge({ children, tone = "neutral" }: { children: ReactNode; tone?: BadgeTone }) {
@@ -300,7 +301,7 @@ export function FilterBar({ children, className }: { children: ReactNode; classN
   return (
     <div
       className={cx(
-        "grid gap-4 rounded-[10px] border border-slate-200/90 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.03)] sm:grid-cols-2 lg:grid-cols-3",
+        "grid gap-4 rounded-[10px] border border-brand-border bg-surface p-4 shadow-[0_1px_2px_rgba(30,30,30,0.03)] sm:grid-cols-2 lg:grid-cols-3",
         className,
       )}
     >
@@ -311,8 +312,8 @@ export function FilterBar({ children, className }: { children: ReactNode; classN
 
 export function LoadingState({ children = "Loading…" }: { children?: ReactNode }) {
   return (
-    <div role="status" className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-6 text-sm text-slate-500">
-      <span className="size-5 animate-spin rounded-full border-2 border-slate-200 border-t-[#0f4c81]" aria-hidden="true" />
+    <div role="status" className="flex items-center gap-3 rounded-xl border border-brand-border bg-surface px-4 py-6 text-sm text-text-secondary">
+      <span className="size-5 animate-spin rounded-full border-2 border-brand-border border-t-brand-primary" aria-hidden="true" />
       {children}
     </div>
   );
@@ -320,8 +321,8 @@ export function LoadingState({ children = "Loading…" }: { children?: ReactNode
 
 export function EmptyState({ children }: { children: ReactNode }) {
   return (
-    <div className="flex min-h-24 flex-col items-center justify-center px-4 py-6 text-center text-sm text-slate-500">
-      <IconInfoCircle className="mb-2 size-6 text-slate-400" />
+    <div className="flex min-h-24 flex-col items-center justify-center px-4 py-6 text-center text-sm text-text-secondary">
+      <IconInfoCircle className="mb-2 size-6 text-text-disabled" />
       {children}
     </div>
   );
@@ -331,11 +332,11 @@ export function TableShell({ children, className }: { children: ReactNode; class
   return (
     <div
       className={cx(
-        "overflow-x-auto rounded-[10px] border border-slate-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.03)]",
+        "overflow-x-auto rounded-[10px] border border-brand-border bg-surface shadow-[0_1px_2px_rgba(30,30,30,0.03)]",
         className,
       )}
     >
-      <table className="min-w-full text-left text-[13px] leading-5 [&_tbody_tr]:border-t [&_tbody_tr]:border-slate-100 [&_tbody_tr]:transition-colors [&_tbody_tr:hover]:bg-slate-50/80">
+      <table className="min-w-full text-left text-[13px] leading-5 [&_tbody_tr]:border-t [&_tbody_tr]:border-brand-border [&_tbody_tr]:transition-colors [&_tbody_tr:hover]:bg-brand-soft/60">
         {children}
       </table>
     </div>
@@ -343,7 +344,7 @@ export function TableShell({ children, className }: { children: ReactNode; class
 }
 
 export function TableHead({ children }: { children: ReactNode }) {
-  return <thead className="bg-slate-50 text-[11px] uppercase tracking-[0.04em] text-slate-500">{children}</thead>;
+  return <thead className="bg-surface-subtle text-[11px] uppercase tracking-[0.04em] text-text-secondary">{children}</thead>;
 }
 
 export function Th({ children, className }: { children: ReactNode; className?: string }) {
@@ -351,7 +352,7 @@ export function Th({ children, className }: { children: ReactNode; className?: s
 }
 
 export function Td({ children, className }: { children: ReactNode; className?: string }) {
-  return <td className={cx("px-3 py-2 align-middle text-slate-700", className)}>{children}</td>;
+  return <td className={cx("px-3 py-2 align-middle text-text-primary", className)}>{children}</td>;
 }
 
 export function DialogPanel({
@@ -402,7 +403,7 @@ export function PublicScreen({
   wide?: boolean;
 }) {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#f4f6f8] px-4 py-10 sm:px-6">
+    <main className="flex min-h-screen items-center justify-center bg-app-background px-4 py-10 sm:px-6">
       <div className={cx("w-full", wide ? "max-w-xl" : "max-w-md")}>
         <div className="mb-6 flex items-center justify-center">
           <Image

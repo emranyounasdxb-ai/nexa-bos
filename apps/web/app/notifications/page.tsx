@@ -147,7 +147,7 @@ export default function NotificationsPage() {
                   ? "bg-red-700"
                   : item.severity.toLowerCase() === "urgent"
                     ? "bg-amber-500"
-                    : "bg-[#0f4c81]"
+                    : "bg-brand-primary"
               }`}
             />
             <div className="flex flex-wrap items-start justify-between gap-3">

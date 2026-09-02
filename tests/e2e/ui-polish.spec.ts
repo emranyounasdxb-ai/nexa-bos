@@ -574,7 +574,7 @@ test("sidebar groups are folded by default and toggle across desktop and mobile"
   await expect(sidebar).toHaveCSS("width", "224px");
   await expect(sidebar.getByRole("link", { name: "Users", exact: true })).toBeHidden();
   await expect(sidebar.locator('a[href="/users"]')).toHaveAttribute("aria-current", "page");
-  await expect(peopleMenu).toHaveClass(/bg-blue-50/);
+  await expect(peopleMenu).toHaveClass(/bg-brand-soft/);
   await page.mouse.move(1200, 300);
   await page.getByLabel(/Notifications, \d+ unread/).focus();
   await expect(sidebar).toHaveCSS("width", "80px");

@@ -201,3 +201,76 @@ test("approved AMAFH CORE branding is used across public and responsive authenti
   await expect(home.locator('img[src="/brand/amafh-core-full-logo-exact.svg"]').first()).toBeVisible();
   await expect(page.getByText(/NEXA BOS/i)).toHaveCount(0);
 });
+
+test("AMAFH CORE semantic colors drive primary actions, focus, navigation, and surfaces", async ({
+  page,
+  request,
+}) => {
+  await ensureOwner(request);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/login");
+
+  const tokens = await page.evaluate(() => {
+    const styles = window.getComputedStyle(document.documentElement);
+    return Object.fromEntries(
+      [
+        "--amafh-primary",
+        "--amafh-primary-hover",
+        "--amafh-primary-pressed",
+        "--amafh-link",
+        "--amafh-brand-soft",
+        "--amafh-background",
+        "--amafh-surface",
+        "--amafh-border",
+        "--amafh-text",
+        "--amafh-text-secondary",
+        "--amafh-success",
+        "--amafh-warning",
+        "--amafh-danger",
+        "--amafh-info",
+      ].map((name) => [name, styles.getPropertyValue(name).trim()]),
+    );
+  });
+  expect(tokens).toEqual({
+    "--amafh-primary": "#6f0d83",
+    "--amafh-primary-hover": "#570a68",
+    "--amafh-primary-pressed": "#430750",
+    "--amafh-link": "#4c56d7",
+    "--amafh-brand-soft": "#f7ecf8",
+    "--amafh-background": "#f6f7fa",
+    "--amafh-surface": "#fff",
+    "--amafh-border": "#ddd8e5",
+    "--amafh-text": "#1e1e1e",
+    "--amafh-text-secondary": "#5f5b6b",
+    "--amafh-success": "#15805d",
+    "--amafh-warning": "#9a5a00",
+    "--amafh-danger": "#c93646",
+    "--amafh-info": "#3d5bd9",
+  });
+  await expect(page.locator("body")).toHaveCSS("background-color", "rgb(246, 247, 250)");
+  await expect(page.getByRole("button", { name: "Sign in", exact: true })).toHaveCSS(
+    "background-color",
+    "rgb(111, 13, 131)",
+  );
+
+  const email = page.getByLabel("Email");
+  await email.focus();
+  await expect(email).toHaveCSS("outline-color", "rgb(111, 13, 131)");
+  await expect(email).toHaveCSS("outline-width", "2px");
+
+  await signIn(page, request);
+  const dashboardLink = page
+    .getByLabel("Application sidebar")
+    .getByRole("link", { name: "Dashboard", exact: true });
+  await expect(dashboardLink).toHaveCSS("background-color", "rgb(247, 236, 248)");
+  await expect(dashboardLink).toHaveCSS("color", "rgb(111, 13, 131)");
+
+  const refresh = page.getByTestId("dashboard-actions").getByRole("button", { name: "Refresh" });
+  await expect(refresh).toHaveCSS("background-color", "rgb(111, 13, 131)");
+  await expect(refresh).toHaveCSS("color", "rgb(255, 255, 255)");
+
+  const compare = page.getByTestId("dashboard-actions").getByRole("button", { name: "Compare" });
+  await expect(compare).toHaveCSS("background-color", "rgb(255, 255, 255)");
+  await expect(compare).toHaveCSS("border-color", "rgb(111, 13, 131)");
+  await expect(compare).toHaveCSS("color", "rgb(111, 13, 131)");
+});

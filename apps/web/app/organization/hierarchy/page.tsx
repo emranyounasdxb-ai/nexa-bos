@@ -325,14 +325,14 @@ function HierarchyBranch({
         className={cx(
           "flex w-52 items-center gap-1.5 rounded-md border bg-white px-2 py-2 shadow-[0_1px_2px_rgba(15,23,42,0.05)]",
           selectedId === node.id
-            ? "border-[#0f4c81] bg-blue-50 ring-2 ring-[#0f4c81]/20"
+            ? "border-brand-primary bg-brand-soft ring-2 ring-brand-primary/20"
             : "border-slate-200",
         )}
       >
         <button
           type="button"
           aria-label={`Select ${node.fullName}`}
-          className="flex min-w-0 flex-1 items-center gap-2 rounded-sm text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#0f4c81]"
+          className="flex min-w-0 flex-1 items-center gap-2 rounded-sm text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand-primary"
           onClick={() => onSelect(node.id)}
         >
           <span
@@ -368,7 +368,7 @@ function HierarchyBranch({
             type="button"
             aria-label={`${open ? "Collapse" : "Expand"} branch for ${node.fullName}`}
             aria-expanded={open}
-            className="mt-0.5 size-5 shrink-0 rounded border border-slate-300 text-xs leading-none text-slate-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#0f4c81]"
+            className="mt-0.5 size-5 shrink-0 rounded border border-slate-300 text-xs leading-none text-slate-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand-primary"
             onClick={() => onToggle(node.id)}
           >
             {open ? "−" : "+"}
@@ -460,7 +460,7 @@ function SelectedContext({
           <p className="text-slate-600">No authorized direct reports.</p>
         )}
       </div>
-      <Link className="text-sm font-medium text-[#0f4c81] underline" href={`/users/${node.id}`}>
+      <Link className="text-sm font-medium text-brand-link underline" href={`/users/${node.id}`}>
         Open employee profile
       </Link>
     </Card>

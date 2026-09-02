@@ -532,7 +532,7 @@ function CatalogInner() {
                   "border-b-2 px-3 py-3 text-sm font-medium transition-colors sm:px-4",
                   focusRing,
                   activeTab === tab.key
-                    ? "border-[#0f4c81] text-[#0f4c81]"
+                    ? "border-brand-primary text-brand-primary"
                     : "border-transparent text-slate-600 hover:border-slate-300 hover:text-slate-950",
                 )}
                 onClick={() => changeTab(tab.key)}
@@ -712,7 +712,7 @@ function CatalogInner() {
                           <label key={field.key} className="flex min-w-0 items-start gap-2 rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2.5">
                             <input
                               type="checkbox"
-                              className="mt-0.5 size-4 shrink-0 rounded border-slate-300 text-[#0f4c81]"
+                              className="mt-0.5 size-4 shrink-0 rounded border-slate-300 text-brand-primary"
                               aria-label={`${field.label} amount required`}
                               checked={ruleDraft[field.key]}
                               onChange={(event) => {
@@ -755,7 +755,7 @@ function CatalogInner() {
                             className={cx(
                               "flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium",
                               ruleDraft.targetMeasurement === measurement
-                                ? "border-[#0f4c81] bg-blue-50 text-[#0f4c81]"
+                                ? "border-brand-primary bg-brand-soft text-brand-primary"
                                 : "border-slate-200 bg-white text-slate-700",
                             )}
                           >

@@ -154,7 +154,7 @@ function NotificationBell() {
     >
       <IconBell className="size-5" />
       {unreadCount > 0 ? (
-        <span className="absolute -right-1 -top-1 inline-flex min-w-5 justify-center rounded-full bg-[#0f4c81] px-1.5 py-0.5 text-[10px] font-bold leading-4 text-white ring-2 ring-white">
+        <span className="absolute -right-1 -top-1 inline-flex min-w-5 justify-center rounded-full bg-brand-primary px-1.5 py-0.5 text-[10px] font-bold leading-4 text-white ring-2 ring-white">
           {unreadCount > 99 ? "99+" : unreadCount}
         </span>
       ) : null}
@@ -303,7 +303,7 @@ function Shell({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="min-h-screen bg-[#f4f6f8] lg:flex">
+    <div className="min-h-screen bg-app-background lg:flex">
       {mobileNavOpen ? (
         <button
           type="button"
@@ -316,7 +316,7 @@ function Shell({ children }: { children: ReactNode }) {
         aria-label="Application sidebar"
         data-expanded={sidebarExpanded}
         className={cx(
-          "fixed inset-y-0 left-0 z-50 flex w-72 flex-col overflow-x-hidden bg-[#f4f6f8] transition-transform duration-200 ease-out motion-reduce:duration-0 motion-reduce:transition-none lg:sticky lg:top-0 lg:z-20 lg:h-screen lg:translate-x-0 lg:transition-[width]",
+          "fixed inset-y-0 left-0 z-50 flex w-72 flex-col overflow-x-hidden bg-app-background transition-transform duration-200 ease-out motion-reduce:duration-0 motion-reduce:transition-none lg:sticky lg:top-0 lg:z-20 lg:h-screen lg:translate-x-0 lg:transition-[width]",
           mobileNavOpen ? "translate-x-0" : "-translate-x-full",
           sidebarExpanded ? "lg:w-56" : "lg:w-20",
         )}
@@ -405,7 +405,7 @@ function Shell({ children }: { children: ReactNode }) {
                   focusRing,
                   "group flex min-h-11 items-center gap-3 rounded-md px-3 text-sm font-semibold transition-colors",
                   isActiveRoute(pathname, dashboardItem.href)
-                    ? "bg-blue-50 text-[#0f4c81]"
+                    ? "bg-brand-soft text-brand-primary"
                     : "text-slate-700 hover:bg-slate-50 hover:text-slate-950",
                 )}
               >
@@ -414,7 +414,7 @@ function Shell({ children }: { children: ReactNode }) {
                   className={cx(
                     "inline-flex size-8 shrink-0 items-center justify-center rounded-md border",
                     isActiveRoute(pathname, dashboardItem.href)
-                      ? "border-blue-200 bg-white text-[#0f4c81]"
+                      ? "border-brand-soft bg-surface text-brand-primary"
                       : "border-slate-200 bg-slate-50 text-slate-500 group-hover:bg-white",
                   )}
                 >
@@ -451,7 +451,7 @@ function Shell({ children }: { children: ReactNode }) {
                       focusRing,
                       "group relative flex min-h-11 w-full items-center gap-3 rounded-md px-3 text-left text-sm font-semibold transition-colors",
                       groupActive
-                        ? "bg-blue-50 text-[#0f4c81]"
+                        ? "bg-brand-soft text-brand-primary"
                         : "text-slate-700 hover:bg-slate-50 hover:text-slate-950",
                     )}
                     onClick={() => toggleGroup(group.label)}
@@ -461,7 +461,7 @@ function Shell({ children }: { children: ReactNode }) {
                       className={cx(
                         "inline-flex size-8 shrink-0 items-center justify-center rounded-md border",
                         groupActive
-                          ? "border-blue-200 bg-white text-[#0f4c81]"
+                          ? "border-brand-soft bg-surface text-brand-primary"
                           : "border-slate-200 bg-slate-50 text-slate-500 group-hover:bg-white",
                       )}
                     >
@@ -502,11 +502,11 @@ function Shell({ children }: { children: ReactNode }) {
                             focusRing,
                             "group flex min-h-9 items-center gap-2 rounded-md px-2 text-[13px] font-medium transition-colors",
                             active
-                              ? "bg-blue-50 text-[#0f4c81]"
+                              ? "bg-brand-soft text-brand-primary"
                               : "text-slate-500 hover:bg-slate-50 hover:text-slate-900",
                           )}
                         >
-                          <span aria-hidden="true" className={cx("shrink-0 text-slate-400", active && "text-[#0f4c81]")}>
+                          <span aria-hidden="true" className={cx("shrink-0 text-slate-400", active && "text-brand-primary")}>
                             <SidebarIcon icon={item.icon} item />
                           </span>
                           <span
@@ -531,7 +531,7 @@ function Shell({ children }: { children: ReactNode }) {
       </aside>
 
       <div data-testid="authenticated-content" className="min-w-0 flex-1">
-        <header className="sticky top-0 z-30 flex h-[70px] items-center justify-between gap-4 bg-[#f4f6f8] px-4 backdrop-blur-sm sm:px-6 lg:px-8">
+        <header className="sticky top-0 z-30 flex h-[70px] items-center justify-between gap-4 bg-app-background px-4 backdrop-blur-sm sm:px-6 lg:px-8">
           <div className="flex min-w-0 items-center gap-3">
             <button
               type="button"
@@ -668,10 +668,10 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   if (!ready) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#f4f6f8]" role="status">
+      <div className="flex min-h-screen items-center justify-center bg-app-background" role="status">
         <span className="inline-flex items-center gap-3 text-sm text-slate-500">
           <span
-            className="size-5 animate-spin rounded-full border-2 border-slate-200 border-t-[#0f4c81]"
+            className="size-5 animate-spin rounded-full border-2 border-slate-200 border-t-brand-primary"
             aria-hidden="true"
           />
           Loading AMAFH CORE…
