@@ -187,7 +187,8 @@ export default function ApplicationsPage() {
         }
       />
       <form
-        className="grid gap-3 rounded-xl border border-slate-200 bg-white p-4 md:grid-cols-3"
+        data-testid="application-filters"
+        className="grid grid-cols-1 gap-x-3 gap-y-2 rounded-xl border border-slate-200 bg-white p-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6"
         onSubmit={(event) => {
           event.preventDefault();
           setPage(1);
@@ -195,7 +196,7 @@ export default function ApplicationsPage() {
         }}
       >
         <Select
-          className="mt-0"
+          className="mt-0 self-end"
           aria-label="Filter by bank"
           value={filters.bank_id}
           onChange={(event) => setFilters({ ...filters, bank_id: event.target.value })}
@@ -208,7 +209,7 @@ export default function ApplicationsPage() {
           ))}
         </Select>
         <Select
-          className="mt-0"
+          className="mt-0 self-end"
           aria-label="Filter product"
           value={filters.product_id}
           onChange={(event) => setFilters({ ...filters, product_id: event.target.value })}
@@ -221,7 +222,7 @@ export default function ApplicationsPage() {
           ))}
         </Select>
         <Select
-          className="mt-0"
+          className="mt-0 self-end"
           aria-label="Filter case owner"
           value={filters.case_owner_id}
           onChange={(event) => setFilters({ ...filters, case_owner_id: event.target.value })}
@@ -234,7 +235,7 @@ export default function ApplicationsPage() {
           ))}
         </Select>
         <Select
-          className="mt-0"
+          className="mt-0 self-end"
           aria-label="Filter office"
           value={filters.office_id}
           onChange={(event) =>
@@ -249,7 +250,7 @@ export default function ApplicationsPage() {
           ))}
         </Select>
         <Select
-          className="mt-0"
+          className="mt-0 self-end"
           aria-label="Filter department"
           value={filters.department_id}
           onChange={(event) =>
@@ -264,7 +265,7 @@ export default function ApplicationsPage() {
           ))}
         </Select>
         <Select
-          className="mt-0"
+          className="mt-0 self-end"
           aria-label="Filter team"
           value={filters.team_id}
           onChange={(event) => setFilters({ ...filters, team_id: event.target.value })}
@@ -277,7 +278,7 @@ export default function ApplicationsPage() {
           ))}
         </Select>
         <Select
-          className="mt-0"
+          className="mt-0 self-end"
           aria-label="Filter current stage"
           value={filters.current_stage_id}
           onChange={(event) => setFilters({ ...filters, current_stage_id: event.target.value })}
@@ -290,7 +291,7 @@ export default function ApplicationsPage() {
           ))}
         </Select>
         <Select
-          className="mt-0"
+          className="mt-0 self-end"
           aria-label="Filter terminal outcome"
           value={filters.terminal_outcome}
           onChange={(event) => setFilters({ ...filters, terminal_outcome: event.target.value })}
@@ -302,7 +303,7 @@ export default function ApplicationsPage() {
             </option>
           ))}
         </Select>
-        <label className="text-sm">
+        <label className="flex h-full flex-col justify-end text-xs font-medium leading-4 text-slate-600">
           Submission date
           <DateRangePicker
             aria-label="Submission date"
@@ -313,7 +314,7 @@ export default function ApplicationsPage() {
             }
           />
         </label>
-        <label className="text-sm">
+        <label className="flex h-full flex-col justify-end text-xs font-medium leading-4 text-slate-600">
           Bank stage date
           <DateRangePicker
             aria-label="Bank stage date"
@@ -324,7 +325,7 @@ export default function ApplicationsPage() {
             }
           />
         </label>
-        <label className="text-sm">
+        <label className="flex h-full flex-col justify-end text-xs font-medium leading-4 text-slate-600">
           Created date
           <DateRangePicker
             aria-label="Created date"
@@ -347,7 +348,7 @@ export default function ApplicationsPage() {
             ["funded_max", "Funded max"],
           ] as const
         ).map(([key, label]) => (
-          <label key={key} className="text-sm">
+          <label key={key} className="flex h-full flex-col justify-end text-xs font-medium leading-4 text-slate-600">
             {label}
             <TextInput
               className="mt-1"
@@ -360,7 +361,7 @@ export default function ApplicationsPage() {
             />
           </label>
         ))}
-        <div className="flex flex-wrap items-end gap-2 md:col-span-3">
+        <div className="flex flex-wrap items-center gap-2 self-end">
           <Button type="submit">Apply filters</Button>
           <Button
             variant="secondary"
