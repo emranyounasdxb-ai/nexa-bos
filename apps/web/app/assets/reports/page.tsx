@@ -140,7 +140,7 @@ export default function AssetReportsPage() {
   const columns = data?.items.length ? Object.keys(data.items[0]) : [];
 
   return (
-    <section className="space-y-6">
+    <section className="space-y-4">
       <PageHeader
         title="Asset Reports"
         description={

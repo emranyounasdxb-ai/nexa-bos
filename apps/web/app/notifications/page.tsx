@@ -113,7 +113,7 @@ export default function NotificationsPage() {
   }
 
   return (
-    <section className="space-y-5">
+    <section className="space-y-4">
       <PageHeader
         title="Notification center"
         description={`${unreadCount} unread notification${unreadCount === 1 ? "" : "s"}`}

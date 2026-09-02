@@ -73,7 +73,7 @@ export default function OrganizationPage() {
   }
 
   return (
-    <section className="space-y-8">
+    <section className="space-y-4">
       <PageHeader
         title="Organization masters"
         description="Manage the offices, departments, designations, and teams available to authorized workflows."

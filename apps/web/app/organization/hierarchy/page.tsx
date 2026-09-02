@@ -108,7 +108,7 @@ export default function OrganizationHierarchyPage() {
   }
 
   return (
-    <section className="space-y-6">
+    <section className="space-y-4">
       <PageHeader
         title="Organization hierarchy"
         description="Current reporting relationships from saved employee reporting-manager data."

@@ -82,7 +82,7 @@ export function PageHeader({
   actions?: ReactNode;
 }) {
   if (!actions) return null;
-  return <div className="flex flex-wrap items-center justify-end gap-2">{actions}</div>;
+  return <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">{actions}</div>;
 }
 
 export function SearchActionBar({
@@ -115,7 +115,7 @@ export function Card({ children, className }: { children: ReactNode; className?:
   return (
     <div
       className={cx(
-        "rounded-[10px] border border-brand-border bg-surface p-4 shadow-[0_1px_2px_rgba(30,30,30,0.035)]",
+        "min-w-0 rounded-[10px] border border-brand-border bg-surface p-3 shadow-[0_1px_2px_rgba(30,30,30,0.035)] sm:p-4",
         className,
       )}
     >
@@ -134,8 +134,8 @@ export function SectionHeader({
   actions?: ReactNode;
 }) {
   return (
-    <div className="flex flex-wrap items-start justify-between gap-3">
-      <div>
+    <div className="flex min-w-0 flex-wrap items-start justify-between gap-2 sm:gap-3">
+      <div className="min-w-0">
         <h2 className="text-base font-semibold text-text-primary">{title}</h2>
         {description ? <p className="mt-1 text-sm text-text-secondary">{description}</p> : null}
       </div>
@@ -301,7 +301,7 @@ export function FilterBar({ children, className }: { children: ReactNode; classN
   return (
     <div
       className={cx(
-        "grid gap-4 rounded-[10px] border border-brand-border bg-surface p-4 shadow-[0_1px_2px_rgba(30,30,30,0.03)] sm:grid-cols-2 lg:grid-cols-3",
+        "grid min-w-0 gap-3 rounded-[10px] border border-brand-border bg-surface p-3 shadow-[0_1px_2px_rgba(30,30,30,0.03)] sm:grid-cols-2 sm:p-4 lg:grid-cols-3",
         className,
       )}
     >
@@ -312,7 +312,7 @@ export function FilterBar({ children, className }: { children: ReactNode; classN
 
 export function LoadingState({ children = "Loading…" }: { children?: ReactNode }) {
   return (
-    <div role="status" className="flex items-center gap-3 rounded-xl border border-brand-border bg-surface px-4 py-6 text-sm text-text-secondary">
+    <div role="status" className="flex min-h-20 items-center gap-3 rounded-[10px] border border-brand-border bg-surface px-4 py-4 text-sm text-text-secondary">
       <span className="size-5 animate-spin rounded-full border-2 border-brand-border border-t-brand-primary" aria-hidden="true" />
       {children}
     </div>
@@ -321,7 +321,7 @@ export function LoadingState({ children = "Loading…" }: { children?: ReactNode
 
 export function EmptyState({ children }: { children: ReactNode }) {
   return (
-    <div className="flex min-h-24 flex-col items-center justify-center px-4 py-6 text-center text-sm text-text-secondary">
+    <div className="flex min-h-20 flex-col items-center justify-center px-4 py-4 text-center text-sm text-text-secondary">
       <IconInfoCircle className="mb-2 size-6 text-text-disabled" />
       {children}
     </div>
@@ -332,7 +332,7 @@ export function TableShell({ children, className }: { children: ReactNode; class
   return (
     <div
       className={cx(
-        "overflow-x-auto rounded-[10px] border border-brand-border bg-surface shadow-[0_1px_2px_rgba(30,30,30,0.03)]",
+        "max-w-full overflow-x-auto overscroll-x-contain rounded-[10px] border border-brand-border bg-surface shadow-[0_1px_2px_rgba(30,30,30,0.03)]",
         className,
       )}
     >
@@ -372,7 +372,7 @@ export function DialogPanel({
         role="dialog"
         aria-modal="true"
         aria-labelledby="bos-dialog-title"
-        className="max-h-[calc(100vh-2rem)] w-full overflow-y-auto rounded-t-xl border border-slate-200 bg-white p-5 shadow-[0_20px_40px_rgba(15,23,42,0.18)] sm:max-w-lg sm:rounded-xl"
+        className="max-h-[calc(100vh-2rem)] min-w-0 w-full overflow-y-auto rounded-t-[10px] border border-brand-border bg-surface p-4 shadow-[0_20px_40px_rgba(30,30,30,0.18)] sm:max-w-lg sm:rounded-[10px] sm:p-5"
       >
         <div className="flex items-start justify-between gap-4">
           <div>
@@ -385,7 +385,7 @@ export function DialogPanel({
             <IconX className="size-4" />
           </Button>
         </div>
-        <div className="mt-5">{children}</div>
+        <div className="mt-4 min-w-0">{children}</div>
       </section>
     </div>
   );
@@ -403,9 +403,9 @@ export function PublicScreen({
   wide?: boolean;
 }) {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-app-background px-4 py-10 sm:px-6">
+    <main className="flex min-h-screen items-center justify-center bg-app-background px-4 py-6 sm:px-6 sm:py-8">
       <div className={cx("w-full", wide ? "max-w-xl" : "max-w-md")}>
-        <div className="mb-6 flex items-center justify-center">
+        <div className="mb-5 flex items-center justify-center">
           <Image
             src="/brand/amafh-core-full-logo-exact.svg"
             alt="AMAFH CORE"
@@ -416,7 +416,7 @@ export function PublicScreen({
             unoptimized
           />
         </div>
-        <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-[0_8px_24px_rgba(15,23,42,0.08)] sm:p-8">
+        <section className="rounded-[10px] border border-brand-border bg-surface p-5 shadow-[0_8px_24px_rgba(30,30,30,0.08)] sm:p-6">
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">{title}</h1>
           {description ? <p className="mt-2 text-sm leading-6 text-slate-600">{description}</p> : null}
           {children}

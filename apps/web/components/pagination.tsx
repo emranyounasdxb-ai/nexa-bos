@@ -85,15 +85,15 @@ export function Pagination({
     <nav
       aria-label="List pagination"
       className={cx(
-        "flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 bg-white px-3 py-2.5 text-sm",
+        "flex max-w-full flex-col items-stretch justify-between gap-2 border-t border-brand-border bg-surface px-3 py-2 text-sm sm:flex-row sm:flex-wrap sm:items-center",
         className,
       )}
     >
       <p className="text-xs font-medium tabular-nums text-slate-500">
         Showing {start.toLocaleString()}–{end.toLocaleString()} of {total.toLocaleString()}
       </p>
-      <div className="flex flex-wrap items-center justify-end gap-2">
-        <div className="flex items-center gap-1" aria-label={`Page ${page} of ${totalPages}`}>
+      <div className="flex flex-wrap items-center justify-between gap-2 sm:justify-end">
+        {totalPages > 1 ? <div className="flex flex-wrap items-center gap-1" aria-label={`Page ${page} of ${totalPages}`}>
           <Button
             type="button"
             variant="secondary"
@@ -132,7 +132,7 @@ export function Pagination({
           >
             Next
           </Button>
-        </div>
+        </div> : null}
         <label className="flex items-center gap-2 whitespace-nowrap text-xs font-medium text-slate-600">
           Rows per page
           <Select

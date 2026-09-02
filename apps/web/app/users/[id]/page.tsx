@@ -82,7 +82,7 @@ export default function UserProfilePage() {
   }
 
   return (
-    <section className="space-y-6">
+    <section className="space-y-4">
       <PageHeader
         title={user.fullName}
         description={user.userCode}

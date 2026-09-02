@@ -98,7 +98,7 @@ export default function ComparePage() {
   }
 
   return (
-    <section className="space-y-6">
+    <section className="space-y-4">
       <PageHeader title="Comparisons" description="Compare entities or periods within reporting scope." />
       <FilterBar>
         <label className="text-sm">

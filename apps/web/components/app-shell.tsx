@@ -610,7 +610,7 @@ function Shell({ children }: { children: ReactNode }) {
             </details>
           </div>
         </header>
-        <main className="w-full px-4 py-6 sm:px-6 lg:px-8 lg:py-8">{children}</main>
+        <main className="w-full min-w-0 max-w-full px-4 py-5 sm:px-6 lg:px-8 lg:py-6">{children}</main>
       </div>
     </div>
   );
