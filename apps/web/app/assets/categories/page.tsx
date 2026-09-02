@@ -116,7 +116,7 @@ export default function AssetCategoriesPage() {
   }
 
   return (
-    <section className="space-y-6">
+    <section className="space-y-4">
       <PageHeader
         title="Asset Categories"
         description="Configure future individually tracked Asset types without changing the custody model."

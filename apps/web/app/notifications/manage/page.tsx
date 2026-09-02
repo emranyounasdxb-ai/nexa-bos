@@ -300,7 +300,7 @@ export default function NotificationManagementPage() {
   }
 
   return (
-    <section className="space-y-6">
+    <section className="space-y-4">
       <PageHeader title="Notification administration" description="Configure deterministic in-app alerts, send urgent notices, and review audited actions." />
       <ErrorText>{error}</ErrorText>
       {message ? <p className="text-sm text-slate-700" aria-live="polite">{message}</p> : null}

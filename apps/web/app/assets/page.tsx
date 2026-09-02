@@ -216,7 +216,7 @@ export default function AssetsPage() {
   }
 
   return (
-    <section className="space-y-6">
+    <section className="space-y-4">
       <PageHeader
         title="Asset Register"
         description="Individually tracked company Assets and current Office or employee custody."

@@ -141,7 +141,7 @@ function ProfileInner() {
   }, [load]);
 
   return (
-    <section className="space-y-6">
+    <section className="space-y-4">
       <PageHeader
         title={data?.employee.fullName ?? "Employee performance"}
         description={data ? `${data.employee.employeeCode} · ${data.employee.userCode}` : undefined}

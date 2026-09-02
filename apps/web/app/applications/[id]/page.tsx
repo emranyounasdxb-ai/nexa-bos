@@ -183,7 +183,7 @@ export default function ApplicationDetailPage() {
   const selectedNext = nextStages.find((stage) => stage.id === stageId);
 
   return (
-    <section className="space-y-6">
+    <section className="space-y-4">
       <PageHeader
         title={item.applicationCode}
         description={`${item.customerCode} · ${item.customerName} · ${item.bankCode} / ${item.productCode}${item.productVariantCode ? ` / ${item.productVariantCode}` : ""} · Case Owner ${item.caseOwnerName}${item.terminalOutcome ? ` · ${item.terminalOutcome}` : ""}`}

@@ -716,3 +716,59 @@ test("shared shell supports breadcrumbs, auto expansion, user menu, and mobile n
   await page.getByRole("button", { name: "Close navigation" }).last().click();
   await expect(page.getByRole("button", { name: "Open navigation" })).toBeVisible();
 });
+
+test("shared application layout stays compact, aligned, and overflow-free across core routes", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(180_000);
+  await signIn(page, request);
+
+  const routes = [
+    "/reports",
+    "/customers",
+    "/applications",
+    "/attendance",
+    "/users",
+    "/targets",
+    "/targets/kpi",
+    "/finance",
+    "/assets",
+    "/catalog",
+    "/user-types",
+    "/notifications",
+  ];
+
+  for (const viewport of [
+    { width: 1440, height: 900, expectedMainPaddingTop: "24px" },
+    { width: 390, height: 844, expectedMainPaddingTop: "20px" },
+  ]) {
+    await page.setViewportSize(viewport);
+    for (const route of routes) {
+      await page.goto(route);
+      await expect(page.getByTestId("authenticated-content")).toBeVisible();
+      await expect(page.locator("header h1")).toHaveCount(1);
+
+      const layout = await page.evaluate(() => {
+        const main = document.querySelector<HTMLElement>("main");
+        return {
+          documentOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+          mainOverflow: main ? main.scrollWidth - main.clientWidth : null,
+          mainPaddingTop: main ? window.getComputedStyle(main).paddingTop : null,
+        };
+      });
+      expect(layout.documentOverflow, `${route} should not overflow the viewport`).toBeLessThanOrEqual(1);
+      expect(layout.mainOverflow, `${route} main content should not overflow`).toBeLessThanOrEqual(1);
+      expect(layout.mainPaddingTop).toBe(viewport.expectedMainPaddingTop);
+
+      const controls = page.locator(
+        'main input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]), main select',
+      );
+      for (const control of await controls.all()) {
+        if (!(await control.isVisible())) continue;
+        const box = await control.boundingBox();
+        expect(box?.height, `${route} single-line controls should remain 32px`).toBe(32);
+      }
+    }
+  }
+});

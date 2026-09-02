@@ -152,7 +152,7 @@ export default function AssetDetailPage() {
   }
 
   return (
-    <section className="space-y-6">
+    <section className="space-y-4">
       <PageHeader
         title={asset.assetCode}
         description={`${asset.category.name} · ${asset.office?.name ?? "No Office"}`}

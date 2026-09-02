@@ -60,7 +60,7 @@ export default function WorkflowsPage() {
   }
 
   return (
-    <section className="space-y-6">
+    <section className="space-y-4">
       <PageHeader
         title="Workflows"
         description="Workflows are versioned per Bank and Product. Application Created is the only globally fixed entry stage. Other stages and transitions are configured here; they are not seeded."

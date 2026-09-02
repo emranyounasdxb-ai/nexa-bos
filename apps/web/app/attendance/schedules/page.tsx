@@ -134,7 +134,7 @@ export default function SchedulesPage() {
   }
 
   return (
-    <section className="space-y-6">
+    <section className="space-y-4">
       <PageHeader
         title="Attendance schedules"
         description="Office and department start, end, and grace times. Working days are company-wide."

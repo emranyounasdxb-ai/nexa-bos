@@ -44,7 +44,7 @@ export default function UserTypesPage() {
   }
 
   return (
-    <section className="space-y-6">
+    <section className="space-y-4">
       <PageHeader
         title="User types"
         description="Review and manage the existing role templates and their configured visibility scopes."
