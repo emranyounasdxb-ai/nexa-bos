@@ -45,6 +45,8 @@ test("owner lands on the dashboard and can open the user directory", async ({ pa
   await page.goto("/users/new");
   await expect(page.getByLabel("Reporting manager")).toBeVisible();
   await page.goto("/organization");
+  await page.getByRole("tab", { name: "Teams" }).click();
+  await expect(page).toHaveURL(/\/organization\?tab=teams$/);
   await expect(page.getByRole("heading", { name: "Teams" })).toBeVisible();
   await expect(page.getByRole("columnheader", { name: "Team leader" })).toBeVisible();
 });
