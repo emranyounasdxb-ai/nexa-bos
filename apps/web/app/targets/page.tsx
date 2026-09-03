@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { type KeyboardEvent as ReactKeyboardEvent, useCallback, useEffect, useMemo, useState } from "react";
 
 import { DatePicker } from "@/components/date-picker";
 import {
@@ -98,6 +98,13 @@ type PageView = "targets" | "periods";
 type PeriodAction = "lock" | "reopen";
 type StatusAction = { id: string; name: string; active: boolean };
 
+const TARGET_VIEWS = ["targets", "periods"] as const;
+
+function viewFromUrl(): PageView {
+  const value = new URLSearchParams(window.location.search).get("tab");
+  return TARGET_VIEWS.includes(value as PageView) ? (value as PageView) : "targets";
+}
+
 function monthFirst(value: string): string {
   return value ? `${value.slice(0, 7)}-01` : "";
 }
@@ -145,6 +152,7 @@ export default function TargetsPage() {
   const [editSaving, setEditSaving] = useState(false);
   const [reopenReason, setReopenReason] = useState("");
   const [periodAction, setPeriodAction] = useState<PeriodAction | null>(null);
+  const [periodReturnFocusId, setPeriodReturnFocusId] = useState("");
   const [periodSaving, setPeriodSaving] = useState(false);
   const [statusAction, setStatusAction] = useState<StatusAction | null>(null);
   const [statusSaving, setStatusSaving] = useState(false);
@@ -162,6 +170,7 @@ export default function TargetsPage() {
   const selectedProduct = options?.products.find((item) => item.id === productId);
   const selectedBank = options?.banks.find((item) => item.id === bankId);
   const normalizedMonth = monthFirst(periodMonth);
+  const hasPeriodMonth = Boolean(normalizedMonth);
   const isPeriodLocked = options?.lockedMonths.includes(normalizedMonth) ?? false;
   const canSubmitTarget = Boolean(entityId && normalizedMonth && productId && targetValue.trim());
 
@@ -194,6 +203,18 @@ export default function TargetsPage() {
   }, [can, load]);
 
   useEffect(() => {
+    const restoreView = () => setActiveView(viewFromUrl());
+    restoreView();
+    const params = new URLSearchParams(window.location.search);
+    if (!TARGET_VIEWS.includes(params.get("tab") as PageView)) {
+      params.set("tab", "targets");
+      window.history.replaceState({}, "", `${window.location.pathname}?${params.toString()}${window.location.hash}`);
+    }
+    window.addEventListener("popstate", restoreView);
+    return () => window.removeEventListener("popstate", restoreView);
+  }, []);
+
+  useEffect(() => {
     if (selectedProduct && !measurement) setMeasurement(selectedProduct.defaultMeasurement);
   }, [measurement, selectedProduct]);
 
@@ -202,7 +223,10 @@ export default function TargetsPage() {
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !createSaving) setCreateOpen(false);
+      if (event.key === "Escape" && !createSaving) {
+        setCreateOpen(false);
+        window.setTimeout(() => document.getElementById("create-target-trigger")?.focus(), 0);
+      }
     };
     window.addEventListener("keydown", closeOnEscape);
     return () => {
@@ -210,6 +234,64 @@ export default function TargetsPage() {
       window.removeEventListener("keydown", closeOnEscape);
     };
   }, [createOpen, createSaving]);
+
+  useEffect(() => {
+    if (!periodAction) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !periodSaving) {
+        setPeriodAction(null);
+        window.setTimeout(() => document.getElementById(periodReturnFocusId)?.focus(), 0);
+      }
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [periodAction, periodReturnFocusId, periodSaving]);
+
+  function selectView(nextView: PageView, replace = false) {
+    setActiveView(nextView);
+    const url = new URL(window.location.href);
+    url.searchParams.set("tab", nextView);
+    window.history[replace ? "replaceState" : "pushState"]({}, "", `${url.pathname}${url.search}${url.hash}`);
+  }
+
+  function handleTabKeyDown(event: ReactKeyboardEvent<HTMLButtonElement>, view: PageView) {
+    const index = TARGET_VIEWS.indexOf(view);
+    let nextIndex: number | null = null;
+    if (event.key === "ArrowRight") nextIndex = (index + 1) % TARGET_VIEWS.length;
+    if (event.key === "ArrowLeft") nextIndex = (index - 1 + TARGET_VIEWS.length) % TARGET_VIEWS.length;
+    if (event.key === "Home") nextIndex = 0;
+    if (event.key === "End") nextIndex = TARGET_VIEWS.length - 1;
+    if (nextIndex === null) return;
+    event.preventDefault();
+    const nextView = TARGET_VIEWS[nextIndex];
+    selectView(nextView);
+    document.getElementById(`${nextView}-tab`)?.focus();
+  }
+
+  function openCreateDrawer() {
+    setCreateOpen(true);
+  }
+
+  function closeCreateDrawer() {
+    setCreateOpen(false);
+    window.setTimeout(() => document.getElementById("create-target-trigger")?.focus(), 0);
+  }
+
+  function openPeriodDialog(action: PeriodAction, returnFocusId: string) {
+    setPeriodReturnFocusId(returnFocusId);
+    setReopenReason("");
+    setPeriodAction(action);
+  }
+
+  function closePeriodDialog() {
+    setPeriodAction(null);
+    window.setTimeout(() => document.getElementById(periodReturnFocusId)?.focus(), 0);
+  }
+
+  function manageLockedMonth(month: string, returnFocusId: string) {
+    setPeriodMonth(month);
+    openPeriodDialog("reopen", returnFocusId);
+  }
 
   async function createTarget() {
     if (!canSubmitTarget) return;
@@ -232,7 +314,7 @@ export default function TargetsPage() {
         }),
       });
       setTargetValue("");
-      setCreateOpen(false);
+      closeCreateDrawer();
       setMessage("Target saved.");
       await load();
     } catch (err) {
@@ -334,7 +416,7 @@ export default function TargetsPage() {
               KPI scorecards
             </ButtonLink>
             {can("Targets.Create") ? (
-              <Button type="button" onClick={() => setCreateOpen(true)}>
+              <Button id="create-target-trigger" type="button" onClick={openCreateDrawer}>
                 <IconTargetArrow className="size-4" />
                 Create target
               </Button>
@@ -344,11 +426,8 @@ export default function TargetsPage() {
       />
 
       <Card className="overflow-hidden p-0">
-        <div className="border-b border-slate-200 px-3 pt-3 sm:px-4">
-          <p className="mb-3 text-sm text-slate-600">
-            Review targets and their results, or manage the monthly lock lifecycle in a separate workspace.
-          </p>
-          <div role="tablist" aria-label="Target workspaces" className="flex gap-1 overflow-x-auto">
+        <div className="border-b border-brand-border px-3 pt-2 sm:px-4">
+          <div role="tablist" aria-label="Target workspaces" className="flex min-w-0 gap-1 overflow-x-auto">
             {([
               ["targets", "Targets", IconTargetArrow],
               ["periods", "Period Management", IconCalendarCheck],
@@ -358,15 +437,17 @@ export default function TargetsPage() {
                 id={`${value}-tab`}
                 type="button"
                 role="tab"
+                tabIndex={activeView === value ? 0 : -1}
                 aria-selected={activeView === value}
                 aria-controls={`${value}-panel`}
                 className={cx(
-                  "inline-flex h-9 shrink-0 items-center gap-2 border-b-2 px-3 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary",
+                  "inline-flex h-8 shrink-0 items-center gap-1.5 border-b-2 px-3 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary",
                   activeView === value
                     ? "border-brand-primary text-brand-primary"
-                    : "border-transparent text-slate-600 hover:border-slate-300 hover:text-slate-900",
+                    : "border-transparent text-text-secondary hover:border-brand-border hover:text-text-primary",
                 )}
-                onClick={() => setActiveView(value)}
+                onClick={() => selectView(value)}
+                onKeyDown={(event) => handleTabKeyDown(event, value)}
               >
                 <Icon className="size-4" />
                 {label}
@@ -376,9 +457,12 @@ export default function TargetsPage() {
         </div>
 
         {activeView === "targets" ? (
-          <div id="targets-panel" role="tabpanel" aria-labelledby="targets-tab" className="space-y-4 p-3 sm:p-4">
-            <div className="flex flex-col gap-3 rounded-lg bg-slate-50 p-3 md:flex-row md:items-end">
-              <Field label="Level" className="w-full md:max-w-56">
+          <div id="targets-panel" role="tabpanel" aria-labelledby="targets-tab" className="space-y-3 p-3 sm:p-4">
+            <div
+              data-testid="target-filter-toolbar"
+              className="grid min-w-0 gap-3 rounded-[10px] border border-brand-border bg-surface-subtle p-3 sm:grid-cols-2 lg:grid-cols-[minmax(8rem,0.8fr)_minmax(9rem,0.9fr)_minmax(13rem,1.15fr)_auto_minmax(9rem,auto)] lg:items-end"
+            >
+              <Field label="Level" className="min-w-0">
                 <Select aria-label="Filter level" value={filterLevel} onChange={(event) => { setFilterLevel(event.target.value); setPage(1); }}>
                   <option value="">All levels</option>
                   <option value="employee">Employee</option>
@@ -386,7 +470,7 @@ export default function TargetsPage() {
                   <option value="office">Office</option>
                 </Select>
               </Field>
-              <Field label="Result period" className="w-full md:max-w-56">
+              <Field label="Result period" className="min-w-0">
                 <Select aria-label="Result period" value={filterPeriod} onChange={(event) => { setFilterPeriod(event.target.value); setPage(1); }}>
                   <option value="month">Monthly</option>
                   <option value="qtd">QTD</option>
@@ -394,7 +478,10 @@ export default function TargetsPage() {
                   <option value="ytd">YTD</option>
                 </Select>
               </Field>
-              <Field label="Month" className="w-full md:max-w-56">
+              <Field
+                label="Month"
+                className="min-w-0 [&>div]:grid [&>div]:grid-cols-[minmax(0,1fr)_auto] [&>div]:items-center [&>div]:gap-2 [&>div>button]:mt-0 [&>div>button]:h-8 [&>div>button]:rounded-md [&>div>button]:border [&>div>button]:border-brand-border [&>div>button]:px-2.5 [&>div>button]:text-xs [&>div>button]:no-underline"
+              >
                 <DatePicker
                   aria-label="Target month filter"
                   value={periodMonth}
@@ -406,83 +493,129 @@ export default function TargetsPage() {
               </Field>
               <Button type="button" variant="secondary" disabled={loading} onClick={() => void load()}>
                 <IconRefresh className={cx("size-4", loading && "animate-spin")} />
-                Refresh
+                Refresh results
               </Button>
-              <p className="text-xs text-slate-500 md:ml-auto md:self-center">{total.toLocaleString()} target{total === 1 ? "" : "s"} in scope</p>
+              <div className="flex min-h-8 items-center justify-between gap-2 rounded-md border border-brand-border bg-surface px-3 text-xs text-text-secondary sm:col-span-2 lg:col-span-1">
+                <span>Filters apply automatically</span>
+                <strong className="whitespace-nowrap font-semibold text-text-primary">{total.toLocaleString()} in scope</strong>
+              </div>
             </div>
 
             <ErrorText>{error}</ErrorText>
-            {message ? <p role="status" className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">{message}</p> : null}
-            {loading && items.length === 0 ? (
-              <EmptyState>Loading targets…</EmptyState>
-            ) : items.length === 0 ? (
-              <EmptyState>
-                <span>No targets are in scope for the selected filters.</span>
-                {can("Targets.Create") ? <Button className="mt-3" type="button" onClick={() => setCreateOpen(true)}>Create target</Button> : null}
-              </EmptyState>
-            ) : (
-              <TableShell className={loading ? "opacity-70" : undefined}>
-                <TableHead>
-                  <tr>
-                    <Th>Level</Th><Th>Entity</Th><Th>Month</Th><Th>Product</Th><Th>Bank</Th><Th>Milestone</Th><Th>Target</Th><Th>Actual</Th><Th>Achievement</Th><Th>Gap</Th><Th>Run-rate</Th><Th>Status</Th><Th>Actions</Th>
-                  </tr>
-                </TableHead>
-                <tbody>
-                  {items.map((item) => (
-                    <tr key={item.id}>
-                      <Td className="capitalize">{item.level}</Td>
-                      <Td>{item.level === "employee" ? <Link className="font-medium text-brand-link underline-offset-2 hover:underline" href={`/reports/employees/${item.entityId}`}>{item.entityName}</Link> : item.entityName}</Td>
-                      <Td>{item.periodMonth}</Td><Td>{item.productCode}</Td><Td>{item.bankCode ?? "Overall"}</Td><Td className="capitalize">{item.milestone}</Td>
-                      <Td className="font-medium text-slate-900">{item.measurement === "amount" ? formatAed(item.result?.effectiveTarget ?? item.targetValue) : item.result?.effectiveTarget ?? item.targetValue}</Td>
-                      <Td>{item.measurement === "amount" ? formatAed(item.result?.actual) : item.result?.actual}</Td><Td>{formatPct(item.result?.achievementPct)}</Td><Td>{item.result?.gap}</Td><Td>{item.result?.dailyRequiredRunRate ?? "—"}</Td>
-                      <Td><div className="flex flex-wrap gap-1"><StatusBadge value={humanize(item.status)} />{item.locked ? <Badge tone="red">Locked</Badge> : null}{item.prorate ? <Badge tone="blue">Prorated</Badge> : null}</div></Td>
-                      <Td>
-                        <div className="flex flex-wrap gap-1.5">
+            {message ? <p role="status" className="rounded-md border border-success-soft bg-success-soft px-3 py-2 text-sm text-text-primary">{message}</p> : null}
+            <div data-testid="target-results" aria-busy={loading}>
+              {loading && items.length === 0 ? (
+                <div role="status" className="flex min-h-20 items-center gap-3 rounded-[10px] border border-brand-border px-4 py-4 text-sm text-text-secondary">
+                  <span className="size-5 animate-spin rounded-full border-2 border-brand-border border-t-brand-primary" aria-hidden="true" />
+                  Loading targets…
+                </div>
+              ) : items.length === 0 ? (
+                <div className="rounded-[10px] border border-dashed border-brand-border px-4 py-5 text-center text-sm text-text-secondary">
+                  No targets are in scope for the selected filters. Adjust the filters or use the page-level Create target action.
+                </div>
+              ) : (
+                <>
+                  <TableShell className={cx("hidden lg:block", loading && "opacity-70")}>
+                    <TableHead>
+                      <tr>
+                        <Th>Assignment</Th><Th>Scope</Th><Th>Target / Actual</Th><Th>Achievement</Th><Th>Gap / Run-rate</Th><Th>Status</Th><Th>Actions</Th>
+                      </tr>
+                    </TableHead>
+                    <tbody>
+                      {items.map((item) => (
+                        <tr key={item.id}>
+                          <Td>
+                            <span className="block text-xs capitalize text-text-secondary">{item.level}</span>
+                            {item.level === "employee" ? <Link className="font-medium text-brand-link underline-offset-2 hover:underline" href={`/reports/employees/${item.entityId}`}>{item.entityName}</Link> : <span className="font-medium">{item.entityName}</span>}
+                          </Td>
+                          <Td><span className="block font-medium">{item.periodMonth}</span><span className="block text-xs text-text-secondary">{item.productCode} · {item.bankCode ?? "Overall"} · {humanize(item.milestone)}</span></Td>
+                          <Td><span className="block font-medium text-text-primary">{item.measurement === "amount" ? formatAed(item.result?.effectiveTarget ?? item.targetValue) : item.result?.effectiveTarget ?? item.targetValue}</span><span className="block text-xs text-text-secondary">Actual {item.measurement === "amount" ? formatAed(item.result?.actual) : item.result?.actual}</span></Td>
+                          <Td>{formatPct(item.result?.achievementPct)}</Td>
+                          <Td><span className="block">Gap {item.result?.gap}</span><span className="block text-xs text-text-secondary">Run-rate {item.result?.dailyRequiredRunRate ?? "—"}</span></Td>
+                          <Td><div className="flex flex-wrap gap-1"><StatusBadge value={humanize(item.status)} />{item.locked ? <Badge tone="red">Locked</Badge> : null}{item.prorate ? <Badge tone="blue">Prorated</Badge> : null}</div></Td>
+                          <Td>
+                            <div className="flex flex-wrap gap-1.5">
+                              <Button type="button" variant="secondary" size="compact" onClick={() => void showHistory(item.id)}>History</Button>
+                              {can("Targets.Edit") && !item.locked ? <Button type="button" variant="secondary" size="compact" onClick={() => { setEditId(item.id); setEditValue(item.targetValue); setEditReason(""); }}>Edit</Button> : null}
+                              {can("Targets.Deactivate") && item.status === "active" ? <Button type="button" variant="secondary" size="compact" onClick={() => setStatusAction({ id: item.id, name: item.entityName ?? "Target", active: false })}>Deactivate</Button> : null}
+                              {can("Targets.Activate") && item.status === "inactive" ? <Button type="button" variant="secondary" size="compact" onClick={() => setStatusAction({ id: item.id, name: item.entityName ?? "Target", active: true })}>Activate</Button> : null}
+                            </div>
+                          </Td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </TableShell>
+                  <ul className={cx("grid gap-2 lg:hidden", loading && "opacity-70")} aria-label="Target results">
+                    {items.map((item) => (
+                      <li key={item.id} className="min-w-0 rounded-[10px] border border-brand-border bg-surface p-3">
+                        <div className="flex min-w-0 items-start justify-between gap-2">
+                          <div className="min-w-0"><span className="block text-xs capitalize text-text-secondary">{item.level}</span>{item.level === "employee" ? <Link className="block truncate font-medium text-brand-link" href={`/reports/employees/${item.entityId}`}>{item.entityName}</Link> : <span className="block truncate font-medium">{item.entityName}</span>}</div>
+                          <div className="flex shrink-0 flex-wrap justify-end gap-1"><StatusBadge value={humanize(item.status)} />{item.locked ? <Badge tone="red">Locked</Badge> : null}</div>
+                        </div>
+                        <p className="mt-2 text-xs text-text-secondary">{item.periodMonth} · {item.productCode} · {item.bankCode ?? "Overall"} · {humanize(item.milestone)}</p>
+                        <dl className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                          <div><dt className="text-text-secondary">Target / actual</dt><dd className="mt-0.5 font-medium text-text-primary">{item.measurement === "amount" ? formatAed(item.result?.effectiveTarget ?? item.targetValue) : item.result?.effectiveTarget ?? item.targetValue} / {item.measurement === "amount" ? formatAed(item.result?.actual) : item.result?.actual}</dd></div>
+                          <div><dt className="text-text-secondary">Achievement</dt><dd className="mt-0.5 font-medium text-text-primary">{formatPct(item.result?.achievementPct)}</dd></div>
+                          <div><dt className="text-text-secondary">Gap</dt><dd className="mt-0.5 font-medium text-text-primary">{item.result?.gap}</dd></div>
+                          <div><dt className="text-text-secondary">Run-rate</dt><dd className="mt-0.5 font-medium text-text-primary">{item.result?.dailyRequiredRunRate ?? "—"}</dd></div>
+                        </dl>
+                        <div className="mt-3 flex flex-wrap gap-1.5 border-t border-brand-border pt-3">
                           <Button type="button" variant="secondary" size="compact" onClick={() => void showHistory(item.id)}>History</Button>
                           {can("Targets.Edit") && !item.locked ? <Button type="button" variant="secondary" size="compact" onClick={() => { setEditId(item.id); setEditValue(item.targetValue); setEditReason(""); }}>Edit</Button> : null}
                           {can("Targets.Deactivate") && item.status === "active" ? <Button type="button" variant="secondary" size="compact" onClick={() => setStatusAction({ id: item.id, name: item.entityName ?? "Target", active: false })}>Deactivate</Button> : null}
                           {can("Targets.Activate") && item.status === "inactive" ? <Button type="button" variant="secondary" size="compact" onClick={() => setStatusAction({ id: item.id, name: item.entityName ?? "Target", active: true })}>Activate</Button> : null}
                         </div>
-                      </Td>
-                    </tr>
-                  ))}
-                </tbody>
-              </TableShell>
-            )}
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+            </div>
             <Pagination page={page} pageSize={pageSize} total={total} totalPages={totalPages} pageSizeOptions={SERVER_PAGE_SIZE_OPTIONS} onPageChange={setPage} onPageSizeChange={(value) => { if (value !== "all") setPageSize(value); }} />
           </div>
         ) : (
-          <div id="periods-panel" role="tabpanel" aria-labelledby="periods-tab" className="p-3 sm:p-4">
-            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,0.65fr)]">
-              <div className="rounded-lg border border-slate-200 p-4">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div><h2 className="text-base font-semibold text-slate-900">Monthly period controls</h2><p className="mt-1 max-w-2xl text-sm text-slate-600">Lock a month to prevent target edits. Reopening requires a recorded reason and is audited.</p></div>
-                  <Badge tone={isPeriodLocked ? "red" : "green"}>{isPeriodLocked ? "Locked" : "Open"}</Badge>
-                </div>
-                <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
-                  <Field label="Target month" className="w-full sm:max-w-64"><DatePicker aria-label="Target month" value={periodMonth} onChange={(value) => { setPeriodMonth(monthFirst(value)); setPage(1); }} /></Field>
-                  {can("Targets.Edit") && !isPeriodLocked ? <Button type="button" variant="secondary" onClick={() => setPeriodAction("lock")}>Lock month</Button> : null}
-                  {can("Targets.ReopenPeriod") && isPeriodLocked ? <Button type="button" variant="secondary" onClick={() => setPeriodAction("reopen")}>Reopen month</Button> : null}
-                </div>
+          <div id="periods-panel" role="tabpanel" aria-labelledby="periods-tab" className="space-y-3 p-3 sm:p-4">
+            <div data-testid="period-control-toolbar" className="rounded-[10px] border border-brand-border bg-surface-subtle p-3">
+              <div className="flex min-w-0 flex-wrap items-start justify-between gap-2">
+                <div className="min-w-0"><h2 className="text-sm font-semibold text-text-primary">Monthly period controls</h2><p className="mt-0.5 text-xs leading-5 text-text-secondary">Locking prevents target edits. Reopening requires an audited reason.</p></div>
               </div>
-              <div className="rounded-lg bg-slate-50 p-4">
-                <h2 className="text-sm font-semibold text-slate-900">Locked months</h2>
-                <p className="mt-1 text-xs leading-5 text-slate-500">Only months returned by the existing target-period service are shown.</p>
-                {options?.lockedMonths.length ? <ul className="mt-3 flex flex-wrap gap-2" aria-label="Locked target months">{options.lockedMonths.map((month) => <li key={month}><Badge tone="red">{month}</Badge></li>)}</ul> : <p className="mt-4 text-sm text-slate-600">No target months are currently locked.</p>}
+              <div className="mt-3 grid min-w-0 gap-3 sm:grid-cols-[minmax(12rem,1fr)_minmax(8rem,auto)_auto] sm:items-end">
+                <Field label="Target month" className="min-w-0 [&>div]:grid [&>div]:grid-cols-[minmax(0,1fr)_auto] [&>div]:items-center [&>div]:gap-2 [&>div>button]:mt-0 [&>div>button]:h-8 [&>div>button]:rounded-md [&>div>button]:border [&>div>button]:border-brand-border [&>div>button]:px-2.5 [&>div>button]:text-xs [&>div>button]:no-underline"><DatePicker aria-label="Target month" value={periodMonth} onChange={(value) => { setPeriodMonth(monthFirst(value)); setPage(1); }} /></Field>
+                <div><span className="block text-sm font-medium text-text-primary">Current status</span><div className="mt-1.5 flex h-8 items-center"><Badge tone={!hasPeriodMonth ? "neutral" : isPeriodLocked ? "red" : "green"}>{!hasPeriodMonth ? "Select month" : isPeriodLocked ? "Locked" : "Open"}</Badge></div></div>
+                <div className="flex min-h-8 items-center sm:justify-end">
+                  {can("Targets.Edit") && !isPeriodLocked ? <Button id="period-primary-action" type="button" variant="secondary" disabled={!hasPeriodMonth} onClick={() => openPeriodDialog("lock", "period-primary-action")}>Lock month</Button> : null}
+                  {can("Targets.ReopenPeriod") && isPeriodLocked ? <Button id="period-primary-action" type="button" variant="secondary" onClick={() => openPeriodDialog("reopen", "period-primary-action")}>Reopen month</Button> : null}
+                </div>
               </div>
             </div>
-            <div className="mt-4"><ErrorText>{error}</ErrorText>{message ? <p role="status" className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">{message}</p> : null}</div>
+
+            <div className="rounded-[10px] border border-brand-border bg-surface p-3">
+              <div className="flex min-w-0 flex-wrap items-center justify-between gap-2"><div><h2 className="text-sm font-semibold text-text-primary">Locked months</h2><p className="mt-0.5 text-xs text-text-secondary">Months returned by the target-period service.</p></div><Badge tone="neutral">{options?.lockedMonths.length ?? 0} locked</Badge></div>
+              {options?.lockedMonths.length ? (
+                <>
+                  <TableShell className="mt-3 hidden sm:block">
+                    <TableHead><tr><Th>Target month</Th><Th>Status</Th><Th className="text-right">Action</Th></tr></TableHead>
+                    <tbody>{options.lockedMonths.map((month) => <tr key={month}><Td className="font-medium">{month}</Td><Td><Badge tone="red">Locked</Badge></Td><Td><div className="flex justify-end">{can("Targets.ReopenPeriod") ? <Button id={`reopen-${month}-desktop`} type="button" variant="secondary" size="compact" onClick={() => manageLockedMonth(month, `reopen-${month}-desktop`)}>Reopen</Button> : null}</div></Td></tr>)}</tbody>
+                  </TableShell>
+                  <ul className="mt-3 grid gap-2 sm:hidden" aria-label="Locked target months">{options.lockedMonths.map((month) => <li key={month} className="flex min-w-0 items-center justify-between gap-2 rounded-md border border-brand-border p-2.5"><span className="min-w-0 truncate text-sm font-medium text-text-primary">{month}</span><div className="flex shrink-0 items-center gap-2"><Badge tone="red">Locked</Badge>{can("Targets.ReopenPeriod") ? <Button id={`reopen-${month}-mobile`} type="button" variant="secondary" size="compact" onClick={() => manageLockedMonth(month, `reopen-${month}-mobile`)}>Reopen</Button> : null}</div></li>)}</ul>
+                </>
+              ) : (
+                <p className="mt-3 rounded-md border border-dashed border-brand-border px-3 py-3 text-sm text-text-secondary">No target months are currently locked.</p>
+              )}
+            </div>
+            <ErrorText>{error}</ErrorText>
+            {message ? <p role="status" className="rounded-md border border-success-soft bg-success-soft px-3 py-2 text-sm text-text-primary">{message}</p> : null}
           </div>
         )}
       </Card>
 
       {createOpen ? (
         <div className="fixed inset-0 z-50" role="presentation">
-          <button type="button" className="absolute inset-0 bg-slate-950/40" aria-label="Close create target drawer" onClick={() => !createSaving && setCreateOpen(false)} />
+          <button type="button" className="absolute inset-0 bg-slate-950/40" aria-label="Close create target drawer" onClick={() => !createSaving && closeCreateDrawer()} />
           <aside role="dialog" aria-modal="true" aria-labelledby="create-target-title" className="absolute inset-y-0 right-0 flex w-full flex-col overflow-hidden border-l border-slate-200 bg-white shadow-2xl sm:max-w-2xl">
             <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-4 py-4 sm:px-6">
               <div><h2 id="create-target-title" className="text-lg font-semibold text-slate-900">Create target</h2><p className="mt-1 text-sm text-slate-600">Define who owns the target, its monthly period, and how results are measured.</p></div>
-              <Button type="button" variant="ghost" size="icon" aria-label="Close drawer" disabled={createSaving} onClick={() => setCreateOpen(false)}><IconX className="size-4" /></Button>
+              <Button type="button" variant="ghost" size="icon" aria-label="Close drawer" disabled={createSaving} onClick={closeCreateDrawer}><IconX className="size-4" /></Button>
             </div>
             <div className="flex-1 space-y-5 overflow-y-auto px-4 py-5 sm:px-6">
               <fieldset className="rounded-lg border border-slate-200 p-4">
@@ -524,7 +657,7 @@ export default function TargetsPage() {
               </div>
               <ErrorText>{error}</ErrorText>
             </div>
-            <div className="flex items-center justify-end gap-2 border-t border-slate-200 bg-white px-4 py-3 sm:px-6"><Button type="button" variant="secondary" disabled={createSaving} onClick={() => setCreateOpen(false)}>Cancel</Button><Button type="button" disabled={createSaving || !canSubmitTarget || isPeriodLocked} onClick={() => void createTarget()}>{createSaving ? "Saving…" : "Save target"}</Button></div>
+            <div className="flex items-center justify-end gap-2 border-t border-slate-200 bg-white px-4 py-3 sm:px-6"><Button type="button" variant="secondary" disabled={createSaving} onClick={closeCreateDrawer}>Cancel</Button><Button type="button" disabled={createSaving || !canSubmitTarget || isPeriodLocked} onClick={() => void createTarget()}>{createSaving ? "Saving…" : "Save target"}</Button></div>
           </aside>
         </div>
       ) : null}
@@ -543,10 +676,10 @@ export default function TargetsPage() {
       ) : null}
 
       {periodAction ? (
-        <DialogPanel title={periodAction === "lock" ? "Confirm period lock" : "Reopen target period"} description={`${normalizedMonth} · ${periodAction === "lock" ? "Open" : "Locked"}`} onClose={() => !periodSaving && setPeriodAction(null)}>
+        <DialogPanel title={periodAction === "lock" ? "Confirm period lock" : "Reopen target period"} description={`${normalizedMonth} · ${periodAction === "lock" ? "Open" : "Locked"}`} onClose={() => !periodSaving && closePeriodDialog()}>
           <p className="text-sm leading-6 text-slate-600">{periodAction === "lock" ? "Locking this month prevents edits to its targets. The action is recorded in the audit history." : "Reopening removes the period lock and records both your reason and the action in audit history."}</p>
           {periodAction === "reopen" ? <Field label="Reopen reason" className="mt-4"><TextInput autoFocus aria-label="Reopen reason" value={reopenReason} onChange={(event) => setReopenReason(event.target.value)} /></Field> : null}
-          <div className="mt-4 flex justify-end gap-2"><Button type="button" variant="secondary" disabled={periodSaving} onClick={() => setPeriodAction(null)}>Cancel</Button><Button type="button" disabled={periodSaving || (periodAction === "reopen" && !reopenReason.trim())} onClick={() => void confirmPeriodAction()}>{periodSaving ? "Saving…" : periodAction === "lock" ? "Lock month" : "Reopen month"}</Button></div>
+          <div className="mt-4 flex justify-end gap-2"><Button type="button" variant="secondary" disabled={periodSaving} onClick={closePeriodDialog}>Cancel</Button><Button type="button" disabled={periodSaving || (periodAction === "reopen" && !reopenReason.trim())} onClick={() => void confirmPeriodAction()}>{periodSaving ? "Saving…" : periodAction === "lock" ? "Lock month" : "Reopen month"}</Button></div>
         </DialogPanel>
       ) : null}
 
