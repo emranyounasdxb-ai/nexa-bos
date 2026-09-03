@@ -108,7 +108,7 @@ test("edit user office department team selectors do not silently clear invalid v
     timeout: 30_000,
   });
   await page.goto(`/users/${user.id}/edit`);
-  await expect(page.getByRole("heading", { name: "User directory" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Users", exact: true })).toBeVisible();
   const office = page.locator("#edit-office");
   const department = page.locator("#edit-department");
   const team = page.locator("#edit-team");
@@ -201,7 +201,7 @@ test("in-progress office edit is not overwritten by a late user refetch", async 
     timeout: 30_000,
   });
   await page.goto(`/users/${user.id}/edit`);
-  await expect(page.getByRole("heading", { name: "User directory" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Users", exact: true })).toBeVisible();
   const office = page.locator("#edit-office");
   const department = page.locator("#edit-department");
   await expect(office).toHaveAttribute("value", dxb!.id);

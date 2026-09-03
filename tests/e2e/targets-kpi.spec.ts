@@ -42,7 +42,7 @@ async function signIn(page: Page, email = "owner@example.com", password = "Owner
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page.getByRole("heading", { name: /Dashboard|User directory/ })).toBeVisible({
+  await expect(page.getByRole("heading", { name: /^(Dashboard|Users)$/ })).toBeVisible({
     timeout: 30_000,
   });
 }
@@ -428,7 +428,7 @@ test("owner targets, KPI scorecards, profile section, and scoped isolation", asy
   await scopedPage.getByLabel("Email").fill(`scoped-tgt-${tag}@example.com`);
   await scopedPage.getByLabel("Password").fill("UserPass1!");
   await scopedPage.getByRole("button", { name: "Sign in" }).click();
-  await expect(scopedPage.getByRole("heading", { name: "User directory" })).toBeVisible({ timeout: 30_000 });
+  await expect(scopedPage.getByRole("heading", { name: "Users", exact: true })).toBeVisible({ timeout: 30_000 });
   await scopedPage.goto("/targets");
   await expect(scopedPage.getByRole("heading", { name: "Targets" })).toBeVisible();
   await expect(scopedPage.getByText(`Target User ${tag}`)).toHaveCount(0);

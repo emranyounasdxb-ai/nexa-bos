@@ -156,7 +156,7 @@ test("list search and page actions share compact desktop rows", async ({ page, r
 
   for (const item of [
     { path: "/customers", heading: "Customers", search: "Search customers", action: "Create customer" },
-    { path: "/users", heading: "User directory", search: "Search users", action: "Create user" },
+    { path: "/users", heading: "Users", search: "Search users", action: "Create user" },
     { path: "/applications", heading: "Applications", search: "Search applications", action: "Create application" },
   ]) {
     await page.goto(item.path);
@@ -272,7 +272,7 @@ test("holiday reminders are absent and dashboard action panels remain accessible
 
   for (const [path, title] of [
     ["/applications", "Applications"],
-    ["/users", "User directory"],
+    ["/users", "Users"],
     ["/organization", "Organization masters"],
     ["/finance", "Finance"],
     ["/assets", "Asset Register"],
@@ -566,7 +566,7 @@ test("sidebar groups are folded by default and toggle across desktop and mobile"
   await peopleMenu.click();
   await expect(sidebar).toHaveAttribute("data-expanded", "true");
   await sidebar.getByRole("link", { name: "Users", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "User directory", exact: true })).toHaveCount(1);
+  await expect(page.getByRole("heading", { name: "Users", exact: true })).toHaveCount(1);
   await expect(sidebar).toHaveAttribute("data-expanded", "false");
   await expect(sidebar).toHaveCSS("width", "80px");
   await expect(sidebar.getByRole("link", { name: "Users", exact: true })).toBeHidden();
@@ -593,7 +593,7 @@ test("sidebar groups are folded by default and toggle across desktop and mobile"
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.reload();
-  await expect(page.getByRole("heading", { name: "User directory" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Users", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Open navigation" }).click();
   for (const group of groups) {
     await expect(sidebar.getByRole("button", { name: `${group.label} menu` })).toHaveAttribute(

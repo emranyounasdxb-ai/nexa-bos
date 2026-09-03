@@ -42,7 +42,7 @@ async function signIn(page: Page, email = "owner@example.com", password = "Owner
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page.getByRole("heading", { name: /Dashboard|User directory/ })).toBeVisible({
+  await expect(page.getByRole("heading", { name: /^(Dashboard|Users)$/ })).toBeVisible({
     timeout: 30_000,
   });
 }
