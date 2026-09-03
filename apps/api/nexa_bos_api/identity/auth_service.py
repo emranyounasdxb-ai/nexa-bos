@@ -5,7 +5,7 @@ from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 import pyotp
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -105,7 +105,18 @@ async def resolve_session(session: AsyncSession, token: str) -> tuple[User, Sess
         await session.delete(row)
         await session.commit()
         return None
-    row.last_seen_at = now
+    refreshed_session_id = (
+        await session.execute(
+            update(Session)
+            .where(Session.id == row.id, Session.token_hash == token_hash)
+            .values(last_seen_at=now)
+            .returning(Session.id)
+            .execution_options(synchronize_session=False)
+        )
+    ).scalar_one_or_none()
+    if refreshed_session_id is None:
+        await session.rollback()
+        return None
     await session.commit()
     return user, row
 

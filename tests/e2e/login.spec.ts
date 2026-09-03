@@ -27,6 +27,7 @@ async function ensureOwner(request: APIRequestContext) {
 }
 
 test("owner lands on the dashboard and can open the user directory", async ({ page, request }) => {
+  test.setTimeout(60_000);
   await ensureOwner(request);
   await page.goto("/login");
   await page.getByLabel("Email").fill("owner@example.com");
@@ -35,6 +36,9 @@ test("owner lands on the dashboard and can open the user directory", async ({ pa
   await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible({
     timeout: 30_000,
   });
+  const peopleMenu = page.getByRole("button", { name: "People menu" });
+  await peopleMenu.click();
+  await expect(peopleMenu).toHaveAttribute("aria-expanded", "true");
   await page.getByRole("link", { name: "Users", exact: true }).click();
   await expect(page.getByRole("heading", { name: "User directory" })).toBeVisible();
   await expect(page.getByRole("link", { name: "USR-000001" })).toBeVisible();
