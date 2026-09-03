@@ -1,4 +1,5 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { selectBrandedOption } from "./helpers/select";
 
 const apiOrigin = `http://127.0.0.1:${process.env.PLAYWRIGHT_API_PORT ?? "8010"}`;
 const secret = process.env.BOOTSTRAP_SECRET ?? "nexa-test-bootstrap-secret";
@@ -122,19 +123,19 @@ test("bounded master lists paginate accessibly with compact responsive rows", as
 
   await pagination.getByRole("button", { name: "Next" }).click();
   await expect(pagination.getByText(/Showing 11–20 of \d+/)).toBeVisible();
-  await pagination.getByLabel("Rows per page").selectOption("25");
+  await selectBrandedOption(pagination.getByLabel("Rows per page"), "25");
   await expect(page.locator("tbody tr")).toHaveCount(25);
   await expect(pagination.getByText(/Showing 1–25 of \d+/)).toBeVisible();
-  await pagination.getByLabel("Rows per page").selectOption("50");
+  await selectBrandedOption(pagination.getByLabel("Rows per page"), "50");
   await expect(page.locator("tbody tr")).toHaveCount(50);
 
   const total = Number((await pagination.textContent())?.match(/of ([\d,]+)/)?.[1]?.replaceAll(",", ""));
   expect(total).toBeGreaterThan(70);
-  await pagination.getByLabel("Rows per page").selectOption("all");
+  await selectBrandedOption(pagination.getByLabel("Rows per page"), "all");
   await expect(page.locator("tbody tr")).toHaveCount(total);
   await expect(pagination.getByText(new RegExp(`Showing 1–${total.toLocaleString()} of ${total.toLocaleString()}`))).toBeVisible();
 
-  await pagination.getByLabel("Rows per page").selectOption("10");
+  await selectBrandedOption(pagination.getByLabel("Rows per page"), "10");
   const finalPage = Math.ceil(total / 10);
   await pagination.getByRole("button", { name: `Page ${finalPage}` }).click();
   await expect(pagination.getByRole("button", { name: "Next" })).toBeDisabled();
@@ -194,8 +195,10 @@ test("large user directory requests only the selected server page", async ({ pag
   const pagination = page.getByRole("navigation", { name: "List pagination" });
   await expect(page.locator("tbody tr")).toHaveCount(10);
   await expect(pagination.getByText("Showing 1–10 of 22")).toBeVisible();
-  await expect(pagination.getByLabel("Rows per page").locator("option")).toHaveCount(3);
-  await expect(pagination.getByLabel("Rows per page").locator('option[value="all"]')).toHaveCount(0);
+  await pagination.getByLabel("Rows per page").click();
+  await expect(page.getByRole("listbox").getByRole("option")).toHaveCount(3);
+  await expect(page.getByRole("listbox").locator('[role="option"][data-option-value="all"]')).toHaveCount(0);
+  await pagination.getByLabel("Rows per page").press("Escape");
 
   await pagination.getByRole("button", { name: "Next" }).click();
   await expect(pagination.getByText("Showing 11–20 of 22")).toBeVisible();
@@ -206,7 +209,7 @@ test("large user directory requests only the selected server page", async ({ pag
   await expect(pagination.getByRole("button", { name: "Previous" })).toBeDisabled();
 
   await page.getByLabel("Search users").fill(marker);
-  await pagination.getByLabel("Rows per page").selectOption("25");
+  await selectBrandedOption(pagination.getByLabel("Rows per page"), "25");
   await expect(page.locator("tbody tr")).toHaveCount(22);
   await expect(pagination.getByText("Showing 1–22 of 22")).toBeVisible();
 });

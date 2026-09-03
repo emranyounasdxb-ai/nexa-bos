@@ -7,6 +7,7 @@ import {
   ButtonLink,
   EmptyState,
   PageHeader,
+  Select,
   TableHead,
   TableShell,
   Td,
@@ -157,7 +158,7 @@ export default function UserProfilePage() {
       </dl>
       <div className="flex flex-wrap gap-2 text-sm">
         {can("Users.AssignUserType") ? (
-          <select
+          <Select
             className={controlClass}
             defaultValue=""
             onChange={(event) => {
@@ -174,7 +175,7 @@ export default function UserProfilePage() {
                 {item.code}
               </option>
             ))}
-          </select>
+          </Select>
         ) : null}
         {can("Users.Activate") ? (
           <button className={secondaryButtonClass} type="button" onClick={() => void action(`/api/v1/users/${user.id}/activate`)}>

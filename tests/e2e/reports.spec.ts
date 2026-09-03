@@ -1,4 +1,5 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { selectBrandedOption } from "./helpers/select";
 
 const apiOrigin = `http://127.0.0.1:${process.env.PLAYWRIGHT_API_PORT ?? "8010"}`;
 const secret = process.env.BOOTSTRAP_SECRET ?? "nexa-test-bootstrap-secret";
@@ -156,11 +157,11 @@ test("owner dashboard periods, drill-down, profile, ranking, comparison, delay, 
   });
   await expect(page.getByText(/MTD period ·/)).toBeVisible({ timeout: 30_000 });
   let filters = await openDashboardFilters(page);
-  await filters.getByLabel("Reporting period").selectOption("ytd");
+  await selectBrandedOption(filters.getByLabel("Reporting period"), "ytd");
   await page.getByRole("button", { name: "Apply" }).click();
   await expect(page.getByText(/YTD period ·/)).toBeVisible({ timeout: 30_000 });
   filters = await openDashboardFilters(page);
-  await filters.getByLabel("Reporting period").selectOption("custom");
+  await selectBrandedOption(filters.getByLabel("Reporting period"), "custom");
   await filters.getByLabel("Custom period").fill("2026-01-01 – 2026-12-31");
   await page.getByRole("button", { name: "Apply" }).click();
   await expect(page.getByRole("link", { name: "Submitted KPI" })).toBeVisible({
@@ -182,15 +183,15 @@ test("owner dashboard periods, drill-down, profile, ranking, comparison, delay, 
   await expect(page.getByRole("heading", { name: "Employee report" })).toBeVisible({
     timeout: 30_000,
   });
-  await page.getByLabel("Reporting period").selectOption("since_joining");
+  await selectBrandedOption(page.getByLabel("Reporting period"), "since_joining");
   await page.getByRole("button", { name: "Apply" }).click();
-  await expect(page.getByLabel("Reporting period")).toHaveValue("since_joining");
+  await expect(page.getByLabel("Reporting period")).toHaveAttribute("value", "since_joining");
   await page.goto("/reports");
   await expect(page.getByRole("heading", { name: "Top employees" })).toBeVisible({
     timeout: 30_000,
   });
   filters = await openDashboardFilters(page);
-  await filters.getByLabel("Ranking metric").selectOption("case_count");
+  await selectBrandedOption(filters.getByLabel("Ranking metric"), "case_count");
   const rankingLink = page
     .getByRole("heading", { name: "Top employees" })
     .locator("..")

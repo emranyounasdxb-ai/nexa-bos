@@ -208,7 +208,7 @@ export default function EditUserPage() {
         <label className="block text-sm" htmlFor="edit-office">
           Office
         </label>
-        <select
+        <Select
           id="edit-office"
           className={`${controlClass} mt-1`}
           value={form.office_id}
@@ -223,11 +223,11 @@ export default function EditUserPage() {
               {item.code} — {item.name}
             </option>
           ))}
-        </select>
+        </Select>
         <label className="block text-sm" htmlFor="edit-department">
           Department
         </label>
-        <select
+        <Select
           id="edit-department"
           className={`${controlClass} mt-1`}
           value={form.department_id ?? ""}
@@ -243,11 +243,11 @@ export default function EditUserPage() {
               {item.officeId !== form.office_id ? " (does not match office)" : ""}
             </option>
           ))}
-        </select>
+        </Select>
         <label className="block text-sm" htmlFor="edit-team">
           Team
         </label>
-        <select
+        <Select
           id="edit-team"
           className={`${controlClass} mt-1`}
           value={form.team_id ?? ""}
@@ -265,10 +265,10 @@ export default function EditUserPage() {
                 : ""}
             </option>
           ))}
-        </select>
+        </Select>
         <label className="block text-sm">
           Employment status
-          <select
+          <Select
             className={`${controlClass} mt-1`}
             value={form.employment_status}
             onChange={(event) => setForm({ ...form, employment_status: event.target.value })}
@@ -276,7 +276,7 @@ export default function EditUserPage() {
             {STATUSES.map((status) => (
               <option key={status}>{status}</option>
             ))}
-          </select>
+          </Select>
         </label>
         <label className="block text-sm">
           Last working date
@@ -290,7 +290,7 @@ export default function EditUserPage() {
         {isOwner ? null : (
           <label className="block text-sm">
             Reporting manager
-            <select
+            <Select
               className={`${controlClass} mt-1`}
               value={form.reporting_manager_id ?? ""}
               onChange={(event) => setForm({ ...form, reporting_manager_id: event.target.value })}
@@ -301,7 +301,7 @@ export default function EditUserPage() {
                   {item.userCode} — {item.fullName}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
         )}
         {assignmentIssues.length ? (

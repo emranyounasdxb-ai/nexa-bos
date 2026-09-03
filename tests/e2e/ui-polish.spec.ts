@@ -1,4 +1,5 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { selectBrandedOption } from "./helpers/select";
 
 const apiOrigin = `http://127.0.0.1:${process.env.PLAYWRIGHT_API_PORT ?? "8010"}`;
 const secret = process.env.BOOTSTRAP_SECRET ?? "nexa-test-bootstrap-secret";
@@ -206,7 +207,7 @@ test("list search and page actions share compact desktop rows", async ({ page, r
   await expect(page.getByRole("heading", { name: "Create user", exact: true })).toBeVisible();
   for (const control of [
     page.getByLabel("Full name", { exact: true }),
-    page.locator("label").filter({ hasText: "Designation" }).locator("select"),
+    page.getByRole("combobox", { name: "Designation" }),
     page.getByLabel("Joining date", { exact: true }),
     page.getByRole("button", { name: "Create", exact: true }),
   ]) {
@@ -382,7 +383,7 @@ test("dashboard loads primary data independently and preserves it during refresh
   dashboardGate = deferred();
   await page.getByTestId("dashboard-actions").getByRole("button", { name: "Refine", exact: true }).click();
   const dashboardRequestsBeforeSelection = starts.filter((entry) => entry.endpoint === "dashboard").length;
-  await page.getByLabel("Reporting period", { exact: true }).selectOption("ytd");
+  await selectBrandedOption(page.getByLabel("Reporting period", { exact: true }), "ytd");
   expect(starts.filter((entry) => entry.endpoint === "dashboard")).toHaveLength(dashboardRequestsBeforeSelection);
   await page.getByRole("button", { name: "Apply filters", exact: true }).click();
   await expect.poll(() => starts.filter((entry) => entry.mode === "filter" && entry.endpoint === "dashboard").length).toBe(1);
@@ -762,7 +763,7 @@ test("shared application layout stays compact, aligned, and overflow-free across
       expect(layout.mainPaddingTop).toBe(viewport.expectedMainPaddingTop);
 
       const controls = page.locator(
-        'main input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]), main select',
+        'main input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]), main [role="combobox"]',
       );
       for (const control of await controls.all()) {
         if (!(await control.isVisible())) continue;

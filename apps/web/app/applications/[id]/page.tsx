@@ -498,7 +498,7 @@ export default function ApplicationDetailPage() {
           }}
         >
           <h3 className="font-semibold">Update stage</h3>
-          <select
+          <Select
             className={controlClass}
             aria-label="Next stage"
             value={stageId}
@@ -511,7 +511,7 @@ export default function ApplicationDetailPage() {
                 {stage.name}
               </option>
             ))}
-          </select>
+          </Select>
           <DatePicker
             required
             aria-label="Bank Stage Date"
@@ -583,7 +583,7 @@ export default function ApplicationDetailPage() {
         >
           <h3 className="font-semibold">Correct stage</h3>
           <p className="text-xs text-slate-500">Original history is preserved. Reason is mandatory.</p>
-          <select
+          <Select
             className={controlClass}
             aria-label="Corrected stage"
             value={stageId}
@@ -598,7 +598,7 @@ export default function ApplicationDetailPage() {
                   {stage.name}
                 </option>
               ))}
-          </select>
+          </Select>
           <input
             className={controlClass}
             aria-label="Stage correction reason"
@@ -681,7 +681,7 @@ export default function ApplicationDetailPage() {
           }}
         >
           <h3 className="font-semibold">Reassign Case Owner</h3>
-          <select
+          <Select
             className={controlClass}
             aria-label="New Case Owner"
             value={ownerId}
@@ -694,7 +694,7 @@ export default function ApplicationDetailPage() {
                 {owner.fullName}
               </option>
             ))}
-          </select>
+          </Select>
           <input
             className={controlClass}
             aria-label="Reassignment reason"
@@ -720,7 +720,7 @@ export default function ApplicationDetailPage() {
           }}
         >
           <h3 className="font-semibold">Terminal outcome</h3>
-          <select
+          <Select
             className={controlClass}
             aria-label="Terminal outcome"
             value={outcome}
@@ -729,7 +729,7 @@ export default function ApplicationDetailPage() {
             <option>Final Rejected</option>
             <option>Cancelled</option>
             <option>Withdrawn</option>
-          </select>
+          </Select>
           <textarea
             className={multilineControlClass}
             aria-label="Outcome reason"
@@ -757,7 +757,7 @@ export default function ApplicationDetailPage() {
           }}
         >
           <h3 className="font-semibold">Migrate workflow version</h3>
-          <select
+          <Select
             className={controlClass}
             aria-label="Target workflow"
             value={migrateWorkflowId}
@@ -772,8 +772,8 @@ export default function ApplicationDetailPage() {
                   Version {row.version} ({row.status})
                 </option>
               ))}
-          </select>
-          <select
+          </Select>
+          <Select
             className={controlClass}
             aria-label="Migration target stage"
             value={migrateStageId}
@@ -788,7 +788,7 @@ export default function ApplicationDetailPage() {
                   {stage.name}
                 </option>
               ))}
-          </select>
+          </Select>
           <input
             className={controlClass}
             aria-label="Migration reason"

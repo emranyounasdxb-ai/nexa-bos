@@ -1,4 +1,5 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { brandedOptionValues, selectBrandedOption } from "./helpers/select";
 
 const apiOrigin = `http://127.0.0.1:${process.env.PLAYWRIGHT_API_PORT ?? "8010"}`;
 const secret = process.env.BOOTSTRAP_SECRET ?? "nexa-test-bootstrap-secret";
@@ -179,9 +180,9 @@ test("company hierarchy filters, locates, expands, inspects, and refreshes repor
   await page.getByRole("button", { name: "People menu" }).click();
   await page.getByRole("link", { name: "Hierarchy", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Organization hierarchy" })).toBeVisible();
-  await page.getByLabel("Office filter").selectOption(dxb.id);
-  await page.getByLabel("Department filter").selectOption(department.id);
-  await page.getByLabel("Team filter").selectOption(team.id);
+  await selectBrandedOption(page.getByLabel("Office filter"), dxb.id);
+  await selectBrandedOption(page.getByLabel("Department filter"), department.id);
+  await selectBrandedOption(page.getByLabel("Team filter"), team.id);
 
   const reportingTree = page.getByRole("list", { name: "Reporting tree" });
   const ownerNode = page.getByTestId(`hierarchy-node-${owner.id}`);
@@ -345,8 +346,9 @@ test("office-scoped hierarchy does not disclose hidden offices, users, search, o
   await expect(page.getByRole("heading", { name: "Organization hierarchy" })).toBeVisible();
   await expect(page.getByText(visible.fullName, { exact: true })).toBeVisible();
   await expect(page.getByText(hidden.fullName, { exact: true })).toHaveCount(0);
-  await expect(page.getByLabel("Office filter").locator(`option[value="${dxb.id}"]`)).toHaveCount(1);
-  await expect(page.getByLabel("Office filter").locator(`option[value="${auh.id}"]`)).toHaveCount(0);
+  const scopedOfficeValues = await brandedOptionValues(page.getByLabel("Office filter"));
+  expect(scopedOfficeValues).toContain(dxb.id);
+  expect(scopedOfficeValues).not.toContain(auh.id);
   await page.getByLabel("Employee search").fill(hidden.employeeCode);
   await page.getByRole("button", { name: "Search", exact: true }).click();
   await expect(page.getByText("No authorized employees found.")).toBeVisible();

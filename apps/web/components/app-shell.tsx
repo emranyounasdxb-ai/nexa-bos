@@ -69,7 +69,7 @@ const routeContext = (pathname: string) => {
     { prefix: "/customers", group: "Operations", title: "Customers" },
     { prefix: "/applications/new", group: "Operations / Applications", title: "Create application" },
     { prefix: "/applications", group: "Operations", title: "Applications" },
-    { prefix: "/workflows", group: "Operations", title: "Workflows" },
+    { prefix: "/workflows", group: "Operations", title: "Workflow Designer" },
     { prefix: "/users/new", group: "People / Users", title: "Create user" },
     { prefix: "/users", group: "People", title: "User directory" },
     { prefix: "/organization/hierarchy", group: "People / Organization", title: "Organization hierarchy" },

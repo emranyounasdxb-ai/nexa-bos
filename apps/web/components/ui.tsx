@@ -4,11 +4,11 @@ import type {
   ButtonHTMLAttributes,
   InputHTMLAttributes,
   ReactNode,
-  SelectHTMLAttributes,
   TextareaHTMLAttributes,
 } from "react";
 
 import { IconAlertTriangle, IconInfoCircle, IconX } from "@/components/icons";
+import { BrandedSelect, type BrandedSelectProps } from "@/components/select";
 import { Tooltip } from "@/components/tooltip";
 
 export function cx(...parts: Array<string | false | null | undefined>): string {
@@ -200,15 +200,15 @@ export function Select({
   className,
   children,
   ...props
-}: SelectHTMLAttributes<HTMLSelectElement> & { error?: boolean }) {
+}: BrandedSelectProps & { error?: boolean }) {
   return (
-    <select
+    <BrandedSelect
       className={cx("mt-1.5", controlClass, error && controlErrorClass, className)}
       aria-invalid={error || undefined}
       {...props}
     >
       {children}
-    </select>
+    </BrandedSelect>
   );
 }
 
