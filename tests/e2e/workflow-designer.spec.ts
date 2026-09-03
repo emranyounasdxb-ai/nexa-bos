@@ -46,13 +46,15 @@ async function createBranchingWorkflow(request: APIRequestContext) {
   const suffix = Date.now().toString(36).slice(-7).toUpperCase();
   const bankName = `Workflow Bank ${suffix}`;
   const productName = `Workflow Product ${suffix}`;
+  const bankCode = `WB${suffix}`;
+  const productCode = `WP${suffix}`;
   const bank = await request.post(`${apiOrigin}/api/v1/banks`, {
     headers,
-    data: { name: bankName, code: `WB${suffix}` },
+    data: { name: bankName, code: bankCode },
   });
   const product = await request.post(`${apiOrigin}/api/v1/products`, {
     headers,
-    data: { name: productName, code: `WP${suffix}` },
+    data: { name: productName, code: productCode },
   });
   expect(bank.ok(), await bank.text()).toBeTruthy();
   expect(product.ok(), await product.text()).toBeTruthy();
@@ -101,9 +103,11 @@ async function createBranchingWorkflow(request: APIRequestContext) {
   expect(transitions.ok(), await transitions.text()).toBeTruthy();
   return {
     bankId: bankBody.id,
+    bankLabel: `${bankName} (${bankCode})`,
     bankName,
     documentStageLabel: `${createdStages[0].name} (${createdStages[0].code})`,
     productId: productBody.id,
+    productLabel: `${productName} (${productCode})`,
     productName,
     workflowId: workflowBody.id,
   };
@@ -123,13 +127,76 @@ test("Workflow Designer presents dependent branded selectors, drawers, branching
   await ensureOwner(request);
   const fixture = await createBranchingWorkflow(request);
   await signIn(page, request);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/workflows");
+
+  const bank = page.getByRole("combobox", { name: "Workflow bank" });
+  const product = page.getByRole("combobox", { name: "Workflow product" });
+  const version = page.getByRole("combobox", { name: "Workflow version" });
+  const status = page.getByRole("combobox", { name: "Workflow status" });
+  const selectionInstruction = page.getByText(
+    "Select a bank, product, and workflow version to configure its workflow.",
+    { exact: true },
+  );
+
+  await expect(selectionInstruction).toBeVisible();
+  await expect(bank).toContainText("Select bank");
+  await expect(bank).toBeEnabled();
+  await expect(product).toContainText("Select product");
+  await expect(product).toBeDisabled();
+  await expect(version).toContainText("Select version");
+  await expect(version).toBeDisabled();
+  await expect(status).toContainText("All statuses");
+  await expect(page.getByRole("tablist", { name: "Workflow configuration" })).toHaveCount(0);
+  await expect(page.getByTestId("workflow-preview")).toHaveCount(0);
+  const initialOverflow = await page.evaluate(() => ({
+    client: document.documentElement.clientWidth,
+    scroll: document.documentElement.scrollWidth,
+  }));
+  expect(initialOverflow.scroll).toBeLessThanOrEqual(initialOverflow.client);
+
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto(`/workflows?bank=${fixture.bankId}&product=${fixture.productId}&workflow=${fixture.workflowId}&view=stages`);
+  await chooseOption(page, "Workflow bank", fixture.bankLabel);
+  await expect(product).toBeEnabled();
+  await expect(version).toBeDisabled();
+  await chooseOption(page, "Workflow product", fixture.productLabel);
+  await expect(version).toBeEnabled();
+  await expect(version).toContainText("Select version");
+  await chooseOption(page, "Workflow version", "Version 1 · active");
+  await expect(page.getByRole("heading", { name: "Version 1", exact: true })).toBeVisible();
+
+  await product.click();
+  await page.getByRole("listbox").getByRole("option", { name: "Select product", exact: true }).click();
+  await expect(product).toHaveAttribute("value", "");
+  await expect(version).toHaveAttribute("value", "");
+  await expect(version).toBeDisabled();
+  await expect(selectionInstruction).toBeVisible();
+
+  await chooseOption(page, "Workflow product", fixture.productLabel);
+  await chooseOption(page, "Workflow version", "Version 1 · active");
+  await bank.click();
+  await page.getByRole("listbox").getByRole("option", { name: "Select bank", exact: true }).click();
+  await expect(bank).toHaveAttribute("value", "");
+  await expect(product).toHaveAttribute("value", "");
+  await expect(product).toBeDisabled();
+  await expect(version).toHaveAttribute("value", "");
+  await expect(version).toBeDisabled();
+  await expect(selectionInstruction).toBeVisible();
+
+  const selectedUrl = `/workflows?bank=${fixture.bankId}&product=${fixture.productId}&workflow=${fixture.workflowId}&view=stages`;
+  await page.goto(selectedUrl);
+  await expect(page.getByRole("heading", { name: "Version 1", exact: true })).toBeVisible();
+  await page.goto("/status");
+  await page.goBack();
 
   await expect(page.getByRole("heading", { name: "Workflow Designer", exact: true })).toBeVisible();
   await expect(page.locator("select")).toHaveCount(0);
+  await expect(bank).toHaveAttribute("value", fixture.bankId);
   await expect(page.getByRole("combobox", { name: "Workflow bank" })).toContainText(fixture.bankName);
+  await expect(product).toHaveAttribute("value", fixture.productId);
   await expect(page.getByRole("combobox", { name: "Workflow product" })).toContainText(fixture.productName);
+  await expect(version).toHaveAttribute("value", fixture.workflowId);
+  await expect(status).toContainText("All statuses");
   await expect(page.getByText("Fixed entry stage", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "About the fixed entry stage" }).focus();
   await expect(page.getByRole("tooltip")).toContainText("system-defined entry stage");
@@ -142,7 +209,6 @@ test("Workflow Designer presents dependent branded selectors, drawers, branching
   await expect(addStageDialog).toHaveCount(0);
   await expect(addStageButton).toBeFocused();
 
-  const status = page.getByRole("combobox", { name: "Workflow status" });
   await status.focus();
   await status.press("Enter");
   await expect(page.getByRole("listbox")).toBeVisible();

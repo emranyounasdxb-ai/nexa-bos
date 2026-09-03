@@ -122,7 +122,7 @@ export default function WorkflowsPage() {
       setSelectedId((current) => {
         if (preferredId && workflowData.items.some((item) => item.id === preferredId)) return preferredId;
         if (current && workflowData.items.some((item) => item.id === current)) return current;
-        return workflowData.items[0]?.id ?? "";
+        return "";
       });
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Workflow data could not be loaded.");
@@ -138,18 +138,15 @@ export default function WorkflowsPage() {
     setBankId(params.get("bank") ?? "");
     setProductId(params.get("product") ?? "");
     setSelectedId(params.get("workflow") ?? "");
-    setStatusFilter(params.get("status") ?? "all");
+    const queryStatus = params.get("status");
+    setStatusFilter(queryStatus === "active" || queryStatus === "inactive" ? queryStatus : "all");
     setQueryReady(true);
     void refresh();
   }, [refresh]);
 
-  const selected = items.find((item) => item.id === selectedId);
-
-  useEffect(() => {
-    if (!items.length) return;
-    if (!bankId) setBankId(selected?.bankId ?? items[0].bankId);
-    if (!productId) setProductId(selected?.productId ?? items[0].productId);
-  }, [bankId, items, productId, selected]);
+  const selected = items.find((item) => (
+    item.id === selectedId && item.bankId === bankId && item.productId === productId
+  ));
 
   const bankOptions = useMemo(() => {
     const byId = new Map(banks.map((bank) => [bank.id, bank]));
@@ -168,15 +165,31 @@ export default function WorkflowsPage() {
     return Array.from(byId.values());
   }, [bankId, items, mappings, products]);
 
-  const versionOptions = useMemo(() => items
-    .filter((item) => !bankId || item.bankId === bankId)
-    .filter((item) => !productId || item.productId === productId)
-    .filter((item) => statusFilter === "all" || item.status === statusFilter)
-    .sort((left, right) => right.version - left.version), [bankId, items, productId, statusFilter]);
+  const versionOptions = useMemo(() => {
+    if (!bankId || !productId) return [];
+    return items
+      .filter((item) => item.bankId === bankId && item.productId === productId)
+      .filter((item) => statusFilter === "all" || item.status === statusFilter)
+      .sort((left, right) => right.version - left.version);
+  }, [bankId, items, productId, statusFilter]);
 
   useEffect(() => {
-    if (!versionOptions.some((workflow) => workflow.id === selectedId)) setSelectedId(versionOptions[0]?.id ?? "");
-  }, [selectedId, versionOptions]);
+    if (loading) return;
+    if (bankId && !bankOptions.some((bank) => bank.id === bankId)) {
+      setBankId("");
+      setProductId("");
+      setSelectedId("");
+      return;
+    }
+    if (productId && (!bankId || !productOptions.some((product) => product.id === productId))) {
+      setProductId("");
+      setSelectedId("");
+      return;
+    }
+    if (selectedId && (!bankId || !productId || !versionOptions.some((workflow) => workflow.id === selectedId))) {
+      setSelectedId("");
+    }
+  }, [bankId, bankOptions, loading, productId, productOptions, selectedId, versionOptions]);
 
   useEffect(() => {
     if (!queryReady) return;
@@ -426,19 +439,19 @@ export default function WorkflowsPage() {
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
           <Field label="Bank" htmlFor="workflow-bank">
             <Select id="workflow-bank" aria-label="Workflow bank" value={bankId} onChange={(event) => { setBankId(event.target.value); setProductId(""); setSelectedId(""); }}>
-              <option value="">Select Bank</option>
+              <option value="">Select bank</option>
               {bankOptions.map((bank) => <option key={bank.id} value={bank.id}>{bank.name} ({bank.code})</option>)}
             </Select>
           </Field>
           <Field label="Product" htmlFor="workflow-product">
             <Select id="workflow-product" aria-label="Workflow product" value={productId} disabled={!bankId} onChange={(event) => { setProductId(event.target.value); setSelectedId(""); }}>
-              <option value="">{bankId ? "Select Product" : "Select Bank first"}</option>
+              <option value="">Select product</option>
               {productOptions.map((product) => <option key={product.id} value={product.id}>{product.name} ({product.code})</option>)}
             </Select>
           </Field>
           <Field label="Version" htmlFor="workflow-version">
-            <Select id="workflow-version" aria-label="Workflow version" value={selectedId} disabled={!productId || !versionOptions.length} onChange={(event) => setSelectedId(event.target.value)}>
-              {!versionOptions.length ? <option value="">No version available</option> : null}
+            <Select id="workflow-version" aria-label="Workflow version" value={selectedId} disabled={!bankId || !productId} onChange={(event) => setSelectedId(event.target.value)}>
+              <option value="">Select version</option>
               {versionOptions.map((item) => <option key={item.id} value={item.id}>Version {item.version} · {item.status}</option>)}
             </Select>
           </Field>
@@ -556,7 +569,7 @@ export default function WorkflowsPage() {
             </Card>
           ) : null}
         </>
-      ) : <Card><EmptyState>{bankId && productId ? "No workflow version matches these selectors. Create a version if you have permission." : "Select a Bank and Product to review its workflow versions."}</EmptyState></Card>}
+      ) : <Card><EmptyState>Select a bank, product, and workflow version to configure its workflow.</EmptyState></Card>}
 
       {drawer ? (
         <div className="fixed inset-0 z-50 flex justify-end bg-black/40" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) requestDrawerClose(); }}>
