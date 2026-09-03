@@ -135,7 +135,7 @@ test("edit user office department team selectors do not silently clear invalid v
   await selectBrandedOption(team, "");
   await expect(page.getByRole("button", { name: "Save" })).toBeEnabled();
   await page.getByRole("button", { name: "Save" }).click();
-  await expect(page).toHaveURL(new RegExp(`/users/${user.id}$`));
+  await expect(page).toHaveURL(new RegExp(`/users/${user.id}\\?tab=overview$`));
   await expect(page.getByText(`EMP-ED-${tag}`, { exact: true })).toBeVisible();
 });
 

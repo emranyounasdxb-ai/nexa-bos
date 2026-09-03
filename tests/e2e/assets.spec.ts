@@ -45,8 +45,19 @@ async function signIn(
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();
+  await ensureAssetsMenuOpen(page);
+}
+
+async function ensureAssetsMenuOpen(page: Page) {
+  const assetsLink = page.getByRole("link", { name: "Assets", exact: true });
+  if (!(await assetsLink.isVisible())) {
+    await expect(page.getByRole("button", { name: "Assets menu" })).toBeVisible({
+      timeout: 30_000,
+    });
+    await page.getByRole("button", { name: "Assets menu" }).click();
+  }
   await expect(page.getByRole("link", { name: "Assets", exact: true })).toBeVisible({
-    timeout: 30_000,
+    timeout: 5_000,
   });
 }
 
@@ -150,13 +161,14 @@ test("owner completes tracked Asset creation, custody, profile, offboarding, ret
   await expect(page.getByRole("row").filter({ hasText: iccid })).toBeVisible();
 
   await pcRow.getByRole("link", { name: assetCode }).click();
-  await expect(page.getByRole("heading", { name: assetCode })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Asset identity and custody" })).toBeVisible();
   await selectBrandedOption(page.getByLabel("Allocation employee"), firstEmployee.id);
   await selectBrandedOption(page.getByLabel("Condition at Issue"), "Good");
   await page.getByRole("button", { name: "Allocate Asset" }).click();
   await expect(page.getByText("Asset allocated", { exact: true })).toBeVisible();
 
   await page.goto(`/users/${firstEmployee.id}`);
+  await page.getByRole("tab", { name: "Assets" }).click();
   await expect(page.getByRole("heading", { name: "Current Assets" })).toBeVisible();
   await expect(page.getByRole("row").filter({ hasText: assetCode })).toContainText("Good");
 
@@ -171,11 +183,13 @@ test("owner completes tracked Asset creation, custody, profile, offboarding, ret
   await page.getByLabel("Last working date").fill("2026-08-30");
   await page.getByRole("button", { name: "Save" }).click();
   await expect(page.getByRole("heading", { name: secondEmployee.fullName })).toBeVisible();
+  await page.getByRole("tab", { name: "Assets" }).click();
   await page.getByRole("link", { name: assetCode }).click();
   await expect(page.getByText(/Outstanding Asset/)).toBeVisible();
 
+  await ensureAssetsMenuOpen(page);
   await page.getByRole("link", { name: "Asset reports" }).click();
-  await selectBrandedOption(page.getByLabel("Asset report"), "outstanding_assets");
+  await selectBrandedOption(page.getByRole("combobox", { name: "Asset report" }), "outstanding_assets");
   await page.getByRole("button", { name: "Run report" }).click();
   await expect(page.getByRole("row").filter({ hasText: assetCode })).toContainText("Yes");
   await expect(page.getByRole("button", { name: "Excel" })).toBeVisible();
@@ -183,6 +197,7 @@ test("owner completes tracked Asset creation, custody, profile, offboarding, ret
   await expect(page.getByRole("button", { name: "Print" })).toBeVisible();
   await expect(page.getByText("CSV", { exact: true })).toHaveCount(0);
 
+  await ensureAssetsMenuOpen(page);
   await page.getByRole("link", { name: "Assets", exact: true }).click();
   await page.getByRole("row").filter({ hasText: assetCode }).getByRole("link").click();
   await selectBrandedOption(page.getByLabel("Return Condition"), "Fair");
@@ -293,7 +308,7 @@ test("Assets.View-only user sees own custody without privileged controls or muta
   await expect(page.getByRole("row").filter({ hasText: asset.assetCode })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Create Asset" })).toHaveCount(0);
   await page.getByRole("link", { name: asset.assetCode }).click();
-  await expect(page.getByRole("heading", { name: asset.assetCode })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Asset identity and custody" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Edit Asset master" })).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Return Asset" })).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Employee transfer" })).toHaveCount(0);
