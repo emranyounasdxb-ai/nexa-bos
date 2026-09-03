@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 
 import { Pagination, useClientPagination } from "@/components/pagination";
-import { Button, ButtonLink, ErrorText, PageHeader, StatusBadge, TableHead, TableShell, Td, Th, controlClass } from "@/components/ui";
+import { Button, ButtonLink, ErrorText, PageHeader, Select, StatusBadge, TableHead, TableShell, Td, Th, controlClass } from "@/components/ui";
 import { apiGet, apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { getBrowserApiUrl } from "@/lib/env";
@@ -103,13 +103,13 @@ export default function OrganizationPage() {
         {can("Departments.Manage") && offices[0] ? (
           <CreateForm
             extra={
-              <select id="dept-office" className={controlClass} defaultValue={offices[0].id}>
+              <Select id="dept-office" className="!mt-0" defaultValue={offices[0].id}>
                 {offices.map((office) => (
                   <option key={office.id} value={office.id}>
                     {office.code}
                   </option>
                 ))}
-              </select>
+              </Select>
             }
             onCreate={(name, code) => {
               const officeId = (document.getElementById("dept-office") as HTMLSelectElement).value;
@@ -125,16 +125,16 @@ export default function OrganizationPage() {
           <CreateForm
             extra={
               <>
-                <select id="team-office" className={controlClass} defaultValue={offices[0].id}>
+                <Select id="team-office" className="!mt-0" defaultValue={offices[0].id}>
                   {offices.map((office) => (
                     <option key={office.id} value={office.id}>
                       {office.code}
                     </option>
                   ))}
-                </select>
-                <select
+                </Select>
+                <Select
                   id="team-department"
-                  className={controlClass}
+                  className="!mt-0"
                   defaultValue={departments[0].id}
                 >
                   {departments.map((department) => (
@@ -142,7 +142,7 @@ export default function OrganizationPage() {
                       {department.code}
                     </option>
                   ))}
-                </select>
+                </Select>
               </>
             }
             onCreate={(name, code) => {
@@ -296,7 +296,7 @@ function TeamTable({
               <Td><StatusBadge value={item.status ?? "active"} /></Td>
               <Td>
                 {canManage ? (
-                  <select
+                  <Select
                     aria-label={`Team leader for ${item.code}`}
                     className={`${controlClass} !min-h-8 !py-1 text-xs`}
                     value={item.teamLeaderId ?? ""}
@@ -308,7 +308,7 @@ function TeamTable({
                         {leader.userCode} — {leader.fullName}
                       </option>
                     ))}
-                  </select>
+                  </Select>
                 ) : (
                   item.teamLeaderId ?? "None"
                 )}

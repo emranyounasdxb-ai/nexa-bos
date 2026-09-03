@@ -1,4 +1,5 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { selectBrandedOption } from "./helpers/select";
 
 const apiOrigin = `http://127.0.0.1:${process.env.PLAYWRIGHT_API_PORT ?? "8010"}`;
 const secret = process.env.BOOTSTRAP_SECRET ?? "nexa-test-bootstrap-secret";
@@ -84,25 +85,27 @@ test("Finance exposes only the approved Task 11 workflows and calculation modes"
   await expect(ruleDrawer.getByText("4. Recipient Split")).toBeVisible();
   await expect(ruleDrawer.getByText("Total split 100% / 100%")).toBeVisible();
   const sharedCalculation = ruleDrawer.getByLabel(/^Calculation/).first();
-  await expect(sharedCalculation.locator("option")).toHaveText([
+  await sharedCalculation.click();
+  await expect(page.getByRole("listbox").getByRole("option")).toHaveText([
     "Fixed",
     "Percentage",
     "Single applicable slab",
     "Flat + Percentage",
   ]);
+  await sharedCalculation.press("Escape");
   await expect(ruleDrawer.getByLabel(/^Fixed amount/)).toBeVisible();
-  await sharedCalculation.selectOption("slab");
+  await selectBrandedOption(sharedCalculation, "slab");
   await expect(ruleDrawer.getByLabel(/^Fixed amount/)).toHaveCount(0);
   await ruleDrawer.getByRole("button", { name: "Add slab" }).click();
   await expect(ruleDrawer.getByLabel(/^Minimum eligible value/)).toBeVisible();
   await expect(ruleDrawer.getByLabel(/^Maximum eligible value \(optional\)/)).toBeVisible();
 
-  await ruleDrawer.getByLabel("Payout mode").selectOption("independent_role_rate");
+  await selectBrandedOption(ruleDrawer.getByLabel("Payout mode"), "independent_role_rate");
   const roleCalculation = ruleDrawer.getByLabel(/^Calculation/).first();
-  await roleCalculation.selectOption("flat_percentage");
+  await selectBrandedOption(roleCalculation, "flat_percentage");
   await expect(ruleDrawer.getByLabel(/^Flat amount/)).toBeVisible();
   await expect(ruleDrawer.getByLabel(/^Rate %/)).toBeVisible();
-  await expect(ruleDrawer.getByLabel(/^Authoritative Source/)).toHaveValue("case_owner");
+  await expect(ruleDrawer.getByLabel(/^Authoritative Source/)).toHaveAttribute("value", "case_owner");
   await expect(ruleDrawer.getByText("Team Leader", { exact: true })).toHaveCount(0);
   await expect(ruleDrawer.getByText("Designation", { exact: true })).toHaveCount(0);
   await ruleDrawer.getByRole("button", { name: "Close drawer" }).click();

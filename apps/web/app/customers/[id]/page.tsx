@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
-import { Badge, Button, ErrorText, PageHeader, TextInput, controlClass, secondaryButtonClass } from "@/components/ui";
+import { Badge, Button, ErrorText, PageHeader, Select, TextInput, controlClass, secondaryButtonClass } from "@/components/ui";
 import { apiGet, apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { getBrowserApiUrl } from "@/lib/env";
@@ -242,7 +242,7 @@ export default function CustomerDetailPage() {
             placeholder="Search customer code, name, company, mobile, or identifier"
             onChange={(event) => setOtherQuery(event.target.value)}
           />
-          <select
+          <Select
             className={controlClass}
             value={primaryId}
             onChange={(event) => setPrimaryId(event.target.value)}
@@ -254,7 +254,7 @@ export default function CustomerDetailPage() {
                 {item.customerCode} — {item.companyName || item.fullName}
               </option>
             ))}
-          </select>
+          </Select>
           <Button type="button" onClick={() => void merge()}>
             Merge
           </Button>

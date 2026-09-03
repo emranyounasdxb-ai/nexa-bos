@@ -340,7 +340,7 @@ export default function AttendancePage() {
                     </div>
                   </Td>
                   <Td>
-                    <select
+                    <Select
                       aria-label={`${item.fullName} status`}
                       className={`${controlClass} !min-h-8 !py-1 text-xs`}
                       value={draft?.status ?? "Present"}
@@ -352,9 +352,9 @@ export default function AttendancePage() {
                           {status}
                         </option>
                       ))}
-                    </select>
+                    </Select>
                     {draft?.status === "Leave" ? (
-                      <select
+                      <Select
                         aria-label={`${item.fullName} leave type`}
                         className={`mt-1 ${controlClass}`}
                         value={draft.leaveTypeId}
@@ -367,7 +367,7 @@ export default function AttendancePage() {
                             {leave.name}
                           </option>
                         ))}
-                      </select>
+                      </Select>
                     ) : null}
                   </Td>
                   <Td>

@@ -1,4 +1,5 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { selectBrandedOption } from "./helpers/select";
 
 const apiOrigin = `http://127.0.0.1:${process.env.PLAYWRIGHT_API_PORT ?? "8010"}`;
 const secret = process.env.BOOTSTRAP_SECRET ?? "nexa-test-bootstrap-secret";
@@ -313,14 +314,14 @@ test("owner targets, KPI scorecards, profile section, and scoped isolation", asy
   await expect(targetDrawer.getByRole("group", { name: "Assignment" })).toBeVisible();
   await expect(targetDrawer.getByRole("group", { name: "Target period" })).toBeVisible();
   await expect(targetDrawer.getByRole("group", { name: "Measurement" })).toBeVisible();
-  await targetDrawer.getByLabel("Target level").selectOption("employee");
-  await targetDrawer.getByLabel("Target entity").selectOption(employee.id);
+  await selectBrandedOption(targetDrawer.getByLabel("Target level"), "employee");
+  await selectBrandedOption(targetDrawer.getByLabel("Target entity"), employee.id);
   await targetDrawer.getByLabel("Target month").fill(month);
-  await targetDrawer.getByLabel("Product", { exact: true }).selectOption(pf!.id);
-  await targetDrawer.getByLabel("Milestone").selectOption("submitted");
-  await targetDrawer.getByLabel("Measurement").selectOption("amount");
+  await selectBrandedOption(targetDrawer.getByLabel("Product", { exact: true }), pf!.id);
+  await selectBrandedOption(targetDrawer.getByLabel("Milestone"), "submitted");
+  await selectBrandedOption(targetDrawer.getByLabel("Measurement"), "amount");
   await targetDrawer.getByLabel("Target value").fill("10000");
-  await targetDrawer.getByLabel("Prorate").selectOption("no");
+  await selectBrandedOption(targetDrawer.getByLabel("Prorate"), "no");
   await expect(targetDrawer.getByLabel("Target summary")).toContainText("10000");
   await targetDrawer.getByRole("button", { name: "Save target" }).click();
   await expect(page.getByText("Target saved.")).toBeVisible();
@@ -331,20 +332,20 @@ test("owner targets, KPI scorecards, profile section, and scoped isolation", asy
 
   await page.getByRole("button", { name: "Create target" }).first().click();
   targetDrawer = page.getByRole("dialog", { name: "Create target" });
-  await targetDrawer.getByLabel("Target level").selectOption("team");
-  await targetDrawer.getByLabel("Target entity").selectOption(teamId);
-  await targetDrawer.getByLabel("Product", { exact: true }).selectOption(pf!.id);
+  await selectBrandedOption(targetDrawer.getByLabel("Target level"), "team");
+  await selectBrandedOption(targetDrawer.getByLabel("Target entity"), teamId);
+  await selectBrandedOption(targetDrawer.getByLabel("Product", { exact: true }), pf!.id);
   await targetDrawer.getByLabel("Target value").fill("20000");
   await targetDrawer.getByRole("button", { name: "Save target" }).click();
   await expect(page.getByText("Target saved.")).toBeVisible();
 
   await page.getByRole("button", { name: "Create target" }).first().click();
   targetDrawer = page.getByRole("dialog", { name: "Create target" });
-  await targetDrawer.getByLabel("Target level").selectOption("office");
-  await targetDrawer.getByLabel("Target entity").selectOption(dxb!.id);
+  await selectBrandedOption(targetDrawer.getByLabel("Target level"), "office");
+  await selectBrandedOption(targetDrawer.getByLabel("Target entity"), dxb!.id);
   await targetDrawer.getByLabel("Target month").fill(officeMonth);
-  await targetDrawer.getByLabel("Product", { exact: true }).selectOption(cc!.id);
-  await targetDrawer.getByLabel("Measurement").selectOption("count");
+  await selectBrandedOption(targetDrawer.getByLabel("Product", { exact: true }), cc!.id);
+  await selectBrandedOption(targetDrawer.getByLabel("Measurement"), "count");
   await targetDrawer.getByLabel("Target value").fill("5");
   await targetDrawer.getByRole("button", { name: "Save target" }).click();
   await expect(page.getByText("Target saved.")).toBeVisible();
@@ -407,7 +408,7 @@ test("owner targets, KPI scorecards, profile section, and scoped isolation", asy
   await cardRow.getByRole("button", { name: "Edit" }).click();
   scorecardDrawer = page.getByRole("dialog", { name: "Edit KPI scorecard" });
   await scorecardDrawer.getByRole("button", { name: "Add metric" }).click();
-  await scorecardDrawer.getByLabel("Metric 2", { exact: true }).selectOption("attendance_score");
+  await selectBrandedOption(scorecardDrawer.getByLabel("Metric 2", { exact: true }), "attendance_score");
   await scorecardDrawer.getByLabel("Weight 1").fill("80");
   await scorecardDrawer.getByLabel("Weight 2").fill("20");
   await scorecardDrawer.getByLabel("Baseline 2").fill("100");

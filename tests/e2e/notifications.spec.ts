@@ -1,4 +1,5 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { selectBrandedOption } from "./helpers/select";
 
 const apiOrigin = `http://127.0.0.1:${process.env.PLAYWRIGHT_API_PORT ?? "8010"}`;
 const secret = process.env.BOOTSTRAP_SECRET ?? "nexa-test-bootstrap-secret";
@@ -136,10 +137,10 @@ test("owner manages rules and uses the in-app notification center", async ({ pag
 
   const suffix = Date.now().toString().slice(-7);
   await page.getByLabel("Rule name").fill(`Stage alert ${suffix}`);
-  await page.getByLabel("Severity").selectOption("critical");
+  await selectBrandedOption(page.getByLabel("Severity"), "critical");
   await page.getByLabel("Notification title").fill(`Stage changed ${suffix}`);
   await page.getByLabel("Notification message").fill("An assigned application changed stage.");
-  await page.getByLabel("Recipient target").first().selectOption("affected_user");
+  await selectBrandedOption(page.getByLabel("Recipient target").first(), "affected_user");
   await page.getByRole("button", { name: "Add target" }).first().click();
   await page.getByRole("button", { name: "Create draft rule" }).click();
   await expect(page.getByText("Notification rule created as draft.")).toBeVisible();
@@ -149,11 +150,11 @@ test("owner manages rules and uses the in-app notification center", async ({ pag
   await expect(ruleRow.getByText("Active", { exact: true })).toBeVisible();
 
   const urgentTitle = `Urgent system notice ${suffix}`;
-  await page.getByLabel("Urgent category").selectOption("system");
+  await selectBrandedOption(page.getByLabel("Urgent category"), "system");
   await page.getByLabel("Urgent title").fill(urgentTitle);
   await page.getByLabel("Urgent message").fill("Please review this in-app notice.");
   await page.getByLabel("Require acknowledgement").last().check();
-  await page.getByLabel("Recipient target").last().selectOption("company");
+  await selectBrandedOption(page.getByLabel("Recipient target").last(), "company");
   await page.getByRole("button", { name: "Add target" }).last().click();
   await page.getByRole("button", { name: "Send urgent notification" }).click();
   await expect(page.getByText("Urgent in-app notification sent.")).toBeVisible();

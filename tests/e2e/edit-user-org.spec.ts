@@ -1,4 +1,5 @@
 import { expect, test, type APIRequestContext } from "@playwright/test";
+import { brandedOptionValues, selectBrandedOption } from "./helpers/select";
 
 const apiOrigin = `http://127.0.0.1:${process.env.PLAYWRIGHT_API_PORT ?? "8010"}`;
 const secret = process.env.BOOTSTRAP_SECRET ?? "nexa-test-bootstrap-secret";
@@ -107,33 +108,35 @@ test("edit user office department team selectors do not silently clear invalid v
     timeout: 30_000,
   });
   await page.goto(`/users/${user.id}/edit`);
-  await expect(page.getByRole("heading", { name: "Edit user" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "User directory" })).toBeVisible();
   const office = page.locator("#edit-office");
   const department = page.locator("#edit-department");
   const team = page.locator("#edit-team");
-  await expect(office).toHaveValue(dxb!.id);
-  await expect(department).toHaveValue(dxbDeptId);
-  await expect(team).toHaveValue(dxbTeamId);
-  await expect(department.locator(`option[value="${auhDeptId}"]`)).toHaveCount(0);
-  await expect(department.locator(`option[value="${otherDxbDeptId}"]`)).toHaveCount(1);
+  await expect(office).toHaveAttribute("value", dxb!.id);
+  await expect(department).toHaveAttribute("value", dxbDeptId);
+  await expect(team).toHaveAttribute("value", dxbTeamId);
+  expect(await brandedOptionValues(department)).not.toContain(auhDeptId);
+  expect(await brandedOptionValues(department)).toContain(otherDxbDeptId);
 
-  await office.selectOption(auh!.id);
-  await expect(office).toHaveValue(auh!.id);
-  await expect(department).toHaveValue(dxbDeptId);
-  await expect(team).toHaveValue(dxbTeamId);
-  await expect(department.locator(`option[value="${auhDeptId}"]`)).toHaveCount(1);
-  await expect(department.locator(`option[value="${dxbDeptId}"]`)).toHaveCount(1);
-  await expect(department.locator(`option[value="${otherDxbDeptId}"]`)).toHaveCount(0);
+  await selectBrandedOption(office, auh!.id);
+  await expect(office).toHaveAttribute("value", auh!.id);
+  await expect(department).toHaveAttribute("value", dxbDeptId);
+  await expect(team).toHaveAttribute("value", dxbTeamId);
+  const departmentValues = await brandedOptionValues(department);
+  expect(departmentValues).toContain(auhDeptId);
+  expect(departmentValues).toContain(dxbDeptId);
+  expect(departmentValues).not.toContain(otherDxbDeptId);
   await expect(page.getByTestId("org-assignment-error")).toBeVisible();
   await expect(page.getByRole("button", { name: "Save" })).toBeDisabled();
 
-  await department.selectOption(auhDeptId);
-  await expect(team).toHaveValue(dxbTeamId);
+  await selectBrandedOption(department, auhDeptId);
+  await expect(team).toHaveAttribute("value", dxbTeamId);
   await expect(page.getByRole("button", { name: "Save" })).toBeDisabled();
-  await team.selectOption("");
+  await selectBrandedOption(team, "");
   await expect(page.getByRole("button", { name: "Save" })).toBeEnabled();
   await page.getByRole("button", { name: "Save" }).click();
-  await expect(page.getByRole("heading", { name: `Edit Org ${tag}` })).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(`/users/${user.id}$`));
+  await expect(page.getByText(`EMP-ED-${tag}`, { exact: true })).toBeVisible();
 });
 
 test("in-progress office edit is not overwritten by a late user refetch", async ({
@@ -198,16 +201,16 @@ test("in-progress office edit is not overwritten by a late user refetch", async 
     timeout: 30_000,
   });
   await page.goto(`/users/${user.id}/edit`);
-  await expect(page.getByRole("heading", { name: "Edit user" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "User directory" })).toBeVisible();
   const office = page.locator("#edit-office");
   const department = page.locator("#edit-department");
-  await expect(office).toHaveValue(dxb!.id);
-  await office.selectOption(auh!.id);
-  await expect(office).toHaveValue(auh!.id);
-  await expect(department).toHaveValue(dxbDeptId);
+  await expect(office).toHaveAttribute("value", dxb!.id);
+  await selectBrandedOption(office, auh!.id);
+  await expect(office).toHaveAttribute("value", auh!.id);
+  await expect(department).toHaveAttribute("value", dxbDeptId);
   await page.waitForTimeout(3000);
-  await expect(office).toHaveValue(auh!.id);
-  await expect(department).toHaveValue(dxbDeptId);
+  await expect(office).toHaveAttribute("value", auh!.id);
+  await expect(department).toHaveAttribute("value", dxbDeptId);
   await expect(page.getByTestId("org-assignment-error")).toBeVisible();
   await expect(page.getByRole("button", { name: "Save" })).toBeDisabled();
 });

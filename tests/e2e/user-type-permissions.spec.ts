@@ -1,4 +1,5 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { selectBrandedOption } from "./helpers/select";
 
 const apiOrigin = `http://127.0.0.1:${process.env.PLAYWRIGHT_API_PORT ?? "8010"}`;
 const secret = process.env.BOOTSTRAP_SECRET ?? "nexa-test-bootstrap-secret";
@@ -97,10 +98,10 @@ test("User Type editor groups permissions and saves existing settings without ch
 
   await page.getByRole("switch", { name: "Can be Reporting Manager" }).check();
   await page.getByRole("switch", { name: "Can be Case Owner" }).check();
-  await page.getByLabel("User Directory scope", { exact: true }).selectOption("office");
-  await page.getByLabel("Customer scope", { exact: true }).selectOption("team");
-  await page.getByLabel("Application scope", { exact: true }).selectOption("own");
-  await page.getByLabel("Reporting scope", { exact: true }).selectOption("company");
+  await selectBrandedOption(page.getByLabel("User Directory scope", { exact: true }), "office");
+  await selectBrandedOption(page.getByLabel("Customer scope", { exact: true }), "team");
+  await selectBrandedOption(page.getByLabel("Application scope", { exact: true }), "own");
+  await selectBrandedOption(page.getByLabel("Reporting scope", { exact: true }), "company");
   await expect(page.getByText("You have unsaved changes.")).toBeVisible();
 
   const usersModule = page.getByTestId("permission-panel-users");
@@ -171,10 +172,10 @@ test("User Type editor groups permissions and saves existing settings without ch
   expect(saved?.permissions).toContain("Notifications.SendUrgent");
   expect(saved?.permissions).not.toContain("Users.Create");
 
-  await page.getByLabel("Reporting scope", { exact: true }).selectOption("own");
+  await selectBrandedOption(page.getByLabel("Reporting scope", { exact: true }), "own");
   await expect(page.getByText("You have unsaved changes.")).toBeVisible();
   await page.getByRole("button", { name: "Cancel" }).click();
-  await expect(page.getByLabel("Reporting scope", { exact: true })).toHaveValue("company");
+  await expect(page.getByLabel("Reporting scope", { exact: true })).toHaveAttribute("value", "company");
   await expect(page.getByText("Unsaved changes discarded.")).toBeVisible();
 
   expect(

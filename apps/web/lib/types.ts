@@ -246,6 +246,8 @@ export type WorkflowRecord = {
   product: CatalogItem | null;
   stages: WorkflowStageRecord[];
   transitions: { id: string; fromStageId: string; toStageId: string }[];
+  createdAt?: string;
+  updatedAt?: string;
 };
 
 export type AssetCategoryField = {

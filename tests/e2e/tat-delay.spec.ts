@@ -1,4 +1,5 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { selectBrandedOption } from "./helpers/select";
 
 const apiOrigin = `http://127.0.0.1:${process.env.PLAYWRIGHT_API_PORT ?? "8010"}`;
 const secret = process.env.BOOTSTRAP_SECRET ?? "nexa-test-bootstrap-secret";
@@ -167,7 +168,7 @@ test("elapsed TAT, mark delay, list badge, timeline, and correction", async ({ p
   await expect(page.getByRole("heading", { name: "Turnaround time" })).toBeVisible();
   await expect(page.getByText("Elapsed TAT", { exact: false })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Stage durations" })).toBeVisible();
-  await page.getByLabel("Delay type").selectOption("Bank");
+  await selectBrandedOption(page.getByLabel("Delay type"), "Bank");
   await page.getByLabel("Delay reason").fill("Waiting for bank checklist");
   await page.getByRole("button", { name: "Mark Delay" }).click();
   await expect(page.getByText("Delay · Bank").first()).toBeVisible();
@@ -180,7 +181,7 @@ test("elapsed TAT, mark delay, list badge, timeline, and correction", async ({ p
   const delayedRow = page.getByRole("row").filter({ hasText: app.applicationCode });
   await expect(delayedRow.getByText("Delay · Bank")).toBeVisible();
   await delayedRow.getByRole("link", { name: app.applicationCode }).click();
-  await page.getByLabel("Correction action").selectOption("cancel");
+  await selectBrandedOption(page.getByLabel("Correction action"), "cancel");
   await page.getByRole("textbox", { name: "Correction reason", exact: true }).fill("Marked in error");
   await page.getByRole("button", { name: "Correct Delay" }).click();
   await expect(page.getByText("delay cancelled", { exact: true })).toBeVisible();

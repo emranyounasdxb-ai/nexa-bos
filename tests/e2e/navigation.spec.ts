@@ -68,7 +68,7 @@ test("owner can log in, navigate major screens, sign out, and log in again", asy
 
   await openGroup(page, "Operations");
   await page.getByRole("link", { name: "Workflows" }).click();
-  await expect(page.getByRole("heading", { name: "Workflows" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Workflow Designer" })).toBeVisible();
 
   await page.getByRole("link", { name: "Dashboard", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();

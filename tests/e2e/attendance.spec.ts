@@ -1,4 +1,5 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { selectBrandedOption } from "./helpers/select";
 
 const apiOrigin = `http://127.0.0.1:${process.env.PLAYWRIGHT_API_PORT ?? "8010"}`;
 const secret = process.env.BOOTSTRAP_SECRET ?? "nexa-test-bootstrap-secret";
@@ -178,10 +179,10 @@ test("owner attendance bulk entry, calculations, correction, holiday, schedule, 
   await page.getByRole("navigation").getByRole("link", { name: "Attendance", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Attendance" })).toBeVisible();
   await page.getByLabel("Attendance date").fill("2026-08-03");
-  await page.getByLabel("Office").selectOption({ label: "Dubai" });
-  await page.getByLabel("Department").selectOption({ label: `Att ${tag}` });
+  await selectBrandedOption(page.getByLabel("Office"), { label: "Dubai" });
+  await selectBrandedOption(page.getByLabel("Department"), { label: `Att ${tag}` });
   await expect(page.getByText(user.fullName)).toBeVisible({ timeout: 20_000 });
-  await page.getByLabel(`${user.fullName} status`).selectOption("Present");
+  await selectBrandedOption(page.getByLabel(`${user.fullName} status`), "Present");
   await page.getByLabel(`${user.fullName} time in`).fill("09:20");
   await page.getByLabel(`${user.fullName} time out`).fill("17:45");
   await page.getByRole("button", { name: `${user.fullName} save` }).click();
@@ -203,8 +204,8 @@ test("owner attendance bulk entry, calculations, correction, holiday, schedule, 
   await page.getByLabel("Correction reason").fill("Missing clock-out");
   await page.getByRole("button", { name: "Save correction" }).click();
   await expect(page.getByText("Incomplete Attendance")).toBeVisible({ timeout: 20_000 });
-  await page.getByLabel(`${user.fullName} status`).selectOption("Leave");
-  await page.getByLabel(`${user.fullName} leave type`).selectOption({ label: `Study leave ${tag}` });
+  await selectBrandedOption(page.getByLabel(`${user.fullName} status`), "Leave");
+  await selectBrandedOption(page.getByLabel(`${user.fullName} leave type`), { label: `Study leave ${tag}` });
   await page.getByRole("button", { name: `${user.fullName} correct` }).click();
   await page.getByLabel("Correction reason").fill("Marked leave");
   await page.getByRole("button", { name: "Save correction" }).click();

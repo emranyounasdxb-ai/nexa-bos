@@ -1,4 +1,5 @@
 import { expect, test, type APIRequestContext } from "@playwright/test";
+import { selectBrandedOption } from "./helpers/select";
 
 const apiOrigin = `http://127.0.0.1:${process.env.PLAYWRIGHT_API_PORT ?? "8010"}`;
 const secret = process.env.BOOTSTRAP_SECRET ?? "nexa-test-bootstrap-secret";
@@ -177,25 +178,11 @@ test("owner can create an application and filter the list", async ({ page, reque
   await expect(page).toHaveURL(/\/customers\/[0-9a-f-]+$/, { timeout: 30_000 });
   await expect(page.getByRole("button", { name: "Save", exact: true })).toBeVisible();
   await page.goto("/applications/new");
-  const customerOption = page.getByLabel("Customer", { exact: true }).locator("option").filter({
-    hasText: `App Customer ${suffix}`,
-  });
-  await expect(customerOption).toHaveCount(1, { timeout: 30_000 });
-  const customerLabel = (await customerOption.textContent())?.trim() ?? "";
-  await page.getByLabel("Customer", { exact: true }).selectOption({ label: customerLabel });
-  const bankOption = page.getByLabel("Bank", { exact: true }).locator("option").filter({ hasText: "(DIB)" });
-  await expect(bankOption).toHaveCount(1, { timeout: 30_000 });
-  const bankLabel = (await bankOption.textContent())?.trim() ?? "";
-  await page.getByLabel("Bank", { exact: true }).selectOption({ label: bankLabel });
-  const productOption = page.getByLabel("Product Category", { exact: true }).locator("option").filter({ hasText: "(PF)" });
-  await expect(productOption).toHaveCount(1);
-  const productLabel = (await productOption.textContent())?.trim() ?? "";
-  await page.getByLabel("Product Category", { exact: true }).selectOption({ label: productLabel });
-  await page.getByLabel("Product Variant", { exact: true }).selectOption({ label: `${prerequisites.variant.name} (${prerequisites.variant.code})` });
-  const ownerOption = page.getByLabel("Case Owner").locator("option").filter({ hasText: "Platform Owner" });
-  await expect(ownerOption).toHaveCount(1, { timeout: 30_000 });
-  const ownerLabel = (await ownerOption.textContent())?.trim() ?? "";
-  await page.getByLabel("Case Owner").selectOption({ label: ownerLabel });
+  await selectBrandedOption(page.getByLabel("Customer", { exact: true }), { label: new RegExp(`App Customer ${suffix}`) });
+  await selectBrandedOption(page.getByLabel("Bank", { exact: true }), { label: /\(DIB\)$/ });
+  await selectBrandedOption(page.getByLabel("Product Category", { exact: true }), { label: /\(PF\)$/ });
+  await selectBrandedOption(page.getByLabel("Product Variant", { exact: true }), { label: `${prerequisites.variant.name} (${prerequisites.variant.code})` });
+  await selectBrandedOption(page.getByLabel("Case Owner"), { label: /Platform Owner/ });
   await page.getByLabel("Requested amount").fill("15000");
   await page.getByRole("button", { name: "Create application" }).click();
   await expect(page).toHaveURL(/\/applications\/[0-9a-f-]+$/, { timeout: 30_000 });
@@ -212,7 +199,7 @@ test("owner can create an application and filter the list", async ({ page, reque
   await expect(page.getByRole("heading", { name: "Timeline" })).toBeVisible();
   await expect(page.getByText("application created", { exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Product classification" })).toBeVisible();
-  await expect(page.getByLabel("Product Variant", { exact: true })).toHaveValue(prerequisites.variant.id);
+  await expect(page.getByLabel("Product Variant", { exact: true })).toHaveAttribute("value", prerequisites.variant.id);
 
   const replacementName = `PF Premium ${suffix}`;
   const replacementCode = `PFP${suffix}`;
@@ -233,26 +220,23 @@ test("owner can create an application and filter the list", async ({ page, reque
   const replacementBody = (await replacement.json()) as { id: string };
   await page.reload();
   const detailVariant = page.getByLabel("Product Variant", { exact: true });
-  await expect(detailVariant).toHaveValue(prerequisites.variant.id);
-  await expect(
-    detailVariant.locator("option").filter({ hasText: `${replacementName} (${replacementCode})` }),
-  ).toHaveCount(1);
-  await detailVariant.selectOption({ label: `${replacementName} (${replacementCode})` });
-  await expect(detailVariant).toHaveValue(replacementBody.id);
+  await expect(detailVariant).toHaveAttribute("value", prerequisites.variant.id);
+  await selectBrandedOption(detailVariant, { label: `${replacementName} (${replacementCode})` });
+  await expect(detailVariant).toHaveAttribute("value", replacementBody.id);
   await page.getByRole("button", { name: "Save Product Variant" }).click();
   await expect(page.getByRole("status")).toContainText("Product Variant saved");
-  await expect(page.getByLabel("Product Variant", { exact: true })).toHaveValue(replacementBody.id);
+  await expect(page.getByLabel("Product Variant", { exact: true })).toHaveAttribute("value", replacementBody.id);
   const deactivate = await page.request.post(
     `${apiOrigin}/api/v1/product-variants/${replacementBody.id}/deactivate`,
     { headers: variantHeaders },
   );
   expect(deactivate.ok(), await deactivate.text()).toBeTruthy();
   await page.reload();
-  await expect(page.getByLabel("Product Variant", { exact: true })).toHaveValue(replacementBody.id);
-  await expect(page.getByLabel("Product Variant", { exact: true }).locator("option:checked")).toContainText("unavailable for new selection");
+  await expect(page.getByLabel("Product Variant", { exact: true })).toHaveAttribute("value", replacementBody.id);
+  await expect(page.getByLabel("Product Variant", { exact: true })).toContainText("unavailable for new selection");
   await expect(page.getByText("inactive", { exact: true }).first()).toBeVisible();
   await page.goto("/applications");
-  await page.getByLabel("Filter product variant").selectOption({
+  await selectBrandedOption(page.getByLabel("Filter product variant"), {
     label: `${replacementName} (${replacementCode}) — Inactive`,
   });
   await page.getByRole("button", { name: "Apply filters" }).click();
@@ -266,23 +250,17 @@ test("owner can create an application and filter the list", async ({ page, reque
   await page.getByLabel("Bank File / Case Number").fill(`REVIEW-${suffix}`);
   await page.getByRole("button", { name: "Save and submit" }).click();
   await expect(page.getByRole("heading", { name: "Correct submitted data" })).toBeVisible();
-  await page.getByLabel("Corrected Product Variant").selectOption(prerequisites.variant.id);
+  await selectBrandedOption(page.getByLabel("Corrected Product Variant"), prerequisites.variant.id);
   await page.getByLabel("Submitted data correction reason").fill("Correct Variant classification");
   await page.getByRole("button", { name: "Correct submitted data" }).click();
   await expect(page.getByText(`${prerequisites.variant.name} (${prerequisites.variant.code})`, { exact: true }).first()).toBeVisible();
   await expect(page.getByText(/Product Variant: .* → /)).toContainText(prerequisites.variant.code);
   await page.goto("/applications");
   await page.getByLabel("Search applications").fill(applicationId);
-  await page.getByLabel("Filter by bank").selectOption(prerequisites.bank.id);
+  await selectBrandedOption(page.getByLabel("Filter by bank"), prerequisites.bank.id);
   await page.getByRole("button", { name: "Apply filters" }).click();
   await expect(page.getByRole("link", { name: applicationId })).toBeVisible();
-  const eibValue = await page
-    .getByLabel("Filter by bank")
-    .locator("option")
-    .filter({ hasText: "(EIB)" })
-    .getAttribute("value");
-  expect(eibValue).toBeTruthy();
-  await page.getByLabel("Filter by bank").selectOption(eibValue!);
+  await selectBrandedOption(page.getByLabel("Filter by bank"), { label: /\(EIB\)$/ });
   await page.getByRole("button", { name: "Apply filters" }).click();
   await expect(page.getByRole("link", { name: applicationId })).toHaveCount(0);
   const me = await page.request.get(`${apiOrigin}/api/v1/auth/me`);
@@ -312,10 +290,7 @@ test("owner can create an application and filter the list", async ({ page, reque
   await page.goto("/applications");
   await expect(page.getByRole("heading", { name: "Applications" })).toBeVisible();
   await page.getByLabel("Search applications").fill(applicationId);
-  await expect(
-    page.getByLabel("Filter case owner").locator("option").filter({ hasText: "Platform Owner" }),
-  ).toHaveCount(1, { timeout: 30_000 });
-  await page.getByLabel("Filter case owner").selectOption({ label: "Platform Owner" });
+  await selectBrandedOption(page.getByLabel("Filter case owner"), { label: /Platform Owner/ });
   await page.getByRole("button", { name: "Apply filters" }).click();
   await expect(page.getByRole("link", { name: applicationId })).toBeVisible();
 });

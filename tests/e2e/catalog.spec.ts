@@ -1,4 +1,5 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { selectBrandedOption } from "./helpers/select";
 
 const apiOrigin = `http://127.0.0.1:${process.env.PLAYWRIGHT_API_PORT ?? "8010"}`;
 const secret = process.env.BOOTSTRAP_SECRET ?? "nexa-test-bootstrap-secret";
@@ -79,7 +80,7 @@ test("catalog uses task tabs, modal editing, explicit rule saves, and mapping va
   await expect(bankRow.getByRole("button", { name: `Deactivate ${renamedBank}` })).toBeVisible();
   await bankRow.getByRole("button", { name: `Deactivate ${renamedBank}` }).click();
   await page.getByRole("dialog", { name: "Confirm deactivation" }).getByRole("button", { name: "Deactivate" }).click();
-  await page.getByLabel("Banks status").selectOption("inactive");
+  await selectBrandedOption(page.getByLabel("Banks status"), "inactive");
   await expect(bankRow.getByRole("button", { name: `Activate ${renamedBank}` })).toBeVisible();
   await bankRow.getByRole("button", { name: `Activate ${renamedBank}` }).click();
   await page.getByRole("dialog", { name: "Confirm activation" }).getByRole("button", { name: "Activate" }).click();
@@ -97,7 +98,7 @@ test("catalog uses task tabs, modal editing, explicit rule saves, and mapping va
 
   await tabs.getByRole("tab", { name: "Amount & Target Rules", exact: true }).click();
   await expect(page).toHaveURL(/tab=rules/);
-  await page.getByLabel("Rule product").selectOption({ label: `${productName} (${productCode})` });
+  await selectBrandedOption(page.getByLabel("Rule product"), { label: `${productName} (${productCode})` });
   const requestedRule = page.getByLabel("Requested amount required");
   await expect(requestedRule).not.toBeChecked();
   await page.getByRole("button", { name: "About Requested amount rule" }).focus();
@@ -115,8 +116,8 @@ test("catalog uses task tabs, modal editing, explicit rule saves, and mapping va
 
   await tabs.getByRole("tab", { name: "Bank–Product Mapping", exact: true }).click();
   await expect(page).toHaveURL(/tab=mappings/);
-  await page.getByLabel("Mapping bank").selectOption({ label: `${renamedBank} (${bankCode})` });
-  await page.getByLabel("Mapping product").selectOption({ label: `${productName} (${productCode})` });
+  await selectBrandedOption(page.getByLabel("Mapping bank"), { label: `${renamedBank} (${bankCode})` });
+  await selectBrandedOption(page.getByLabel("Mapping product"), { label: `${productName} (${productCode})` });
   await page.getByRole("button", { name: "Add mapping", exact: true }).click();
   await expect(page.getByRole("status")).toContainText("mapping added successfully");
   await page.getByLabel("Search mappings").fill(bankCode);
@@ -132,8 +133,8 @@ test("catalog uses task tabs, modal editing, explicit rule saves, and mapping va
 
   await tabs.getByRole("tab", { name: "Product Variants", exact: true }).click();
   await expect(page).toHaveURL(/tab=variants/);
-  await page.getByLabel("Variant bank").selectOption({ label: `${renamedBank} (${bankCode})` });
-  await page.getByLabel("Variant product category").selectOption({ label: `${productName} (${productCode})` });
+  await selectBrandedOption(page.getByLabel("Variant bank"), { label: `${renamedBank} (${bankCode})` });
+  await selectBrandedOption(page.getByLabel("Variant product category"), { label: `${productName} (${productCode})` });
   await page.getByRole("button", { name: "Add Product Variant", exact: true }).click();
   const variantName = `Cashback Variant ${suffix}`;
   const renamedVariant = `${variantName} Updated`;
@@ -171,7 +172,7 @@ test("catalog uses task tabs, modal editing, explicit rule saves, and mapping va
   const variantStatusDialog = page.getByRole("dialog", { name: "Confirm deactivation" });
   await expect(variantStatusDialog).toContainText("does not provide a dependency count");
   await variantStatusDialog.getByRole("button", { name: "Deactivate" }).click();
-  await page.getByLabel("Product Variant status").selectOption("inactive");
+  await selectBrandedOption(page.getByLabel("Product Variant status"), "inactive");
   await expect(variantRow.getByRole("button", { name: `Activate ${renamedVariant}` })).toBeVisible();
   await variantRow.getByRole("button", { name: `Activate ${renamedVariant}` }).click();
   await page.getByRole("dialog", { name: "Confirm activation" }).getByRole("button", { name: "Activate" }).click();

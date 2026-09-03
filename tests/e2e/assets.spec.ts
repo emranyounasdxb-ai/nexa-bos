@@ -1,4 +1,5 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { selectBrandedOption } from "./helpers/select";
 
 const apiOrigin = `http://127.0.0.1:${process.env.PLAYWRIGHT_API_PORT ?? "8010"}`;
 const secret = process.env.BOOTSTRAP_SECRET ?? "nexa-test-bootstrap-secret";
@@ -116,7 +117,7 @@ test("owner completes tracked Asset creation, custody, profile, offboarding, ret
   await page.getByRole("link", { name: "Assets", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Asset Register" })).toBeVisible();
 
-  await page.getByLabel("Asset category", { exact: true }).selectOption({ label: "PC / Computer" });
+  await selectBrandedOption(page.getByLabel("Asset category", { exact: true }), { label: "PC / Computer" });
   await expect(page.getByLabel("Serial Number / Service Tag")).toBeVisible();
   await page.getByLabel("Brand").fill("Dell");
   await page.getByLabel("Model").fill("Latitude 7450");
@@ -129,7 +130,7 @@ test("owner completes tracked Asset creation, custody, profile, offboarding, ret
   const assetCode = (await pcRow.getByRole("link").textContent()) ?? "";
   expect(assetCode).toMatch(/^AST-\d{6}$/);
 
-  await page.getByLabel("Asset category", { exact: true }).selectOption({ label: "Mobile Phone" });
+  await selectBrandedOption(page.getByLabel("Asset category", { exact: true }), { label: "Mobile Phone" });
   await expect(page.getByLabel("IMEI")).toBeVisible();
   await page.getByLabel("Brand").fill("Apple");
   await page.getByLabel("Model").fill("iPhone 17");
@@ -138,7 +139,7 @@ test("owner completes tracked Asset creation, custody, profile, offboarding, ret
   await page.getByRole("button", { name: "Create Asset" }).click();
   await expect(page.getByRole("row").filter({ hasText: imei })).toBeVisible();
 
-  await page.getByLabel("Asset category", { exact: true }).selectOption({ label: "SIM Card" });
+  await selectBrandedOption(page.getByLabel("Asset category", { exact: true }), { label: "SIM Card" });
   await expect(page.getByLabel("ICCID / SIM Identifier")).toBeVisible();
   const mobile = `+97150${suffix}`;
   const iccid = `89971123${suffix}123456`.slice(0, 20);
@@ -150,8 +151,8 @@ test("owner completes tracked Asset creation, custody, profile, offboarding, ret
 
   await pcRow.getByRole("link", { name: assetCode }).click();
   await expect(page.getByRole("heading", { name: assetCode })).toBeVisible();
-  await page.getByLabel("Allocation employee").selectOption(firstEmployee.id);
-  await page.getByLabel("Condition at Issue").selectOption("Good");
+  await selectBrandedOption(page.getByLabel("Allocation employee"), firstEmployee.id);
+  await selectBrandedOption(page.getByLabel("Condition at Issue"), "Good");
   await page.getByRole("button", { name: "Allocate Asset" }).click();
   await expect(page.getByText("Asset allocated", { exact: true })).toBeVisible();
 
@@ -160,13 +161,13 @@ test("owner completes tracked Asset creation, custody, profile, offboarding, ret
   await expect(page.getByRole("row").filter({ hasText: assetCode })).toContainText("Good");
 
   await page.getByRole("link", { name: assetCode }).click();
-  await page.getByLabel("Transfer employee").selectOption(secondEmployee.id);
+  await selectBrandedOption(page.getByLabel("Transfer employee"), secondEmployee.id);
   await page.getByRole("button", { name: "Transfer Employee" }).click();
   await expect(page.getByText("Employee custody transferred atomically")).toBeVisible();
   await expect(page.getByText(secondEmployee.fullName, { exact: true }).first()).toBeVisible();
 
   await page.goto(`/users/${secondEmployee.id}/edit`);
-  await page.getByLabel("Employment status").selectOption("Resigned");
+  await selectBrandedOption(page.getByLabel("Employment status"), "Resigned");
   await page.getByLabel("Last working date").fill("2026-08-30");
   await page.getByRole("button", { name: "Save" }).click();
   await expect(page.getByRole("heading", { name: secondEmployee.fullName })).toBeVisible();
@@ -174,7 +175,7 @@ test("owner completes tracked Asset creation, custody, profile, offboarding, ret
   await expect(page.getByText(/Outstanding Asset/)).toBeVisible();
 
   await page.getByRole("link", { name: "Asset reports" }).click();
-  await page.getByLabel("Asset report").selectOption("outstanding_assets");
+  await selectBrandedOption(page.getByLabel("Asset report"), "outstanding_assets");
   await page.getByRole("button", { name: "Run report" }).click();
   await expect(page.getByRole("row").filter({ hasText: assetCode })).toContainText("Yes");
   await expect(page.getByRole("button", { name: "Excel" })).toBeVisible();
@@ -184,7 +185,7 @@ test("owner completes tracked Asset creation, custody, profile, offboarding, ret
 
   await page.getByRole("link", { name: "Assets", exact: true }).click();
   await page.getByRole("row").filter({ hasText: assetCode }).getByRole("link").click();
-  await page.getByLabel("Return Condition").selectOption("Fair");
+  await selectBrandedOption(page.getByLabel("Return Condition"), "Fair");
   await page.getByRole("button", { name: "Process Return" }).click();
   await expect(page.getByText("Asset returned; allocation history preserved")).toBeVisible();
   const allocationHistory = page.getByRole("heading", { name: "Asset History" }).locator("..");
