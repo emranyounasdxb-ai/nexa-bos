@@ -128,28 +128,32 @@ test("owner completes tracked Asset creation, custody, profile, offboarding, ret
   await page.getByRole("link", { name: "Assets", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Asset Register" })).toBeVisible();
 
+  await page.getByRole("button", { name: "Add asset" }).click();
+  await expect(page.getByRole("dialog", { name: "Add asset" })).toBeVisible();
   await selectBrandedOption(page.getByLabel("Asset category", { exact: true }), { label: "PC / Computer" });
   await expect(page.getByLabel("Serial Number / Service Tag")).toBeVisible();
   await page.getByLabel("Brand").fill("Dell");
   await page.getByLabel("Model").fill("Latitude 7450");
   const serial = `E2E-PC-${suffix}`;
   await page.getByLabel("Serial Number / Service Tag").fill(serial);
-  await page.getByRole("button", { name: "Create Asset" }).click();
+  await page.getByRole("button", { name: "Create asset", exact: true }).click();
   await expect(page.getByText(/AST-\d{6} created/)).toBeVisible();
   const pcRow = page.getByRole("row").filter({ hasText: serial });
   await expect(pcRow).toBeVisible();
   const assetCode = (await pcRow.getByRole("link").textContent()) ?? "";
   expect(assetCode).toMatch(/^AST-\d{6}$/);
 
+  await page.getByRole("button", { name: "Add asset" }).click();
   await selectBrandedOption(page.getByLabel("Asset category", { exact: true }), { label: "Mobile Phone" });
   await expect(page.getByLabel("IMEI")).toBeVisible();
   await page.getByLabel("Brand").fill("Apple");
   await page.getByLabel("Model").fill("iPhone 17");
   const imei = `3598765${suffix}`.slice(0, 15);
   await page.getByLabel("IMEI").fill(imei);
-  await page.getByRole("button", { name: "Create Asset" }).click();
+  await page.getByRole("button", { name: "Create asset", exact: true }).click();
   await expect(page.getByRole("row").filter({ hasText: imei })).toBeVisible();
 
+  await page.getByRole("button", { name: "Add asset" }).click();
   await selectBrandedOption(page.getByLabel("Asset category", { exact: true }), { label: "SIM Card" });
   await expect(page.getByLabel("ICCID / SIM Identifier")).toBeVisible();
   const mobile = `+97150${suffix}`;
@@ -157,14 +161,19 @@ test("owner completes tracked Asset creation, custody, profile, offboarding, ret
   await page.getByLabel("Mobile Number").fill(mobile);
   await page.getByLabel("ICCID / SIM Identifier").fill(iccid);
   await page.getByLabel("Operator / Provider").fill("du");
-  await page.getByRole("button", { name: "Create Asset" }).click();
+  await page.getByRole("button", { name: "Create asset", exact: true }).click();
   await expect(page.getByRole("row").filter({ hasText: iccid })).toBeVisible();
 
   await pcRow.getByRole("link", { name: assetCode }).click();
   await expect(page.getByRole("heading", { name: "Asset identity and custody" })).toBeVisible();
+  await page.getByRole("tab", { name: "Custody" }).click();
   await selectBrandedOption(page.getByLabel("Allocation employee"), firstEmployee.id);
   await selectBrandedOption(page.getByLabel("Condition at Issue"), "Good");
   await page.getByRole("button", { name: "Allocate Asset" }).click();
+  await expect(page.getByRole("alertdialog", { name: "Allocate Asset?" })).toContainText(
+    "custody record",
+  );
+  await page.getByRole("button", { name: "Confirm allocation" }).click();
   await expect(page.getByText("Asset allocated", { exact: true })).toBeVisible();
 
   await page.goto(`/users/${firstEmployee.id}`);
@@ -173,8 +182,13 @@ test("owner completes tracked Asset creation, custody, profile, offboarding, ret
   await expect(page.getByRole("row").filter({ hasText: assetCode })).toContainText("Good");
 
   await page.getByRole("link", { name: assetCode }).click();
+  await page.getByRole("tab", { name: "Custody" }).click();
   await selectBrandedOption(page.getByLabel("Transfer employee"), secondEmployee.id);
   await page.getByRole("button", { name: "Transfer Employee" }).click();
+  await expect(page.getByRole("alertdialog", { name: "Transfer employee custody?" })).toContainText(
+    "Both records remain in history",
+  );
+  await page.getByRole("button", { name: "Confirm transfer" }).click();
   await expect(page.getByText("Employee custody transferred atomically")).toBeVisible();
   await expect(page.getByText(secondEmployee.fullName, { exact: true }).first()).toBeVisible();
 
@@ -200,12 +214,29 @@ test("owner completes tracked Asset creation, custody, profile, offboarding, ret
   await ensureAssetsMenuOpen(page);
   await page.getByRole("link", { name: "Assets", exact: true }).click();
   await page.getByRole("row").filter({ hasText: assetCode }).getByRole("link").click();
+  await page.getByRole("tab", { name: "Custody" }).click();
   await selectBrandedOption(page.getByLabel("Return Condition"), "Fair");
   await page.getByRole("button", { name: "Process Return" }).click();
+  await expect(page.getByRole("alertdialog", { name: "Process Asset return?" })).toContainText(
+    "allocation history remains permanent",
+  );
+  await page.getByRole("button", { name: "Confirm return" }).click();
   await expect(page.getByText("Asset returned; allocation history preserved")).toBeVisible();
-  const allocationHistory = page.getByRole("heading", { name: "Asset History" }).locator("..");
-  await expect(allocationHistory.getByRole("row").filter({ hasText: firstEmployee.fullName })).toBeVisible();
-  await expect(allocationHistory.getByRole("row").filter({ hasText: secondEmployee.fullName })).toContainText("Fair");
+  await page.getByRole("tab", { name: "Audit" }).click();
+  const auditPanel = page.getByRole("tabpanel", { name: "Audit" });
+  await expect(auditPanel.getByRole("row").filter({ hasText: firstEmployee.fullName })).toBeVisible();
+  await expect(auditPanel.getByRole("row").filter({ hasText: secondEmployee.fullName })).toContainText("Fair");
+
+  await page.getByRole("tab", { name: "Status" }).click();
+  await selectBrandedOption(page.getByLabel("New Asset Status"), "Retired");
+  await page.getByLabel("Asset status reason").fill("End of tracked service life");
+  await page.getByRole("button", { name: "Retire Asset" }).click();
+  await expect(page.getByRole("alertdialog", { name: "Retire this Asset?" })).toContainText(
+    "cannot be retired",
+  );
+  await page.getByRole("button", { name: "Confirm retirement" }).click();
+  await expect(page.getByText("Asset status updated", { exact: true })).toBeVisible();
+  await expect(page.getByText("Retired", { exact: true }).first()).toBeVisible();
 });
 
 test("Assets.View-only user sees own custody without privileged controls or mutation authority", async ({
@@ -306,13 +337,17 @@ test("Assets.View-only user sees own custody without privileged controls or muta
   await expect(page.getByRole("link", { name: "Asset categories" })).toHaveCount(0);
   await page.getByRole("link", { name: "Assets", exact: true }).click();
   await expect(page.getByRole("row").filter({ hasText: asset.assetCode })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Create Asset" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Add asset" })).toHaveCount(0);
   await page.getByRole("link", { name: asset.assetCode }).click();
   await expect(page.getByRole("heading", { name: "Asset identity and custody" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Edit Asset master" })).toHaveCount(0);
+  await page.getByRole("tab", { name: "Custody" }).click();
   await expect(page.getByRole("heading", { name: "Return Asset" })).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Employee transfer" })).toHaveCount(0);
+  await page.getByRole("tab", { name: "Status" }).click();
   await expect(page.getByRole("heading", { name: "Status management" })).toHaveCount(0);
+  await page.getByRole("tab", { name: "Audit" }).click();
+  await expect(page.getByText("You do not have permission to view Asset audit history.")).toBeVisible();
 
   const login = await page.request.post(`${apiOrigin}/api/v1/auth/login`, {
     data: { email: viewer.email, password: "UserPass1!" },
@@ -324,4 +359,80 @@ test("Assets.View-only user sees own custody without privileged controls or muta
     data: { status: "Lost", reason: "Unauthorized probe" },
   });
   expect(denied.status()).toBe(403);
+});
+
+test("Asset drawer and custody workspace preserve keyboard focus and avoid viewport overflow", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(150_000);
+  const { headers, office } = await masterData(request);
+  const categories = (await (await request.get(`${apiOrigin}/api/v1/assets/categories`)).json()) as {
+    items: { id: string; code: string }[];
+  };
+  const suffix = `${Date.now()}`.slice(-8);
+  const created = await request.post(`${apiOrigin}/api/v1/assets`, {
+    headers,
+    data: {
+      category_id: categories.items.find((item) => item.code === "PC")?.id,
+      office_id: office.id,
+      condition: "Good",
+      brand: "HP",
+      model: "EliteBook",
+      serial_number: `A11Y-${suffix}`,
+      attributes: {},
+    },
+  });
+  expect(created.ok()).toBeTruthy();
+  const asset = (await created.json()) as { id: string; assetCode: string };
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await signIn(page, request);
+  await page.goto("/assets");
+  const addAsset = page.getByRole("button", { name: "Add asset" });
+  await addAsset.click();
+  const drawer = page.getByRole("dialog", { name: "Add asset" });
+  await expect(drawer).toBeVisible();
+  await expect(page.getByRole("combobox", { name: "Asset category", exact: true })).toBeFocused();
+  await page.getByLabel("Asset description").fill("Unsaved keyboard review");
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("alertdialog", { name: "Discard unsaved asset?" })).toBeVisible();
+  await page.getByRole("button", { name: "Keep editing" }).click();
+  await expect(drawer).toBeVisible();
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  await page.getByRole("button", { name: "Discard changes" }).click();
+  await expect(drawer).toBeHidden();
+  await expect(addAsset).toBeFocused();
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await addAsset.click();
+  const box = await drawer.boundingBox();
+  expect(box).not.toBeNull();
+  expect(box!.x).toBeGreaterThanOrEqual(0);
+  expect(box!.width).toBeLessThanOrEqual(390);
+  expect(
+    await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth),
+  ).toBeTruthy();
+  await page.keyboard.press("Escape");
+  await expect(drawer).toBeHidden();
+  await expect(addAsset).toBeFocused();
+
+  await page.goto(`/assets/${asset.id}`);
+  await expect(page.getByRole("tab", { name: "Master" })).toHaveAttribute("aria-selected", "true");
+  await page.getByRole("tab", { name: "Custody" }).click();
+  await expect(page).toHaveURL(/tab=custody/);
+  await page.reload();
+  await expect(page.getByRole("tab", { name: "Custody" })).toHaveAttribute("aria-selected", "true");
+  await page.getByRole("tab", { name: "Status" }).click();
+  await selectBrandedOption(page.getByLabel("New Asset Status"), "Retired");
+  await page.getByLabel("Asset status reason").fill("Keyboard confirmation review");
+  const retireButton = page.getByRole("button", { name: "Retire Asset" });
+  await retireButton.click();
+  await expect(page.getByRole("alertdialog", { name: "Retire this Asset?" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("alertdialog", { name: "Retire this Asset?" })).toBeHidden();
+  await expect(retireButton).toBeFocused();
+  expect(
+    await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth),
+  ).toBeTruthy();
 });
