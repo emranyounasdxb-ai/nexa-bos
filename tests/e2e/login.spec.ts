@@ -40,7 +40,7 @@ test("owner lands on the dashboard and can open the user directory", async ({ pa
   await peopleMenu.click();
   await expect(peopleMenu).toHaveAttribute("aria-expanded", "true");
   await page.getByRole("link", { name: "Users", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "User directory" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Users", exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "USR-000001" })).toBeVisible();
   await page.goto("/users/new");
   await expect(page.getByLabel("Reporting manager")).toBeVisible();
@@ -48,5 +48,5 @@ test("owner lands on the dashboard and can open the user directory", async ({ pa
   await page.getByRole("tab", { name: "Teams" }).click();
   await expect(page).toHaveURL(/\/organization\?tab=teams$/);
   await expect(page.getByRole("heading", { name: "Teams" })).toBeVisible();
-  await expect(page.getByRole("columnheader", { name: "Team leader" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Add team" })).toBeVisible();
 });

@@ -46,7 +46,7 @@ async function signIn(page: Page, email: string, password: string) {
   );
   await page.getByRole("button", { name: "Sign in" }).click();
   const login = await response;
-  await expect(page.getByRole("heading", { name: /Dashboard|User directory/ })).toBeVisible({
+  await expect(page.getByRole("heading", { name: /^(Dashboard|Users)$/ })).toBeVisible({
     timeout: 30_000,
   });
   return ((await login.json()) as { csrfToken: string }).csrfToken;
