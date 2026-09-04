@@ -1,5 +1,26 @@
 import { defineConfig, devices } from "@playwright/test";
 
+function requireSafeTestDatabaseUrl(value: string | undefined) {
+  if (!value?.trim()) {
+    throw new Error("DATABASE_URL must be explicitly set for Playwright tests");
+  }
+
+  const parsed = new URL(value.replace(/^postgresql\+asyncpg:/, "postgresql:"));
+  const database = parsed.pathname.replace(/^\//, "");
+  const port = Number(parsed.port || "5432");
+  if (port === 15432) {
+    throw new Error("DATABASE_URL must not use canonical host port 15432");
+  }
+  if (database.toLowerCase() === "nexa_bos") {
+    throw new Error("DATABASE_URL must not use canonical database 'nexa_bos'");
+  }
+  if (!/(?:^|_)test(?:_|$)/i.test(database)) {
+    throw new Error("DATABASE_URL database name must contain a distinct 'test' segment");
+  }
+}
+
+requireSafeTestDatabaseUrl(process.env.DATABASE_URL);
+
 const webPort = process.env.PLAYWRIGHT_WEB_PORT ?? "3010";
 const apiPort = process.env.PLAYWRIGHT_API_PORT ?? "8010";
 const apiOrigin = `http://127.0.0.1:${apiPort}`;

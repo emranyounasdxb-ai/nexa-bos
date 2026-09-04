@@ -10,7 +10,7 @@ from uuid import uuid4
 import pytest
 from alembic.config import Config
 from alembic.script import ScriptDirectory
-from nexa_bos_api.core.config import API_ROOT, get_settings
+from nexa_bos_api.core.config import API_ROOT
 from nexa_bos_api.identity.models import User
 from nexa_bos_api.targets.enums import (
     DIRECTION_LOWER,
@@ -24,14 +24,13 @@ from sqlalchemy import select, text
 from sqlalchemy.engine.url import URL, make_url
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-_DEFAULT_URL = "postgresql+asyncpg://nexa:nexa@127.0.0.1:15432/nexa_bos"
 _REV_0001 = "0001_baseline"
 _REV_0010 = "0010_conformance_remediation"
 _REV_0011 = "0011_kpi_missing_baseline"
 
 
 def _app_database_url() -> str:
-    return os.environ.get("DATABASE_URL") or get_settings().database_url or _DEFAULT_URL
+    return os.environ["DATABASE_URL"]
 
 
 def _render_url(url: URL) -> str:
@@ -90,7 +89,7 @@ async def _fetch_one(database_url: str, statement: str, params: dict[str, object
 @pytest.mark.asyncio
 async def test_alembic_0011_deactivates_active_scorecard_missing_required_baseline() -> None:
     _assert_revision_chain()
-    db_name = f"nexa_bos_m11_{uuid4().hex[:12]}"
+    db_name = f"nexa_bos_test_m11_{uuid4().hex[:12]}"
     isolated_url = _render_url(make_url(_app_database_url()).set(database=db_name))
     await _admin_execute(f'CREATE DATABASE "{db_name}"')
     try:

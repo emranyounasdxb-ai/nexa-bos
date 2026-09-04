@@ -54,6 +54,12 @@ const DASHBOARD_FILTER_LABELS: Record<string, string> = {
   approved: "Approved",
   funded: "Funded",
   in_progress: "In Progress",
+  new_cases: "New Cases",
+  awaiting_submission: "Awaiting Submission",
+  missing_bank_number: "Missing Bank Number",
+  requirements_pending: "Requirements Pending",
+  delayed: "Delayed",
+  completed_funded: "Completed / Funded",
 };
 
 function ApplicationsPageInner() {
@@ -65,7 +71,7 @@ function ApplicationsPageInner() {
   const initialPeriod = searchParams.get("dashboard_period") ?? "mtd";
   const [dashboardFilter, setDashboardFilter] = useState({
     metric: DASHBOARD_FILTER_LABELS[initialMetric] ? initialMetric : "",
-    period: ["mtd", "previous_month", "ytd"].includes(initialPeriod) ? initialPeriod : "mtd",
+    period: ["today", "mtd", "previous_month", "ytd"].includes(initialPeriod) ? initialPeriod : "mtd",
   });
   const [query, setQuery] = useState("");
   const [filters, setFilters] = useState(emptyFilters);
@@ -153,7 +159,7 @@ function ApplicationsPageInner() {
       {dashboardFilter.metric ? (
         <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-[10px] border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-900">
           <p className="min-w-0">
-            Dashboard filter: <strong>{DASHBOARD_FILTER_LABELS[dashboardFilter.metric]}</strong> · {dashboardFilter.period === "mtd" ? "This Month" : dashboardFilter.period === "previous_month" ? "Last Month" : "YTD"}
+            Dashboard filter: <strong>{DASHBOARD_FILTER_LABELS[dashboardFilter.metric]}</strong> · {dashboardFilter.period === "today" ? "Today" : dashboardFilter.period === "mtd" ? "This Month" : dashboardFilter.period === "previous_month" ? "Last Month" : "YTD"}
           </p>
           <Button
             type="button"

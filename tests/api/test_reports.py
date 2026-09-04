@@ -15,14 +15,13 @@ from helpers import (
     unique_tag,
 )
 from httpx import AsyncClient
+from nexa_bos_api.identity.models import AuditEvent
+from nexa_bos_api.main import app
 from openpyxl import load_workbook
 from sqlalchemy import select, text
 from test_applications import _catalog, _create_app, _customer, _ensure_test_workflow
 from test_role_readiness import _configure_system_type
 from test_tat_delay import _move
-
-from nexa_bos_api.identity.models import AuditEvent
-from nexa_bos_api.main import app
 
 
 async def _reporting_user(
@@ -362,6 +361,175 @@ async def test_se_dashboard_is_personal_and_includes_read_only_attendance_and_ta
 
 
 @pytest.mark.asyncio
+async def test_cod_dashboard_is_office_scoped_operational_and_personal(
+    client: AsyncClient,
+) -> None:
+    authed, _owner = await owner_client(client)
+    dxb = await office_id(authed, "DXB")
+    auh = await office_id(authed, "AUH")
+    dib, _eib, pf, _cc = await _catalog(authed)
+    await _ensure_test_workflow(authed, dib["id"], pf["id"])
+    variant = await create_product_variant(authed, bank_id=dib["id"], product_id=pf["id"])
+    await _configure_system_type(
+        authed,
+        "COD",
+        permissions=[
+            "Dashboard.View",
+            "Applications.View",
+            "Applications.Submit",
+            "Applications.UpdateStage",
+            "Applications.MarkDelay",
+        ],
+        application_scope="office",
+        reporting_scope="office",
+        can_be_case_owner=True,
+    )
+    await _configure_system_type(
+        authed,
+        "SE",
+        permissions=["Dashboard.View", "Applications.View", "Applications.Create"],
+        application_scope="own",
+        reporting_scope="own",
+        can_be_case_owner=True,
+    )
+    dxb_sm = await create_activated_user(authed, user_type_code="SM", office_id=dxb)
+    dxb_cod = await create_activated_user(
+        authed, user_type_code="COD", office_id=dxb, manager_id=dxb_sm["id"]
+    )
+    dxb_tl = await create_activated_user(
+        authed, user_type_code="TL", office_id=dxb, manager_id=dxb_cod["id"]
+    )
+    dxb_se = await create_activated_user(
+        authed, user_type_code="SE", office_id=dxb, manager_id=dxb_tl["id"]
+    )
+    auh_sm = await create_activated_user(authed, user_type_code="SM", office_id=auh)
+    auh_cod = await create_activated_user(
+        authed, user_type_code="COD", office_id=auh, manager_id=auh_sm["id"]
+    )
+    auh_tl = await create_activated_user(
+        authed, user_type_code="TL", office_id=auh, manager_id=auh_cod["id"]
+    )
+    auh_se = await create_activated_user(
+        authed, user_type_code="SE", office_id=auh, manager_id=auh_tl["id"]
+    )
+
+    async def create_owned(user: dict, label: str) -> dict:
+        async with await spawned_client() as scoped:
+            await authenticate(scoped, user["email"], "UserPass1!")
+            response = await scoped.post(
+                "/api/v1/applications",
+                json={
+                    "customer": {
+                        "customer_type": "individual",
+                        "full_name": f"COD Dashboard {label} {unique_tag()}",
+                        "mobile": f"+9715{unique_tag()[:8]}",
+                    },
+                    "bank_id": dib["id"],
+                    "product_id": pf["id"],
+                    "product_variant_id": variant["id"],
+                    "requested_amount": "10000",
+                },
+            )
+            assert response.status_code == 200, response.text
+            return response.json()
+
+    dxb_waiting = await create_owned(dxb_se, "DXB waiting")
+    dxb_processing = await create_owned(dxb_se, "DXB processing")
+    auh_waiting = await create_owned(auh_se, "AUH waiting")
+
+    async with await spawned_client() as dxb_client:
+        await authenticate(dxb_client, dxb_cod["email"], "UserPass1!")
+        submitted = await dxb_client.post(
+            f"/api/v1/applications/{dxb_processing['id']}/case-number",
+            json={"bank_case_number": f"COD-{unique_tag()[:8]}"},
+        )
+        assert submitted.status_code == 200, submitted.text
+        delay = await dxb_client.post(
+            f"/api/v1/applications/{dxb_processing['id']}/delays",
+            json={"delay_type": "Customer", "reason": "Disposable dashboard delay"},
+        )
+        assert delay.status_code == 200, delay.text
+
+    target = await authed.post(
+        "/api/v1/targets",
+        json={
+            "level": "employee",
+            "entity_id": dxb_cod["id"],
+            "period_month": date.today().replace(day=1).isoformat(),
+            "product_id": pf["id"],
+            "milestone": "submitted",
+            "measurement": "count",
+            "target_value": "3",
+        },
+    )
+    assert target.status_code == 200, target.text
+    assert (await authed.post(f"/api/v1/targets/{target.json()['id']}/activate")).status_code == 200
+    attendance = await authed.put(
+        "/api/v1/attendance/records",
+        json={
+            "attendance_date": date.today().isoformat(),
+            "entries": [
+                {
+                    "employee_id": dxb_cod["id"],
+                    "status": "Present",
+                    "time_in": "09:00",
+                    "time_out": "17:00",
+                }
+            ],
+        },
+    )
+    assert attendance.status_code == 200, attendance.text
+
+    async with await spawned_client() as dxb_client:
+        await authenticate(dxb_client, dxb_cod["email"], "UserPass1!")
+        response = await dxb_client.get(f"/api/v1/reports/dashboard?period=mtd&office_id={auh}")
+        assert response.status_code == 200, response.text
+        body = response.json()
+        workspace = body["codWorkspace"]
+        assert workspace["office"]["id"] == dxb
+        assert workspace["office"]["scope"] == "Office operations"
+        assert workspace["kpis"]["newCases"] >= 2
+        assert workspace["kpis"]["awaitingSubmission"] >= 1
+        assert workspace["kpis"]["submitted"] >= 1
+        assert workspace["kpis"]["delayed"] >= 1
+        recent = {item["localFileNumber"] for item in workspace["queues"]["recentUpdates"]}
+        assert dxb_waiting["applicationCode"] in recent
+        assert dxb_processing["applicationCode"] in recent
+        assert auh_waiting["applicationCode"] not in recent
+        staff = {row["id"]: row for row in workspace["staff"]}
+        assert staff[dxb_tl["id"]]["downline"] is True
+        assert staff[dxb_se["id"]]["downline"] is True
+        assert staff[dxb_sm["id"]]["downline"] is False
+        assert workspace["activity"] == {
+            "reviewed": 1,
+            "submitted": 1,
+            "stageUpdates": 0,
+        }
+        assert body["personalPerformance"]["target"]["assigned"] == "3.00"
+        assert body["personalAttendance"]["today"]["workedMinutes"] == 480
+        assert body["seWorkspace"] is None
+        delayed_rows = await dxb_client.get(
+            "/api/v1/applications?dashboard_metric=delayed&dashboard_period=mtd&page_size=50"
+        )
+        assert delayed_rows.status_code == 200, delayed_rows.text
+        delayed_codes = {item["applicationCode"] for item in delayed_rows.json()["items"]}
+        assert dxb_processing["applicationCode"] in delayed_codes
+        assert auh_waiting["applicationCode"] not in delayed_codes
+        cross_office = await dxb_client.get(f"/api/v1/applications/{auh_waiting['id']}")
+        assert cross_office.status_code == 404
+
+    async with await spawned_client() as auh_client:
+        await authenticate(auh_client, auh_cod["email"], "UserPass1!")
+        workspace = (await auh_client.get("/api/v1/reports/dashboard?period=mtd")).json()[
+            "codWorkspace"
+        ]
+        recent = {item["localFileNumber"] for item in workspace["queues"]["recentUpdates"]}
+        assert auh_waiting["applicationCode"] in recent
+        assert dxb_waiting["applicationCode"] not in recent
+        assert dxb_processing["applicationCode"] not in recent
+
+
+@pytest.mark.asyncio
 async def test_non_application_role_personal_dashboard_never_fakes_sales_metrics(
     client: AsyncClient,
 ) -> None:
@@ -460,10 +628,18 @@ async def test_pending_is_current_state_and_can_include_earlier_created(
         await session.commit()
     dashboard = (await authed.get("/api/v1/reports/dashboard?period=mtd")).json()
     assert dashboard["kpis"]["pending"]["count"] >= 1
-    pending = (
+    pending_codes: set[str] = set()
+    first_page = (
         await authed.get("/api/v1/reports/applications?metric=pending&period=mtd&page_size=50")
     ).json()
-    assert pending_app["applicationCode"] in {item["applicationCode"] for item in pending["items"]}
+    pending_codes.update(item["applicationCode"] for item in first_page["items"])
+    for page in range(2, first_page["pagination"]["totalPages"] + 1):
+        response = await authed.get(
+            f"/api/v1/reports/applications?metric=pending&period=mtd&page_size=50&page={page}"
+        )
+        assert response.status_code == 200, response.text
+        pending_codes.update(item["applicationCode"] for item in response.json()["items"])
+    assert pending_app["applicationCode"] in pending_codes
     stages = {row["name"] for row in dashboard["stageBreakdown"]}
     assert stages
 
