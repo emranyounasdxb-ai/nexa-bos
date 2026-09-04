@@ -525,3 +525,150 @@ async def test_office_hierarchy_drives_team_visibility_without_cross_office_leak
         for user in auh_chain:
             hidden = await bdm_client.get(f"/api/v1/users/{user['id']}")
             assert hidden.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_application_stage_metadata_respects_application_scope_without_workflow_access(
+    client: AsyncClient,
+) -> None:
+    authed, _owner = await owner_client(client)
+    dxb = await office_id(authed, "DXB")
+    auh = await office_id(authed, "AUH")
+    bank, product, variant = await _variant(authed)
+
+    await _configure_system_type(
+        authed,
+        "COD",
+        permissions=["Applications.View", "Applications.Submit", "Applications.UpdateStage"],
+        application_scope="office",
+        can_be_case_owner=True,
+    )
+    await _configure_system_type(
+        authed,
+        "TL",
+        permissions=["Applications.View"],
+        application_scope="team",
+        can_be_case_owner=True,
+    )
+    await _configure_system_type(
+        authed,
+        "SE",
+        permissions=[
+            "Applications.View",
+            "Applications.Create",
+            "Customers.View",
+            "Customers.Create",
+        ],
+        customer_scope="own",
+        application_scope="own",
+        can_be_case_owner=True,
+    )
+
+    async def sales_team(office: str, label: str) -> tuple[str, str]:
+        department = await authed.post(
+            "/api/v1/departments",
+            json={"office_id": office, "name": f"Stage Sales {label}", "code": f"SS-{label}"},
+        )
+        assert department.status_code == 200, department.text
+        team = await authed.post(
+            "/api/v1/teams",
+            json={
+                "office_id": office,
+                "department_id": department.json()["id"],
+                "name": f"Stage Team {label}",
+                "code": f"ST-{label}",
+            },
+        )
+        assert team.status_code == 200, team.text
+        return department.json()["id"], team.json()["id"]
+
+    dxb_department, dxb_team = await sales_team(dxb, unique_tag()[:8])
+    auh_department, auh_team = await sales_team(auh, unique_tag()[:8])
+    dxb_tl = await create_activated_user(
+        authed,
+        user_type_code="TL",
+        office_id=dxb,
+        department_id=dxb_department,
+        team_id=dxb_team,
+    )
+    dxb_se = await create_activated_user(
+        authed,
+        user_type_code="SE",
+        office_id=dxb,
+        department_id=dxb_department,
+        team_id=dxb_team,
+        manager_id=dxb_tl["id"],
+    )
+    auh_tl = await create_activated_user(
+        authed,
+        user_type_code="TL",
+        office_id=auh,
+        department_id=auh_department,
+        team_id=auh_team,
+    )
+    auh_se = await create_activated_user(
+        authed,
+        user_type_code="SE",
+        office_id=auh,
+        department_id=auh_department,
+        team_id=auh_team,
+        manager_id=auh_tl["id"],
+    )
+    dxb_cod = await create_activated_user(authed, user_type_code="COD", office_id=dxb)
+
+    async def create_owned_application(user: dict, label: str) -> dict:
+        async with await spawned_client() as scoped:
+            await authenticate(scoped, user["email"], "UserPass1!")
+            response = await scoped.post(
+                "/api/v1/applications",
+                json={
+                    "customer": {
+                        "customer_type": "individual",
+                        "full_name": f"Stage Metadata {label}",
+                        "mobile": f"+97155{unique_tag()[:8]}",
+                    },
+                    "bank_id": bank["id"],
+                    "product_id": product["id"],
+                    "product_variant_id": variant["id"],
+                    "requested_amount": "10000",
+                },
+            )
+            assert response.status_code == 200, response.text
+            return response.json()
+
+    dxb_application = await create_owned_application(dxb_se, "DXB")
+    auh_application = await create_owned_application(auh_se, "AUH")
+
+    async def assert_scoped_metadata(user: dict, visible: dict, hidden: dict) -> None:
+        async with await spawned_client() as scoped:
+            await authenticate(scoped, user["email"], "UserPass1!")
+            metadata = await scoped.get(f"/api/v1/applications/{visible['id']}/progress")
+            assert metadata.status_code == 200, metadata.text
+            payload = metadata.json()
+            assert payload["workflowId"] == visible["workflowId"]
+            assert payload["status"] == "active"
+            assert payload["stages"]
+            assert payload["transitions"]
+            assert all("status" in stage for stage in payload["stages"])
+            assert "bank" not in payload
+            assert "product" not in payload
+            assert (
+                await scoped.get(f"/api/v1/applications/{hidden['id']}/progress")
+            ).status_code == 404
+            assert (await scoped.get("/api/v1/workflows")).status_code == 403
+            assert (
+                await scoped.get(f"/api/v1/workflows/{visible['workflowId']}")
+            ).status_code == 403
+
+    await assert_scoped_metadata(dxb_tl, dxb_application, auh_application)
+    await assert_scoped_metadata(dxb_se, dxb_application, auh_application)
+    await assert_scoped_metadata(dxb_cod, dxb_application, auh_application)
+
+    async with await spawned_client() as cod_client:
+        await authenticate(cod_client, dxb_cod["email"], "UserPass1!")
+        submitted = await cod_client.post(
+            f"/api/v1/applications/{dxb_application['id']}/case-number",
+            json={"bank_case_number": f"STAGE-{unique_tag()[:8]}"},
+        )
+        assert submitted.status_code == 200, submitted.text
+        assert submitted.json()["currentStageKey"] == "submitted"
