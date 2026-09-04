@@ -15,18 +15,18 @@ jobs:
         env:
           POSTGRES_USER: nexa
           POSTGRES_PASSWORD: nexa
-          POSTGRES_DB: nexa_bos
+          POSTGRES_DB: nexa_bos_test_ci
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U nexa -d nexa_bos"
+          --health-cmd "pg_isready -U nexa -d nexa_bos_test_ci"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
     env:
       APP_ENV: test
       LOG_LEVEL: INFO
-      DATABASE_URL: postgresql+asyncpg://nexa:nexa@localhost:5432/nexa_bos
+      DATABASE_URL: postgresql+asyncpg://nexa:nexa@localhost:5432/nexa_bos_test_ci
       CORS_ORIGINS: http://localhost:3000,http://127.0.0.1:3000
       NEXT_PUBLIC_API_URL: http://localhost:8000
       BOOTSTRAP_SECRET: nexa-test-bootstrap-secret

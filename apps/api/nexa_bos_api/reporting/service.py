@@ -26,10 +26,13 @@ from nexa_bos_api.core.exceptions import AppError
 from nexa_bos_api.core.pagination import PageResult
 from nexa_bos_api.customers.models import Customer
 from nexa_bos_api.identity.access import has_permission, has_user_type
-from nexa_bos_api.identity.enums import StageSystemKey, VisibilityScope
+from nexa_bos_api.identity.enums import AccountStatus, StageSystemKey, VisibilityScope
 from nexa_bos_api.identity.models import Department, Office, Team, User
 from nexa_bos_api.identity.permissions import (
     APPLICATIONS_CREATE,
+    APPLICATIONS_MARK_DELAY,
+    APPLICATIONS_SUBMIT,
+    APPLICATIONS_UPDATE_STAGE,
     ATTENDANCE_REPORTS,
     ATTENDANCE_VIEW,
 )
@@ -156,13 +159,16 @@ class AppFact:
     occupancies: list[ApplicationStageOccupancy]
     stages: dict[UUID, WorkflowStage]
     history: list[ApplicationOwnerHistory]
+    events: list[ApplicationEvent] = field(default_factory=list)
     returned_at: list[tuple[datetime, Attribution]] = field(default_factory=list)
     resubmitted_at: list[tuple[datetime, Attribution]] = field(default_factory=list)
     active_delay_type: str | None = None
+    active_delay_reason: str | None = None
     last_stage_changed_at: datetime | None = None
     workflow_id: UUID | None = None
     bank_case_number: str | None = None
     updated_at: datetime | None = None
+    tat_stopped_at: datetime | None = None
 
     def owner_at(self, moment: datetime | None) -> Attribution:
         return attribution_at(self.history, moment, self.current_owner_id)
@@ -317,6 +323,7 @@ async def load_facts(
                     selectinload(User.department),
                     selectinload(User.team),
                     selectinload(User.designation),
+                    selectinload(User.user_type),
                 )
             )
         ).scalars()
@@ -391,14 +398,17 @@ async def load_facts(
                 terminal=attribution_at(hist, terminal_at, app.case_owner_id),
                 current_attr=attribution_at(hist, None, app.case_owner_id),
                 occupancies=occ,
+                events=evs,
                 stages=stages,
                 history=hist,
                 returned_at=returned,
                 resubmitted_at=resubmitted,
                 active_delay_type=delay.delay_type if delay else None,
+                active_delay_reason=delay.reason if delay else None,
                 last_stage_changed_at=(
                     max(event.bos_updated_at for event in stage_events) if stage_events else None
                 ),
+                tat_stopped_at=app.tat_stopped_at,
             )
         )
     return facts, users, offices, teams
@@ -1249,6 +1259,280 @@ def _se_workspace_payload(
     }
 
 
+def _cod_requirement_pending(fact: AppFact) -> bool:
+    stage_name = fact.current_stage_name.lower()
+    return fact.current_stage_key == StageSystemKey.RETURNED or any(
+        term in stage_name for term in ("requirement", "document")
+    )
+
+
+def _cod_application_item(
+    fact: AppFact,
+    users: dict[UUID, User],
+    actor: User,
+    *,
+    now: datetime,
+) -> dict[str, object]:
+    owner = users.get(fact.current_owner_id)
+    actions: list[dict[str, str]] = []
+    if fact.terminal_outcome is None:
+        if fact.submitted_at is None and has_permission(actor, APPLICATIONS_SUBMIT):
+            actions.append(
+                {
+                    "key": "submit",
+                    "label": "Add Bank Number & Submit",
+                }
+            )
+        if fact.submitted_at is not None and has_permission(actor, APPLICATIONS_UPDATE_STAGE):
+            actions.append({"key": "stage", "label": "Update MIS Stage"})
+        if _cod_requirement_pending(fact) and has_permission(actor, APPLICATIONS_UPDATE_STAGE):
+            actions.append({"key": "requirement", "label": "Record requirement"})
+        if fact.active_delay_type is None and has_permission(actor, APPLICATIONS_MARK_DELAY):
+            actions.append({"key": "delay", "label": "Record delay reason"})
+    tat_end = _aware(fact.tat_stopped_at or now)
+    tat_seconds = max(0, int((tat_end - _aware(fact.created_at)).total_seconds()))
+    return {
+        "id": str(fact.id),
+        "localFileNumber": fact.code,
+        "bankCaseNumber": fact.bank_case_number,
+        "customer": fact.customer_name,
+        "caseOwner": owner.full_name if owner else "Unknown owner",
+        "caseOwnerRole": owner.user_type.code if owner and owner.user_type else None,
+        "bank": fact.bank_name,
+        "product": fact.product_name,
+        "stage": fact.current_stage_name,
+        "stageId": str(fact.current_stage_id),
+        "tatSeconds": tat_seconds,
+        "delayed": fact.active_delay_type is not None,
+        "delayType": fact.active_delay_type,
+        "lastUpdate": (fact.updated_at or fact.created_at).isoformat(),
+        "actions": actions,
+    }
+
+
+def _cod_trend(facts: list[AppFact], access: ReportingAccess) -> list[dict[str, object]]:
+    current_month = datetime.now(UTC).date().replace(day=1)
+    months = [_month_start_shift(current_month, offset) for offset in range(-5, 1)]
+    buckets = {month.isoformat(): {"created": 0, "submitted": 0} for month in months}
+    for fact in facts:
+        for key, when, attribution in (
+            ("created", fact.created_at, fact.created),
+            ("submitted", fact.submitted_at, fact.submitted),
+        ):
+            if when is None or not _visible_event(access, attribution, when, ReportFilters()):
+                continue
+            month_key = _aware(when).date().replace(day=1).isoformat()
+            if month_key in buckets:
+                buckets[month_key][key] += 1
+    return [{"month": month, **values} for month, values in buckets.items()]
+
+
+def _cod_workspace_payload(
+    actor: User,
+    *,
+    facts: list[AppFact],
+    users: dict[UUID, User],
+    access: ReportingAccess,
+    window: PeriodWindow,
+) -> dict[str, object] | None:
+    if not has_user_type(actor, "COD"):
+        return None
+    now = datetime.now(UTC)
+    visible = [
+        fact
+        for fact in facts
+        if access.owner_visible(
+            fact.current_attr.owner_id,
+            now,
+            fact.current_attr.office_id,
+        )
+    ]
+    opened = [fact for fact in visible if fact.terminal_outcome is None]
+    new_cases = [fact for fact in visible if in_window(fact.created_at, window)]
+    awaiting_submission = [fact for fact in opened if fact.submitted_at is None]
+    missing_bank_number = [fact for fact in opened if not fact.bank_case_number]
+    submitted = [fact for fact in visible if in_window(fact.submitted_at, window)]
+    requirements = [fact for fact in opened if _cod_requirement_pending(fact)]
+    delayed = [fact for fact in opened if fact.active_delay_type is not None]
+    approved = [fact for fact in visible if in_window(fact.approved_at, window)]
+    completed_funded = [fact for fact in visible if in_window(fact.funded_at, window)]
+
+    latest = lambda rows: sorted(  # noqa: E731 - compact queue construction
+        rows,
+        key=lambda item: item.updated_at or item.created_at,
+        reverse=True,
+    )
+
+    def queue(rows: list[AppFact]) -> list[dict[str, object]]:
+        return [_cod_application_item(fact, users, actor, now=now) for fact in latest(rows)[:8]]
+
+    workflow_ids = {fact.workflow_id for fact in visible if fact.workflow_id is not None}
+    stage_rows: dict[UUID, WorkflowStage] = {}
+    for fact in visible:
+        for stage_id, stage in fact.stages.items():
+            if stage.workflow_id in workflow_ids and stage.status == "active":
+                stage_rows[stage_id] = stage
+    stage_counts: dict[UUID, int] = {}
+    for fact in opened:
+        stage_counts[fact.current_stage_id] = stage_counts.get(fact.current_stage_id, 0) + 1
+    pipeline = [
+        {"stageId": str(stage.id), "name": stage.name, "count": stage_counts.get(stage.id, 0)}
+        for stage in sorted(stage_rows.values(), key=lambda row: (row.sort_order, row.name))
+    ]
+
+    outcomes = [
+        {"name": "Approved", "count": len(approved)},
+        {"name": "Completed / Funded", "count": len(completed_funded)},
+        {
+            "name": "Final Rejected",
+            "count": sum(
+                1
+                for fact in visible
+                if fact.terminal_outcome == "Final Rejected" and in_window(fact.terminal_at, window)
+            ),
+        },
+        {
+            "name": "Cancelled / Withdrawn",
+            "count": sum(
+                1
+                for fact in visible
+                if fact.terminal_outcome in {"Cancelled", "Withdrawn"}
+                and in_window(fact.terminal_at, window)
+            ),
+        },
+    ]
+    workload_counts: dict[tuple[str, str], int] = {}
+    for fact in opened:
+        key = (fact.bank_name, fact.product_name)
+        workload_counts[key] = workload_counts.get(key, 0) + 1
+    workload = [
+        {"name": f"{bank} · {product}", "count": count}
+        for (bank, product), count in sorted(
+            workload_counts.items(), key=lambda item: (-item[1], item[0])
+        )
+    ]
+    reason_counts: dict[str, int] = {}
+    for fact in delayed:
+        reason = fact.active_delay_type or "Other"
+        reason_counts[reason] = reason_counts.get(reason, 0) + 1
+    returned_without_delay = sum(1 for fact in requirements if fact.active_delay_type is None)
+    if returned_without_delay:
+        reason_counts["Returned / requirements"] = returned_without_delay
+
+    open_by_owner: dict[UUID, int] = {}
+    delayed_by_owner: dict[UUID, int] = {}
+    for fact in opened:
+        open_by_owner[fact.current_owner_id] = open_by_owner.get(fact.current_owner_id, 0) + 1
+        if fact.active_delay_type:
+            delayed_by_owner[fact.current_owner_id] = (
+                delayed_by_owner.get(fact.current_owner_id, 0) + 1
+            )
+    staff = []
+    for user in users.values():
+        role_code = user.user_type.code if user.user_type else None
+        if (
+            user.account_status != AccountStatus.ACTIVE
+            or user.office_id != actor.office_id
+            or role_code not in {"SM", "TL", "SE"}
+        ):
+            continue
+        staff.append(
+            {
+                "id": str(user.id),
+                "name": user.full_name,
+                "role": role_code,
+                "team": user.team.name if user.team else None,
+                "openCases": open_by_owner.get(user.id, 0),
+                "delayedCases": delayed_by_owner.get(user.id, 0),
+                "downline": role_code in {"TL", "SE"} and access.was_descendant_at(user.id, now),
+            }
+        )
+    staff.sort(key=lambda row: (str(row["role"]), str(row["name"])))
+
+    actor_events: list[tuple[UUID, ApplicationEvent]] = []
+    for fact in visible:
+        actor_events.extend(
+            (fact.id, event)
+            for event in fact.events
+            if event.actor_id == actor.id and in_window(event.bos_updated_at, window)
+        )
+    stage_event_types = {
+        "stage_moved",
+        "stage_corrected",
+        "returned_requirement_pending",
+        "resubmission",
+        "approval",
+        "booking",
+        "fund_release",
+    }
+    processed_events = [
+        (application_id, event)
+        for application_id, event in actor_events
+        if event.event_type != "application_created"
+    ]
+    return {
+        "office": {
+            "id": str(actor.office_id) if actor.office_id else None,
+            "name": actor.office.name if actor.office else "Assigned office",
+            "scope": "Office operations",
+        },
+        "kpis": {
+            "newCases": len(new_cases),
+            "awaitingSubmission": len(awaiting_submission),
+            "missingBankNumber": len(missing_bank_number),
+            "submitted": len(submitted),
+            "requirementsPending": len(requirements),
+            "delayed": len(delayed),
+            "approved": len(approved),
+            "completedFunded": len(completed_funded),
+        },
+        "queues": {
+            "awaitingReview": queue(awaiting_submission),
+            "bankSubmission": queue(awaiting_submission),
+            "missingBankNumber": queue(missing_bank_number),
+            "misUpdate": queue(
+                [
+                    fact
+                    for fact in opened
+                    if fact.submitted_at is not None
+                    and fact.current_stage_key == StageSystemKey.SUBMITTED
+                ]
+            ),
+            "requirements": queue(requirements),
+            "returned": queue(
+                [fact for fact in opened if fact.current_stage_key == StageSystemKey.RETURNED]
+            ),
+            "delayed": queue(delayed),
+            "recentUpdates": queue(visible),
+        },
+        "charts": {
+            "pipeline": pipeline,
+            "trend": _cod_trend(facts, access),
+            "outcomes": outcomes,
+            "workload": workload,
+            "tat": [
+                {"name": "On time", "count": len(opened) - len(delayed)},
+                {"name": "Delayed", "count": len(delayed)},
+            ],
+            "requirementReasons": [
+                {"name": name, "count": count} for name, count in sorted(reason_counts.items())
+            ],
+        },
+        "staff": staff,
+        "activity": {
+            "reviewed": len({application_id for application_id, _event in processed_events}),
+            "submitted": sum(
+                1 for _application_id, event in actor_events if event.event_type == "submission"
+            ),
+            "stageUpdates": sum(
+                1
+                for _application_id, event in actor_events
+                if event.event_type in stage_event_types
+            ),
+        },
+    }
+
+
 async def dashboard_payload(
     session: AsyncSession,
     actor: User,
@@ -1287,6 +1571,13 @@ async def dashboard_payload(
             access=access,
             window=window,
             target=personal_performance["target"],
+        ),
+        "codWorkspace": _cod_workspace_payload(
+            actor,
+            facts=facts,
+            users=users,
+            access=access,
+            window=window,
         ),
     }
     if access.scope is None:

@@ -64,6 +64,7 @@ export type DashboardPayload = {
   personalPerformance: PersonalPerformance;
   personalAttendance: PersonalAttendance;
   seWorkspace: SeDashboardWorkspace | null;
+  codWorkspace: CodDashboardWorkspace | null;
 };
 
 export type PersonalTargetProgress = {
@@ -173,6 +174,66 @@ export type SeDashboardWorkspace = {
   targetProgress: PersonalTargetProgress;
   actionRequired: Array<SeApplicationSummary & { reasons: string[] }>;
   recentApplications: SeApplicationSummary[];
+};
+
+export type CodApplicationSummary = {
+  id: string;
+  localFileNumber: string;
+  bankCaseNumber: string | null;
+  customer: string;
+  caseOwner: string;
+  caseOwnerRole: string | null;
+  bank: string;
+  product: string;
+  stage: string;
+  stageId: string;
+  tatSeconds: number;
+  delayed: boolean;
+  delayType: string | null;
+  lastUpdate: string;
+  actions: Array<{ key: string; label: string }>;
+};
+
+export type CodDashboardWorkspace = {
+  office: { id: string | null; name: string; scope: string };
+  kpis: {
+    newCases: number;
+    awaitingSubmission: number;
+    missingBankNumber: number;
+    submitted: number;
+    requirementsPending: number;
+    delayed: number;
+    approved: number;
+    completedFunded: number;
+  };
+  queues: {
+    awaitingReview: CodApplicationSummary[];
+    bankSubmission: CodApplicationSummary[];
+    missingBankNumber: CodApplicationSummary[];
+    misUpdate: CodApplicationSummary[];
+    requirements: CodApplicationSummary[];
+    returned: CodApplicationSummary[];
+    delayed: CodApplicationSummary[];
+    recentUpdates: CodApplicationSummary[];
+  };
+  charts: {
+    pipeline: Array<{ stageId: string; name: string; count: number }>;
+    trend: Array<{ month: string; created: number; submitted: number }>;
+    outcomes: Array<{ name: string; count: number }>;
+    workload: Array<{ name: string; count: number }>;
+    tat: Array<{ name: string; count: number }>;
+    requirementReasons: Array<{ name: string; count: number }>;
+  };
+  staff: Array<{
+    id: string;
+    name: string;
+    role: "SM" | "TL" | "SE";
+    team: string | null;
+    openCases: number;
+    delayedCases: number;
+    downline: boolean;
+  }>;
+  activity: { reviewed: number; submitted: number; stageUpdates: number };
 };
 
 export type ReportComparisonPayload = {

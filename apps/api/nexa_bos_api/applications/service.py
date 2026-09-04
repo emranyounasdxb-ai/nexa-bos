@@ -933,6 +933,12 @@ async def list_applications(
             "approved",
             "funded",
             "in_progress",
+            "new_cases",
+            "awaiting_submission",
+            "missing_bank_number",
+            "requirements_pending",
+            "delayed",
+            "completed_funded",
         }:
             raise AppError(
                 status_code=422,
@@ -940,7 +946,7 @@ async def list_applications(
                 message="Unknown dashboard application filter",
             )
         dashboard_period = filters.get("dashboard_period") or "mtd"
-        if dashboard_period not in {"mtd", "previous_month", "ytd"}:
+        if dashboard_period not in {"today", "mtd", "previous_month", "ytd"}:
             raise AppError(
                 status_code=422,
                 code="INVALID_DASHBOARD_PERIOD",
@@ -949,16 +955,49 @@ async def list_applications(
         window = resolve_period(dashboard_period)
         milestone_column = {
             "applications": Application.created_at,
+            "new_cases": Application.created_at,
             "submitted": Application.submitted_at,
             "approved": Application.approved_at,
             "funded": Application.fund_released_at,
+            "completed_funded": Application.fund_released_at,
         }.get(dashboard_metric)
         if milestone_column is not None:
             stmt = stmt.where(milestone_column >= window.start, milestone_column <= window.end)
-        else:
+        elif dashboard_metric == "in_progress":
             stmt = stmt.where(
                 Application.created_at <= window.end,
                 or_(Application.completed_at.is_(None), Application.completed_at > window.end),
+            )
+        elif dashboard_metric == "awaiting_submission":
+            stmt = stmt.where(
+                Application.terminal_outcome.is_(None),
+                Application.submitted_at.is_(None),
+            )
+        elif dashboard_metric == "missing_bank_number":
+            stmt = stmt.where(
+                Application.terminal_outcome.is_(None),
+                or_(
+                    Application.bank_case_number.is_(None),
+                    func.btrim(Application.bank_case_number) == "",
+                ),
+            )
+        elif dashboard_metric == "requirements_pending":
+            stmt = stmt.where(
+                Application.terminal_outcome.is_(None),
+                or_(
+                    WorkflowStage.system_key == "returned_requirement_pending",
+                    func.lower(WorkflowStage.name).contains("requirement"),
+                    func.lower(WorkflowStage.name).contains("document"),
+                ),
+            )
+        else:
+            stmt = stmt.where(
+                Application.terminal_outcome.is_(None),
+                Application.id.in_(
+                    select(ApplicationDelay.application_id).where(
+                        ApplicationDelay.ended_at.is_(None)
+                    )
+                ),
             )
     if filters.get("bank_stage_date"):
         stmt = stmt.where(

@@ -66,6 +66,7 @@ import {
   TargetProgress,
 } from "./dashboard-visuals";
 import { PersonalPerformanceAttendance } from "./personal-dashboard";
+import { CodDashboard } from "./cod-dashboard";
 import { SeDashboard } from "./se-dashboard";
 
 const comparisonPeriodFor: Partial<Record<string, string>> = {
@@ -130,6 +131,7 @@ export function DashboardInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const api = getBrowserApiUrl();
+  const isCoordinator = user?.userType?.code === "COD";
   const [query, setQuery] = useState<ReportQuery>(() => queryFromSearch(searchParams.toString()));
   const [appliedQuery, setAppliedQuery] = useState<ReportQuery>(() => queryFromSearch(searchParams.toString()));
   const [filters, setFilters] = useState<FilterOptions | null>(null);
@@ -180,15 +182,17 @@ export function DashboardInner() {
     let comparisonSettled = false;
     let nextComparison: ReportComparisonPayload | null = null;
 
-    const filtersRequest = apiGet<FilterOptions>("/api/v1/reports/filters", api);
+    const filtersRequest = isCoordinator
+      ? Promise.resolve<FilterOptions | null>(null)
+      : apiGet<FilterOptions>("/api/v1/reports/filters", api);
     const dashboardRequest = apiGet<DashboardPayload>(`/api/v1/reports/dashboard?${qs}`, api);
-    const comparisonRequest = comparisonQs
+    const comparisonRequest = comparisonQs && !isCoordinator
       ? apiGet<ReportComparisonPayload>(`/api/v1/reports/comparisons?${comparisonQs}`, api).catch(() => null)
       : Promise.resolve(null);
 
     void filtersRequest
       .then((options) => {
-        if (requestId === requestIdRef.current) setFilters(options);
+        if (requestId === requestIdRef.current && options) setFilters(options);
       })
       .catch((err) => {
         if (requestId === requestIdRef.current) {
@@ -214,14 +218,14 @@ export function DashboardInner() {
     } finally {
       if (requestId === requestIdRef.current) setLoading(false);
     }
-  }, [api, comparisonQs, qs]);
+  }, [api, comparisonQs, isCoordinator, qs]);
 
   useEffect(() => {
-    const automaticLoadKey = `${qs}|${comparisonQs ?? ""}|${reloadVersion}`;
+    const automaticLoadKey = `${user?.userType?.code ?? "pending"}|${qs}|${comparisonQs ?? ""}|${reloadVersion}`;
     if (lastAutomaticLoadRef.current === automaticLoadKey) return;
     lastAutomaticLoadRef.current = automaticLoadKey;
     void load();
-  }, [comparisonQs, load, qs, reloadVersion]);
+  }, [comparisonQs, load, qs, reloadVersion, user?.userType?.code]);
 
   function applyFilters() {
     setAppliedQuery({ ...query });
@@ -279,6 +283,57 @@ export function DashboardInner() {
   );
   const comparisonLabel = comparison?.previousPeriod?.label;
   const isSalesExecutive = user?.userType?.code === "SE";
+
+  if (isCoordinator) {
+    return (
+      <section className="space-y-4">
+        <h2 className="text-xl font-semibold tracking-tight text-slate-950">
+          Operations Dashboard
+        </h2>
+        <PageHeader
+          title="Operations Dashboard"
+          description="Process authorized office cases, monitor Workflow queues, and review your personal performance and attendance."
+          actions={(
+            <>
+              <Badge>{data?.codWorkspace ? `${data.codWorkspace.office.name} · ${data.codWorkspace.office.scope}` : "Office operations"}</Badge>
+              <label className="text-xs font-semibold text-slate-600">
+                <span className="sr-only">Operations period</span>
+                <Select
+                  aria-label="Operations period"
+                  className="mt-0 min-w-36"
+                  value={appliedQuery.period}
+                  onChange={(event) => {
+                    const next = { ...appliedQuery, period: event.target.value };
+                    setQuery(next);
+                    setAppliedQuery(next);
+                    router.replace(`/reports?${toSearchParams(next)}`);
+                  }}
+                >
+                  <option value="today">Today</option>
+                  <option value="mtd">This Month</option>
+                  <option value="previous_month">Last Month</option>
+                  <option value="ytd">YTD</option>
+                </Select>
+              </label>
+              <Button type="button" size="compact" variant="secondary" disabled={loading} onClick={() => setReloadVersion((version) => version + 1)}>
+                <IconRefresh className="size-4" />
+                {loading ? "Refreshing…" : "Refresh"}
+              </Button>
+              {data?.generatedAt ? <span className="text-xs text-slate-500">Updated <time>{new Intl.DateTimeFormat("en-AE", { timeStyle: "short" }).format(new Date(data.generatedAt))}</time></span> : null}
+            </>
+          )}
+        />
+        <ErrorText>{error}</ErrorText>
+        {loading && !data ? <DashboardSkeleton /> : null}
+        {data?.codWorkspace ? (
+          <>
+            <CodDashboard data={data.codWorkspace} period={appliedQuery.period} />
+            <PersonalPerformanceAttendance performance={data.personalPerformance} attendance={data.personalAttendance} />
+          </>
+        ) : !loading && !error ? <ErrorText>Unable to load the Operations Dashboard workspace.</ErrorText> : null}
+      </section>
+    );
+  }
 
   if (isSalesExecutive) {
     return (
