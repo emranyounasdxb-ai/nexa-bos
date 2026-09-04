@@ -199,6 +199,97 @@ async def _assert_identifier_free(
         )
 
 
+async def match_customer_identifiers(
+    session: AsyncSession,
+    *,
+    emirates_id: str | None,
+    passport: str | None,
+) -> Customer | None:
+    """Resolve an exact current identity without exposing a customer directory."""
+
+    matches: dict[CustomerIdentifierKind, UUID] = {}
+    for kind, value in (
+        (CustomerIdentifierKind.EMIRATES_ID, emirates_id),
+        (CustomerIdentifierKind.PASSPORT, passport),
+    ):
+        normalized = normalize_identifier(value)
+        if normalized is None:
+            continue
+        customer_id = (
+            await session.execute(
+                select(CustomerIdentifierHistory.customer_id).where(
+                    CustomerIdentifierHistory.kind == kind,
+                    CustomerIdentifierHistory.value_normalized == normalized,
+                    CustomerIdentifierHistory.effective_to.is_(None),
+                )
+            )
+        ).scalar_one_or_none()
+        if customer_id is not None:
+            matches[kind] = customer_id
+
+    customer_ids = set(matches.values())
+    if len(customer_ids) > 1:
+        raise AppError(
+            status_code=409,
+            code="CUSTOMER_IDENTITY_CONFLICT",
+            message=(
+                "The Emirates ID and Passport Number belong to different customers. "
+                "Application creation is blocked until the identity conflict is corrected."
+            ),
+        )
+    if not customer_ids:
+        return None
+    customer = await session.get(Customer, next(iter(customer_ids)))
+    if customer is None:
+        return None
+    if customer.status == CustomerStatus.MERGED and customer.merged_into_id is not None:
+        customer = await session.get(Customer, customer.merged_into_id)
+    return customer
+
+
+async def update_application_contact_details(
+    session: AsyncSession,
+    actor: User,
+    customer: Customer,
+    payload: CustomerCreateRequest,
+) -> None:
+    """Update only mutable contact fields during an identity-matched Application create."""
+
+    if CustomerType(customer.customer_type) is not CustomerType.INDIVIDUAL:
+        return
+    now = utcnow()
+    mobile = payload.mobile.strip()
+    email = str(payload.email).lower() if payload.email else None
+    employer = _blank_to_none(payload.employer)
+    old_values = {
+        "mobile": customer.mobile,
+        "email": customer.email,
+        "employer": customer.employer,
+    }
+    new_values = {"mobile": mobile, "email": email, "employer": employer}
+    if old_values == new_values:
+        return
+    customer.mobile = mobile
+    customer.email = email
+    customer.employer = employer
+    customer.updated_at = now
+    for field, value in (
+        (CustomerField.MOBILE, mobile),
+        (CustomerField.EMAIL, email),
+        (CustomerField.EMPLOYER, employer),
+    ):
+        await _record_field(session, customer_id=customer.id, field=field, value=value, at=now)
+    await record_audit(
+        session,
+        action="customer.contact_update_from_application",
+        entity_type="customer",
+        entity_id=str(customer.id),
+        actor_id=actor.id,
+        old_values=old_values,
+        new_values=new_values,
+    )
+
+
 async def _set_identifier(
     session: AsyncSession,
     *,
@@ -351,6 +442,7 @@ async def create_customer(
     payload: CustomerCreateRequest,
     *,
     commit: bool = True,
+    check_possible_duplicates: bool = True,
 ) -> Customer:
     full_name = _blank_to_none(payload.full_name)
     company_name = _blank_to_none(payload.company_name)
@@ -368,12 +460,16 @@ async def create_customer(
         employer=employer,
         trade_license=_blank_to_none(payload.trade_license),
     )
-    duplicates = await find_possible_duplicates(
-        session,
-        full_name=full_name,
-        company_name=company_name,
-        mobile=mobile,
-        email=email,
+    duplicates = (
+        await find_possible_duplicates(
+            session,
+            full_name=full_name,
+            company_name=company_name,
+            mobile=mobile,
+            email=email,
+        )
+        if check_possible_duplicates
+        else []
     )
     if duplicates and not payload.create_anyway:
         raise AppError(

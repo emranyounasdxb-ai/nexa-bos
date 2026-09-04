@@ -46,8 +46,14 @@ from nexa_bos_api.catalog.models import Bank, BankProduct, Product, ProductVaria
 from nexa_bos_api.core.exceptions import AppError
 from nexa_bos_api.core.pagination import PageResult
 from nexa_bos_api.customers.models import Customer
-from nexa_bos_api.customers.service import create_customer, get_visible_customer
-from nexa_bos_api.identity.access import has_permission
+from nexa_bos_api.customers.service import (
+    create_customer,
+    get_visible_customer,
+    match_customer_identifiers,
+    serialize_customer,
+    update_application_contact_details,
+)
+from nexa_bos_api.identity.access import has_permission, has_user_type
 from nexa_bos_api.identity.audit import record_audit
 from nexa_bos_api.identity.enums import (
     ApplicationEventType,
@@ -57,11 +63,7 @@ from nexa_bos_api.identity.enums import (
     TerminalOutcome,
 )
 from nexa_bos_api.identity.models import Department, Office, Team, User
-from nexa_bos_api.identity.permissions import (
-    APPLICATIONS_SUBMIT,
-    CUSTOMERS_CREATE,
-    CUSTOMERS_VIEW,
-)
+from nexa_bos_api.identity.permissions import APPLICATIONS_SUBMIT, CUSTOMERS_VIEW
 
 
 def _money(value: Decimal | None) -> str | None:
@@ -544,21 +546,33 @@ async def create_application(
         )
     owner = await _require_case_owner(session, actor.id)
     if payload.customer is not None:
-        if not has_permission(actor, CUSTOMERS_CREATE):
-            raise AppError(
-                status_code=403,
-                code="FORBIDDEN",
-                message="You do not have permission to create customers",
-                details=[{"permission": CUSTOMERS_CREATE}],
+        customer = await match_customer_identifiers(
+            session,
+            emirates_id=payload.customer.emirates_id,
+            passport=payload.customer.passport,
+        )
+        if customer is None:
+            customer = await create_customer(
+                session,
+                actor,
+                payload.customer.model_copy(update={"create_anyway": False}),
+                commit=False,
+                check_possible_duplicates=False,
             )
-        customer = await create_customer(session, actor, payload.customer, commit=False)
+        else:
+            if customer.status != CustomerStatus.ACTIVE:
+                raise AppError(
+                    status_code=422,
+                    code="CUSTOMER_INACTIVE",
+                    message="Applications can only be created for an active customer",
+                )
+            await update_application_contact_details(session, actor, customer, payload.customer)
     else:
-        if not has_permission(actor, CUSTOMERS_VIEW):
+        if not has_user_type(actor, "OWNER", "GM") or not has_permission(actor, CUSTOMERS_VIEW):
             raise AppError(
                 status_code=403,
                 code="FORBIDDEN",
-                message="You do not have permission to link existing customers",
-                details=[{"permission": CUSTOMERS_VIEW}],
+                message="Direct customer linking is restricted to Owners and General Managers",
             )
         assert payload.customer_id is not None
         customer = await get_visible_customer(session, actor, payload.customer_id)
@@ -653,6 +667,50 @@ async def create_application(
     )
     await session.commit()
     return (await session.get(Application, application.id)) or application
+
+
+async def match_application_customer(
+    session: AsyncSession,
+    actor: User,
+    *,
+    emirates_id: str | None,
+    passport: str | None,
+) -> dict[str, object]:
+    customer = await match_customer_identifiers(
+        session,
+        emirates_id=emirates_id,
+        passport=passport,
+    )
+    if customer is None:
+        return {"matched": False, "message": None, "customer": None, "history": []}
+    applications = await list_customer_applications(session, actor, customer.id)
+    serialized = await serialize_applications(session, applications)
+    history = [
+        {
+            "applicationId": row["id"],
+            "applicationCode": row["applicationCode"],
+            "bank": row["bankName"] or row["bankCode"],
+            "product": row["productName"] or row["productCode"],
+            "status": row["terminalOutcome"] or row["currentStage"] or "In progress",
+        }
+        for row in serialized
+    ]
+    serialized_customer = serialize_customer(customer)
+    return {
+        "matched": True,
+        "message": "This customer already exists in the system.",
+        "customer": {
+            "customerType": serialized_customer["customerType"],
+            "status": serialized_customer["status"],
+            "fullName": serialized_customer["fullName"],
+            "mobile": serialized_customer["mobile"],
+            "email": serialized_customer["email"],
+            "emiratesId": serialized_customer["emiratesId"],
+            "passport": serialized_customer["passport"],
+            "employer": serialized_customer["employer"],
+        },
+        "history": history,
+    }
 
 
 async def _first_or_correct_case_number(
@@ -948,6 +1006,17 @@ async def list_referenced_product_variants(
         )
         .where(ProductVariant.id.in_(visible_apps))
         .order_by(ProductVariant.name, ProductVariant.code)
+    )
+    return list((await session.execute(stmt)).scalars().unique().all())
+
+
+async def list_referenced_stages(session: AsyncSession, actor: User) -> list[WorkflowStage]:
+    allowed = await visible_case_owner_ids(session, actor)
+    visible_stage_ids = apply_owner_filter(select(Application.current_stage_id), allowed)
+    stmt = (
+        select(WorkflowStage)
+        .where(WorkflowStage.id.in_(visible_stage_ids))
+        .order_by(WorkflowStage.name, WorkflowStage.code, WorkflowStage.id)
     )
     return list((await session.execute(stmt)).scalars().unique().all())
 

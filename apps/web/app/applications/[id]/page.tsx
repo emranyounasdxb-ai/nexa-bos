@@ -31,6 +31,7 @@ import { apiGet, apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { formatDuration } from "@/lib/duration";
 import { getBrowserApiUrl } from "@/lib/env";
+import { canManageCustomers } from "@/lib/role-access";
 import type {
   ApplicationEventRecord,
   ApplicationRecord,
@@ -119,7 +120,7 @@ function Value({ label, children }: { label: string; children: React.ReactNode }
 
 export default function ApplicationDetailPage() {
   const params = useParams<{ id: string }>();
-  const { can } = useAuth();
+  const { can, user } = useAuth();
   const api = getBrowserApiUrl();
   const [item, setItem] = useState<ApplicationRecord | null>(null);
   const [progress, setProgress] = useState<WorkflowStageRecord[]>([]);
@@ -209,7 +210,7 @@ export default function ApplicationDetailPage() {
               )
             : Promise.resolve({ items: [] as WorkflowRecord[] }),
           apiGet<{ items: ProductVariantRecord[] }>(
-            "/api/v1/applications/product-variants",
+            "/api/v1/product-variants",
             api,
           ),
         ]);
@@ -455,6 +456,7 @@ export default function ApplicationDetailPage() {
 
   const selectedNext = nextStages.find((stage) => stage.id === stageId);
   const status = item.terminalOutcome || item.currentStage || "In progress";
+  const currentStageIndex = progress.findIndex((stage) => stage.current);
   const hasActions =
     item.terminal ||
     (Boolean(item.activeDelay) && can("Applications.CorrectDelay")) ||
@@ -477,9 +479,11 @@ export default function ApplicationDetailPage() {
             <Link className="text-sm font-medium text-brand-link underline" href="/applications">
               Back to Applications
             </Link>
-            <Link className="text-sm font-medium text-brand-link underline" href={`/customers/${item.customerId}`}>
-              View customer
-            </Link>
+            {canManageCustomers(user) ? (
+              <Link className="text-sm font-medium text-brand-link underline" href={`/customers/${item.customerId}`}>
+                View customer
+              </Link>
+            ) : null}
           </>
         }
       />
@@ -506,6 +510,57 @@ export default function ApplicationDetailPage() {
             <Value label="Funded">{item.fundedAmount ?? "—"}</Value>
           </dl>
         </div>
+      </Card>
+
+      <Card className="border-brand-primary/30 bg-brand-soft/30">
+        <div className="flex min-w-0 flex-wrap items-start justify-between gap-2">
+          <div className="min-w-0">
+            <h3 className="font-semibold text-text-primary">Workflow timeline</h3>
+            <p className="mt-1 text-xs text-text-secondary">
+              Completed stages retain their timestamps; the current stage is highlighted and upcoming stages remain visible.
+            </p>
+          </div>
+          <Badge>Version {version ?? item.workflowVersion ?? "—"}</Badge>
+        </div>
+        {progress.length ? (
+          <ol className="mt-4 grid min-w-0 gap-2 sm:grid-cols-2 xl:grid-cols-4">
+            {progress.map((stage, index) => {
+              const completed = Boolean(stage.exitedAt) || (
+                !stage.current && currentStageIndex >= 0 && index < currentStageIndex && Boolean(stage.enteredAt)
+              );
+              const state = stage.current ? "Current" : completed ? "Completed" : "Upcoming";
+              const timestamp = stage.current
+                ? stage.enteredAt
+                : completed
+                  ? stage.exitedAt ?? stage.enteredAt
+                  : null;
+              return (
+                <li
+                  key={stage.id}
+                  data-stage-state={state.toLowerCase()}
+                  className={cx(
+                    "min-w-0 rounded-[10px] border p-3",
+                    stage.current
+                      ? "border-brand-primary bg-brand-primary text-white shadow-sm"
+                      : completed
+                        ? "border-emerald-200 bg-emerald-50 text-emerald-950"
+                        : "border-brand-border bg-surface text-text-secondary",
+                  )}
+                >
+                  <div className="flex min-w-0 items-start justify-between gap-2">
+                    <span className="break-words text-sm font-semibold">{stage.name}</span>
+                    <span className={cx("shrink-0 text-[10px] font-semibold uppercase tracking-wide", stage.current ? "text-white/80" : "text-current")}>{state}</span>
+                  </div>
+                  <p className={cx("mt-2 break-words text-xs", stage.current ? "text-white/80" : "text-text-secondary")}>
+                    {timestamp ? displayDate(timestamp) : "Pending"}
+                  </p>
+                </li>
+              );
+            })}
+          </ol>
+        ) : (
+          <EmptyState>No workflow stages are available for this Application.</EmptyState>
+        )}
       </Card>
 
       {error ? <ErrorText>{error}</ErrorText> : null}
@@ -563,7 +618,8 @@ export default function ApplicationDetailPage() {
               {variantFeedback?.tone === "success" ? <p role="status" className="mt-3 text-sm font-medium text-success">{variantFeedback.text}</p> : null}
               {can("Applications.Edit") && !item.submitted && !item.terminal ? <div className="mt-3 flex justify-end"><Button type="button" disabled={variantSaving || !variantId || variantId === item.productVariantId} onClick={() => void saveVariant()}>{variantSaving ? "Saving…" : "Save Product Variant"}</Button></div> : null}
             </Card>
-            <div className="grid min-w-0 gap-4 lg:grid-cols-2">
+            <div className="grid min-w-0 gap-4 lg:grid-cols-3">
+              <Card><h3 className="font-semibold">Customer</h3><dl className="mt-3 grid gap-3"><Value label="Customer">{item.customerCode} · {item.customerName}</Value><Value label="Mobile">{item.customerMobile ?? "Not recorded"}</Value></dl></Card>
               <Card><h3 className="font-semibold">Application values</h3><dl className="mt-3 grid gap-3 sm:grid-cols-2"><Value label="Requested amount">{item.requestedAmount ?? "—"}</Value><Value label="Approved amount">{item.approvedAmount ?? "—"}</Value><Value label="Booked amount">{item.bookedAmount ?? "—"}</Value><Value label="Funded amount">{item.fundedAmount ?? "—"}</Value></dl></Card>
               <Card><h3 className="font-semibold">Submission</h3><dl className="mt-3 grid gap-3 sm:grid-cols-2"><Value label="Bank File / Case Number">{item.bankCaseNumber ?? "Not submitted"}</Value><Value label="Submitted">{displayDate(item.submittedAt)}</Value><Value label="Created">{displayDate(item.createdAt)}</Value><Value label="Last updated">{displayDate(item.updatedAt)}</Value></dl></Card>
             </div>
@@ -573,8 +629,7 @@ export default function ApplicationDetailPage() {
         {activeTab === "workflow" ? (
           <>
             <Card>
-              <div className="flex flex-wrap items-start justify-between gap-2"><div><h3 className="font-semibold">Workflow progress</h3><p className="mt-1 text-xs text-text-secondary">Version {version}</p></div><StatusBadge value={status} /></div>
-              <ol className="mt-3 flex min-w-0 flex-wrap gap-2">{progress.map((stage) => <li key={stage.id} className={cx("max-w-full rounded-full px-3 py-1 text-sm", stage.current ? "bg-brand-primary text-white" : "border border-brand-border text-text-secondary")}>{stage.name}{stage.current && item.currentStageElapsedSeconds != null ? ` · ${formatDuration(item.currentStageElapsedSeconds)}` : ""}</li>)}</ol>
+              <div className="flex flex-wrap items-start justify-between gap-2"><div><h3 className="font-semibold">Current workflow state</h3><p className="mt-1 text-xs text-text-secondary">Version {version} · {item.currentStageElapsedSeconds != null ? formatDuration(item.currentStageElapsedSeconds) : "Duration unavailable"}</p></div><StatusBadge value={status} /></div>
             </Card>
             <div className="grid min-w-0 gap-4 lg:grid-cols-2">
               <Card><h3 className="font-semibold">Turnaround time</h3><dl className="mt-3 grid gap-3 sm:grid-cols-2"><Value label={item.terminal ? "Total duration" : "Elapsed TAT"}>{item.terminal ? formatDuration(item.totalDurationSeconds) : formatDuration(item.currentElapsedSeconds)}</Value><Value label="Current stage elapsed">{formatDuration(item.currentStageElapsedSeconds)}</Value><Value label="Started">{displayDate(item.tatStartedAt)}</Value><Value label="Stopped">{displayDate(item.tatStoppedAt)}</Value></dl></Card>

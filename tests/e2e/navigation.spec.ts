@@ -60,7 +60,7 @@ test("owner can log in, navigate major screens, sign out, and log in again", asy
 
   await openGroup(page, "Operations");
   await page.getByRole("link", { name: "Customers", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Customers" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Customers", exact: true })).toBeVisible();
 
   await openGroup(page, "Operations");
   await page.getByRole("link", { name: "Applications", exact: true }).click();
@@ -89,8 +89,8 @@ test("owner can log in, navigate major screens, sign out, and log in again", asy
   await page.getByRole("link", { name: "Finance", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Finance", exact: true })).toBeVisible();
 
-  await openGroup(page, "Administration");
-  await page.getByRole("link", { name: "Notifications", exact: true }).click();
+  await expect(page.getByRole("link", { name: "Notifications", exact: true })).toHaveCount(0);
+  await page.getByRole("link", { name: /Notifications, \d+ unread/ }).click();
   await expect(page.getByRole("heading", { name: "Notifications" })).toBeVisible();
 
   await openGroup(page, "Assets");

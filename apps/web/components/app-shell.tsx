@@ -7,7 +7,6 @@ import { useEffect, useState, type ReactNode } from "react";
 
 import {
   IconBell,
-  IconBellCog,
   IconBriefcase2,
   IconBuildingBank,
   IconBuildingCommunity,
@@ -26,7 +25,6 @@ import {
   IconMenu2,
   IconPackages,
   IconReportAnalytics,
-  IconSettings,
   IconShieldLock,
   IconTargetArrow,
   IconUser,
@@ -43,7 +41,12 @@ import { apiGet, apiRequest, getCsrfToken, setCsrfToken } from "@/lib/api";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
 import { getBrowserApiUrl } from "@/lib/env";
 import type { UserRecord } from "@/lib/types";
-import { canReadCatalog, canReadOrganization, canReadWorkflows } from "@/lib/role-access";
+import {
+  canManageCustomers,
+  canReadCatalog,
+  canReadOrganization,
+  canReadWorkflows,
+} from "@/lib/role-access";
 
 const PUBLIC_PATHS = ["/login", "/setup", "/reset", "/status", "/bootstrap"];
 
@@ -204,7 +207,7 @@ function Shell({ children }: { children: ReactNode }) {
       label: "Operations",
       icon: IconBriefcase2,
       items: [
-        { href: "/customers", label: "Customers", icon: IconUser, show: can("Customers.View") },
+        { href: "/customers", label: "Customers", icon: IconUser, show: canManageCustomers(user) },
         { href: "/applications", label: "Applications", icon: IconFileDescription, show: can("Applications.View") },
         { href: "/workflows", label: "Workflows", icon: IconGitBranch, show: canReadWorkflows(user) },
       ],
@@ -252,20 +255,10 @@ function Shell({ children }: { children: ReactNode }) {
     },
     {
       label: "Administration",
-      icon: IconSettings,
+      icon: IconShieldLock,
       items: [
         { href: "/catalog", label: "Banks & products", icon: IconBuildingBank, show: canReadCatalog(user) },
         { href: "/user-types", label: "User types", icon: IconUserShield, show: can("UserTypes.View") },
-        { href: "/notifications", label: "Notifications", icon: IconBell, show: can("Notifications.View") },
-        {
-          href: "/notifications/manage",
-          label: "Notification admin",
-          icon: IconBellCog,
-          show:
-            can("Notifications.ManageRules") ||
-            can("Notifications.SendUrgent") ||
-            can("Notifications.ViewAudit"),
-        },
         { href: "/security", label: "Security", icon: IconShieldLock, show: can("Security.ManageSettings") },
       ],
     },

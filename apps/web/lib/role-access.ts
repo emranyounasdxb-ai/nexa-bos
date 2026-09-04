@@ -41,3 +41,7 @@ export function canReadCatalog(user: UserRecord | null): boolean {
 export function canReadWorkflows(user: UserRecord | null): boolean {
   return user?.userType?.code === "OWNER" || user?.userType?.code === "GM";
 }
+
+export function canManageCustomers(user: UserRecord | null): boolean {
+  return user?.userType?.code === "OWNER" || user?.userType?.code === "GM";
+}

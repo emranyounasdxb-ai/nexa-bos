@@ -32,6 +32,8 @@ from nexa_bos_api.applications.service import (
     list_customer_applications,
     list_referenced_case_owners,
     list_referenced_product_variants,
+    list_referenced_stages,
+    match_application_customer,
     migrate_application,
     reassign_case_owner,
     save_case_number,
@@ -43,9 +45,10 @@ from nexa_bos_api.applications.service import (
 )
 from nexa_bos_api.applications.tat import correct_delay, mark_delay
 from nexa_bos_api.core.exceptions import AppError
+from nexa_bos_api.customers.schemas import CustomerIdentityMatchRequest
 from nexa_bos_api.customers.service import get_visible_customer
 from nexa_bos_api.db.session import SessionDep
-from nexa_bos_api.identity.access import has_permission
+from nexa_bos_api.identity.access import has_permission, has_user_type
 from nexa_bos_api.identity.permissions import (
     APPLICATIONS_CORRECT_DELAY,
     APPLICATIONS_CORRECT_STAGE,
@@ -232,6 +235,20 @@ async def applications_create(
     return await serialize_application(session, await create_application(session, actor, payload))
 
 
+@router.post("/applications/customer-match")
+async def applications_customer_match(
+    payload: CustomerIdentityMatchRequest,
+    session: SessionDep,
+    actor: Annotated[CurrentUser, Depends(require_permission(APPLICATIONS_CREATE))],
+) -> dict[str, object]:
+    return await match_application_customer(
+        session,
+        actor,
+        emirates_id=payload.emirates_id,
+        passport=payload.passport,
+    )
+
+
 @router.get("/applications/case-owners")
 async def applications_case_owners(
     session: SessionDep,
@@ -271,6 +288,17 @@ async def applications_product_variants(
             }
             for variant in variants
         ]
+    }
+
+
+@router.get("/applications/stages")
+async def applications_stages(
+    session: SessionDep,
+    actor: Annotated[CurrentUser, Depends(require_permission(APPLICATIONS_VIEW))],
+) -> dict[str, object]:
+    stages = await list_referenced_stages(session, actor)
+    return {
+        "items": [{"id": str(stage.id), "code": stage.code, "name": stage.name} for stage in stages]
     }
 
 
@@ -465,6 +493,12 @@ async def customer_applications(
     session: SessionDep,
     actor: Annotated[CurrentUser, Depends(require_permission(CUSTOMERS_VIEW))],
 ) -> dict[str, object]:
+    if not has_user_type(actor, "OWNER", "GM"):
+        raise AppError(
+            status_code=403,
+            code="FORBIDDEN",
+            message="Customer directory access is restricted to Owners and General Managers",
+        )
     await get_visible_customer(session, actor, customer_id)
     if not has_permission(actor, APPLICATIONS_VIEW):
         return {"items": []}

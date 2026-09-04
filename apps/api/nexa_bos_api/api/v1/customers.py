@@ -24,6 +24,7 @@ from nexa_bos_api.customers.service import (
     update_customer,
 )
 from nexa_bos_api.db.session import SessionDep
+from nexa_bos_api.identity.access import has_user_type
 from nexa_bos_api.identity.enums import CustomerStatus
 from nexa_bos_api.identity.permissions import (
     CUSTOMERS_ACTIVATE,
@@ -37,6 +38,15 @@ from nexa_bos_api.identity.permissions import (
 router = APIRouter(prefix="/customers", tags=["customers"])
 
 
+def _require_customer_manager(actor: CurrentUser) -> None:
+    if not has_user_type(actor, "OWNER", "GM"):
+        raise AppError(
+            status_code=403,
+            code="FORBIDDEN",
+            message="Customer directory access is restricted to Owners and General Managers",
+        )
+
+
 @router.get("")
 async def customers_list(
     session: SessionDep,
@@ -45,6 +55,7 @@ async def customers_list(
     q: str | None = None,
     status: str | None = None,
 ) -> dict[str, object]:
+    _require_customer_manager(actor)
     rows = await list_customers(
         session,
         actor,
@@ -65,6 +76,7 @@ async def customers_create(
     session: SessionDep,
     actor: Annotated[CurrentUser, Depends(require_permission(CUSTOMERS_CREATE))],
 ) -> dict[str, object]:
+    _require_customer_manager(actor)
     return serialize_customer(await create_customer(session, actor, payload))
 
 
@@ -74,6 +86,7 @@ async def customers_get(
     session: SessionDep,
     actor: Annotated[CurrentUser, Depends(require_permission(CUSTOMERS_VIEW))],
 ) -> dict[str, object]:
+    _require_customer_manager(actor)
     customer = await get_visible_customer(session, actor, customer_id)
     return serialize_customer(customer)
 
@@ -84,6 +97,7 @@ async def customers_history(
     session: SessionDep,
     actor: Annotated[CurrentUser, Depends(require_permission(CUSTOMERS_VIEW))],
 ) -> dict[str, object]:
+    _require_customer_manager(actor)
     customer = await get_visible_customer(session, actor, customer_id)
     return await customer_history(session, customer)
 
@@ -95,6 +109,7 @@ async def customers_update(
     session: SessionDep,
     actor: Annotated[CurrentUser, Depends(require_permission(CUSTOMERS_EDIT))],
 ) -> dict[str, object]:
+    _require_customer_manager(actor)
     customer = await get_visible_customer(session, actor, customer_id)
     return serialize_customer(await update_customer(session, actor, customer, payload))
 
@@ -105,6 +120,7 @@ async def customers_deactivate(
     session: SessionDep,
     actor: Annotated[CurrentUser, Depends(require_permission(CUSTOMERS_DEACTIVATE))],
 ) -> dict[str, object]:
+    _require_customer_manager(actor)
     customer = await get_visible_customer(session, actor, customer_id)
     return serialize_customer(
         await set_customer_status(session, actor, customer, CustomerStatus.INACTIVE)
@@ -117,6 +133,7 @@ async def customers_activate(
     session: SessionDep,
     actor: Annotated[CurrentUser, Depends(require_permission(CUSTOMERS_ACTIVATE))],
 ) -> dict[str, object]:
+    _require_customer_manager(actor)
     customer = await get_visible_customer(session, actor, customer_id)
     return serialize_customer(
         await set_customer_status(session, actor, customer, CustomerStatus.ACTIVE)
@@ -130,6 +147,7 @@ async def customers_merge(
     session: SessionDep,
     actor: Annotated[CurrentUser, Depends(require_permission(CUSTOMERS_MERGE))],
 ) -> dict[str, object]:
+    _require_customer_manager(actor)
     source = await get_visible_customer(session, actor, customer_id)
     return serialize_customer(
         await merge_customers(session, actor, source, payload.primary_customer_id)
@@ -137,7 +155,8 @@ async def customers_merge(
 
 
 @router.delete("/{customer_id}")
-async def customers_delete(customer_id: UUID) -> None:
+async def customers_delete(customer_id: UUID, actor: CurrentUser) -> None:
+    _require_customer_manager(actor)
     raise AppError(
         status_code=405,
         code="CUSTOMER_DELETE_FORBIDDEN",

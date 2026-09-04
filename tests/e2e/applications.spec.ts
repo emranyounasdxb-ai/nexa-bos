@@ -274,6 +274,77 @@ async function createViewer(request: APIRequestContext, tag: string) {
   return viewer;
 }
 
+async function createSalesExecutive(request: APIRequestContext, tag: string) {
+  const headers = await ownerHeaders(request);
+  const types = ((await (
+    await request.get(`${apiOrigin}/api/v1/user-types`, { headers })
+  ).json()) as { items: Array<{ id: string; code: string }> }).items;
+  const seType = types.find((item) => item.code === "SE")!;
+  for (const [path, data] of [
+    [
+      "permissions",
+      {
+        permissions: [
+          "Dashboard.View",
+          "Notifications.View",
+          "Notifications.ManageRules",
+          "Notifications.SendUrgent",
+          "Notifications.ViewAudit",
+          "Customers.View",
+          "Customers.Create",
+          "Customers.Edit",
+          "Applications.View",
+          "Applications.Create",
+          "Applications.Edit",
+        ],
+      },
+    ],
+    ["application-scope", { application_visibility_scope: "own" }],
+    ["customer-scope", { customer_visibility_scope: "own" }],
+    ["case-owner", { can_be_case_owner: true }],
+  ] as const) {
+    const configured = await request.put(`${apiOrigin}/api/v1/user-types/${seType.id}/${path}`, {
+      headers,
+      data,
+    });
+    expect(configured.ok(), await configured.text()).toBeTruthy();
+  }
+  const designations = ((await (
+    await request.get(`${apiOrigin}/api/v1/designations`, { headers })
+  ).json()) as { items: Ref[] }).items;
+  const created = await request.post(`${apiOrigin}/api/v1/users`, {
+    headers,
+    data: {
+      full_name: `Disposable SE ${tag}`,
+      employee_code: `SE${tag}`,
+      email: `se-application-${tag}@example.com`,
+      mobile: testMobile(`se-${tag}`),
+      designation_id: designations[0]!.id,
+      employment_status: "Active",
+      joining_date: "2026-09-04",
+      user_type_id: seType.id,
+    },
+  });
+  expect(created.ok(), await created.text()).toBeTruthy();
+  const user = (await created.json()) as { id: string; email: string };
+  expect(
+    (await request.post(`${apiOrigin}/api/v1/users/${user.id}/activate`, { headers })).ok(),
+  ).toBeTruthy();
+  const setup = await request.post(`${apiOrigin}/api/v1/auth/users/${user.id}/setup-link`, {
+    headers,
+  });
+  expect(setup.ok(), await setup.text()).toBeTruthy();
+  const token = ((await setup.json()) as { token: string }).token;
+  expect(
+    (
+      await request.post(`${apiOrigin}/api/v1/auth/setup`, {
+        data: { token, password: "UserPass1!" },
+      })
+    ).ok(),
+  ).toBeTruthy();
+  return user;
+}
+
 async function signIn(page: Page, email = "owner@example.com", password = "OwnerPass1!") {
   await page.goto("/login");
   await page.getByLabel("Email").fill(email);
@@ -288,33 +359,41 @@ test("owner can create an application and filter the list", async ({ page, reque
   const prerequisites = await prepareApplicationPrereqs(request);
   await signIn(page);
   const suffix = Date.now().toString().slice(-8);
-  await page.goto("/customers/new");
-  await page.getByLabel("Full name").fill(`App Customer ${suffix}`);
-  await page.getByLabel("Mobile").fill(`+97155${suffix}`);
-  await page.getByRole("button", { name: "Create customer" }).click();
-  await expect(page).toHaveURL(/\/customers\/[0-9a-f-]+$/, { timeout: 30_000 });
-  await expect(page.getByRole("button", { name: "Save corrections" })).toBeVisible();
-  await page.goto("/applications/new");
-  await page.getByLabel("Link visible existing customer").check();
-  await selectBrandedOption(page.getByLabel("Customer", { exact: true }), { label: new RegExp(`App Customer ${suffix}`) });
-  await selectBrandedOption(page.getByLabel("Bank", { exact: true }), { label: /\(DIB\)$/ });
-  await selectBrandedOption(page.getByLabel("Product Category", { exact: true }), { label: /\(PF\)$/ });
-  await selectBrandedOption(page.getByLabel("Product Variant", { exact: true }), { label: `${prerequisites.variant.name} (${prerequisites.variant.code})` });
-  await expect(page.getByText(/Initial Case Owner:.*Platform Owner/)).toBeVisible();
-  await page.getByLabel("Requested amount").fill("15000");
+  await page.goto("/applications");
   await page.getByRole("button", { name: "Create application" }).click();
+  const createDialog = page.getByRole("dialog", { name: "Create application" });
+  await expect(createDialog).toBeVisible();
+  await createDialog.getByLabel("Customer Emirates ID").fill(`784-APP-${suffix}`);
+  await createDialog.getByLabel("Customer Full Name").fill(`App Customer ${suffix}`);
+  await createDialog.getByLabel("Customer Mobile").fill(`+97155${suffix}`);
+  await selectBrandedOption(createDialog.getByLabel("Bank", { exact: true }), { label: /\(DIB\)$/ });
+  await selectBrandedOption(createDialog.getByLabel("Product", { exact: true }), { label: /\(PF\)$/ });
+  await selectBrandedOption(createDialog.getByLabel("Product Variant", { exact: true }), { label: `${prerequisites.variant.name} (${prerequisites.variant.code})` });
+  await expect(createDialog.getByText(/Initial Case Owner:.*Platform Owner/)).toBeVisible();
+  await createDialog.getByLabel("Requested amount").fill("15000");
+  await createDialog.getByRole("button", { name: "Create application" }).click();
+  await expect(createDialog).toHaveCount(0, { timeout: 30_000 });
+  const createdRow = page.getByRole("row").filter({ hasText: `App Customer ${suffix}` });
+  await expect(createdRow).toBeVisible();
+  await expect(createdRow).toContainText("Not assigned");
+  const applicationLink = createdRow.getByRole("link");
+  const applicationId = (await applicationLink.textContent())?.trim() ?? "";
+  expect(applicationId).toMatch(/^PF-DIB-/);
+  await expect(page.getByRole("status")).toContainText(`Application ${applicationId} created successfully.`);
+  await applicationLink.click();
   await expect(page).toHaveURL(/\/applications\/[0-9a-f-]+$/, { timeout: 30_000 });
   const createdApplicationId = new URL(page.url()).pathname.split("/").at(-1) ?? "";
   const createdApplication = await page.request.get(
     `${apiOrigin}/api/v1/applications/${createdApplicationId}`,
   );
   expect(createdApplication.ok(), await createdApplication.text()).toBeTruthy();
-  const applicationId = ((await createdApplication.json()) as { applicationCode: string })
-    .applicationCode;
-  expect(applicationId).toMatch(/^PF-DIB-/);
+  expect(((await createdApplication.json()) as { applicationCode: string }).applicationCode).toBe(applicationId);
+  await expect(page.getByRole("heading", { name: "Workflow timeline" })).toBeVisible();
+  await expect(page.getByLabel("Search applications")).toHaveCount(0);
+  await expect(page.getByLabel("Filter by bank")).toHaveCount(0);
   await expect(page.getByRole("tab", { name: "Overview" })).toHaveAttribute("aria-selected", "true");
   await page.getByRole("tab", { name: "Workflow & TAT" }).click();
-  await expect(page.getByRole("heading", { name: "Progress" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Current workflow state" })).toBeVisible();
   await page.getByRole("tab", { name: "Timeline" }).click();
   await expect(page.getByRole("heading", { name: "Immutable timeline" })).toBeVisible();
   await expect(page.getByText("Application Created", { exact: true }).first()).toBeVisible();
@@ -387,6 +466,8 @@ test("owner can create an application and filter the list", async ({ page, reque
   await expect(page.getByText(/Product Variant: .* → /)).toContainText(prerequisites.variant.code);
   await page.goto("/applications");
   await page.getByLabel("Search applications").fill(applicationId);
+  const submittedRow = page.getByRole("row").filter({ has: page.getByRole("link", { name: applicationId }) });
+  await expect(submittedRow).toContainText(`REVIEW-${suffix}`);
   await selectBrandedOption(page.getByLabel("Filter by bank"), prerequisites.bank.id);
   await page.getByRole("button", { name: "Apply filters" }).click();
   await expect(page.getByRole("link", { name: applicationId })).toBeVisible();
@@ -517,4 +598,143 @@ test("application detail sections, confirmations, timeline filters, permissions,
   await expect(page.getByRole("button", { name: "Migrate this application" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Close application" })).toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBeTruthy();
+});
+
+test("SE creates through exact identity matching without Customer directory or administrative notification access", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(180_000);
+  const suffix = Date.now().toString().slice(-8);
+  const prerequisites = await prepareApplicationPrereqs(request);
+  const emiratesId = `784-SE-${suffix}`;
+  const passport = `PSE${suffix}`;
+  const customerResponse = await request.post(`${apiOrigin}/api/v1/customers`, {
+    headers: prerequisites.headers,
+    data: {
+      customer_type: "individual",
+      full_name: `Canonical SE Customer ${suffix}`,
+      mobile: `+97154${suffix}`,
+      emirates_id: emiratesId,
+      passport,
+    },
+  });
+  expect(customerResponse.ok(), await customerResponse.text()).toBeTruthy();
+  const customer = (await customerResponse.json()) as { id: string };
+  const salesExecutive = await createSalesExecutive(request, suffix);
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await signIn(page, salesExecutive.email, "UserPass1!");
+  const sidebar = page.getByRole("navigation", { name: "Primary" });
+  await expect(sidebar.getByLabel("Customers")).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Notifications", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: /Notifications, \d+ unread/ })).toBeVisible();
+  expect((await page.request.get(`${apiOrigin}/api/v1/customers`)).status()).toBe(403);
+  expect((await page.request.get(`${apiOrigin}/api/v1/customers/${customer.id}`)).status()).toBe(403);
+  await page.goto("/customers");
+  await expect(page.getByText("You do not have permission to view Customers.")).toBeVisible();
+  await page.goto("/notifications/manage");
+  await expect(page.getByText("You do not have permission to administer notifications.")).toBeVisible();
+  expect((await page.request.get(`${apiOrigin}/api/v1/notifications/rules`)).status()).toBe(403);
+
+  await page.goto("/applications");
+  for (const label of [
+    "Search applications",
+    "Filter by bank",
+    "Filter product",
+    "Filter current stage",
+    "Filter terminal outcome",
+    "Created date",
+  ]) {
+    await expect(page.getByLabel(label)).toBeVisible();
+  }
+  for (const label of [
+    "Filter product variant",
+    "Filter case owner",
+    "Filter office",
+    "Filter department",
+    "Filter team",
+    "Submission date",
+    "Bank stage date",
+    "Filter requested min",
+  ]) {
+    await expect(page.getByLabel(label)).toHaveCount(0);
+  }
+
+  await page.getByRole("button", { name: "Create application" }).click();
+  const dialog = page.getByRole("dialog", { name: "Create application" });
+  const emiratesIdInput = dialog.getByLabel("Customer Emirates ID");
+  await emiratesIdInput.fill(emiratesId);
+  await emiratesIdInput.press("Tab");
+  await expect(dialog.getByText("This customer already exists in the system.")).toBeVisible({
+    timeout: 15_000,
+  });
+  await expect(dialog.getByLabel("Customer Full Name")).toHaveValue(
+    `Canonical SE Customer ${suffix}`,
+  );
+  await expect(dialog.getByLabel("Customer Full Name")).toHaveAttribute("readonly", "");
+  await expect(dialog.getByLabel("Customer Emirates ID")).toHaveAttribute("readonly", "");
+  await expect(dialog.getByLabel("Customer Passport Number")).toHaveValue(passport);
+  await expect(dialog.getByLabel("Customer Passport Number")).toHaveAttribute("readonly", "");
+  await dialog.getByLabel("Customer Mobile").fill(`+97153${suffix}`);
+  await selectBrandedOption(dialog.getByLabel("Bank", { exact: true }), prerequisites.bank.id);
+  await selectBrandedOption(dialog.getByLabel("Product", { exact: true }), prerequisites.product.id);
+  await selectBrandedOption(
+    dialog.getByLabel("Product Variant", { exact: true }),
+    prerequisites.variant.id,
+  );
+  await dialog.getByLabel("Requested amount").fill("19000");
+  await dialog.getByRole("button", { name: "Create application" }).click();
+  await expect(dialog).toHaveCount(0, { timeout: 30_000 });
+  const applicationRow = page.getByRole("row").filter({ hasText: `Canonical SE Customer ${suffix}` });
+  await expect(applicationRow).toBeVisible();
+  await expect(applicationRow).toContainText("Not assigned");
+  const applicationLink = applicationRow.getByRole("link");
+  const applicationCode = (await applicationLink.textContent())!.trim();
+  await page.getByLabel("Search applications").fill(applicationCode);
+  await expect(applicationLink).toBeVisible();
+  await applicationLink.click();
+  await expect(page.getByRole("heading", { name: "Workflow timeline" })).toBeVisible();
+  await expect(page.getByText("Application Created", { exact: true }).first()).toBeVisible();
+  await expect(page.getByLabel("Search applications")).toHaveCount(0);
+  await expect(page.getByLabel("Filter by bank")).toHaveCount(0);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.reload();
+  await expect(page.getByRole("heading", { name: applicationCode })).toBeVisible();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+    ),
+  ).toBeTruthy();
+
+  await page.goto("/applications");
+  await page.getByRole("button", { name: "Create application" }).click();
+  const duplicateDialog = page.getByRole("dialog", { name: "Create application" });
+  const duplicateIdentity = duplicateDialog.getByLabel("Customer Emirates ID");
+  await duplicateIdentity.fill(emiratesId);
+  await duplicateIdentity.press("Tab");
+  await expect(duplicateDialog.getByText(applicationCode, { exact: true })).toBeVisible();
+  await selectBrandedOption(
+    duplicateDialog.getByLabel("Bank", { exact: true }),
+    prerequisites.bank.id,
+  );
+  await selectBrandedOption(
+    duplicateDialog.getByLabel("Product", { exact: true }),
+    prerequisites.product.id,
+  );
+  await selectBrandedOption(
+    duplicateDialog.getByLabel("Product Variant", { exact: true }),
+    prerequisites.variant.id,
+  );
+  await duplicateDialog.getByLabel("Requested amount").fill("19000");
+  await duplicateDialog.getByRole("button", { name: "Create application" }).click();
+  await expect(
+    duplicateDialog.getByText("This customer already has an active application for this Bank and Product"),
+  ).toBeVisible();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+    ),
+  ).toBeTruthy();
 });

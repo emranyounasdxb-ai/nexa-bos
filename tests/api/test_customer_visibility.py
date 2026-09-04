@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import pytest
-from httpx import AsyncClient
-
 from helpers import (
     authenticate,
     create_activated_user,
@@ -10,6 +8,7 @@ from helpers import (
     spawned_client,
     unique_tag,
 )
+from httpx import AsyncClient
 
 
 async def _type_with_scopes(
@@ -58,7 +57,9 @@ async def _create_customer(client: AsyncClient, name: str) -> dict:
 
 
 @pytest.mark.asyncio
-async def test_company_customer_scope_sees_all_customers(client: AsyncClient) -> None:
+async def test_company_customer_scope_does_not_bypass_owner_gm_directory_gate(
+    client: AsyncClient,
+) -> None:
     authed, _owner = await owner_client(client)
     created = await _create_customer(authed, "Company-visible customer")
     code = await _type_with_scopes(
@@ -73,11 +74,9 @@ async def test_company_customer_scope_sees_all_customers(client: AsyncClient) ->
         directory = await viewer_client.get(
             "/api/v1/customers", params={"q": created["customerCode"]}
         )
-        assert directory.status_code == 200, directory.text
-        ids = {item["id"] for item in directory.json()["items"]}
-        assert created["id"] in ids
+        assert directory.status_code == 403, directory.text
         shown = await viewer_client.get(f"/api/v1/customers/{created['id']}")
-        assert shown.status_code == 200
+        assert shown.status_code == 403
 
 
 @pytest.mark.asyncio
@@ -98,8 +97,7 @@ async def test_directory_scope_does_not_grant_customer_visibility(
         users = await viewer_client.get("/api/v1/users")
         assert users.status_code == 200
         directory = await viewer_client.get("/api/v1/customers")
-        assert directory.status_code == 200
-        assert directory.json()["items"] == []
+        assert directory.status_code == 403
         hidden = await viewer_client.get(f"/api/v1/customers/{created['id']}")
         assert hidden.status_code == 403
 
@@ -120,11 +118,17 @@ async def test_application_derived_customer_scopes_fail_closed(
     viewer = await create_activated_user(authed, user_type_code=code, password="UserPass1!")
     async with await spawned_client() as viewer_client:
         await authenticate(viewer_client, viewer["email"], "UserPass1!")
-        mine = await _create_customer(viewer_client, f"Mine {unique_tag()}")
+        create_attempt = await viewer_client.post(
+            "/api/v1/customers",
+            json={
+                "customer_type": "individual",
+                "full_name": f"Mine {unique_tag()}",
+                "mobile": f"+97150{unique_tag()[:8]}",
+            },
+        )
+        assert create_attempt.status_code == 403
         directory = await viewer_client.get("/api/v1/customers")
-        ids = {item["id"] for item in directory.json()["items"]}
-        assert created["id"] not in ids
-        assert mine["id"] not in ids
+        assert directory.status_code == 403
         hidden = await viewer_client.get(f"/api/v1/customers/{created['id']}")
         assert hidden.status_code == 403
 

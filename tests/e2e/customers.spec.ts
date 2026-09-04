@@ -91,6 +91,106 @@ test("owner can create a customer and view bank product catalog", async ({ page,
   await expect(page.getByText("PF", { exact: true }).first()).toBeVisible();
 });
 
+test("GM retains Customer directory and management access on desktop and mobile", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const headers = await ownerHeaders(request);
+  const suffix = Date.now().toString().slice(-8);
+  const types = (await (
+    await request.get(`${apiOrigin}/api/v1/user-types`, { headers })
+  ).json()) as { items: Array<{ id: string; code: string }> };
+  const gmType = types.items.find((item) => item.code === "GM")!;
+  const configured = await request.put(
+    `${apiOrigin}/api/v1/user-types/${gmType.id}/permissions`,
+    {
+      headers,
+      data: {
+        permissions: [
+          "Dashboard.View",
+          "Notifications.View",
+          "Customers.View",
+          "Customers.Create",
+          "Customers.Edit",
+          "Customers.Activate",
+          "Customers.Deactivate",
+          "Customers.Merge",
+        ],
+      },
+    },
+  );
+  expect(configured.ok(), await configured.text()).toBeTruthy();
+  const scope = await request.put(`${apiOrigin}/api/v1/user-types/${gmType.id}/customer-scope`, {
+    headers,
+    data: { customer_visibility_scope: "company" },
+  });
+  expect(scope.ok(), await scope.text()).toBeTruthy();
+  const designations = ((await (
+    await request.get(`${apiOrigin}/api/v1/designations`, { headers })
+  ).json()) as { items: Ref[] }).items;
+  const createdUser = await request.post(`${apiOrigin}/api/v1/users`, {
+    headers,
+    data: {
+      full_name: `Disposable GM ${suffix}`,
+      employee_code: `GM${suffix}`,
+      email: `gm-customer-${suffix}@example.com`,
+      mobile: `+97159${suffix}`,
+      designation_id: designations[0]!.id,
+      employment_status: "Active",
+      joining_date: "2026-09-04",
+      user_type_id: gmType.id,
+    },
+  });
+  expect(createdUser.ok(), await createdUser.text()).toBeTruthy();
+  const gm = (await createdUser.json()) as { id: string; email: string };
+  expect(
+    (await request.post(`${apiOrigin}/api/v1/users/${gm.id}/activate`, { headers })).ok(),
+  ).toBeTruthy();
+  const setup = await request.post(`${apiOrigin}/api/v1/auth/users/${gm.id}/setup-link`, {
+    headers,
+  });
+  expect(setup.ok(), await setup.text()).toBeTruthy();
+  const token = ((await setup.json()) as { token: string }).token;
+  expect(
+    (
+      await request.post(`${apiOrigin}/api/v1/auth/setup`, {
+        data: { token, password: "UserPass1!" },
+      })
+    ).ok(),
+  ).toBeTruthy();
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await signIn(page, gm.email, "UserPass1!");
+  await page.getByRole("button", { name: "Operations menu" }).click();
+  await expect(page.getByRole("navigation", { name: "Primary" }).getByLabel("Customers")).toBeVisible();
+  const me = await page.request.get(`${apiOrigin}/api/v1/auth/me`);
+  const csrf = ((await me.json()) as { csrfToken: string }).csrfToken;
+  const createdCustomer = await page.request.post(`${apiOrigin}/api/v1/customers`, {
+    headers: { "X-CSRF-Token": csrf },
+    data: {
+      customer_type: "individual",
+      full_name: `GM Managed Customer ${suffix}`,
+      mobile: `+97158${suffix}`,
+    },
+  });
+  expect(createdCustomer.ok(), await createdCustomer.text()).toBeTruthy();
+  await page.goto("/customers");
+  await expect(page.getByRole("heading", { name: "Customers", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Create customer" })).toBeVisible();
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.reload();
+  await page.getByRole("button", { name: "Open navigation" }).click();
+  await page.getByLabel("Application sidebar").getByRole("button", { name: "Operations menu" }).click();
+  await expect(page.getByLabel("Application sidebar").getByLabel("Customers")).toBeVisible();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+    ),
+  ).toBeTruthy();
+});
+
 test("customer directory search, status, and pagination persist in the URL", async ({ page, request }) => {
   test.setTimeout(150_000);
   const headers = await ownerHeaders(request);
@@ -229,7 +329,7 @@ test("customer detail preserves history and confirms status and irreversible mer
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBeTruthy();
 });
 
-test("Customers.View-only users can inspect scoped records without mutation controls", async ({ page, request }) => {
+test("Customers.View alone cannot bypass the OWNER and GM directory gate", async ({ page, request }) => {
   test.setTimeout(150_000);
   const headers = await ownerHeaders(request);
   const suffix = Date.now().toString().slice(-7);
@@ -267,13 +367,25 @@ test("Customers.View-only users can inspect scoped records without mutation cont
 
   await page.setViewportSize({ width: 390, height: 844 });
   await signIn(page, viewer.email, "UserPass1!");
+  await page.getByRole("button", { name: "Open navigation" }).click();
+  await expect(page.getByLabel("Application sidebar").getByRole("link", { name: "Customers" })).toHaveCount(0);
+  await page.getByLabel("Application sidebar").getByLabel("Close navigation").click();
+
+  const directory = await page.request.get(`${apiOrigin}/api/v1/customers`);
+  expect(directory.status()).toBe(403);
+  const detail = await page.request.get(`${apiOrigin}/api/v1/customers/${customer.id}`);
+  expect(detail.status()).toBe(403);
+
+  await page.goto("/customers");
+  await expect(page.getByText("You do not have permission to view Customers.")).toBeVisible();
   await page.goto(`/customers/${customer.id}`);
-  await expect(page.getByRole("heading", { name: `Customer VIEW${suffix}` })).toBeVisible();
+  await expect(page.getByText("You do not have permission to view Customers.")).toBeVisible();
   await expect(page.getByRole("button", { name: "Save corrections" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Deactivate", exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Activate", exact: true })).toHaveCount(0);
   await expect(page.getByRole("tab", { name: "Merge" })).toHaveCount(0);
-  await page.getByRole("tab", { name: "History" }).click();
-  await expect(page.getByRole("heading", { name: "Field history" })).toBeVisible();
+  await page.goto("/customers/new");
+  await expect(page.getByText("You do not have permission to create Customers.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Create customer" })).toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBeTruthy();
 });

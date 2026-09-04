@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
+import { ApplicationCreateDialog } from "@/components/application-create-dialog";
 import { DateRangePicker } from "@/components/date-picker";
 import {
   Pagination,
@@ -13,7 +14,6 @@ import {
 import {
   Badge,
   Button,
-  ButtonLink,
   EmptyState,
   ErrorText,
   PageHeader,
@@ -24,6 +24,7 @@ import {
   Td,
   TextInput,
   Th,
+  primaryButtonClass,
 } from "@/components/ui";
 import { apiGet, ApiClientError } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
@@ -35,7 +36,6 @@ import type {
   ManagerOption,
   OrgRef,
   ProductVariantRecord,
-  WorkflowRecord,
 } from "@/lib/types";
 
 type ApplicationVariantFilter = Pick<
@@ -72,8 +72,9 @@ const emptyFilters = {
 };
 
 export default function ApplicationsPage() {
-  const { can } = useAuth();
+  const { can, user } = useAuth();
   const api = getBrowserApiUrl();
+  const advancedFilters = user?.userType?.code !== "SE";
   const [query, setQuery] = useState("");
   const [filters, setFilters] = useState(emptyFilters);
   const [applied, setApplied] = useState(emptyFilters);
@@ -84,6 +85,9 @@ export default function ApplicationsPage() {
   const [totalPages, setTotalPages] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+  const [createOpen, setCreateOpen] = useState(false);
+  const [requestVersion, setRequestVersion] = useState(0);
   const [banks, setBanks] = useState<CatalogItem[]>([]);
   const [products, setProducts] = useState<CatalogItem[]>([]);
   const [variants, setVariants] = useState<ApplicationVariantFilter[]>([]);
@@ -91,40 +95,44 @@ export default function ApplicationsPage() {
   const [offices, setOffices] = useState<OrgRef[]>([]);
   const [departments, setDepartments] = useState<OrgRef[]>([]);
   const [teams, setTeams] = useState<OrgRef[]>([]);
-  const [workflows, setWorkflows] = useState<WorkflowRecord[]>([]);
+  const [stages, setStages] = useState<Array<{ id: string; code: string; name: string }>>([]);
 
   useEffect(() => {
     void Promise.all([
       apiGet<{ items: CatalogItem[] }>("/api/v1/banks", api),
       apiGet<{ items: CatalogItem[] }>("/api/v1/products", api),
-      apiGet<{ items: ApplicationVariantFilter[] }>("/api/v1/applications/product-variants", api),
-      apiGet<{ items: OrgRef[] }>("/api/v1/offices", api),
-      apiGet<{ items: OrgRef[] }>("/api/v1/departments", api),
-      apiGet<{ items: OrgRef[] }>("/api/v1/teams", api),
-      apiGet<{ items: WorkflowRecord[] }>("/api/v1/workflows", api),
-      apiGet<{ items: ManagerOption[] }>("/api/v1/applications/case-owners", api),
+      apiGet<{ items: Array<{ id: string; code: string; name: string }> }>(
+        "/api/v1/applications/stages",
+        api,
+      ),
     ])
-      .then(([
-        bankData,
-        productData,
-        variantData,
-        officeData,
-        deptData,
-        teamData,
-        workflowData,
-        ownerData,
-      ]) => {
+      .then(([bankData, productData, stageData]) => {
         setBanks(bankData.items);
         setProducts(productData.items);
-        setVariants(variantData.items);
-        setOffices(officeData.items);
-        setDepartments(deptData.items);
-        setTeams(teamData.items);
-        setWorkflows(workflowData.items);
-        setOwners(ownerData.items);
+        setStages(stageData.items);
       })
       .catch((err: unknown) => setError(err instanceof Error ? err.message : "Load failed"));
-  }, [api]);
+    if (advancedFilters) {
+      void Promise.all([
+        apiGet<{ items: ApplicationVariantFilter[] }>(
+          "/api/v1/applications/product-variants",
+          api,
+        ),
+        apiGet<{ items: OrgRef[] }>("/api/v1/offices", api),
+        apiGet<{ items: OrgRef[] }>("/api/v1/departments", api),
+        apiGet<{ items: OrgRef[] }>("/api/v1/teams", api),
+        apiGet<{ items: ManagerOption[] }>("/api/v1/applications/case-owners", api),
+      ])
+        .then(([variantData, officeData, deptData, teamData, ownerData]) => {
+          setVariants(variantData.items);
+          setOffices(officeData.items);
+          setDepartments(deptData.items);
+          setTeams(teamData.items);
+          setOwners(ownerData.items);
+        })
+        .catch((err: unknown) => setError(err instanceof Error ? err.message : "Load failed"));
+    }
+  }, [advancedFilters, api, requestVersion]);
 
   useEffect(() => {
     let active = true;
@@ -163,18 +171,7 @@ export default function ApplicationsPage() {
     return () => {
       active = false;
     };
-  }, [api, applied, page, pageSize, query]);
-
-  const stages = useMemo(
-    () =>
-      workflows.flatMap((workflow) =>
-        workflow.stages.map((stage) => ({
-          id: stage.id,
-          label: `${workflow.bank?.code ?? ""}/${workflow.product?.code ?? ""} v${workflow.version}: ${stage.name}`,
-        })),
-      ),
-    [workflows],
-  );
+  }, [api, applied, page, pageSize, query, requestVersion]);
 
   const officeDepartments = departments.filter(
     (item) => !filters.office_id || item.officeId === filters.office_id,
@@ -211,10 +208,25 @@ export default function ApplicationsPage() {
         }
         actions={
           can("Applications.Create") ? (
-            <ButtonLink href="/applications/new">Create application</ButtonLink>
+            <button
+              id="create-application-trigger"
+              type="button"
+              className={primaryButtonClass}
+              onClick={() => {
+                setMessage("");
+                setCreateOpen(true);
+              }}
+            >
+              Create application
+            </button>
           ) : null
         }
       />
+      {message ? (
+        <p role="status" className="rounded-[10px] border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-800">
+          {message}
+        </p>
+      ) : null}
       <form
         data-testid="application-filters"
         className="grid grid-cols-1 gap-x-3 gap-y-2 rounded-xl border border-slate-200 bg-white p-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6"
@@ -280,77 +292,73 @@ export default function ApplicationsPage() {
             </option>
           ))}
         </Select>
-        <Select
-          className="mt-0 self-end"
-          aria-label="Filter product variant"
-          value={filters.product_variant_id}
-          onChange={(event) =>
-            setFilters({ ...filters, product_variant_id: event.target.value })
-          }
-        >
-          <option value="">All Product Variants</option>
-          {applicableVariants.map((item) => (
-            <option key={item.id} value={item.id}>
-              {item.name} ({item.code}){item.status === "inactive" ? " — Inactive" : ""}
-            </option>
-          ))}
-        </Select>
-        <Select
-          className="mt-0 self-end"
-          aria-label="Filter case owner"
-          value={filters.case_owner_id}
-          onChange={(event) => setFilters({ ...filters, case_owner_id: event.target.value })}
-        >
-          <option value="">All case owners</option>
-          {owners.map((item) => (
-            <option key={item.id} value={item.id}>
-              {item.fullName}
-            </option>
-          ))}
-        </Select>
-        <Select
-          className="mt-0 self-end"
-          aria-label="Filter office"
-          value={filters.office_id}
-          onChange={(event) =>
-            setFilters({ ...filters, office_id: event.target.value, department_id: "", team_id: "" })
-          }
-        >
-          <option value="">All offices</option>
-          {offices.map((item) => (
-            <option key={item.id} value={item.id}>
-              {item.code} — {item.name}
-            </option>
-          ))}
-        </Select>
-        <Select
-          className="mt-0 self-end"
-          aria-label="Filter department"
-          value={filters.department_id}
-          onChange={(event) =>
-            setFilters({ ...filters, department_id: event.target.value, team_id: "" })
-          }
-        >
-          <option value="">All departments</option>
-          {officeDepartments.map((item) => (
-            <option key={item.id} value={item.id}>
-              {item.code} — {item.name}
-            </option>
-          ))}
-        </Select>
-        <Select
-          className="mt-0 self-end"
-          aria-label="Filter team"
-          value={filters.team_id}
-          onChange={(event) => setFilters({ ...filters, team_id: event.target.value })}
-        >
-          <option value="">All teams</option>
-          {officeTeams.map((item) => (
-            <option key={item.id} value={item.id}>
-              {item.code} — {item.name}
-            </option>
-          ))}
-        </Select>
+        {advancedFilters ? (
+          <>
+            <Select
+              className="mt-0 self-end"
+              aria-label="Filter product variant"
+              value={filters.product_variant_id}
+              onChange={(event) =>
+                setFilters({ ...filters, product_variant_id: event.target.value })
+              }
+            >
+              <option value="">All Product Variants</option>
+              {applicableVariants.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name} ({item.code}){item.status === "inactive" ? " — Inactive" : ""}
+                </option>
+              ))}
+            </Select>
+            <Select
+              className="mt-0 self-end"
+              aria-label="Filter case owner"
+              value={filters.case_owner_id}
+              onChange={(event) => setFilters({ ...filters, case_owner_id: event.target.value })}
+            >
+              <option value="">All case owners</option>
+              {owners.map((item) => (
+                <option key={item.id} value={item.id}>{item.fullName}</option>
+              ))}
+            </Select>
+            <Select
+              className="mt-0 self-end"
+              aria-label="Filter office"
+              value={filters.office_id}
+              onChange={(event) =>
+                setFilters({ ...filters, office_id: event.target.value, department_id: "", team_id: "" })
+              }
+            >
+              <option value="">All offices</option>
+              {offices.map((item) => (
+                <option key={item.id} value={item.id}>{item.code} — {item.name}</option>
+              ))}
+            </Select>
+            <Select
+              className="mt-0 self-end"
+              aria-label="Filter department"
+              value={filters.department_id}
+              onChange={(event) =>
+                setFilters({ ...filters, department_id: event.target.value, team_id: "" })
+              }
+            >
+              <option value="">All departments</option>
+              {officeDepartments.map((item) => (
+                <option key={item.id} value={item.id}>{item.code} — {item.name}</option>
+              ))}
+            </Select>
+            <Select
+              className="mt-0 self-end"
+              aria-label="Filter team"
+              value={filters.team_id}
+              onChange={(event) => setFilters({ ...filters, team_id: event.target.value })}
+            >
+              <option value="">All teams</option>
+              {officeTeams.map((item) => (
+                <option key={item.id} value={item.id}>{item.code} — {item.name}</option>
+              ))}
+            </Select>
+          </>
+        ) : null}
         <Select
           className="mt-0 self-end"
           aria-label="Filter current stage"
@@ -360,7 +368,7 @@ export default function ApplicationsPage() {
           <option value="">All stages</option>
           {stages.map((item) => (
             <option key={item.id} value={item.id}>
-              {item.label}
+              {item.name}
             </option>
           ))}
         </Select>
@@ -377,28 +385,32 @@ export default function ApplicationsPage() {
             </option>
           ))}
         </Select>
-        <label className="flex h-full flex-col justify-end text-xs font-medium leading-4 text-slate-600">
-          Submission date
-          <DateRangePicker
-            aria-label="Submission date"
-            from={filters.submission_from}
-            to={filters.submission_to}
-            onChange={({ from: submission_from, to: submission_to }) =>
-              setFilters({ ...filters, submission_from, submission_to })
-            }
-          />
-        </label>
-        <label className="flex h-full flex-col justify-end text-xs font-medium leading-4 text-slate-600">
-          Bank stage date
-          <DateRangePicker
-            aria-label="Bank stage date"
-            from={filters.bank_stage_from}
-            to={filters.bank_stage_to}
-            onChange={({ from: bank_stage_from, to: bank_stage_to }) =>
-              setFilters({ ...filters, bank_stage_from, bank_stage_to })
-            }
-          />
-        </label>
+        {advancedFilters ? (
+          <>
+            <label className="flex h-full flex-col justify-end text-xs font-medium leading-4 text-slate-600">
+              Submission date
+              <DateRangePicker
+                aria-label="Submission date"
+                from={filters.submission_from}
+                to={filters.submission_to}
+                onChange={({ from: submission_from, to: submission_to }) =>
+                  setFilters({ ...filters, submission_from, submission_to })
+                }
+              />
+            </label>
+            <label className="flex h-full flex-col justify-end text-xs font-medium leading-4 text-slate-600">
+              Bank stage date
+              <DateRangePicker
+                aria-label="Bank stage date"
+                from={filters.bank_stage_from}
+                to={filters.bank_stage_to}
+                onChange={({ from: bank_stage_from, to: bank_stage_to }) =>
+                  setFilters({ ...filters, bank_stage_from, bank_stage_to })
+                }
+              />
+            </label>
+          </>
+        ) : null}
         <label className="flex h-full flex-col justify-end text-xs font-medium leading-4 text-slate-600">
           Created date
           <DateRangePicker
@@ -410,7 +422,7 @@ export default function ApplicationsPage() {
             }
           />
         </label>
-        {(
+        {advancedFilters ? (
           [
             ["requested_min", "Requested min"],
             ["requested_max", "Requested max"],
@@ -434,7 +446,7 @@ export default function ApplicationsPage() {
               onChange={(event) => setFilters({ ...filters, [key]: event.target.value })}
             />
           </label>
-        ))}
+        )) : null}
         <div className="flex flex-wrap items-center gap-2 self-end">
           <Button type="submit">Apply filters</Button>
           <Button
@@ -455,6 +467,7 @@ export default function ApplicationsPage() {
         <TableHead>
           <tr>
             <Th>Application ID</Th>
+            <Th>Bank File / Case Number</Th>
             <Th>Customer</Th>
             <Th>Bank / Product Category / Variant</Th>
             <Th>Case Owner</Th>
@@ -467,13 +480,13 @@ export default function ApplicationsPage() {
         <tbody>
           {loading && items.length === 0 ? (
             <tr>
-              <td colSpan={8}>
+              <td colSpan={9}>
                 <EmptyState>Loading applications…</EmptyState>
               </td>
             </tr>
           ) : items.length === 0 ? (
             <tr>
-              <td colSpan={8}>
+              <td colSpan={9}>
                 <EmptyState>No applications match the current filters.</EmptyState>
               </td>
             </tr>
@@ -485,6 +498,7 @@ export default function ApplicationsPage() {
                     {item.applicationCode}
                   </Link>
                 </Td>
+                <Td>{item.bankCaseNumber ?? "Not assigned"}</Td>
                 <Td>
                   {item.customerCode} · {item.customerName}
                 </Td>
@@ -528,6 +542,20 @@ export default function ApplicationsPage() {
         onPageChange={setPage}
         onPageSizeChange={(value) => {
           if (value !== "all") setPageSize(value);
+        }}
+      />
+      <ApplicationCreateDialog
+        open={createOpen}
+        onClose={() => {
+          setCreateOpen(false);
+          window.setTimeout(() => document.getElementById("create-application-trigger")?.focus(), 0);
+        }}
+        onCreated={(created) => {
+          setCreateOpen(false);
+          setPage(1);
+          setRequestVersion((value) => value + 1);
+          setMessage(`Application ${created.applicationCode} created successfully.`);
+          window.setTimeout(() => document.getElementById("create-application-trigger")?.focus(), 0);
         }}
       />
     </section>
