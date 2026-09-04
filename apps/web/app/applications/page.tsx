@@ -16,6 +16,7 @@ import {
   Button,
   EmptyState,
   ErrorText,
+  Field,
   PageHeader,
   SearchActionBar,
   Select,
@@ -33,48 +34,22 @@ import { getBrowserApiUrl } from "@/lib/env";
 import type {
   ApplicationRecord,
   CatalogItem,
-  ManagerOption,
-  OrgRef,
-  ProductVariantRecord,
 } from "@/lib/types";
-
-type ApplicationVariantFilter = Pick<
-  ProductVariantRecord,
-  "id" | "bankId" | "productId" | "code" | "name" | "status"
->;
 
 const OUTCOMES = ["Completed", "Final Rejected", "Cancelled", "Withdrawn"];
 
 const emptyFilters = {
   bank_id: "",
   product_id: "",
-  product_variant_id: "",
-  case_owner_id: "",
-  office_id: "",
-  department_id: "",
-  team_id: "",
   current_stage_id: "",
   terminal_outcome: "",
-  submission_from: "",
-  submission_to: "",
-  bank_stage_from: "",
-  bank_stage_to: "",
   created_from: "",
   created_to: "",
-  requested_min: "",
-  requested_max: "",
-  approved_min: "",
-  approved_max: "",
-  booked_min: "",
-  booked_max: "",
-  funded_min: "",
-  funded_max: "",
 };
 
 export default function ApplicationsPage() {
-  const { can, user } = useAuth();
+  const { can } = useAuth();
   const api = getBrowserApiUrl();
-  const advancedFilters = user?.userType?.code !== "SE";
   const [query, setQuery] = useState("");
   const [filters, setFilters] = useState(emptyFilters);
   const [applied, setApplied] = useState(emptyFilters);
@@ -90,11 +65,6 @@ export default function ApplicationsPage() {
   const [requestVersion, setRequestVersion] = useState(0);
   const [banks, setBanks] = useState<CatalogItem[]>([]);
   const [products, setProducts] = useState<CatalogItem[]>([]);
-  const [variants, setVariants] = useState<ApplicationVariantFilter[]>([]);
-  const [owners, setOwners] = useState<ManagerOption[]>([]);
-  const [offices, setOffices] = useState<OrgRef[]>([]);
-  const [departments, setDepartments] = useState<OrgRef[]>([]);
-  const [teams, setTeams] = useState<OrgRef[]>([]);
   const [stages, setStages] = useState<Array<{ id: string; code: string; name: string }>>([]);
 
   useEffect(() => {
@@ -112,27 +82,7 @@ export default function ApplicationsPage() {
         setStages(stageData.items);
       })
       .catch((err: unknown) => setError(err instanceof Error ? err.message : "Load failed"));
-    if (advancedFilters) {
-      void Promise.all([
-        apiGet<{ items: ApplicationVariantFilter[] }>(
-          "/api/v1/applications/product-variants",
-          api,
-        ),
-        apiGet<{ items: OrgRef[] }>("/api/v1/offices", api),
-        apiGet<{ items: OrgRef[] }>("/api/v1/departments", api),
-        apiGet<{ items: OrgRef[] }>("/api/v1/teams", api),
-        apiGet<{ items: ManagerOption[] }>("/api/v1/applications/case-owners", api),
-      ])
-        .then(([variantData, officeData, deptData, teamData, ownerData]) => {
-          setVariants(variantData.items);
-          setOffices(officeData.items);
-          setDepartments(deptData.items);
-          setTeams(teamData.items);
-          setOwners(ownerData.items);
-        })
-        .catch((err: unknown) => setError(err instanceof Error ? err.message : "Load failed"));
-    }
-  }, [advancedFilters, api, requestVersion]);
+  }, [api, requestVersion]);
 
   useEffect(() => {
     let active = true;
@@ -172,20 +122,6 @@ export default function ApplicationsPage() {
       active = false;
     };
   }, [api, applied, page, pageSize, query, requestVersion]);
-
-  const officeDepartments = departments.filter(
-    (item) => !filters.office_id || item.officeId === filters.office_id,
-  );
-  const officeTeams = teams.filter(
-    (item) =>
-      (!filters.office_id || item.officeId === filters.office_id) &&
-      (!filters.department_id || item.departmentId === filters.department_id),
-  );
-  const applicableVariants = variants.filter(
-    (item) =>
-      (!filters.bank_id || item.bankId === filters.bank_id) &&
-      (!filters.product_id || item.productId === filters.product_id),
-  );
 
   return (
     <section className="space-y-4">
@@ -229,225 +165,80 @@ export default function ApplicationsPage() {
       ) : null}
       <form
         data-testid="application-filters"
-        className="grid grid-cols-1 gap-x-3 gap-y-2 rounded-xl border border-slate-200 bg-white p-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6"
+        className="grid min-w-0 grid-cols-1 gap-x-3 gap-y-3 rounded-xl border border-slate-200 bg-white p-3 sm:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(12rem,1.35fr)_auto] xl:items-end"
         onSubmit={(event) => {
           event.preventDefault();
           setPage(1);
           setApplied({ ...filters });
         }}
       >
-        <Select
-          className="mt-0 self-end"
-          aria-label="Filter by bank"
-          value={filters.bank_id}
-          onChange={(event) => {
-            const bankId = event.target.value;
-            setFilters({
-              ...filters,
-              bank_id: bankId,
-              product_variant_id:
-                !filters.product_variant_id ||
-                variants.some(
-                  (item) =>
-                    item.id === filters.product_variant_id &&
-                    (!bankId || item.bankId === bankId),
-                )
-                  ? filters.product_variant_id
-                  : "",
-            });
-          }}
-        >
-          <option value="">All banks</option>
-          {banks.map((item) => (
-            <option key={item.id} value={item.id}>
-              {item.name} ({item.code})
-            </option>
-          ))}
-        </Select>
-        <Select
-          className="mt-0 self-end"
-          aria-label="Filter product"
-          value={filters.product_id}
-          onChange={(event) => {
-            const productId = event.target.value;
-            setFilters({
-              ...filters,
-              product_id: productId,
-              product_variant_id:
-                !filters.product_variant_id ||
-                variants.some(
-                  (item) =>
-                    item.id === filters.product_variant_id &&
-                    (!productId || item.productId === productId),
-                )
-                  ? filters.product_variant_id
-                  : "",
-            });
-          }}
-        >
-          <option value="">All products</option>
-          {products.map((item) => (
-            <option key={item.id} value={item.id}>
-              {item.name} ({item.code})
-            </option>
-          ))}
-        </Select>
-        {advancedFilters ? (
-          <>
-            <Select
-              className="mt-0 self-end"
-              aria-label="Filter product variant"
-              value={filters.product_variant_id}
-              onChange={(event) =>
-                setFilters({ ...filters, product_variant_id: event.target.value })
-              }
-            >
-              <option value="">All Product Variants</option>
-              {applicableVariants.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.name} ({item.code}){item.status === "inactive" ? " — Inactive" : ""}
-                </option>
-              ))}
-            </Select>
-            <Select
-              className="mt-0 self-end"
-              aria-label="Filter case owner"
-              value={filters.case_owner_id}
-              onChange={(event) => setFilters({ ...filters, case_owner_id: event.target.value })}
-            >
-              <option value="">All case owners</option>
-              {owners.map((item) => (
-                <option key={item.id} value={item.id}>{item.fullName}</option>
-              ))}
-            </Select>
-            <Select
-              className="mt-0 self-end"
-              aria-label="Filter office"
-              value={filters.office_id}
-              onChange={(event) =>
-                setFilters({ ...filters, office_id: event.target.value, department_id: "", team_id: "" })
-              }
-            >
-              <option value="">All offices</option>
-              {offices.map((item) => (
-                <option key={item.id} value={item.id}>{item.code} — {item.name}</option>
-              ))}
-            </Select>
-            <Select
-              className="mt-0 self-end"
-              aria-label="Filter department"
-              value={filters.department_id}
-              onChange={(event) =>
-                setFilters({ ...filters, department_id: event.target.value, team_id: "" })
-              }
-            >
-              <option value="">All departments</option>
-              {officeDepartments.map((item) => (
-                <option key={item.id} value={item.id}>{item.code} — {item.name}</option>
-              ))}
-            </Select>
-            <Select
-              className="mt-0 self-end"
-              aria-label="Filter team"
-              value={filters.team_id}
-              onChange={(event) => setFilters({ ...filters, team_id: event.target.value })}
-            >
-              <option value="">All teams</option>
-              {officeTeams.map((item) => (
-                <option key={item.id} value={item.id}>{item.code} — {item.name}</option>
-              ))}
-            </Select>
-          </>
-        ) : null}
-        <Select
-          className="mt-0 self-end"
-          aria-label="Filter current stage"
-          value={filters.current_stage_id}
-          onChange={(event) => setFilters({ ...filters, current_stage_id: event.target.value })}
-        >
-          <option value="">All stages</option>
-          {stages.map((item) => (
-            <option key={item.id} value={item.id}>
-              {item.name}
-            </option>
-          ))}
-        </Select>
-        <Select
-          className="mt-0 self-end"
-          aria-label="Filter terminal outcome"
-          value={filters.terminal_outcome}
-          onChange={(event) => setFilters({ ...filters, terminal_outcome: event.target.value })}
-        >
-          <option value="">All outcomes</option>
-          {OUTCOMES.map((item) => (
-            <option key={item} value={item}>
-              {item}
-            </option>
-          ))}
-        </Select>
-        {advancedFilters ? (
-          <>
-            <label className="flex h-full flex-col justify-end text-xs font-medium leading-4 text-slate-600">
-              Submission date
-              <DateRangePicker
-                aria-label="Submission date"
-                from={filters.submission_from}
-                to={filters.submission_to}
-                onChange={({ from: submission_from, to: submission_to }) =>
-                  setFilters({ ...filters, submission_from, submission_to })
-                }
-              />
-            </label>
-            <label className="flex h-full flex-col justify-end text-xs font-medium leading-4 text-slate-600">
-              Bank stage date
-              <DateRangePicker
-                aria-label="Bank stage date"
-                from={filters.bank_stage_from}
-                to={filters.bank_stage_to}
-                onChange={({ from: bank_stage_from, to: bank_stage_to }) =>
-                  setFilters({ ...filters, bank_stage_from, bank_stage_to })
-                }
-              />
-            </label>
-          </>
-        ) : null}
-        <label className="flex h-full flex-col justify-end text-xs font-medium leading-4 text-slate-600">
-          Created date
+        <Field label="Bank" className="min-w-0">
+          <Select
+            aria-label="Filter by bank"
+            value={filters.bank_id}
+            onChange={(event) => setFilters({ ...filters, bank_id: event.target.value })}
+          >
+            <option value="">All banks</option>
+            {banks.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.name} ({item.code})
+              </option>
+            ))}
+          </Select>
+        </Field>
+        <Field label="Product" className="min-w-0">
+          <Select
+            aria-label="Filter product"
+            value={filters.product_id}
+            onChange={(event) => setFilters({ ...filters, product_id: event.target.value })}
+          >
+            <option value="">All products</option>
+            {products.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.name} ({item.code})
+              </option>
+            ))}
+          </Select>
+        </Field>
+        <Field label="Stage" className="min-w-0">
+          <Select
+            aria-label="Filter current stage"
+            value={filters.current_stage_id}
+            onChange={(event) => setFilters({ ...filters, current_stage_id: event.target.value })}
+          >
+            <option value="">All stages</option>
+            {stages.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.name}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        <Field label="Outcome" className="min-w-0">
+          <Select
+            aria-label="Filter terminal outcome"
+            value={filters.terminal_outcome}
+            onChange={(event) => setFilters({ ...filters, terminal_outcome: event.target.value })}
+          >
+            <option value="">All outcomes</option>
+            {OUTCOMES.map((item) => (
+              <option key={item} value={item}>
+                {item}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        <Field label="Created Date" className="min-w-0">
           <DateRangePicker
-            aria-label="Created date"
+            aria-label="Created Date"
             from={filters.created_from}
             to={filters.created_to}
             onChange={({ from: created_from, to: created_to }) =>
               setFilters({ ...filters, created_from, created_to })
             }
           />
-        </label>
-        {advancedFilters ? (
-          [
-            ["requested_min", "Requested min"],
-            ["requested_max", "Requested max"],
-            ["approved_min", "Approved min"],
-            ["approved_max", "Approved max"],
-            ["booked_min", "Booked min"],
-            ["booked_max", "Booked max"],
-            ["funded_min", "Funded min"],
-            ["funded_max", "Funded max"],
-          ] as const
-        ).map(([key, label]) => (
-          <label key={key} className="flex h-full flex-col justify-end text-xs font-medium leading-4 text-slate-600">
-            {label}
-            <TextInput
-              className="mt-1"
-              type="number"
-              min="0"
-              step="0.01"
-              aria-label={`Filter ${label.toLowerCase()}`}
-              value={filters[key]}
-              onChange={(event) => setFilters({ ...filters, [key]: event.target.value })}
-            />
-          </label>
-        )) : null}
-        <div className="flex flex-wrap items-center gap-2 self-end">
+        </Field>
+        <div className="flex flex-wrap items-center justify-end gap-2 self-end sm:col-span-2 xl:col-span-1 xl:flex-nowrap">
           <Button type="submit">Apply filters</Button>
           <Button
             variant="secondary"
