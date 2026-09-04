@@ -38,11 +38,13 @@ import {
   PageHeader,
   Select,
   SectionHeader,
+  primaryButtonClass,
 } from "@/components/ui";
 import { apiGet, ApiClientError } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { getBrowserApiUrl } from "@/lib/env";
 import {
+  emptyQuery,
   formatAed,
   formatPct,
   queryFromSearch,
@@ -63,6 +65,8 @@ import {
   StageDistribution,
   TargetProgress,
 } from "./dashboard-visuals";
+import { PersonalPerformanceAttendance } from "./personal-dashboard";
+import { SeDashboard } from "./se-dashboard";
 
 const comparisonPeriodFor: Partial<Record<string, string>> = {
   mtd: "month",
@@ -122,7 +126,7 @@ function DashboardSkeleton() {
 }
 
 export function DashboardInner() {
-  const { can } = useAuth();
+  const { can, user } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const api = getBrowserApiUrl();
@@ -274,6 +278,50 @@ export function DashboardInner() {
     comparison?.previousKpis?.funded.count,
   );
   const comparisonLabel = comparison?.previousPeriod?.label;
+  const isSalesExecutive = user?.userType?.code === "SE";
+
+  if (isSalesExecutive) {
+    return (
+      <section className="space-y-4">
+        <PageHeader
+          title="My Dashboard"
+          description="Your Applications, target progress, and attendance in one personal workspace."
+          actions={(
+            <>
+              <Badge>My records only</Badge>
+              <label className="text-xs font-semibold text-slate-600">
+                <span className="sr-only">Dashboard period</span>
+                <Select
+                  aria-label="Dashboard period"
+                  className="mt-0 min-w-36"
+                  value={appliedQuery.period}
+                  onChange={(event) => {
+                    const next = { ...emptyQuery(), period: event.target.value };
+                    setQuery(next);
+                    setAppliedQuery(next);
+                    router.replace(`/reports?period=${event.target.value}`);
+                  }}
+                >
+                  <option value="mtd">This Month</option>
+                  <option value="previous_month">Last Month</option>
+                  <option value="ytd">YTD</option>
+                </Select>
+              </label>
+              {can("Applications.Create") ? <Link className={primaryButtonClass} href="/applications?create=true">Create Application</Link> : null}
+            </>
+          )}
+        />
+        <ErrorText>{error}</ErrorText>
+        {loading && !data ? <DashboardSkeleton /> : null}
+        {data?.seWorkspace ? (
+          <>
+            <SeDashboard data={data.seWorkspace} period={appliedQuery.period} />
+            <PersonalPerformanceAttendance performance={data.personalPerformance} attendance={data.personalAttendance} />
+          </>
+        ) : !loading && !error ? <ErrorText>Unable to load the personal Dashboard workspace.</ErrorText> : null}
+      </section>
+    );
+  }
 
   return (
     <section className="space-y-4">
@@ -619,6 +667,7 @@ export function DashboardInner() {
               <RankingList title="Top bank / product" rows={data.rankings.bankProducts} metric={data.rankings.metric} hrefFor={(row) => drill("funded", { bank_id: row.bankId ?? "", product_id: row.productId ?? "" })} />
             </div>
           </Card>
+          <PersonalPerformanceAttendance performance={data.personalPerformance} attendance={data.personalAttendance} />
         </div>
       ) : null}
     </section>

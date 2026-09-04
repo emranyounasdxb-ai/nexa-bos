@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from datetime import UTC, date, datetime
+from dataclasses import dataclass, field, replace
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from uuid import UUID
 
@@ -17,14 +17,22 @@ from nexa_bos_api.applications.models import (
     ApplicationStageOccupancy,
     WorkflowStage,
 )
-from nexa_bos_api.attendance.service import employee_attendance_summary
+from nexa_bos_api.attendance.service import (
+    employee_attendance_summary,
+    personal_attendance_snapshot,
+)
 from nexa_bos_api.catalog.models import Bank, Product, ProductVariant
 from nexa_bos_api.core.exceptions import AppError
 from nexa_bos_api.core.pagination import PageResult
 from nexa_bos_api.customers.models import Customer
-from nexa_bos_api.identity.access import has_permission
+from nexa_bos_api.identity.access import has_permission, has_user_type
+from nexa_bos_api.identity.enums import StageSystemKey, VisibilityScope
 from nexa_bos_api.identity.models import Department, Office, Team, User
-from nexa_bos_api.identity.permissions import ATTENDANCE_REPORTS, ATTENDANCE_VIEW
+from nexa_bos_api.identity.permissions import (
+    APPLICATIONS_CREATE,
+    ATTENDANCE_REPORTS,
+    ATTENDANCE_VIEW,
+)
 from nexa_bos_api.reporting.periods import PeriodWindow, in_window, resolve_period
 from nexa_bos_api.reporting.scope import ReportingAccess, empty_payload, load_reporting_access
 
@@ -151,6 +159,10 @@ class AppFact:
     returned_at: list[tuple[datetime, Attribution]] = field(default_factory=list)
     resubmitted_at: list[tuple[datetime, Attribution]] = field(default_factory=list)
     active_delay_type: str | None = None
+    last_stage_changed_at: datetime | None = None
+    workflow_id: UUID | None = None
+    bank_case_number: str | None = None
+    updated_at: datetime | None = None
 
     def owner_at(self, moment: datetime | None) -> Attribution:
         return attribution_at(self.history, moment, self.current_owner_id)
@@ -316,6 +328,7 @@ async def load_facts(
         hist = histories.get(app.id, [])
         occ = occupancies.get(app.id, [])
         evs = events.get(app.id, [])
+        stage_events = [event for event in evs if event.new_stage_id is not None]
         terminal_at = app.completed_at
         if terminal_at is None:
             terminal_events = [
@@ -352,7 +365,10 @@ async def load_facts(
                 product_variant_code=variant.code if variant else None,
                 product_variant_name=variant.name if variant else None,
                 product_variant_status=variant.status if variant else None,
+                workflow_id=app.workflow_id,
+                bank_case_number=app.bank_case_number,
                 created_at=app.created_at,
+                updated_at=app.updated_at,
                 submitted_at=app.submitted_at,
                 approved_at=app.approved_at,
                 booked_at=app.booked_at,
@@ -380,6 +396,9 @@ async def load_facts(
                 returned_at=returned,
                 resubmitted_at=resubmitted,
                 active_delay_type=delay.delay_type if delay else None,
+                last_stage_changed_at=(
+                    max(event.bos_updated_at for event in stage_events) if stage_events else None
+                ),
             )
         )
     return facts, users, offices, teams
@@ -981,6 +1000,255 @@ async def _dashboard_targets(
     )
 
 
+def _target_progress(payload: dict[str, object] | None) -> dict[str, object]:
+    if not payload:
+        return {
+            "count": 0,
+            "measurement": None,
+            "assigned": None,
+            "achieved": None,
+            "remaining": None,
+            "achievementPct": None,
+            "items": [],
+            "kpi": None,
+        }
+    items = [item for item in payload.get("targets", []) if isinstance(item, dict)]
+    result_items = [
+        item
+        for item in items
+        if isinstance(item.get("result"), dict) and item["result"].get("achievementPct") is not None
+    ]
+    percentages = [Decimal(str(item["result"]["achievementPct"])) for item in result_items]
+    measurements = {str(item.get("measurement")) for item in result_items}
+    same_measurement = len(measurements) == 1
+    assigned = achieved = remaining = None
+    if result_items and same_measurement:
+        assigned = money0(
+            sum(
+                (Decimal(str(item["result"]["effectiveTarget"])) for item in result_items),
+                start=ZERO,
+            )
+        )
+        achieved = money0(
+            sum(
+                (Decimal(str(item["result"]["actual"])) for item in result_items),
+                start=ZERO,
+            )
+        )
+        remaining = money0(
+            sum(
+                (Decimal(str(item["result"]["gap"])) for item in result_items),
+                start=ZERO,
+            )
+        )
+    return {
+        "count": len(items),
+        "measurement": next(iter(measurements)) if same_measurement and measurements else None,
+        "assigned": assigned,
+        "achieved": achieved,
+        "remaining": remaining,
+        "achievementPct": (
+            round(float(sum(percentages, start=ZERO) / len(percentages)), 2)
+            if percentages
+            else None
+        ),
+        "items": items,
+        "kpi": payload.get("kpi"),
+    }
+
+
+async def _personal_performance_payload(
+    session: AsyncSession,
+    actor: User,
+    *,
+    selected_window: PeriodWindow,
+    facts: list[AppFact],
+    access: ReportingAccess,
+) -> dict[str, object]:
+    from nexa_bos_api.targets.service import personal_targets_kpi
+
+    own_access = replace(access, scope=VisibilityScope.OWN, descendant_ids=set())
+    own_filters = ReportFilters(employee_id=actor.id)
+    selected_engine = MetricEngine(facts, own_access, selected_window, own_filters)
+    current_window = resolve_period("mtd")
+    previous_window = resolve_period("previous_month")
+    current_engine = MetricEngine(facts, own_access, current_window, own_filters)
+    previous_engine = MetricEngine(facts, own_access, previous_window, own_filters)
+    selected_targets = _target_progress(
+        await personal_targets_kpi(
+            session,
+            actor,
+            window=selected_window,
+            facts=facts,
+            access=own_access,
+        )
+    )
+    current_targets = _target_progress(
+        await personal_targets_kpi(
+            session,
+            actor,
+            window=current_window,
+            facts=facts,
+            access=own_access,
+        )
+    )
+    previous_targets = _target_progress(
+        await personal_targets_kpi(
+            session,
+            actor,
+            window=previous_window,
+            facts=facts,
+            access=own_access,
+        )
+    )
+    application_metrics = None
+    if has_permission(actor, APPLICATIONS_CREATE):
+        selected_kpis = selected_engine.kpis()
+        application_metrics = {
+            "applications": selected_kpis["applicationsOwned"],
+            "submitted": selected_kpis["submitted"],
+            "approved": selected_kpis["approved"],
+            "funded": selected_kpis["funded"],
+            "rejected": selected_kpis["finalRejected"],
+            "pending": selected_kpis["pending"],
+            "creditCard": selected_kpis["creditCard"],
+            "personalFinance": selected_kpis["personalFinance"],
+            "currentMonthApplications": current_engine.kpis()["applicationsOwned"]["count"],
+            "previousMonthApplications": previous_engine.kpis()["applicationsOwned"]["count"],
+        }
+    return {
+        "target": selected_targets,
+        "currentMonthTarget": current_targets,
+        "previousMonthTarget": previous_targets,
+        "applicationMetrics": application_metrics,
+    }
+
+
+def _month_start_shift(value: date, offset: int) -> date:
+    month_index = value.year * 12 + value.month - 1 + offset
+    return date(month_index // 12, month_index % 12 + 1, 1)
+
+
+def _se_trend(
+    facts: list[AppFact], access: ReportingAccess, actor: User
+) -> list[dict[str, object]]:
+    current_month = datetime.now(UTC).date().replace(day=1)
+    months = [_month_start_shift(current_month, offset) for offset in range(-5, 1)]
+    buckets = {
+        month.isoformat(): {"created": 0, "submitted": 0, "approved": 0, "funded": 0}
+        for month in months
+    }
+    filters = ReportFilters(employee_id=actor.id)
+    for fact in facts:
+        for key, when, attribution in (
+            ("created", fact.created_at, fact.created),
+            ("submitted", fact.submitted_at, fact.submitted),
+            ("approved", fact.approved_at, fact.approved),
+            ("funded", fact.funded_at, fact.funded),
+        ):
+            if when is None or not _visible_event(access, attribution, when, filters):
+                continue
+            month_key = _aware(when).date().replace(day=1).isoformat()
+            if month_key in buckets:
+                buckets[month_key][key] += 1
+    return [{"month": month, **values} for month, values in buckets.items()]
+
+
+def _se_application_item(fact: AppFact) -> dict[str, object]:
+    return {
+        "id": str(fact.id),
+        "localFileNumber": fact.code,
+        "bankCaseNumber": fact.bank_case_number,
+        "customer": fact.customer_name,
+        "bank": fact.bank_name,
+        "product": fact.product_name,
+        "productCode": fact.product_code,
+        "stage": fact.current_stage_name,
+        "stageId": str(fact.current_stage_id),
+        "lastUpdate": (fact.updated_at or fact.created_at).isoformat(),
+    }
+
+
+def _se_workspace_payload(
+    actor: User,
+    *,
+    facts: list[AppFact],
+    access: ReportingAccess,
+    window: PeriodWindow,
+    target: dict[str, object],
+) -> dict[str, object] | None:
+    if not has_user_type(actor, "SE"):
+        return None
+    own_access = replace(access, scope=VisibilityScope.OWN, descendant_ids=set())
+    own_filters = ReportFilters(employee_id=actor.id)
+    engine = MetricEngine(facts, own_access, window, own_filters)
+    kpis = engine.kpis()
+    current_owned = [fact for fact in facts if fact.current_owner_id == actor.id]
+    open_owned = [fact for fact in current_owned if fact.terminal_outcome is None]
+    workflow_ids = {fact.workflow_id for fact in current_owned if fact.workflow_id is not None}
+    stage_rows: dict[UUID, WorkflowStage] = {}
+    for fact in current_owned:
+        for stage_id, stage in fact.stages.items():
+            if stage.workflow_id in workflow_ids and stage.status == "active":
+                stage_rows[stage_id] = stage
+    stage_counts: dict[UUID, int] = {}
+    for fact in open_owned:
+        stage_counts[fact.current_stage_id] = stage_counts.get(fact.current_stage_id, 0) + 1
+    stages = [
+        {"stageId": str(stage.id), "name": stage.name, "count": stage_counts.get(stage.id, 0)}
+        for stage in sorted(stage_rows.values(), key=lambda row: (row.sort_order, row.name, row.id))
+    ]
+    product_counts: dict[tuple[str, str], int] = {}
+    for fact in engine.owned():
+        key = (fact.product_code, fact.product_name)
+        product_counts[key] = product_counts.get(key, 0) + 1
+    products = [
+        {"code": code, "name": name, "count": count}
+        for (code, name), count in sorted(product_counts.items(), key=lambda item: item[0][1])
+    ]
+    recent_cutoff = datetime.now(UTC) - timedelta(days=7)
+    action_items: list[dict[str, object]] = []
+    for fact in sorted(
+        open_owned, key=lambda item: item.updated_at or item.created_at, reverse=True
+    ):
+        reasons: list[str] = []
+        if fact.submitted_at is None:
+            reasons.append("Not submitted")
+        if fact.current_stage_key == StageSystemKey.RETURNED or any(
+            term in fact.current_stage_name.lower() for term in ("requirement", "document")
+        ):
+            reasons.append("Requirements / customer documents pending")
+        if fact.current_stage_key == StageSystemKey.RETURNED:
+            reasons.append("Returned")
+        if fact.active_delay_type:
+            reasons.append(f"Delayed · {fact.active_delay_type}")
+        if fact.last_stage_changed_at and _aware(fact.last_stage_changed_at) >= recent_cutoff:
+            reasons.append("Recently changed stage")
+        if reasons:
+            action_items.append({**_se_application_item(fact), "reasons": reasons})
+    return {
+        "kpis": {
+            "applications": kpis["applicationsOwned"],
+            "submitted": kpis["submitted"],
+            "approved": kpis["approved"],
+            "funded": kpis["funded"],
+            "inProgress": kpis["pending"],
+            "targetAchievementPct": target.get("achievementPct"),
+        },
+        "trend": _se_trend(facts, own_access, actor),
+        "stages": stages,
+        "products": products,
+        "targetProgress": target,
+        "actionRequired": action_items[:10],
+        "recentApplications": [
+            _se_application_item(fact)
+            for fact in sorted(
+                current_owned, key=lambda item: item.updated_at or item.created_at, reverse=True
+            )[:10]
+        ],
+    }
+
+
 async def dashboard_payload(
     session: AsyncSession,
     actor: User,
@@ -1002,8 +1270,27 @@ async def dashboard_payload(
         users=users,
     )
     period_payload = serialize_period(window)
+    personal_performance = await _personal_performance_payload(
+        session,
+        actor,
+        selected_window=window,
+        facts=facts,
+        access=access,
+    )
+    personal_attendance = await personal_attendance_snapshot(session, actor)
+    personal_payload = {
+        "personalPerformance": personal_performance,
+        "personalAttendance": personal_attendance,
+        "seWorkspace": _se_workspace_payload(
+            actor,
+            facts=facts,
+            access=access,
+            window=window,
+            target=personal_performance["target"],
+        ),
+    }
     if access.scope is None:
-        return empty_payload(access, period_payload)
+        return {**empty_payload(access, period_payload), **personal_payload}
     engine = MetricEngine(facts, access, window, filters)
     kpis = engine.kpis()
     return {
@@ -1021,6 +1308,7 @@ async def dashboard_payload(
             session, actor, window=window, facts=facts, access=access
         ),
         "generatedAt": datetime.now(UTC).isoformat(),
+        **personal_payload,
     }
 
 

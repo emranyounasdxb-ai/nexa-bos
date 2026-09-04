@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 
 import { ApplicationCreateDialog } from "@/components/application-create-dialog";
 import { DateRangePicker } from "@/components/date-picker";
@@ -47,9 +48,25 @@ const emptyFilters = {
   created_to: "",
 };
 
-export default function ApplicationsPage() {
+const DASHBOARD_FILTER_LABELS: Record<string, string> = {
+  applications: "My Applications",
+  submitted: "Submitted",
+  approved: "Approved",
+  funded: "Funded",
+  in_progress: "In Progress",
+};
+
+function ApplicationsPageInner() {
   const { can } = useAuth();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const api = getBrowserApiUrl();
+  const initialMetric = searchParams.get("dashboard_metric") ?? "";
+  const initialPeriod = searchParams.get("dashboard_period") ?? "mtd";
+  const [dashboardFilter, setDashboardFilter] = useState({
+    metric: DASHBOARD_FILTER_LABELS[initialMetric] ? initialMetric : "",
+    period: ["mtd", "previous_month", "ytd"].includes(initialPeriod) ? initialPeriod : "mtd",
+  });
   const [query, setQuery] = useState("");
   const [filters, setFilters] = useState(emptyFilters);
   const [applied, setApplied] = useState(emptyFilters);
@@ -61,7 +78,7 @@ export default function ApplicationsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
-  const [createOpen, setCreateOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(searchParams.get("create") === "true");
   const [requestVersion, setRequestVersion] = useState(0);
   const [banks, setBanks] = useState<CatalogItem[]>([]);
   const [products, setProducts] = useState<CatalogItem[]>([]);
@@ -95,6 +112,10 @@ export default function ApplicationsPage() {
         params.set(key, value);
       }
     }
+    if (dashboardFilter.metric) {
+      params.set("dashboard_metric", dashboardFilter.metric);
+      params.set("dashboard_period", dashboardFilter.period);
+    }
     params.set("page", String(page));
     params.set("page_size", String(pageSize));
     const suffix = params.toString() ? `?${params.toString()}` : "";
@@ -121,7 +142,7 @@ export default function ApplicationsPage() {
     return () => {
       active = false;
     };
-  }, [api, applied, page, pageSize, query, requestVersion]);
+  }, [api, applied, dashboardFilter, page, pageSize, query, requestVersion]);
 
   return (
     <section className="space-y-4">
@@ -129,6 +150,25 @@ export default function ApplicationsPage() {
         title="Applications"
         description="Search and filter applications in your current scope, then open permitted workflow records."
       />
+      {dashboardFilter.metric ? (
+        <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-[10px] border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-900">
+          <p className="min-w-0">
+            Dashboard filter: <strong>{DASHBOARD_FILTER_LABELS[dashboardFilter.metric]}</strong> · {dashboardFilter.period === "mtd" ? "This Month" : dashboardFilter.period === "previous_month" ? "Last Month" : "YTD"}
+          </p>
+          <Button
+            type="button"
+            size="compact"
+            variant="secondary"
+            onClick={() => {
+              setDashboardFilter({ metric: "", period: "mtd" });
+              setPage(1);
+              router.replace("/applications");
+            }}
+          >
+            Clear dashboard filter
+          </Button>
+        </div>
+      ) : null}
       <SearchActionBar
         search={
           <TextInput
@@ -339,10 +379,12 @@ export default function ApplicationsPage() {
         open={createOpen}
         onClose={() => {
           setCreateOpen(false);
+          if (searchParams.get("create") === "true") router.replace("/applications");
           window.setTimeout(() => document.getElementById("create-application-trigger")?.focus(), 0);
         }}
         onCreated={(created) => {
           setCreateOpen(false);
+          if (searchParams.get("create") === "true") router.replace("/applications");
           setPage(1);
           setRequestVersion((value) => value + 1);
           setMessage(`Application ${created.applicationCode} created successfully.`);
@@ -350,5 +392,13 @@ export default function ApplicationsPage() {
         }}
       />
     </section>
+  );
+}
+
+export default function ApplicationsPage() {
+  return (
+    <Suspense fallback={<p className="text-sm text-slate-500">Loading applications…</p>}>
+      <ApplicationsPageInner />
+    </Suspense>
   );
 }

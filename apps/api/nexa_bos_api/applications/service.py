@@ -64,6 +64,7 @@ from nexa_bos_api.identity.enums import (
 )
 from nexa_bos_api.identity.models import Department, Office, Team, User
 from nexa_bos_api.identity.permissions import APPLICATIONS_SUBMIT, CUSTOMERS_VIEW
+from nexa_bos_api.reporting.periods import resolve_period
 
 
 def _money(value: Decimal | None) -> str | None:
@@ -924,6 +925,41 @@ async def list_applications(
         value = filters.get(field)
         if value:
             stmt = stmt.where(column <= datetime.fromisoformat(value))
+    dashboard_metric = filters.get("dashboard_metric")
+    if dashboard_metric:
+        if dashboard_metric not in {
+            "applications",
+            "submitted",
+            "approved",
+            "funded",
+            "in_progress",
+        }:
+            raise AppError(
+                status_code=422,
+                code="INVALID_DASHBOARD_METRIC",
+                message="Unknown dashboard application filter",
+            )
+        dashboard_period = filters.get("dashboard_period") or "mtd"
+        if dashboard_period not in {"mtd", "previous_month", "ytd"}:
+            raise AppError(
+                status_code=422,
+                code="INVALID_DASHBOARD_PERIOD",
+                message="Unknown dashboard period",
+            )
+        window = resolve_period(dashboard_period)
+        milestone_column = {
+            "applications": Application.created_at,
+            "submitted": Application.submitted_at,
+            "approved": Application.approved_at,
+            "funded": Application.fund_released_at,
+        }.get(dashboard_metric)
+        if milestone_column is not None:
+            stmt = stmt.where(milestone_column >= window.start, milestone_column <= window.end)
+        else:
+            stmt = stmt.where(
+                Application.created_at <= window.end,
+                or_(Application.completed_at.is_(None), Application.completed_at > window.end),
+            )
     if filters.get("bank_stage_date"):
         stmt = stmt.where(
             Application.id.in_(

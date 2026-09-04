@@ -173,7 +173,11 @@ function Shell({ children }: { children: ReactNode }) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set());
-  const context = routeContext(pathname);
+  const baseContext = routeContext(pathname);
+  const context =
+    pathname === "/reports" && user?.userType?.code === "SE"
+      ? { ...baseContext, title: "My Dashboard" }
+      : baseContext;
 
   useEffect(() => {
     setMobileNavOpen(false);

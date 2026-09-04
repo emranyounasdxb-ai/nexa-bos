@@ -111,6 +111,8 @@ def _filters(
     booked_max: str | None,
     funded_min: str | None,
     funded_max: str | None,
+    dashboard_metric: str | None,
+    dashboard_period: str | None,
 ) -> dict[str, str | None]:
     return {
         "q": q,
@@ -143,6 +145,8 @@ def _filters(
         "booked_max": booked_max,
         "funded_min": funded_min,
         "funded_max": funded_max,
+        "dashboard_metric": dashboard_metric,
+        "dashboard_period": dashboard_period,
     }
 
 
@@ -181,6 +185,8 @@ async def applications_list(
     booked_max: str | None = None,
     funded_min: str | None = None,
     funded_max: str | None = None,
+    dashboard_metric: str | None = None,
+    dashboard_period: str | None = None,
 ) -> dict[str, object]:
     rows = await list_applications(
         session,
@@ -216,6 +222,8 @@ async def applications_list(
             booked_max,
             funded_min,
             funded_max,
+            dashboard_metric,
+            dashboard_period,
         ),
         page=pagination.page,
         page_size=pagination.page_size,

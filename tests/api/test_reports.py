@@ -8,18 +8,21 @@ import pytest
 from helpers import (
     authenticate,
     create_activated_user,
+    create_product_variant,
     office_id,
     owner_client,
     spawned_client,
     unique_tag,
 )
 from httpx import AsyncClient
-from nexa_bos_api.identity.models import AuditEvent
-from nexa_bos_api.main import app
 from openpyxl import load_workbook
 from sqlalchemy import select, text
-from test_applications import _catalog, _create_app, _customer
+from test_applications import _catalog, _create_app, _customer, _ensure_test_workflow
+from test_role_readiness import _configure_system_type
 from test_tat_delay import _move
+
+from nexa_bos_api.identity.models import AuditEvent
+from nexa_bos_api.main import app
 
 
 async def _reporting_user(
@@ -254,6 +257,130 @@ async def test_own_office_team_scopes_and_query_param_cannot_bypass(client: Asyn
         }
         assert team_app["applicationCode"] in codes
         assert auh_app["applicationCode"] not in codes
+
+
+@pytest.mark.asyncio
+async def test_se_dashboard_is_personal_and_includes_read_only_attendance_and_targets(
+    client: AsyncClient,
+) -> None:
+    authed, _owner = await owner_client(client)
+    dxb = await office_id(authed, "DXB")
+    dib, _eib, pf, _cc = await _catalog(authed)
+    await _ensure_test_workflow(authed, dib["id"], pf["id"])
+    variant = await create_product_variant(authed, bank_id=dib["id"], product_id=pf["id"])
+    await _configure_system_type(
+        authed,
+        "SE",
+        permissions=["Dashboard.View", "Applications.View", "Applications.Create"],
+        application_scope="own",
+        reporting_scope="company",
+        can_be_case_owner=True,
+    )
+    first = await create_activated_user(authed, user_type_code="SE", office_id=dxb)
+    second = await create_activated_user(authed, user_type_code="SE", office_id=dxb)
+
+    async def create_owned(user: dict, label: str) -> dict:
+        async with await spawned_client() as scoped:
+            await authenticate(scoped, user["email"], "UserPass1!")
+            created = await scoped.post(
+                "/api/v1/applications",
+                json={
+                    "customer": {
+                        "customer_type": "individual",
+                        "full_name": f"Dashboard {label} {unique_tag()}",
+                        "mobile": f"+9715{unique_tag()[:8]}",
+                    },
+                    "bank_id": dib["id"],
+                    "product_id": pf["id"],
+                    "product_variant_id": variant["id"],
+                    "requested_amount": "9000",
+                },
+            )
+            assert created.status_code == 200, created.text
+            return created.json()
+
+    own_application = await create_owned(first, "Own")
+    other_application = await create_owned(second, "Other")
+    target = await authed.post(
+        "/api/v1/targets",
+        json={
+            "level": "employee",
+            "entity_id": first["id"],
+            "period_month": date.today().replace(day=1).isoformat(),
+            "product_id": pf["id"],
+            "milestone": "submitted",
+            "measurement": "count",
+            "target_value": "4",
+        },
+    )
+    assert target.status_code == 200, target.text
+    activated = await authed.post(f"/api/v1/targets/{target.json()['id']}/activate")
+    assert activated.status_code == 200, activated.text
+    attendance = await authed.put(
+        "/api/v1/attendance/records",
+        json={
+            "attendance_date": date.today().isoformat(),
+            "entries": [
+                {
+                    "employee_id": first["id"],
+                    "status": "Present",
+                    "time_in": "09:05",
+                    "time_out": "17:05",
+                }
+            ],
+        },
+    )
+    assert attendance.status_code == 200, attendance.text
+
+    async with await spawned_client() as scoped:
+        await authenticate(scoped, first["email"], "UserPass1!")
+        dashboard = await scoped.get(
+            f"/api/v1/reports/dashboard?period=mtd&employee_id={second['id']}&office_id={dxb}"
+        )
+        assert dashboard.status_code == 200, dashboard.text
+        body = dashboard.json()
+        workspace = body["seWorkspace"]
+        assert workspace["kpis"]["applications"]["count"] == 1
+        recent_codes = {item["localFileNumber"] for item in workspace["recentApplications"]}
+        assert own_application["applicationCode"] in recent_codes
+        assert other_application["applicationCode"] not in recent_codes
+        assert workspace["targetProgress"]["assigned"] == "4.00"
+        assert body["personalAttendance"]["today"]["status"] == "Present"
+        assert body["personalAttendance"]["today"]["workedMinutes"] == 480
+        assert body["personalPerformance"]["applicationMetrics"] is not None
+        assert len(workspace["trend"]) == 6
+        assert workspace["stages"]
+        assert workspace["products"][0]["code"] == pf["code"]
+
+        filtered = await scoped.get(
+            "/api/v1/applications?dashboard_metric=applications&dashboard_period=mtd&page_size=50"
+        )
+        assert filtered.status_code == 200, filtered.text
+        filtered_codes = {item["applicationCode"] for item in filtered.json()["items"]}
+        assert own_application["applicationCode"] in filtered_codes
+        assert other_application["applicationCode"] not in filtered_codes
+
+
+@pytest.mark.asyncio
+async def test_non_application_role_personal_dashboard_never_fakes_sales_metrics(
+    client: AsyncClient,
+) -> None:
+    authed, _owner = await owner_client(client)
+    user = await _reporting_user(
+        authed,
+        scope=None,
+        permissions=["Dashboard.View"],
+        can_be_case_owner=False,
+    )
+    async with await spawned_client() as scoped:
+        await authenticate(scoped, user["email"], "UserPass1!")
+        response = await scoped.get("/api/v1/reports/dashboard")
+        assert response.status_code == 200, response.text
+        body = response.json()
+        assert body["personalPerformance"]["applicationMetrics"] is None
+        assert body["personalPerformance"]["target"]["count"] == 0
+        assert body["personalAttendance"]["today"]["date"] == date.today().isoformat()
+        assert body["seWorkspace"] is None
 
 
 @pytest.mark.asyncio

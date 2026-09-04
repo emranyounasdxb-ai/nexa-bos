@@ -564,10 +564,17 @@ async function signIn(page: Page, role: PreparedRole) {
   await page.getByLabel("Password").fill(role.password);
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(page).toHaveURL(/\/reports$/, { timeout: 30_000 });
-  await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: role.code === "SE" ? "My Dashboard" : "Dashboard" }),
+  ).toBeVisible();
 }
 
 async function signOut(page: Page) {
+  const navigationBackdrop = page.locator('button.fixed[aria-label="Close navigation"]');
+  if (await navigationBackdrop.isVisible()) {
+    await navigationBackdrop.click();
+    await expect(navigationBackdrop).toBeHidden();
+  }
   await page.getByLabel("Open user menu").click();
   const signOutButton = page.locator("header").getByRole("button", { name: "Sign out" });
   await signOutButton.waitFor({ state: "visible" });

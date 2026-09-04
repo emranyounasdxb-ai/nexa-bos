@@ -61,6 +61,118 @@ export type DashboardPayload = {
       } | null;
     }[];
   } | null;
+  personalPerformance: PersonalPerformance;
+  personalAttendance: PersonalAttendance;
+  seWorkspace: SeDashboardWorkspace | null;
+};
+
+export type PersonalTargetProgress = {
+  count: number;
+  measurement: "amount" | "count" | null;
+  assigned: string | null;
+  achieved: string | null;
+  remaining: string | null;
+  achievementPct: number | null;
+  items: Array<{
+    id: string;
+    productCode: string | null;
+    productName: string | null;
+    bankCode: string | null;
+    milestone: string;
+    measurement: string;
+    result: {
+      effectiveTarget: string;
+      actual: string;
+      gap: string;
+      achievementPct: number | null;
+    } | null;
+  }>;
+  kpi: {
+    scorecardName: string;
+    score: string;
+    components: Array<{ metric: string; label: string; actual: string | null; baseline: string | null }>;
+  } | null;
+};
+
+export type PersonalPerformance = {
+  target: PersonalTargetProgress;
+  currentMonthTarget: PersonalTargetProgress;
+  previousMonthTarget: PersonalTargetProgress;
+  applicationMetrics: null | {
+    applications: KpiValue;
+    submitted: KpiValue;
+    approved: KpiValue;
+    funded: KpiValue;
+    rejected: KpiValue;
+    pending: KpiValue;
+    creditCard: KpiValue;
+    personalFinance: KpiValue;
+    currentMonthApplications: number;
+    previousMonthApplications: number;
+  };
+};
+
+export type PersonalAttendance = {
+  month: string;
+  today: {
+    date: string;
+    status: string;
+    scheduledStart: string | null;
+    scheduledEnd: string | null;
+    actualCheckIn: string | null;
+    actualCheckOut: string | null;
+    workedMinutes: number | null;
+    lateMinutes: number;
+    earlyDepartureMinutes: number;
+    overtimeConfigured: boolean;
+    overtimeMinutes: number | null;
+  };
+  summary: {
+    presentCount: number;
+    absentCount: number;
+    lateCount: number;
+    leaveCount: number;
+  };
+  items: Array<{
+    id: string;
+    date: string;
+    status: string;
+    checkIn: string | null;
+    checkOut: string | null;
+    workedMinutes: number | null;
+    lateMinutes: number;
+    earlyDepartureMinutes: number;
+  }>;
+};
+
+export type SeApplicationSummary = {
+  id: string;
+  localFileNumber: string;
+  bankCaseNumber: string | null;
+  customer: string;
+  bank: string;
+  product: string;
+  productCode: string;
+  stage: string;
+  stageId: string;
+  lastUpdate: string;
+};
+
+export type SeDashboardWorkspace = {
+  kpis: {
+    applications: KpiValue;
+    submitted: KpiValue;
+    approved: KpiValue;
+    funded: KpiValue;
+    inProgress: KpiValue;
+    targetAchievementPct: number | null;
+  };
+  trend: Array<{ month: string; created: number; submitted: number; approved: number; funded: number }>;
+  stages: Array<{ stageId: string; name: string; count: number }>;
+  products: Array<{ code: string; name: string; count: number }>;
+  targetProgress: PersonalTargetProgress;
+  actionRequired: Array<SeApplicationSummary & { reasons: string[] }>;
+  recentApplications: SeApplicationSummary[];
 };
 
 export type ReportComparisonPayload = {
