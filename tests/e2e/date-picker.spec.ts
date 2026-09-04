@@ -116,7 +116,7 @@ test("invalid typed dates block submit and month navigation keeps a focused day"
   await expect(page.getByRole("button", { name: "2026-02-24" })).toHaveAttribute("tabindex", "0");
 });
 
-test("application date ranges use two months and preserve existing query fields", async ({
+test("application Created Date range uses two months and preserves the focused query field", async ({
   page,
   request,
 }) => {
@@ -128,20 +128,20 @@ test("application date ranges use two months and preserve existing query fields"
   await expect(page.locator('input[type="date"]')).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Open calendar" })).toHaveCount(0);
 
-  const submission = page.getByLabel("Submission date", { exact: true });
-  const bankStage = page.getByLabel("Bank stage date", { exact: true });
-  const created = page.getByLabel("Created date", { exact: true });
-  const requestedMinimum = page.getByLabel("Filter requested min", { exact: true });
+  const created = page.getByLabel("Created Date", { exact: true });
   const bankSelect = page.getByLabel("Filter by bank", { exact: true });
   const apply = page.getByRole("button", { name: "Apply filters", exact: true });
 
-  for (const control of [submission, bankStage, created, requestedMinimum, bankSelect, apply]) {
+  await expect(page.getByLabel("Submission date", { exact: true })).toHaveCount(0);
+  await expect(page.getByLabel("Bank stage date", { exact: true })).toHaveCount(0);
+  await expect(page.getByLabel("Filter requested min", { exact: true })).toHaveCount(0);
+  for (const control of [created, bankSelect, apply]) {
     await expect(control).toBeVisible();
     expect((await control.boundingBox())?.height).toBe(32);
   }
 
-  await submission.click();
-  const dialog = page.getByRole("dialog", { name: "Choose submission date range" });
+  await created.click();
+  const dialog = page.getByRole("dialog", { name: "Choose Created Date range" });
   await expect(dialog).toBeVisible();
   const months = dialog.locator("[data-month]");
   await expect(months).toHaveCount(2);
@@ -157,41 +157,37 @@ test("application date ranges use two months and preserve existing query fields"
 
   const firstDateButton = months.nth(0).locator('button[aria-label^="20"]').nth(4);
   const secondDateButton = months.nth(1).locator('button[aria-label^="20"]').nth(9);
-  const submissionFrom = (await firstDateButton.getAttribute("aria-label"))!;
-  const submissionTo = (await secondDateButton.getAttribute("aria-label"))!;
+  const createdFrom = (await firstDateButton.getAttribute("aria-label"))!;
+  const createdTo = (await secondDateButton.getAttribute("aria-label"))!;
   await firstDateButton.click();
   await expect(dialog.getByText("Choose the To date")).toBeVisible();
   await secondDateButton.click();
   await expect(dialog).toHaveCount(0);
-  await expect(submission).toHaveValue(`${submissionFrom} – ${submissionTo}`);
+  await expect(created).toHaveValue(`${createdFrom} – ${createdTo}`);
 
-  await submission.click();
-  await expect(dialog.locator('[data-range-state="start"]')).toHaveAttribute("aria-label", submissionFrom);
-  await expect(dialog.locator('[data-range-state="end"]')).toHaveAttribute("aria-label", submissionTo);
+  await created.click();
+  await expect(dialog.locator('[data-range-state="start"]')).toHaveAttribute("aria-label", createdFrom);
+  await expect(dialog.locator('[data-range-state="end"]')).toHaveAttribute("aria-label", createdTo);
   expect(await dialog.locator('[data-range-state="middle"]').count()).toBeGreaterThan(0);
   await page.keyboard.press("Escape");
   await expect(dialog).toHaveCount(0);
 
-  await bankStage.fill("2026-01-01 – 2026-01-31");
-  await created.fill("2026-02-01 – 2026-02-28");
   const filteredRequest = page.waitForRequest((candidate) => {
     const url = new URL(candidate.url());
     return (
       url.pathname === "/api/v1/applications" &&
-      url.searchParams.get("submission_from") === submissionFrom &&
-      url.searchParams.get("submission_to") === submissionTo
+      url.searchParams.get("created_from") === createdFrom &&
+      url.searchParams.get("created_to") === createdTo
     );
   });
   await apply.click();
   const requestUrl = new URL((await filteredRequest).url());
-  expect(requestUrl.searchParams.get("bank_stage_from")).toBe("2026-01-01");
-  expect(requestUrl.searchParams.get("bank_stage_to")).toBe("2026-01-31");
-  expect(requestUrl.searchParams.get("created_from")).toBe("2026-02-01");
-  expect(requestUrl.searchParams.get("created_to")).toBe("2026-02-28");
+  expect(requestUrl.searchParams.get("submission_from")).toBeNull();
+  expect(requestUrl.searchParams.get("bank_stage_from")).toBeNull();
 
-  await submission.click();
+  await created.click();
   await dialog.getByRole("button", { name: "Clear range" }).click();
-  await expect(submission).toHaveValue("");
+  await expect(created).toHaveValue("");
   expect(
     await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth),
   ).toBeTruthy();
@@ -208,8 +204,8 @@ test("application filters use the compact responsive grid without resizing contr
   const filters = page.getByTestId("application-filters");
   const layouts = [
     { width: 1824, height: 1000, columns: 6, maxCardHeight: 300 },
-    { width: 1440, height: 900, columns: 4, maxCardHeight: 340 },
-    { width: 390, height: 844, columns: 1, maxCardHeight: 1200 },
+    { width: 1440, height: 900, columns: 6, maxCardHeight: 160 },
+    { width: 390, height: 844, columns: 1, maxCardHeight: 520 },
   ];
 
   for (const layout of layouts) {
@@ -240,18 +236,18 @@ test("application filters use the compact responsive grid without resizing contr
     expect(metrics.pageOverflows).toBeFalsy();
   }
 
-  await page.setViewportSize({ width: 1824, height: 1000 });
-  const fundedMaximum = page.getByLabel("Filter funded max", { exact: true });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const created = page.getByLabel("Created Date", { exact: true });
   const apply = page.getByRole("button", { name: "Apply filters", exact: true });
   const clear = page.getByRole("button", { name: "Clear filters", exact: true });
-  const [fundedBox, applyBox, clearBox] = await Promise.all([
-    fundedMaximum.boundingBox(),
+  const [createdBox, applyBox, clearBox] = await Promise.all([
+    created.boundingBox(),
     apply.boundingBox(),
     clear.boundingBox(),
   ]);
-  expect(fundedBox).not.toBeNull();
+  expect(createdBox).not.toBeNull();
   expect(applyBox).not.toBeNull();
   expect(clearBox).not.toBeNull();
-  expect(Math.abs(fundedBox!.y + fundedBox!.height - (applyBox!.y + applyBox!.height))).toBeLessThanOrEqual(1);
+  expect(Math.abs(createdBox!.y + createdBox!.height - (applyBox!.y + applyBox!.height))).toBeLessThanOrEqual(1);
   expect(Math.abs(applyBox!.y - clearBox!.y)).toBeLessThanOrEqual(1);
 });

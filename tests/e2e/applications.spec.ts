@@ -436,15 +436,10 @@ test("owner can create an application and filter the list", async ({ page, reque
   await expect(page.getByLabel("Product Variant", { exact: true })).toContainText("unavailable for new selection");
   await expect(page.getByText("inactive", { exact: true }).first()).toBeVisible();
   await page.goto("/applications");
-  await selectBrandedOption(page.getByLabel("Filter product variant"), {
-    label: `${replacementName} (${replacementCode}) — Inactive`,
-  });
-  await page.getByRole("button", { name: "Apply filters" }).click();
+  await page.getByLabel("Search applications").fill(replacementCode);
   const variantRow = page.getByRole("row").filter({ has: page.getByRole("link", { name: applicationId }) });
   await expect(variantRow).toContainText(replacementName);
   await expect(variantRow).toContainText(replacementCode);
-  await page.getByRole("button", { name: "Clear filters" }).click();
-  await page.getByLabel("Search applications").fill(replacementCode);
   await expect(page.getByRole("link", { name: applicationId })).toBeVisible();
   await page.getByRole("link", { name: applicationId }).click();
   await page.getByRole("tab", { name: "Corrections & Actions" }).click();
@@ -469,11 +464,32 @@ test("owner can create an application and filter the list", async ({ page, reque
   const submittedRow = page.getByRole("row").filter({ has: page.getByRole("link", { name: applicationId }) });
   await expect(submittedRow).toContainText(`REVIEW-${suffix}`);
   await selectBrandedOption(page.getByLabel("Filter by bank"), prerequisites.bank.id);
+  await selectBrandedOption(page.getByLabel("Filter product"), prerequisites.product.id);
+  const submittedStage = prerequisites.workflow.stages.find(
+    (stage) => stage.systemKey === "submitted",
+  );
+  expect(submittedStage).toBeTruthy();
+  await selectBrandedOption(page.getByLabel("Filter current stage"), submittedStage!.id);
+  await selectBrandedOption(page.getByLabel("Filter terminal outcome"), "Completed");
+  await page.getByLabel("Created Date").fill("2099-01-01 – 2099-01-31");
+  await page.getByLabel("Created Date").press("Tab");
+  const filteredRequest = page.waitForRequest((candidate) => {
+    const url = new URL(candidate.url());
+    return (
+      url.pathname === "/api/v1/applications" &&
+      url.searchParams.get("bank_id") === prerequisites.bank.id &&
+      url.searchParams.get("product_id") === prerequisites.product.id &&
+      url.searchParams.get("current_stage_id") === submittedStage!.id &&
+      url.searchParams.get("terminal_outcome") === "Completed" &&
+      url.searchParams.get("created_from") === "2099-01-01" &&
+      url.searchParams.get("created_to") === "2099-01-31"
+    );
+  });
   await page.getByRole("button", { name: "Apply filters" }).click();
-  await expect(page.getByRole("link", { name: applicationId })).toBeVisible();
-  await selectBrandedOption(page.getByLabel("Filter by bank"), { label: /\(EIB\)$/ });
-  await page.getByRole("button", { name: "Apply filters" }).click();
+  await filteredRequest;
   await expect(page.getByRole("link", { name: applicationId })).toHaveCount(0);
+  await page.getByRole("button", { name: "Clear filters" }).click();
+  await expect(page.getByRole("link", { name: applicationId })).toBeVisible();
   const me = await page.request.get(`${apiOrigin}/api/v1/auth/me`);
   expect(me.ok()).toBeTruthy();
   const csrf = ((await me.json()) as { csrfToken: string }).csrfToken;
@@ -501,8 +517,6 @@ test("owner can create an application and filter the list", async ({ page, reque
   await page.goto("/applications");
   await expect(page.getByRole("heading", { name: "Applications" })).toBeVisible();
   await page.getByLabel("Search applications").fill(applicationId);
-  await selectBrandedOption(page.getByLabel("Filter case owner"), { label: /Platform Owner/ });
-  await page.getByRole("button", { name: "Apply filters" }).click();
   await expect(page.getByRole("link", { name: applicationId })).toBeVisible();
 });
 
@@ -644,7 +658,7 @@ test("SE creates through exact identity matching without Customer directory or a
     "Filter product",
     "Filter current stage",
     "Filter terminal outcome",
-    "Created date",
+    "Created Date",
   ]) {
     await expect(page.getByLabel(label)).toBeVisible();
   }
@@ -663,12 +677,36 @@ test("SE creates through exact identity matching without Customer directory or a
 
   await page.getByRole("button", { name: "Create application" }).click();
   const dialog = page.getByRole("dialog", { name: "Create application" });
+  const individualType = dialog.getByRole("radio", { name: "Individual" });
+  const companyType = dialog.getByRole("radio", { name: "Company / Business" });
+  await expect(individualType).toBeChecked();
+  await expect(companyType).not.toBeChecked();
+  await dialog.getByText("Company / Business", { exact: true }).click();
+  await expect(companyType).toBeChecked();
+  await dialog.getByText("Individual", { exact: true }).click();
+  await expect(individualType).toBeChecked();
+  await expect(dialog.getByRole("combobox", { name: "Customer type" })).toHaveCount(0);
+  await expect(dialog.getByRole("button", { name: "Check exact identity" })).toHaveCount(0);
+
+  const desktopPairs = [
+    [dialog.getByLabel("Customer Emirates ID"), dialog.getByLabel("Customer Passport Number")],
+    [dialog.getByLabel("Customer Full Name"), dialog.getByLabel("Customer Employer")],
+    [dialog.getByLabel("Customer Mobile"), dialog.getByLabel("Customer Email")],
+  ];
+  for (const [left, right] of desktopPairs) {
+    const [leftBox, rightBox] = await Promise.all([left.boundingBox(), right.boundingBox()]);
+    expect(leftBox).not.toBeNull();
+    expect(rightBox).not.toBeNull();
+    expect(Math.abs(leftBox!.y - rightBox!.y)).toBeLessThanOrEqual(1);
+  }
+
   const emiratesIdInput = dialog.getByLabel("Customer Emirates ID");
   await emiratesIdInput.fill(emiratesId);
-  await emiratesIdInput.press("Tab");
   await expect(dialog.getByText("This customer already exists in the system.")).toBeVisible({
     timeout: 15_000,
   });
+  await expect(emiratesIdInput).toHaveAttribute("data-identity-match", "true");
+  await expect(emiratesIdInput).toHaveClass(/border-danger/);
   await expect(dialog.getByLabel("Customer Full Name")).toHaveValue(
     `Canonical SE Customer ${suffix}`,
   );
@@ -676,6 +714,17 @@ test("SE creates through exact identity matching without Customer directory or a
   await expect(dialog.getByLabel("Customer Emirates ID")).toHaveAttribute("readonly", "");
   await expect(dialog.getByLabel("Customer Passport Number")).toHaveValue(passport);
   await expect(dialog.getByLabel("Customer Passport Number")).toHaveAttribute("readonly", "");
+  const matchDetailsTrigger = dialog.getByRole("button", { name: "Check exact identity" });
+  await matchDetailsTrigger.click();
+  const matchDetails = page.getByRole("dialog", { name: "Customer match details" });
+  await expect(matchDetails).toBeVisible();
+  await expect(matchDetails.getByText(`Canonical SE Customer ${suffix}`)).toBeVisible();
+  await expect(
+    matchDetails.getByText("No applications are visible in your authorized scope."),
+  ).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(matchDetails).toHaveCount(0);
+  await expect(matchDetailsTrigger).toBeFocused();
   await dialog.getByLabel("Customer Mobile").fill(`+97153${suffix}`);
   await selectBrandedOption(dialog.getByLabel("Bank", { exact: true }), prerequisites.bank.id);
   await selectBrandedOption(dialog.getByLabel("Product", { exact: true }), prerequisites.product.id);
@@ -709,12 +758,52 @@ test("SE creates through exact identity matching without Customer directory or a
   ).toBeTruthy();
 
   await page.goto("/applications");
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+    ),
+  ).toBeTruthy();
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const listFilters = page.getByTestId("application-filters");
+  const alignedControls = [
+    page.getByLabel("Filter by bank"),
+    page.getByLabel("Filter product"),
+    page.getByLabel("Filter current stage"),
+    page.getByLabel("Filter terminal outcome"),
+    page.getByLabel("Created Date"),
+    page.getByRole("button", { name: "Apply filters" }),
+    page.getByRole("button", { name: "Clear filters" }),
+  ];
+  await expect(listFilters).toBeVisible();
+  const alignedBoxes = await Promise.all(alignedControls.map((control) => control.boundingBox()));
+  expect(alignedBoxes.every(Boolean)).toBeTruthy();
+  const alignedBottoms = alignedBoxes.map((box) => box!.y + box!.height);
+  expect(Math.max(...alignedBottoms) - Math.min(...alignedBottoms)).toBeLessThanOrEqual(1);
   await page.getByRole("button", { name: "Create application" }).click();
   const duplicateDialog = page.getByRole("dialog", { name: "Create application" });
+  await expect(duplicateDialog.getByRole("radio", { name: "Individual" })).toBeChecked();
   const duplicateIdentity = duplicateDialog.getByLabel("Customer Emirates ID");
   await duplicateIdentity.fill(emiratesId);
-  await duplicateIdentity.press("Tab");
-  await expect(duplicateDialog.getByText(applicationCode, { exact: true })).toBeVisible();
+  await expect(duplicateDialog.getByText("This customer already exists in the system.")).toBeVisible({
+    timeout: 15_000,
+  });
+  const duplicateMatchTrigger = duplicateDialog.getByRole("button", {
+    name: "Check exact identity",
+  });
+  await duplicateMatchTrigger.click();
+  const duplicateMatchDetails = page.getByRole("dialog", { name: "Customer match details" });
+  await expect(duplicateMatchDetails.getByText(applicationCode, { exact: true })).toBeVisible();
+  await expect(duplicateMatchDetails).toContainText(prerequisites.bank.code);
+  await expect(duplicateMatchDetails).toContainText(prerequisites.product.code);
+  await duplicateMatchDetails.getByRole("button", { name: "Close", exact: true }).click();
+  await expect(duplicateMatchDetails).toHaveCount(0);
+  await expect(duplicateMatchTrigger).toBeFocused();
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+    ),
+  ).toBeTruthy();
   await selectBrandedOption(
     duplicateDialog.getByLabel("Bank", { exact: true }),
     prerequisites.bank.id,
@@ -732,6 +821,7 @@ test("SE creates through exact identity matching without Customer directory or a
   await expect(
     duplicateDialog.getByText("This customer already has an active application for this Bank and Product"),
   ).toBeVisible();
+  await expect(duplicateDialog.getByRole("radio", { name: "Individual" })).toBeDisabled();
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,

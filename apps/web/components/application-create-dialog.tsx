@@ -4,10 +4,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   Button,
+  cx,
   ErrorText,
   Field,
   Select,
   TextInput,
+  secondaryButtonClass,
 } from "@/components/ui";
 import { apiGet, apiRequest, ApiClientError } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
@@ -56,6 +58,24 @@ type CustomerDraft = {
   trade_license: string;
 };
 
+type IdentityField = "emirates_id" | "passport";
+
+const emiratesIdPattern = /^784-?\d{4}-?\d{7}-?\d$/;
+const passportPattern = /^[A-Z0-9]{6,20}$/;
+
+function compactIdentity(value: string): string {
+  return value.trim().toUpperCase().replace(/[\s-]/g, "");
+}
+
+function isCompleteEmiratesId(value: string): boolean {
+  const normalized = value.trim().toUpperCase();
+  return emiratesIdPattern.test(normalized) || /^784[A-Z0-9]{5,61}$/.test(compactIdentity(value));
+}
+
+function isCompletePassport(value: string): boolean {
+  return passportPattern.test(compactIdentity(value));
+}
+
 const emptyCustomer: CustomerDraft = {
   customer_type: "individual",
   full_name: "",
@@ -88,6 +108,8 @@ export function ApplicationCreateDialog({
   const { user } = useAuth();
   const api = getBrowserApiUrl();
   const dialogRef = useRef<HTMLElement>(null);
+  const matchDetailsRef = useRef<HTMLElement>(null);
+  const matchDetailsTriggerRef = useRef<HTMLButtonElement>(null);
   const lastMatchKey = useRef("");
   const matchVersion = useRef(0);
   const [customer, setCustomer] = useState<CustomerDraft>(emptyCustomer);
@@ -96,6 +118,8 @@ export function ApplicationCreateDialog({
   const [products, setProducts] = useState<CatalogItem[]>([]);
   const [variants, setVariants] = useState<ProductVariantRecord[]>([]);
   const [match, setMatch] = useState<CustomerMatch | null>(null);
+  const [matchedIdentityFields, setMatchedIdentityFields] = useState<Set<IdentityField>>(new Set());
+  const [matchDetailsOpen, setMatchDetailsOpen] = useState(false);
   const [matching, setMatching] = useState(false);
   const [loadingOptions, setLoadingOptions] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -105,11 +129,18 @@ export function ApplicationCreateDialog({
     setCustomer(emptyCustomer);
     setForm(emptyApplication);
     setMatch(null);
+    setMatchedIdentityFields(new Set());
+    setMatchDetailsOpen(false);
     setMatching(false);
     setSaving(false);
     setError("");
     lastMatchKey.current = "";
     matchVersion.current += 1;
+  }, []);
+
+  const closeMatchDetails = useCallback(() => {
+    setMatchDetailsOpen(false);
+    window.requestAnimationFrame(() => matchDetailsTriggerRef.current?.focus());
   }, []);
 
   useEffect(() => {
@@ -171,6 +202,14 @@ export function ApplicationCreateDialog({
     };
   }, [onClose, open, saving]);
 
+  useEffect(() => {
+    if (!matchDetailsOpen) return;
+    const first = matchDetailsRef.current?.querySelector<HTMLElement>(
+      'button:not(:disabled), [href], input:not(:disabled), [tabindex]:not([tabindex="-1"])',
+    );
+    first?.focus();
+  }, [matchDetailsOpen]);
+
   const bankOptions = useMemo(
     () =>
       Array.from(
@@ -191,21 +230,21 @@ export function ApplicationCreateDialog({
     matchVersion.current += 1;
     lastMatchKey.current = "";
     setMatch(null);
+    setMatchedIdentityFields(new Set());
+    setMatchDetailsOpen(false);
     setError("");
-    setCustomer((current) => ({
-      ...current,
-      full_name: "",
-      emirates_id: "",
-      passport: "",
-    }));
+    setCustomer({ ...emptyCustomer, customer_type: "individual" });
   }
 
-  async function matchIdentity() {
+  const matchIdentity = useCallback(async () => {
     if (customer.customer_type !== "individual" || identityLocked) return;
-    const emiratesId = customer.emirates_id.trim();
-    const passport = customer.passport.trim();
+    const emiratesId = isCompleteEmiratesId(customer.emirates_id)
+      ? customer.emirates_id.trim()
+      : "";
+    const passport = isCompletePassport(customer.passport) ? customer.passport.trim() : "";
     if (!emiratesId && !passport) {
       setMatch(null);
+      setMatchedIdentityFields(new Set());
       lastMatchKey.current = "";
       return;
     }
@@ -226,6 +265,20 @@ export function ApplicationCreateDialog({
       if (version !== matchVersion.current) return;
       setMatch(result);
       if (result.matched && result.customer) {
+        const fields = new Set<IdentityField>();
+        if (
+          emiratesId &&
+          compactIdentity(result.customer.emiratesId ?? "") === compactIdentity(emiratesId)
+        ) {
+          fields.add("emirates_id");
+        }
+        if (
+          passport &&
+          compactIdentity(result.customer.passport ?? "") === compactIdentity(passport)
+        ) {
+          fields.add("passport");
+        }
+        setMatchedIdentityFields(fields);
         setCustomer((current) => ({
           ...current,
           customer_type: result.customer!.customerType,
@@ -236,15 +289,29 @@ export function ApplicationCreateDialog({
           passport: result.customer!.passport ?? "",
           employer: result.customer!.employer ?? "",
         }));
+      } else {
+        setMatchedIdentityFields(new Set());
       }
     } catch (value) {
       if (version !== matchVersion.current) return;
       setMatch(null);
+      setMatchedIdentityFields(new Set());
       setError(value instanceof ApiClientError ? value.message : "Customer identity could not be checked");
     } finally {
       if (version === matchVersion.current) setMatching(false);
     }
-  }
+  }, [api, customer.customer_type, customer.emirates_id, customer.passport, identityLocked]);
+
+  useEffect(() => {
+    if (!open || customer.customer_type !== "individual" || identityLocked) return;
+    const complete =
+      isCompleteEmiratesId(customer.emirates_id) || isCompletePassport(customer.passport);
+    if (!complete) return;
+    const timer = window.setTimeout(() => {
+      void matchIdentity();
+    }, 450);
+    return () => window.clearTimeout(timer);
+  }, [customer.customer_type, customer.emirates_id, customer.passport, identityLocked, matchIdentity, open]);
 
   async function submit() {
     setError("");
@@ -334,67 +401,110 @@ export function ApplicationCreateDialog({
             <fieldset className="min-w-0 rounded-[10px] border border-brand-border p-3 sm:p-4">
               <legend className="px-1 text-sm font-semibold text-text-primary">Customer</legend>
               <div className="grid min-w-0 gap-3 sm:grid-cols-2">
-                <Field label="Customer type">
-                  <Select
-                    aria-label="Customer type"
-                    value={customer.customer_type}
-                    disabled={identityLocked}
-                    onChange={(event) => {
-                      const customerType = event.target.value as CustomerDraft["customer_type"];
-                      setCustomer({ ...emptyCustomer, customer_type: customerType });
-                      setMatch(null);
-                      lastMatchKey.current = "";
-                    }}
+                <div className="min-w-0 sm:col-span-2">
+                  <span id="customer-type-label" className="block text-sm font-medium text-text-primary">
+                    Customer Type
+                  </span>
+                  <div
+                    role="radiogroup"
+                    aria-labelledby="customer-type-label"
+                    className="mt-1.5 grid min-w-0 grid-cols-2 gap-2 sm:max-w-md"
                   >
-                    <option value="individual">Individual</option>
-                    <option value="company">Company / Business</option>
-                  </Select>
-                </Field>
+                    {([
+                      ["individual", "Individual"],
+                      ["company", "Company / Business"],
+                    ] as const).map(([value, label]) => (
+                      <label
+                        key={value}
+                        className={cx(
+                          "relative min-w-0",
+                          identityLocked ? "cursor-not-allowed opacity-60" : "cursor-pointer",
+                        )}
+                      >
+                        <input
+                          className="peer sr-only"
+                          type="radio"
+                          name="application-customer-type"
+                          value={value}
+                          checked={customer.customer_type === value}
+                          disabled={identityLocked}
+                          onChange={() => {
+                            matchVersion.current += 1;
+                            setCustomer({ ...emptyCustomer, customer_type: value });
+                            setMatch(null);
+                            setMatchedIdentityFields(new Set());
+                            setMatchDetailsOpen(false);
+                            setError("");
+                            lastMatchKey.current = "";
+                          }}
+                        />
+                        <span className="flex h-8 min-w-0 items-center justify-center rounded-md border border-brand-border bg-surface px-3 text-center text-sm font-medium text-text-secondary transition-colors peer-checked:border-brand-primary peer-checked:bg-brand-soft peer-checked:text-brand-primary peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-brand-primary">
+                          {label}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
 
                 {customer.customer_type === "individual" ? (
                   <>
-                    <Field label="Emirates ID" help="Checked by exact server-side match only.">
+                    <Field
+                      label="Emirates ID"
+                      help="Automatically checked by secure exact server-side match after a complete value is entered."
+                    >
                       <TextInput
                         aria-label="Customer Emirates ID"
+                        aria-describedby={match?.matched ? "existing-customer-message" : undefined}
+                        autoComplete="off"
+                        placeholder="784-YYYY-NNNNNNN-N"
                         value={customer.emirates_id}
                         readOnly={identityLocked}
-                        onBlur={() => void matchIdentity()}
+                        data-identity-match={matchedIdentityFields.has("emirates_id") || undefined}
+                        className={
+                          matchedIdentityFields.has("emirates_id")
+                            ? "border-danger bg-red-50 text-red-950 focus:border-danger"
+                            : undefined
+                        }
                         onChange={(event) => {
+                          matchVersion.current += 1;
                           lastMatchKey.current = "";
                           setMatch(null);
+                          setMatchedIdentityFields(new Set());
+                          setMatchDetailsOpen(false);
+                          setError("");
                           setCustomer({ ...customer, emirates_id: event.target.value });
                         }}
                       />
                     </Field>
-                    <Field label="Passport Number" help="Checked by exact server-side match only.">
+                    <Field
+                      label="Passport Number"
+                      help="Automatically checked by secure exact server-side match after a complete value is entered."
+                    >
                       <TextInput
                         aria-label="Customer Passport Number"
+                        aria-describedby={match?.matched ? "existing-customer-message" : undefined}
+                        autoCapitalize="characters"
+                        autoComplete="off"
+                        placeholder="Enter passport number"
                         value={customer.passport}
                         readOnly={identityLocked}
-                        onBlur={() => void matchIdentity()}
+                        data-identity-match={matchedIdentityFields.has("passport") || undefined}
+                        className={
+                          matchedIdentityFields.has("passport")
+                            ? "border-danger bg-red-50 text-red-950 focus:border-danger"
+                            : undefined
+                        }
                         onChange={(event) => {
+                          matchVersion.current += 1;
                           lastMatchKey.current = "";
                           setMatch(null);
+                          setMatchedIdentityFields(new Set());
+                          setMatchDetailsOpen(false);
+                          setError("");
                           setCustomer({ ...customer, passport: event.target.value });
                         }}
                       />
                     </Field>
-                    <div className="flex min-w-0 items-end gap-2 sm:col-span-2">
-                      {identityLocked ? (
-                        <Button type="button" variant="secondary" onClick={clearIdentityMatch}>
-                          Use a different identity
-                        </Button>
-                      ) : (
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          disabled={matching || (!customer.emirates_id.trim() && !customer.passport.trim())}
-                          onClick={() => void matchIdentity()}
-                        >
-                          {matching ? "Checking…" : "Check exact identity"}
-                        </Button>
-                      )}
-                    </div>
                     <Field label="Full Name">
                       <TextInput
                         aria-label="Customer Full Name"
@@ -430,7 +540,7 @@ export function ApplicationCreateDialog({
                         onChange={(event) => setCustomer({ ...customer, contact_person: event.target.value })}
                       />
                     </Field>
-                    <Field label="Trade License">
+                    <Field label="Trade License" className="sm:col-span-2">
                       <TextInput
                         aria-label="Customer Trade License"
                         value={customer.trade_license}
@@ -458,29 +568,40 @@ export function ApplicationCreateDialog({
                 </Field>
               </div>
 
+              {matching ? (
+                <p className="mt-3 text-xs font-medium text-text-secondary" role="status">
+                  Checking identity securely…
+                </p>
+              ) : null}
+
               {match?.matched ? (
-                <div className="mt-3 rounded-[10px] border border-blue-200 bg-blue-50 p-3 text-sm text-blue-950" role="status">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="font-semibold">{match.message}</p>
-                    <span className="text-xs">Status: {match.customer?.status}</span>
-                  </div>
-                  <p className="mt-1 text-xs text-blue-800">
-                    Name and identity fields are locked. You may update the contact details shown above.
+                <div
+                  id="existing-customer-message"
+                  className="mt-3 rounded-[10px] border border-danger bg-red-50 p-3 text-sm text-red-950"
+                  role="status"
+                >
+                  <p className="font-semibold">{match.message}</p>
+                  <p className="mt-1 text-xs text-red-800">
+                    Identity and name are locked. Employer and contact details remain editable.
                   </p>
-                  <h3 className="mt-3 text-xs font-semibold uppercase tracking-wide">Limited application history</h3>
-                  {match.history.length ? (
-                    <ul className="mt-1 divide-y divide-blue-200">
-                      {match.history.map((item) => (
-                        <li key={item.applicationId} className="grid min-w-0 gap-1 py-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
-                          <span className="break-words font-medium">{item.applicationCode}</span>
-                          <span className="break-words">{item.bank ?? "Bank unavailable"} · {item.product ?? "Product unavailable"}</span>
-                          <span className="break-words text-blue-800">{item.status}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="mt-1 text-xs text-blue-800">No applications are visible in your authorized scope.</p>
-                  )}
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      className={cx(
+                        secondaryButtonClass,
+                        "border-danger text-danger hover:bg-red-100",
+                      )}
+                      onClick={(event) => {
+                        matchDetailsTriggerRef.current = event.currentTarget;
+                        setMatchDetailsOpen(true);
+                      }}
+                    >
+                      Check exact identity
+                    </button>
+                    <Button type="button" variant="ghost" onClick={clearIdentityMatch}>
+                      Use a different identity
+                    </Button>
+                  </div>
                 </div>
               ) : null}
             </fieldset>
@@ -565,6 +686,107 @@ export function ApplicationCreateDialog({
           </footer>
         </form>
       </section>
+
+      {matchDetailsOpen && match?.matched && match.customer ? (
+        <div
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/45 p-3 sm:p-6"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.currentTarget === event.target) closeMatchDetails();
+          }}
+        >
+          <section
+            ref={matchDetailsRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="customer-match-details-title"
+            className="flex max-h-[min(42rem,calc(100dvh-1.5rem))] w-full max-w-2xl min-w-0 flex-col overflow-hidden rounded-[12px] border border-brand-border bg-surface shadow-2xl sm:max-h-[min(42rem,calc(100dvh-3rem))]"
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                event.preventDefault();
+                event.stopPropagation();
+                closeMatchDetails();
+                return;
+              }
+              if (event.key !== "Tab") return;
+              const focusable = Array.from(
+                event.currentTarget.querySelectorAll<HTMLElement>(
+                  'button:not(:disabled), [href], input:not(:disabled), [tabindex]:not([tabindex="-1"])',
+                ),
+              );
+              if (!focusable.length) return;
+              const first = focusable[0];
+              const last = focusable[focusable.length - 1];
+              if (event.shiftKey && document.activeElement === first) {
+                event.preventDefault();
+                last.focus();
+              } else if (!event.shiftKey && document.activeElement === last) {
+                event.preventDefault();
+                first.focus();
+              }
+            }}
+          >
+            <header className="flex min-w-0 items-start justify-between gap-3 border-b border-brand-border px-4 py-3 sm:px-5">
+              <div className="min-w-0">
+                <h2 id="customer-match-details-title" className="text-base font-semibold text-text-primary">
+                  Customer match details
+                </h2>
+                <p className="mt-1 text-sm text-text-secondary">
+                  Limited identity summary and application history in your authorized scope.
+                </p>
+              </div>
+              <Button type="button" variant="ghost" aria-label="Close customer match details" onClick={closeMatchDetails}>
+                Close
+              </Button>
+            </header>
+
+            <div className="min-w-0 overflow-y-auto px-4 py-4 sm:px-5">
+              <dl className="grid min-w-0 gap-3 rounded-[10px] border border-brand-border bg-surface-subtle p-3 sm:grid-cols-2">
+                {[
+                  ["Full Name", match.customer.fullName ?? "Not provided"],
+                  ["Status", match.customer.status],
+                  ["Employer", match.customer.employer ?? "Not provided"],
+                  ["Mobile", match.customer.mobile],
+                  ["Email", match.customer.email ?? "Not provided"],
+                ].map(([label, value]) => (
+                  <div key={label} className="min-w-0">
+                    <dt className="text-xs font-medium uppercase tracking-wide text-text-secondary">{label}</dt>
+                    <dd className="mt-1 break-words text-sm text-text-primary">{value}</dd>
+                  </div>
+                ))}
+              </dl>
+
+              <h3 className="mt-4 text-sm font-semibold text-text-primary">Previous products and cases</h3>
+              {match.history.length ? (
+                <ul className="mt-2 divide-y divide-brand-border rounded-[10px] border border-brand-border">
+                  {match.history.map((item) => (
+                    <li
+                      key={item.applicationId}
+                      className="grid min-w-0 gap-1 px-3 py-2.5 text-sm sm:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_auto] sm:items-center"
+                    >
+                      <span className="break-words font-medium text-text-primary">{item.applicationCode}</span>
+                      <span className="break-words text-text-secondary">
+                        {item.bank ?? "Bank unavailable"} · {item.product ?? "Product unavailable"}
+                      </span>
+                      <span className="break-words text-text-secondary">{item.status}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-2 rounded-[10px] border border-brand-border bg-surface-subtle px-3 py-2 text-sm text-text-secondary">
+                  No applications are visible in your authorized scope.
+                </p>
+              )}
+            </div>
+
+            <footer className="flex justify-end border-t border-brand-border px-4 py-3 sm:px-5">
+              <Button type="button" variant="secondary" onClick={closeMatchDetails}>
+                Close
+              </Button>
+            </footer>
+          </section>
+        </div>
+      ) : null}
     </div>
   );
 }
