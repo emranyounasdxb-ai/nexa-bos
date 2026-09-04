@@ -42,6 +42,7 @@ from nexa_bos_api.applications.service import (
     update_stage,
 )
 from nexa_bos_api.applications.tat import correct_delay, mark_delay
+from nexa_bos_api.core.exceptions import AppError
 from nexa_bos_api.customers.service import get_visible_customer
 from nexa_bos_api.db.session import SessionDep
 from nexa_bos_api.identity.access import has_permission
@@ -62,6 +63,18 @@ from nexa_bos_api.identity.permissions import (
 )
 
 router = APIRouter(tags=["applications"])
+
+
+def _require_application_mutation_scope(actor: CurrentUser, application: Application) -> None:
+    role_code = actor.user_type.code if actor.user_type else None
+    if role_code not in {"BDM", "SM", "TL", "SE", "OM"}:
+        return
+    if application.case_owner_id != actor.id:
+        raise AppError(
+            status_code=404,
+            code="APPLICATION_NOT_FOUND",
+            message="Application not found",
+        )
 
 
 def _filters(
@@ -299,6 +312,7 @@ async def applications_update(
     actor: Annotated[CurrentUser, Depends(require_permission(APPLICATIONS_EDIT))],
 ) -> dict[str, object]:
     application = await get_visible_application(session, actor, application_id)
+    _require_application_mutation_scope(actor, application)
     return await serialize_application(
         session, await update_application(session, actor, application, payload)
     )
@@ -312,6 +326,7 @@ async def applications_case_number(
     actor: Annotated[CurrentUser, Depends(require_permission(APPLICATIONS_SUBMIT))],
 ) -> dict[str, object]:
     application = await get_visible_application(session, actor, application_id)
+    _require_application_mutation_scope(actor, application)
     return await serialize_application(
         session,
         await save_case_number(
@@ -328,6 +343,7 @@ async def applications_correct_submitted(
     actor: Annotated[CurrentUser, Depends(require_permission(APPLICATIONS_CORRECT_SUBMITTED))],
 ) -> dict[str, object]:
     application = await get_visible_application(session, actor, application_id)
+    _require_application_mutation_scope(actor, application)
     return await serialize_application(
         session, await correct_submitted(session, actor, application, payload)
     )
@@ -341,6 +357,7 @@ async def applications_reassign(
     actor: Annotated[CurrentUser, Depends(require_permission(APPLICATIONS_REASSIGN_CASE_OWNER))],
 ) -> dict[str, object]:
     application = await get_visible_application(session, actor, application_id)
+    _require_application_mutation_scope(actor, application)
     return await serialize_application(
         session,
         await reassign_case_owner(
@@ -357,6 +374,7 @@ async def applications_stage(
     actor: Annotated[CurrentUser, Depends(require_permission(APPLICATIONS_UPDATE_STAGE))],
 ) -> dict[str, object]:
     application = await get_visible_application(session, actor, application_id)
+    _require_application_mutation_scope(actor, application)
     return await serialize_application(
         session, await update_stage(session, actor, application, payload)
     )
@@ -370,6 +388,7 @@ async def applications_correct_stage(
     actor: Annotated[CurrentUser, Depends(require_permission(APPLICATIONS_CORRECT_STAGE))],
 ) -> dict[str, object]:
     application = await get_visible_application(session, actor, application_id)
+    _require_application_mutation_scope(actor, application)
     return await serialize_application(
         session, await correct_stage(session, actor, application, payload)
     )
@@ -383,6 +402,7 @@ async def applications_outcome(
     actor: Annotated[CurrentUser, Depends(require_permission(APPLICATIONS_SET_OUTCOME))],
 ) -> dict[str, object]:
     application = await get_visible_application(session, actor, application_id)
+    _require_application_mutation_scope(actor, application)
     return await serialize_application(
         session, await set_outcome(session, actor, application, payload.outcome, payload.reason)
     )
@@ -396,6 +416,7 @@ async def applications_migrate(
     actor: Annotated[CurrentUser, Depends(require_permission(WORKFLOWS_MIGRATE_APPLICATION))],
 ) -> dict[str, object]:
     application = await get_visible_application(session, actor, application_id)
+    _require_application_mutation_scope(actor, application)
     return await serialize_application(
         session,
         await migrate_application(
@@ -417,6 +438,7 @@ async def applications_mark_delay(
     actor: Annotated[CurrentUser, Depends(require_permission(APPLICATIONS_MARK_DELAY))],
 ) -> dict[str, object]:
     application = await get_visible_application(session, actor, application_id)
+    _require_application_mutation_scope(actor, application)
     await mark_delay(session, actor, application, payload)
     refreshed = (await session.get(Application, application.id)) or application
     return await serialize_application(session, refreshed)
@@ -431,6 +453,7 @@ async def applications_correct_delay(
     actor: Annotated[CurrentUser, Depends(require_permission(APPLICATIONS_CORRECT_DELAY))],
 ) -> dict[str, object]:
     application = await get_visible_application(session, actor, application_id)
+    _require_application_mutation_scope(actor, application)
     await correct_delay(session, actor, application, delay_id, payload)
     refreshed = (await session.get(Application, application.id)) or application
     return await serialize_application(session, refreshed)

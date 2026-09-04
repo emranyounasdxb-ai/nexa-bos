@@ -92,6 +92,8 @@ export default function AttendancePage() {
   const [reason, setReason] = useState("");
   const loadGeneration = useRef(0);
   const canManage = can("Attendance.Manage");
+  const canManageOffice = can("Attendance.ManageOffice");
+  const canManageRecords = canManage || canManageOffice;
   const canCorrect = can("Attendance.Correct");
 
   const officeDepartments = useMemo(
@@ -345,7 +347,7 @@ export default function AttendancePage() {
                       className={`${controlClass} !min-h-8 !py-1 text-xs`}
                       value={draft?.status ?? "Present"}
                       onChange={(event) => updateDraft(item.employeeId, { status: event.target.value })}
-                      disabled={!canManage && !canCorrect}
+                      disabled={!canManageRecords && !canCorrect}
                     >
                       {ATTENDANCE_STATUSES.map((status) => (
                         <option key={status} value={status}>
@@ -359,7 +361,7 @@ export default function AttendancePage() {
                         className={`mt-1 ${controlClass}`}
                         value={draft.leaveTypeId}
                         onChange={(event) => updateDraft(item.employeeId, { leaveTypeId: event.target.value })}
-                        disabled={!canManage && !canCorrect}
+                        disabled={!canManageRecords && !canCorrect}
                       >
                         <option value="">Select leave type</option>
                         {leaveTypes.map((leave) => (
@@ -377,7 +379,7 @@ export default function AttendancePage() {
                       className={`${controlClass} !min-h-8 !py-1 text-xs`}
                       value={draft?.timeIn ?? ""}
                       onChange={(event) => updateDraft(item.employeeId, { timeIn: event.target.value })}
-                      disabled={!canManage && !canCorrect}
+                      disabled={!canManageRecords && !canCorrect}
                     />
                   </Td>
                   <Td>
@@ -387,7 +389,7 @@ export default function AttendancePage() {
                       className={`${controlClass} !min-h-8 !py-1 text-xs`}
                       value={draft?.timeOut ?? ""}
                       onChange={(event) => updateDraft(item.employeeId, { timeOut: event.target.value })}
-                      disabled={!canManage && !canCorrect}
+                      disabled={!canManageRecords && !canCorrect}
                     />
                   </Td>
                   <Td>
@@ -407,12 +409,12 @@ export default function AttendancePage() {
                       className={`${controlClass} !min-h-8 !py-1 text-xs`}
                       value={draft?.notes ?? ""}
                       onChange={(event) => updateDraft(item.employeeId, { notes: event.target.value })}
-                      disabled={!canManage && !canCorrect}
+                      disabled={!canManageRecords && !canCorrect}
                     />
                   </Td>
                   <Td>
                     <div className="flex flex-col gap-1">
-                      {canManage && !item.record ? (
+                      {canManageRecords && !item.record ? (
                         <Button
                           type="button"
                           size="compact"
@@ -422,7 +424,7 @@ export default function AttendancePage() {
                           Save
                         </Button>
                       ) : null}
-                      {canManage && item.record && !canCorrect ? (
+                      {canManageRecords && item.record && !canCorrect ? (
                         <Button
                           type="button"
                           size="compact"

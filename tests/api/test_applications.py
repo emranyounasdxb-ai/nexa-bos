@@ -116,11 +116,12 @@ async def _create_app(
     requested_amount: str | None = "10000",
     bank_case_number: str | None = None,
 ) -> dict:
+    actor = (await client.get("/api/v1/auth/me")).json()
     payload: dict[str, object] = {
         "customer_id": customer_id,
         "bank_id": bank_id,
         "product_id": product_id,
-        "case_owner_id": case_owner_id,
+        "case_owner_id": actor["id"],
         "requested_amount": requested_amount,
     }
     if bank_case_number:
@@ -131,7 +132,15 @@ async def _create_app(
     payload["product_variant_id"] = variant["id"]
     response = await client.post("/api/v1/applications", json=payload)
     assert response.status_code == 200, response.text
-    return response.json()
+    application = response.json()
+    if case_owner_id != actor["id"]:
+        reassigned = await client.post(
+            f"/api/v1/applications/{application['id']}/reassign-owner",
+            json={"case_owner_id": case_owner_id, "reason": "Automated test setup"},
+        )
+        assert reassigned.status_code == 200, reassigned.text
+        application = reassigned.json()
+    return application
 
 
 async def _stage_by_key(client: AsyncClient, workflow_id: str, key: str) -> dict:
@@ -947,8 +956,8 @@ async def test_ineligible_case_owner_and_completed_not_manual(client: AsyncClien
             "requested_amount": "1",
         },
     )
-    assert rejected.status_code == 422
-    assert rejected.json()["error"]["code"] == "CASE_OWNER_INELIGIBLE"
+    assert rejected.status_code == 403
+    assert rejected.json()["error"]["code"] == "INITIAL_OWNER_FORBIDDEN"
     created = await _create_app(
         authed,
         customer_id=customer["id"],

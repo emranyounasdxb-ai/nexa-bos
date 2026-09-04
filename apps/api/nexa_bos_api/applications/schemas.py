@@ -2,8 +2,9 @@ from datetime import date
 from decimal import Decimal
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
+from nexa_bos_api.customers.schemas import CustomerCreateRequest
 from nexa_bos_api.identity.enums import (
     DelayCorrectionAction,
     DelayType,
@@ -17,13 +18,20 @@ class AssignApplicationScopeRequest(BaseModel):
 
 
 class ApplicationCreateRequest(BaseModel):
-    customer_id: UUID
+    customer_id: UUID | None = None
+    customer: CustomerCreateRequest | None = None
     bank_id: UUID
     product_id: UUID
     product_variant_id: UUID
-    case_owner_id: UUID
+    case_owner_id: UUID | None = None
     requested_amount: Decimal | None = None
     bank_case_number: str | None = Field(default=None, max_length=64)
+
+    @model_validator(mode="after")
+    def exactly_one_customer_source(self) -> ApplicationCreateRequest:
+        if (self.customer_id is None) == (self.customer is None):
+            raise ValueError("Provide exactly one of customer_id or customer")
+        return self
 
 
 class ApplicationUpdateRequest(BaseModel):

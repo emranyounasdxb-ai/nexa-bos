@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { DatePicker } from "@/components/date-picker";
 import { Button, ErrorText, PageHeader, Select, TextInput } from "@/components/ui";
 import { apiGet, apiRequest } from "@/lib/api";
+import { useAuth } from "@/lib/auth-context";
 import { getBrowserApiUrl } from "@/lib/env";
 import type { ManagerOption, OrgRef, UserTypeSummary } from "@/lib/types";
 
@@ -13,6 +14,7 @@ const STATUSES = ["Active", "Probation", "Notice Period", "Resigned", "Terminate
 
 export default function CreateUserPage() {
   const router = useRouter();
+  const { can } = useAuth();
   const [types, setTypes] = useState<UserTypeSummary[]>([]);
   const [designations, setDesignations] = useState<OrgRef[]>([]);
   const [offices, setOffices] = useState<OrgRef[]>([]);
@@ -38,9 +40,13 @@ export default function CreateUserPage() {
 
   useEffect(() => {
     const api = getBrowserApiUrl();
-    void apiGet<{ items: UserTypeSummary[] }>("/api/v1/user-types", api)
-      .then((data) => setTypes(data.items.filter((item) => item.code !== "OWNER")))
-      .catch(() => undefined);
+    if (can("Users.AssignUserType")) {
+      void apiGet<{ items: UserTypeSummary[] }>("/api/v1/user-types", api)
+        .then((data) =>
+          setTypes(data.items.filter((item) => !["OWNER", "PENDING"].includes(item.code))),
+        )
+        .catch(() => undefined);
+    }
     void apiGet<{ items: OrgRef[] }>("/api/v1/designations", api).then((data) =>
       setDesignations(data.items),
     );
@@ -55,7 +61,7 @@ export default function CreateUserPage() {
     void apiGet<{ items: ManagerOption[] }>("/api/v1/users/managers", api).then((data) =>
       setManagers(data.items),
     );
-  }, []);
+  }, [can]);
 
   const filteredDepartments = useMemo(
     () => departments.filter((item) => !form.office_id || item.officeId === form.office_id),
@@ -83,7 +89,7 @@ export default function CreateUserPage() {
           office_id: form.office_id || null,
           department_id: form.department_id || null,
           team_id: form.team_id || null,
-          user_type_id: form.user_type_id || null,
+          user_type_id: can("Users.AssignUserType") ? form.user_type_id || null : null,
           reporting_manager_id: form.reporting_manager_id || null,
         }),
       });
@@ -203,20 +209,26 @@ export default function CreateUserPage() {
             ))}
           </Select>
         </label>
-        <label className="block text-sm">
-          User type (optional)
-          <Select
-            value={form.user_type_id}
-            onChange={(event) => setForm({ ...form, user_type_id: event.target.value })}
-          >
-            <option value="">Unassigned</option>
-            {types.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.code} — {item.name}
-              </option>
-            ))}
-          </Select>
-        </label>
+        {can("Users.AssignUserType") ? (
+          <label className="block text-sm">
+            User type (optional)
+            <Select
+              value={form.user_type_id}
+              onChange={(event) => setForm({ ...form, user_type_id: event.target.value })}
+            >
+              <option value="">Pending assignment</option>
+              {types.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.code} — {item.name}
+                </option>
+              ))}
+            </Select>
+          </label>
+        ) : (
+          <p className="rounded-lg border border-brand-border bg-brand-soft p-3 text-sm text-text-secondary">
+            This user will be created as PENDING. OWNER or GM must assign the final User Type.
+          </p>
+        )}
         <label className="block text-sm">
           Reporting manager
           <Select

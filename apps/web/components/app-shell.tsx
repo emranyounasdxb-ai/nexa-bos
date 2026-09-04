@@ -43,6 +43,7 @@ import { apiGet, apiRequest, getCsrfToken, setCsrfToken } from "@/lib/api";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
 import { getBrowserApiUrl } from "@/lib/env";
 import type { UserRecord } from "@/lib/types";
+import { canReadCatalog, canReadOrganization, canReadWorkflows } from "@/lib/role-access";
 
 const PUBLIC_PATHS = ["/login", "/setup", "/reset", "/status", "/bootstrap"];
 
@@ -205,7 +206,7 @@ function Shell({ children }: { children: ReactNode }) {
       items: [
         { href: "/customers", label: "Customers", icon: IconUser, show: can("Customers.View") },
         { href: "/applications", label: "Applications", icon: IconFileDescription, show: can("Applications.View") },
-        { href: "/workflows", label: "Workflows", icon: IconGitBranch, show: can("WorkflowStages.Edit") },
+        { href: "/workflows", label: "Workflows", icon: IconGitBranch, show: canReadWorkflows(user) },
       ],
     },
     {
@@ -213,7 +214,7 @@ function Shell({ children }: { children: ReactNode }) {
       icon: IconUsersGroup,
       items: [
         { href: "/users", label: "Users", icon: IconUsers, show: can("Users.View") },
-        { href: "/organization", label: "Organization", icon: IconBuildingCommunity, show: true },
+        { href: "/organization", label: "Organization", icon: IconBuildingCommunity, show: canReadOrganization(user) },
         { href: "/organization/hierarchy", label: "Hierarchy", icon: IconHierarchy3, show: can("Users.View") },
         { href: "/attendance", label: "Attendance", icon: IconCalendarCheck, show: can("Attendance.View") },
         { href: "/attendance/reports", label: "Attendance reports", icon: IconReportAnalytics, show: can("Attendance.Reports") },
@@ -253,7 +254,7 @@ function Shell({ children }: { children: ReactNode }) {
       label: "Administration",
       icon: IconSettings,
       items: [
-        { href: "/catalog", label: "Banks & products", icon: IconBuildingBank, show: true },
+        { href: "/catalog", label: "Banks & products", icon: IconBuildingBank, show: canReadCatalog(user) },
         { href: "/user-types", label: "User types", icon: IconUserShield, show: can("UserTypes.View") },
         { href: "/notifications", label: "Notifications", icon: IconBell, show: can("Notifications.View") },
         {

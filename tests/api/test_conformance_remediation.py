@@ -136,6 +136,7 @@ async def _create_app(
     case_owner_id: str,
     requested_amount: str | None = "10000",
 ) -> dict:
+    actor = (await client.get("/api/v1/auth/me")).json()
     await _enable_case_owner(client)
     await _ensure_workflow(client, bank_id, product_id)
     variant = await create_product_variant(client, bank_id=bank_id, product_id=product_id)
@@ -146,12 +147,20 @@ async def _create_app(
             "bank_id": bank_id,
             "product_id": product_id,
             "product_variant_id": variant["id"],
-            "case_owner_id": case_owner_id,
+            "case_owner_id": actor["id"],
             "requested_amount": requested_amount,
         },
     )
     assert response.status_code == 200, response.text
-    return response.json()
+    application = response.json()
+    if case_owner_id != actor["id"]:
+        reassigned = await client.post(
+            f"/api/v1/applications/{application['id']}/reassign-owner",
+            json={"case_owner_id": case_owner_id, "reason": "Automated test setup"},
+        )
+        assert reassigned.status_code == 200, reassigned.text
+        application = reassigned.json()
+    return application
 
 
 def _attr(owner_id: UUID) -> Attribution:
