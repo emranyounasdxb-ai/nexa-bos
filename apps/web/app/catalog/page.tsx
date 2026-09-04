@@ -42,6 +42,7 @@ import {
 import { ApiClientError, apiGet, apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { getBrowserApiUrl } from "@/lib/env";
+import { canReadCatalog } from "@/lib/role-access";
 import type { BankProductRecord, CatalogItem, ProductVariantRecord } from "@/lib/types";
 
 const TAB_KEYS = ["banks", "products", "variants", "rules", "mappings"] as const;
@@ -152,7 +153,7 @@ function friendlyError(error: unknown, fallback: string): string {
 }
 
 function CatalogInner() {
-  const { can } = useAuth();
+  const { can, user } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const api = getBrowserApiUrl();
@@ -481,6 +482,10 @@ function CatalogInner() {
   if (loading) return <LoadingState>Loading banks and products…</LoadingState>;
 
   const activeTabDefinition = tabs.find((tab) => tab.key === activeTab) ?? tabs[0];
+
+  if (!canReadCatalog(user)) {
+    return <ErrorText>Catalog access is not available for this user type.</ErrorText>;
+  }
 
   return (
     <section className="w-full space-y-4 pb-4">

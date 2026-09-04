@@ -27,10 +27,9 @@ from nexa_bos_api.applications.workflow_service import (
 from nexa_bos_api.catalog.models import Bank, Product
 from nexa_bos_api.core.exceptions import AppError
 from nexa_bos_api.db.session import SessionDep
-from nexa_bos_api.identity.access import has_permission
+from nexa_bos_api.identity.access import has_user_type
 from nexa_bos_api.identity.enums import MasterStatus
 from nexa_bos_api.identity.permissions import (
-    APPLICATIONS_VIEW,
     WORKFLOW_STAGES_ACTIVATE,
     WORKFLOW_STAGES_CONFIGURE_TRANSITIONS,
     WORKFLOW_STAGES_CREATE,
@@ -48,9 +47,7 @@ async def workflows_list(
     bank_id: UUID | None = None,
     product_id: UUID | None = None,
 ) -> dict[str, object]:
-    if not (
-        has_permission(actor, WORKFLOW_STAGES_EDIT) or has_permission(actor, APPLICATIONS_VIEW)
-    ):
+    if not has_user_type(actor, "OWNER", "GM"):
         raise AppError(
             status_code=403,
             code="FORBIDDEN",
@@ -83,9 +80,7 @@ async def workflows_get(
     session: SessionDep,
     actor: CurrentUser,
 ) -> dict[str, object]:
-    if not (
-        has_permission(actor, WORKFLOW_STAGES_EDIT) or has_permission(actor, APPLICATIONS_VIEW)
-    ):
+    if not has_user_type(actor, "OWNER", "GM"):
         raise AppError(
             status_code=403,
             code="FORBIDDEN",

@@ -66,3 +66,17 @@ def require_permission(code: str):
         return user
 
     return checker
+
+
+def require_any_permission(*codes: str):
+    async def checker(user: CurrentUser) -> User:
+        if not any(has_permission(user, code) for code in codes):
+            raise AppError(
+                status_code=403,
+                code="FORBIDDEN",
+                message="You do not have permission to perform this action",
+                details=[{"permissionsAny": list(codes)}],
+            )
+        return user
+
+    return checker

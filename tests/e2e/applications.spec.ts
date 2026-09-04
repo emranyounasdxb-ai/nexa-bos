@@ -295,11 +295,12 @@ test("owner can create an application and filter the list", async ({ page, reque
   await expect(page).toHaveURL(/\/customers\/[0-9a-f-]+$/, { timeout: 30_000 });
   await expect(page.getByRole("button", { name: "Save corrections" })).toBeVisible();
   await page.goto("/applications/new");
+  await page.getByLabel("Link visible existing customer").check();
   await selectBrandedOption(page.getByLabel("Customer", { exact: true }), { label: new RegExp(`App Customer ${suffix}`) });
   await selectBrandedOption(page.getByLabel("Bank", { exact: true }), { label: /\(DIB\)$/ });
   await selectBrandedOption(page.getByLabel("Product Category", { exact: true }), { label: /\(PF\)$/ });
   await selectBrandedOption(page.getByLabel("Product Variant", { exact: true }), { label: `${prerequisites.variant.name} (${prerequisites.variant.code})` });
-  await selectBrandedOption(page.getByLabel("Case Owner"), { label: /Platform Owner/ });
+  await expect(page.getByText(/Initial Case Owner:.*Platform Owner/)).toBeVisible();
   await page.getByLabel("Requested amount").fill("15000");
   await page.getByRole("button", { name: "Create application" }).click();
   await expect(page).toHaveURL(/\/applications\/[0-9a-f-]+$/, { timeout: 30_000 });

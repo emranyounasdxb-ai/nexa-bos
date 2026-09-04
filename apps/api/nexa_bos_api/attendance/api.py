@@ -6,7 +6,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends
 
-from nexa_bos_api.api.v1.deps import CurrentUser, require_permission
+from nexa_bos_api.api.v1.deps import CurrentUser, require_any_permission, require_permission
 from nexa_bos_api.api.v1.pagination import PaginationDep
 from nexa_bos_api.attendance.schemas import (
     AttendanceBulkRequest,
@@ -47,10 +47,12 @@ from nexa_bos_api.attendance.service import (
 )
 from nexa_bos_api.core.exceptions import AppError
 from nexa_bos_api.db.session import SessionDep
-from nexa_bos_api.identity.access import has_permission
+from nexa_bos_api.identity.access import has_permission, visibility_scope
+from nexa_bos_api.identity.enums import VisibilityScope
 from nexa_bos_api.identity.permissions import (
     ATTENDANCE_CORRECT,
     ATTENDANCE_MANAGE,
+    ATTENDANCE_MANAGE_OFFICE,
     ATTENDANCE_REPORTS,
     ATTENDANCE_VIEW,
     NOTIFICATIONS_SEND_URGENT,
@@ -233,8 +235,19 @@ async def attendance_day(
 async def attendance_save(
     payload: AttendanceBulkRequest,
     session: SessionDep,
-    actor: Annotated[CurrentUser, Depends(require_permission(ATTENDANCE_MANAGE))],
+    actor: Annotated[
+        CurrentUser,
+        Depends(require_any_permission(ATTENDANCE_MANAGE, ATTENDANCE_MANAGE_OFFICE)),
+    ],
 ) -> dict[str, object]:
+    if not has_permission(actor, ATTENDANCE_MANAGE) and (
+        visibility_scope(actor) is not VisibilityScope.OFFICE or actor.office_id is None
+    ):
+        raise AppError(
+            status_code=403,
+            code="OFFICE_ATTENDANCE_SCOPE_REQUIRED",
+            message="Office attendance management requires an assigned office scope",
+        )
     return await save_attendance(session, actor, payload.attendance_date, payload.entries)
 
 

@@ -32,6 +32,7 @@ import {
 import { apiGet, apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { getBrowserApiUrl } from "@/lib/env";
+import { canReadWorkflows } from "@/lib/role-access";
 import type { BankProductRecord, CatalogItem, WorkflowRecord, WorkflowStageRecord } from "@/lib/types";
 
 type WorkspaceView = "stages" | "transitions" | "preview";
@@ -75,7 +76,8 @@ function workflowLayers(workflow: WorkflowRecord): WorkflowStageRecord[][] {
 }
 
 export default function WorkflowsPage() {
-  const { can } = useAuth();
+  const { can, user } = useAuth();
+  const hasWorkflowAccess = canReadWorkflows(user);
   const api = getBrowserApiUrl();
   const createButtonRef = useRef<HTMLSpanElement>(null);
   const drawerRef = useRef<HTMLElement>(null);
@@ -132,6 +134,10 @@ export default function WorkflowsPage() {
   }, [api]);
 
   useEffect(() => {
+    if (!hasWorkflowAccess) {
+      setLoading(false);
+      return;
+    }
     const params = new URLSearchParams(window.location.search);
     const queryView = params.get("view");
     if (queryView && WORKSPACE_VIEWS.includes(queryView as WorkspaceView)) setView(queryView as WorkspaceView);
@@ -142,7 +148,7 @@ export default function WorkflowsPage() {
     setStatusFilter(queryStatus === "active" || queryStatus === "inactive" ? queryStatus : "all");
     setQueryReady(true);
     void refresh();
-  }, [refresh]);
+  }, [hasWorkflowAccess, refresh]);
 
   const selected = items.find((item) => (
     item.id === selectedId && item.bankId === bankId && item.productId === productId
@@ -192,13 +198,13 @@ export default function WorkflowsPage() {
   }, [bankId, bankOptions, loading, productId, productOptions, selectedId, versionOptions]);
 
   useEffect(() => {
-    if (!queryReady) return;
+    if (!hasWorkflowAccess || !queryReady) return;
     const params = new URLSearchParams(window.location.search);
     const values = { bank: bankId, product: productId, workflow: selectedId, status: statusFilter === "all" ? "" : statusFilter, view };
     Object.entries(values).forEach(([key, currentValue]) => currentValue ? params.set(key, currentValue) : params.delete(key));
     const query = params.toString();
     window.history.replaceState(null, "", `${window.location.pathname}${query ? `?${query}` : ""}`);
-  }, [bankId, productId, queryReady, selectedId, statusFilter, view]);
+  }, [bankId, hasWorkflowAccess, productId, queryReady, selectedId, statusFilter, view]);
 
   useEffect(() => {
     if (!drawer) return;
@@ -406,6 +412,10 @@ export default function WorkflowsPage() {
 
   const currentStep = !bankId || !productId ? 0 : !selected ? 1 : !stages.length ? 2 : !selected.transitions.length ? 3 : 4;
   const steps = ["Select Bank/Product", "Select/Create Version", "Configure Stages", "Configure Transitions", "Review/Activate"];
+
+  if (!hasWorkflowAccess) {
+    return <ErrorText>Workflow access is restricted to OWNER and GM.</ErrorText>;
+  }
 
   return (
     <section className="min-w-0 space-y-3">

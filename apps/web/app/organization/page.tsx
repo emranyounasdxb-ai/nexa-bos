@@ -34,6 +34,7 @@ import {
 import { ApiClientError, apiGet, apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { getBrowserApiUrl } from "@/lib/env";
+import { canReadOrganization } from "@/lib/role-access";
 import type { ManagerOption, OrgRef } from "@/lib/types";
 
 type MasterTab = "offices" | "departments" | "teams" | "designations";
@@ -114,7 +115,7 @@ function InlineError({ id, children }: { id: string; children?: string }) {
 }
 
 export default function OrganizationPage() {
-  const { can } = useAuth();
+  const { can, user } = useAuth();
   const api = getBrowserApiUrl();
   const drawerRef = useRef<HTMLElement>(null);
   const drawerTriggerRef = useRef<HTMLElement | null>(null);
@@ -429,6 +430,10 @@ export default function OrganizationPage() {
       ? `Update the display name. The ${drawerConfig.singular.toLowerCase()} code remains immutable.`
       : `Create a ${drawerConfig.singular.toLowerCase()} for authorized organization workflows.`
     : "";
+
+  if (!canReadOrganization(user)) {
+    return <ErrorText>Organization access is not available for this user type.</ErrorText>;
+  }
 
   return (
     <section className="min-w-0 space-y-4">

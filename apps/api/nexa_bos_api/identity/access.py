@@ -32,6 +32,14 @@ def is_owner(user: User) -> bool:
     return user.user_type is not None and user.user_type.code == "OWNER"
 
 
+def has_user_type(user: User, *codes: str) -> bool:
+    return bool(
+        user.user_type
+        and user.user_type.status == UserTypeStatus.ACTIVE
+        and user.user_type.code in codes
+    )
+
+
 def permission_set(user: User) -> set[str]:
     if is_owner(user):
         return set(ALL_PERMISSION_CODES)

@@ -46,6 +46,8 @@ from nexa_bos_api.catalog.models import Bank, BankProduct, Product, ProductVaria
 from nexa_bos_api.core.exceptions import AppError
 from nexa_bos_api.core.pagination import PageResult
 from nexa_bos_api.customers.models import Customer
+from nexa_bos_api.customers.service import create_customer, get_visible_customer
+from nexa_bos_api.identity.access import has_permission
 from nexa_bos_api.identity.audit import record_audit
 from nexa_bos_api.identity.enums import (
     ApplicationEventType,
@@ -55,6 +57,11 @@ from nexa_bos_api.identity.enums import (
     TerminalOutcome,
 )
 from nexa_bos_api.identity.models import Department, Office, Team, User
+from nexa_bos_api.identity.permissions import (
+    APPLICATIONS_SUBMIT,
+    CUSTOMERS_CREATE,
+    CUSTOMERS_VIEW,
+)
 
 
 def _money(value: Decimal | None) -> str | None:
@@ -529,7 +536,32 @@ async def get_visible_application(
 async def create_application(
     session: AsyncSession, actor: User, payload: ApplicationCreateRequest
 ) -> Application:
-    customer = await session.get(Customer, payload.customer_id)
+    if payload.case_owner_id is not None and payload.case_owner_id != actor.id:
+        raise AppError(
+            status_code=403,
+            code="INITIAL_OWNER_FORBIDDEN",
+            message="The application creator must be the initial Case Owner",
+        )
+    owner = await _require_case_owner(session, actor.id)
+    if payload.customer is not None:
+        if not has_permission(actor, CUSTOMERS_CREATE):
+            raise AppError(
+                status_code=403,
+                code="FORBIDDEN",
+                message="You do not have permission to create customers",
+                details=[{"permission": CUSTOMERS_CREATE}],
+            )
+        customer = await create_customer(session, actor, payload.customer, commit=False)
+    else:
+        if not has_permission(actor, CUSTOMERS_VIEW):
+            raise AppError(
+                status_code=403,
+                code="FORBIDDEN",
+                message="You do not have permission to link existing customers",
+                details=[{"permission": CUSTOMERS_VIEW}],
+            )
+        assert payload.customer_id is not None
+        customer = await get_visible_customer(session, actor, payload.customer_id)
     if customer is None or customer.status == CustomerStatus.MERGED:
         raise AppError(status_code=404, code="CUSTOMER_NOT_FOUND", message="Customer not found")
     if customer.status != CustomerStatus.ACTIVE:
@@ -546,7 +578,6 @@ async def create_application(
         )
     mapping = await _require_mapping(session, bank, product)
     variant = await _require_variant(session, mapping, payload.product_variant_id)
-    owner = await _require_case_owner(session, payload.case_owner_id)
     await _assert_active_unique(session, customer.id, bank.id, product.id)
     if product.requested_amount_required and payload.requested_amount is None:
         raise AppError(
@@ -599,6 +630,13 @@ async def create_application(
     )
     case_number = _blank(payload.bank_case_number)
     if case_number:
+        if not has_permission(actor, APPLICATIONS_SUBMIT):
+            raise AppError(
+                status_code=403,
+                code="FORBIDDEN",
+                message="You do not have permission to submit applications",
+                details=[{"permission": APPLICATIONS_SUBMIT}],
+            )
         await _first_or_correct_case_number(session, actor, application, case_number, reason=None)
     await record_audit(
         session,
@@ -998,6 +1036,10 @@ async def update_application(
     for field in ("requested_amount", "approved_amount", "booked_amount", "funded_amount"):
         if field in data:
             setattr(application, field, data[field])
+    audit_new_values = {
+        field: _money(value) if field.endswith("_amount") else value
+        for field, value in data.items()
+    }
     application.updated_at = utcnow()
     await record_audit(
         session,
@@ -1006,7 +1048,7 @@ async def update_application(
         entity_id=str(application.id),
         actor_id=actor.id,
         old_values=audit_old_values,
-        new_values=data,
+        new_values=audit_new_values,
     )
     await session.commit()
     return application
@@ -1120,6 +1162,13 @@ async def reassign_case_owner(
 ) -> Application:
     _reject_terminal(application)
     owner = await _require_case_owner(session, owner_id)
+    allowed = await visible_case_owner_ids(session, actor)
+    if allowed is not None and owner.id not in allowed:
+        raise AppError(
+            status_code=404,
+            code="CASE_OWNER_NOT_FOUND",
+            message="Case Owner not found",
+        )
     previous = application.case_owner_id
     now = utcnow()
     application.case_owner_id = owner.id

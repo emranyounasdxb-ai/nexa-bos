@@ -5,9 +5,6 @@ from decimal import Decimal
 from uuid import UUID
 
 import pytest
-from httpx import AsyncClient
-from sqlalchemy import select
-
 from helpers import (
     authenticate,
     create_activated_user,
@@ -17,6 +14,7 @@ from helpers import (
     spawned_client,
     unique_tag,
 )
+from httpx import AsyncClient
 from nexa_bos_api.identity.models import AuditEvent
 from nexa_bos_api.main import app
 from nexa_bos_api.targets.calc import (
@@ -28,6 +26,7 @@ from nexa_bos_api.targets.calc import (
     weighted_contribution,
     working_dates,
 )
+from sqlalchemy import select
 
 
 def unique_month() -> str:
@@ -131,11 +130,12 @@ async def _create_app(
     case_owner_id: str,
     requested_amount: str | None = "10000",
 ) -> dict:
+    actor = (await client.get("/api/v1/auth/me")).json()
     payload: dict[str, object] = {
         "customer_id": customer_id,
         "bank_id": bank_id,
         "product_id": product_id,
-        "case_owner_id": case_owner_id,
+        "case_owner_id": actor["id"],
         "requested_amount": requested_amount,
     }
     await _enable_case_owner(client)
@@ -144,7 +144,15 @@ async def _create_app(
     payload["product_variant_id"] = variant["id"]
     response = await client.post("/api/v1/applications", json=payload)
     assert response.status_code == 200, response.text
-    return response.json()
+    application = response.json()
+    if case_owner_id != actor["id"]:
+        reassigned = await client.post(
+            f"/api/v1/applications/{application['id']}/reassign-owner",
+            json={"case_owner_id": case_owner_id, "reason": "Automated test setup"},
+        )
+        assert reassigned.status_code == 200, reassigned.text
+        application = reassigned.json()
+    return application
 
 
 async def _stage(client: AsyncClient, workflow_id: str, key: str) -> dict:
@@ -163,7 +171,11 @@ async def _submit(client: AsyncClient, app: dict) -> dict:
 
 async def _advance(client: AsyncClient, app: dict, key: str, extra: dict | None = None) -> dict:
     stage = await _stage(client, app["workflowId"], key)
-    payload = {"stage_id": stage["id"], "bank_stage_date": date.today().isoformat(), **(extra or {})}
+    payload = {
+        "stage_id": stage["id"],
+        "bank_stage_date": date.today().isoformat(),
+        **(extra or {}),
+    }
     response = await client.post(f"/api/v1/applications/{app['id']}/stage", json=payload)
     assert response.status_code == 200, response.text
     return response.json()
@@ -228,12 +240,12 @@ def test_calc_safe_zero_and_working_days() -> None:
     assert daily_run_rate(Decimal("100"), 0) is None
     assert daily_run_rate(Decimal("0"), 5) == Decimal("0.00")
     assert daily_run_rate(Decimal("10"), 4) == Decimal("2.50")
-    assert prorate_target(Decimal("100"), prorate=False, elapsed_working_days=2, month_working_days=4) == Decimal(
-        "100.00"
-    )
-    assert prorate_target(Decimal("100"), prorate=True, elapsed_working_days=2, month_working_days=4) == Decimal(
-        "50.00"
-    )
+    assert prorate_target(
+        Decimal("100"), prorate=False, elapsed_working_days=2, month_working_days=4
+    ) == Decimal("100.00")
+    assert prorate_target(
+        Decimal("100"), prorate=True, elapsed_working_days=2, month_working_days=4
+    ) == Decimal("50.00")
     assert directed_achievement(Decimal("0"), Decimal("0"), "lower_is_better") == 100.0
     assert directed_achievement(Decimal("10"), Decimal("0"), "lower_is_better") == 0.0
     assert directed_achievement(Decimal("50"), None, "higher_is_better") is None
@@ -630,7 +642,9 @@ async def test_period_aggregation_prorate_run_rate_lock_kpi_profile_scope(
         json={"target_value": "15", "reason": "Too late"},
     )
     assert blocked_edit.status_code == 409
-    silent = await authed.post(f"/api/v1/targets/periods/{month.isoformat()}/reopen", json={"reason": ""})
+    silent = await authed.post(
+        f"/api/v1/targets/periods/{month.isoformat()}/reopen", json={"reason": ""}
+    )
     assert silent.status_code == 422
     reopened = await authed.post(
         f"/api/v1/targets/periods/{month.isoformat()}/reopen",
@@ -714,7 +728,9 @@ async def test_period_aggregation_prorate_run_rate_lock_kpi_profile_scope(
     assert body["targetsKpi"] is not None
     assert any(item["milestone"] == "submitted" for item in body["targetsKpi"]["targets"])
     assert body["targetsKpi"]["kpi"] is not None
-    assert any(row["metric"] == "attendance_score" for row in body["targetsKpi"]["kpi"]["components"])
+    assert any(
+        row["metric"] == "attendance_score" for row in body["targetsKpi"]["kpi"]["components"]
+    )
     dashboard = await authed.get("/api/v1/reports/dashboard?period=mtd")
     assert dashboard.status_code == 200, dashboard.text
     dash_kpis = dashboard.json()["kpis"]

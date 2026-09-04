@@ -5,32 +5,46 @@ import { useEffect, useState } from "react";
 
 import { Button, ErrorText, PageHeader, Select, TextInput } from "@/components/ui";
 import { apiGet, apiRequest, ApiClientError } from "@/lib/api";
+import { useAuth } from "@/lib/auth-context";
 import { getBrowserApiUrl } from "@/lib/env";
 import type {
   ApplicationRecord,
   BankProductRecord,
   CatalogItem,
   CustomerRecord,
-  ManagerOption,
   ProductVariantRecord,
 } from "@/lib/types";
+
+type CustomerMode = "new" | "existing";
 
 export default function CreateApplicationPage() {
   const router = useRouter();
   const api = getBrowserApiUrl();
+  const { can, user } = useAuth();
   const [error, setError] = useState("");
+  const [customerMode, setCustomerMode] = useState<CustomerMode>("new");
   const [customers, setCustomers] = useState<CustomerRecord[]>([]);
   const [customerQuery, setCustomerQuery] = useState("");
   const [mappings, setMappings] = useState<BankProductRecord[]>([]);
   const [products, setProducts] = useState<CatalogItem[]>([]);
   const [variants, setVariants] = useState<ProductVariantRecord[]>([]);
-  const [owners, setOwners] = useState<ManagerOption[]>([]);
+  const [customer, setCustomer] = useState({
+    customer_type: "individual",
+    full_name: "",
+    company_name: "",
+    contact_person: "",
+    mobile: "",
+    email: "",
+    emirates_id: "",
+    passport: "",
+    employer: "",
+    trade_license: "",
+  });
   const [form, setForm] = useState({
     customer_id: "",
     bank_id: "",
     product_id: "",
     product_variant_id: "",
-    case_owner_id: "",
     requested_amount: "",
     bank_case_number: "",
   });
@@ -40,18 +54,17 @@ export default function CreateApplicationPage() {
       apiGet<{ items: BankProductRecord[] }>("/api/v1/bank-products", api),
       apiGet<{ items: CatalogItem[] }>("/api/v1/products", api),
       apiGet<{ items: ProductVariantRecord[] }>("/api/v1/product-variants", api),
-      apiGet<{ items: ManagerOption[] }>("/api/v1/users/case-owners", api),
     ])
-      .then(([mappingData, productData, variantData, ownerData]) => {
+      .then(([mappingData, productData, variantData]) => {
         setMappings(mappingData.items.filter((item) => item.status === "active"));
         setProducts(productData.items);
         setVariants(variantData.items);
-        setOwners(ownerData.items);
       })
       .catch((err: unknown) => setError(err instanceof Error ? err.message : "Load failed"));
   }, [api]);
 
   useEffect(() => {
+    if (customerMode !== "existing") return;
     let active = true;
     const query = new URLSearchParams({ page: "1", page_size: "50", status: "Active" });
     if (customerQuery.trim()) query.set("q", customerQuery.trim());
@@ -65,7 +78,7 @@ export default function CreateApplicationPage() {
     return () => {
       active = false;
     };
-  }, [api, customerQuery]);
+  }, [api, customerMode, customerQuery]);
 
   const bankOptions = Array.from(
     new Map(
@@ -86,17 +99,34 @@ export default function CreateApplicationPage() {
       setError("Select an active Bank, Product Category, and Product Variant");
       return;
     }
+    if (!user) {
+      setError("Your authenticated user profile is unavailable");
+      return;
+    }
     try {
+      const customerPayload = {
+        customer_type: customer.customer_type,
+        full_name: customer.customer_type === "individual" ? customer.full_name : null,
+        company_name: customer.customer_type === "company" ? customer.company_name : null,
+        contact_person: customer.customer_type === "company" ? customer.contact_person : null,
+        mobile: customer.mobile,
+        email: customer.email || null,
+        emirates_id: customer.customer_type === "individual" ? customer.emirates_id || null : null,
+        passport: customer.customer_type === "individual" ? customer.passport || null : null,
+        employer: customer.customer_type === "individual" ? customer.employer || null : null,
+        trade_license: customer.customer_type === "company" ? customer.trade_license || null : null,
+        create_anyway: false,
+      };
       const created = await apiRequest<ApplicationRecord>("/api/v1/applications", api, {
         method: "POST",
         body: JSON.stringify({
-          customer_id: form.customer_id,
+          customer_id: customerMode === "existing" ? form.customer_id : undefined,
+          customer: customerMode === "new" ? customerPayload : undefined,
           bank_id: selectedMapping.bankId,
           product_id: selectedMapping.productId,
           product_variant_id: form.product_variant_id,
-          case_owner_id: form.case_owner_id,
           requested_amount: form.requested_amount ? form.requested_amount : null,
-          bank_case_number: form.bank_case_number || null,
+          bank_case_number: can("Applications.Submit") ? form.bank_case_number || null : null,
         }),
       });
       router.push(`/applications/${created.id}`);
@@ -119,31 +149,27 @@ export default function CreateApplicationPage() {
           void submit();
         }}
       >
-        <label className="block text-sm">
-          Search customers
-          <TextInput
-            aria-label="Search customers"
-            value={customerQuery}
-            placeholder="Customer code, name, company, mobile, or identifier"
-            onChange={(event) => setCustomerQuery(event.target.value)}
-          />
-        </label>
-        <label className="block text-sm">
-          Customer
-          <Select
-            required
-            aria-label="Customer"
-            value={form.customer_id}
-            onChange={(event) => setForm({ ...form, customer_id: event.target.value })}
-          >
-            <option value="">Select customer</option>
-            {customers.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.customerCode} — {item.companyName || item.fullName}
-              </option>
-            ))}
-          </Select>
-        </label>
+        <fieldset className="rounded-lg border border-brand-border p-3">
+          <legend className="px-1 text-sm font-medium">Customer</legend>
+          <div className="flex flex-wrap gap-4 text-sm">
+            <label><input className="mr-2" type="radio" name="customer-mode" checked={customerMode === "new"} onChange={() => setCustomerMode("new")} />Create and link new customer</label>
+            <label><input className="mr-2" type="radio" name="customer-mode" checked={customerMode === "existing"} onChange={() => setCustomerMode("existing")} />Link visible existing customer</label>
+          </div>
+          {customerMode === "existing" ? (
+            <div className="mt-3 grid gap-3">
+              <label className="block text-sm">Search customers<TextInput aria-label="Search customers" value={customerQuery} placeholder="Customer code, name, company, mobile, or identifier" onChange={(event) => setCustomerQuery(event.target.value)} /></label>
+              <label className="block text-sm">Customer<Select required aria-label="Customer" value={form.customer_id} onChange={(event) => setForm({ ...form, customer_id: event.target.value })}><option value="">Select customer</option>{customers.map((item) => <option key={item.id} value={item.id}>{item.customerCode} — {item.companyName || item.fullName}</option>)}</Select></label>
+            </div>
+          ) : (
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <label className="block text-sm">Customer type<Select aria-label="Customer type" value={customer.customer_type} onChange={(event) => setCustomer({ ...customer, customer_type: event.target.value })}><option value="individual">Individual</option><option value="company">Company / Business</option></Select></label>
+              {customer.customer_type === "individual" ? <label className="block text-sm">Full name<TextInput aria-label="Customer full name" required value={customer.full_name} onChange={(event) => setCustomer({ ...customer, full_name: event.target.value })} /></label> : <><label className="block text-sm">Company name<TextInput aria-label="Customer company name" required value={customer.company_name} onChange={(event) => setCustomer({ ...customer, company_name: event.target.value })} /></label><label className="block text-sm">Contact person<TextInput aria-label="Customer contact person" required value={customer.contact_person} onChange={(event) => setCustomer({ ...customer, contact_person: event.target.value })} /></label></>}
+              <label className="block text-sm">Mobile<TextInput aria-label="Customer mobile" required value={customer.mobile} onChange={(event) => setCustomer({ ...customer, mobile: event.target.value })} /></label>
+              <label className="block text-sm">Email<TextInput aria-label="Customer email" type="email" value={customer.email} onChange={(event) => setCustomer({ ...customer, email: event.target.value })} /></label>
+              {customer.customer_type === "individual" ? <><label className="block text-sm">Emirates ID<TextInput aria-label="Customer Emirates ID" value={customer.emirates_id} onChange={(event) => setCustomer({ ...customer, emirates_id: event.target.value })} /></label><label className="block text-sm">Passport<TextInput aria-label="Customer passport" value={customer.passport} onChange={(event) => setCustomer({ ...customer, passport: event.target.value })} /></label><label className="block text-sm">Employer<TextInput aria-label="Customer employer" value={customer.employer} onChange={(event) => setCustomer({ ...customer, employer: event.target.value })} /></label></> : <label className="block text-sm">Trade license<TextInput aria-label="Customer trade license" value={customer.trade_license} onChange={(event) => setCustomer({ ...customer, trade_license: event.target.value })} /></label>}
+            </div>
+          )}
+        </fieldset>
         <label className="block text-sm">
           Bank
           <Select
@@ -208,22 +234,9 @@ export default function CreateApplicationPage() {
             </span>
           ) : null}
         </label>
-        <label className="block text-sm">
-          Case Owner
-          <Select
-            required
-            aria-label="Case Owner"
-            value={form.case_owner_id}
-            onChange={(event) => setForm({ ...form, case_owner_id: event.target.value })}
-          >
-            <option value="">Select Case Owner</option>
-            {owners.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.fullName} ({item.userCode})
-              </option>
-            ))}
-          </Select>
-        </label>
+        <div className="rounded-lg border border-brand-border bg-brand-soft p-3 text-sm">
+          <span className="font-medium">Initial Case Owner:</span> {user?.fullName ?? "Current user"}. Ownership and commission attribution begin with the creator; reassignment remains a separate audited action.
+        </div>
         <label className="block text-sm">
           Requested amount{requestedRequired ? " (required)" : " (optional)"}
           <TextInput
@@ -236,14 +249,7 @@ export default function CreateApplicationPage() {
             onChange={(event) => setForm({ ...form, requested_amount: event.target.value })}
           />
         </label>
-        <label className="block text-sm">
-          Bank File / Case Number (optional)
-          <TextInput
-            aria-label="Bank File / Case Number"
-            value={form.bank_case_number}
-            onChange={(event) => setForm({ ...form, bank_case_number: event.target.value })}
-          />
-        </label>
+        {can("Applications.Submit") ? <label className="block text-sm">Bank File / Case Number (optional)<TextInput aria-label="Bank File / Case Number" value={form.bank_case_number} onChange={(event) => setForm({ ...form, bank_case_number: event.target.value })} /></label> : null}
         <Button type="submit">Create application</Button>
       </form>
     </section>

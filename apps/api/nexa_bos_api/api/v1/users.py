@@ -136,7 +136,7 @@ async def case_owners(
             message="You do not have permission to perform this action",
             details=[{"permission": APPLICATIONS_CREATE}],
         )
-    users = await list_case_owners(session, exclude_user_id=exclude_user_id)
+    users = await list_case_owners(session, actor, exclude_user_id=exclude_user_id)
     return {
         "items": [
             {

@@ -14,6 +14,7 @@ from nexa_bos_api.core.pagination import PageResult
 from nexa_bos_api.identity.access import (
     can_view_user,
     descendant_ids,
+    has_permission,
     is_owner,
     user_load_options,
     visible_user_ids,
@@ -47,9 +48,18 @@ from nexa_bos_api.identity.models import (
     new_uuid,
 )
 from nexa_bos_api.identity.org_service import clear_team_leadership_for_user
+from nexa_bos_api.identity.permissions import USERS_ASSIGN_USER_TYPE
 from nexa_bos_api.identity.schemas import RehireRequest, UserCreateRequest, UserUpdateRequest
 
 REPORTING_HIERARCHY_LOCK_KEY = 0x4E45584148494552  # ASCII: NEXAHIER
+
+
+def _can_assign_final_user_type(actor: User) -> bool:
+    return bool(
+        actor.user_type
+        and actor.user_type.code in {"OWNER", "GM"}
+        and has_permission(actor, USERS_ASSIGN_USER_TYPE)
+    )
 
 
 def utcnow() -> datetime:
@@ -501,6 +511,12 @@ async def create_user(session: AsyncSession, actor: User, payload: UserCreateReq
     )
     user_type = None
     if payload.user_type_id:
+        if not _can_assign_final_user_type(actor):
+            raise AppError(
+                status_code=403,
+                code="USER_TYPE_ASSIGN_FORBIDDEN",
+                message="Only OWNER or GM may assign a final user type",
+            )
         user_type = await session.get(UserType, payload.user_type_id)
         if user_type is None:
             raise AppError(
@@ -511,6 +527,16 @@ async def create_user(session: AsyncSession, actor: User, payload: UserCreateReq
                 status_code=403,
                 code="OWNER_ASSIGN_FORBIDDEN",
                 message="OWNER cannot be assigned through user management",
+            )
+    else:
+        user_type = (
+            await session.execute(select(UserType).where(UserType.code == "PENDING"))
+        ).scalar_one_or_none()
+        if user_type is None:
+            raise AppError(
+                status_code=500,
+                code="PENDING_USER_TYPE_MISSING",
+                message="Pending user type is not configured",
             )
     now = utcnow()
     account_status = AccountStatus.PENDING
@@ -679,8 +705,10 @@ async def list_reporting_managers(
 
 
 async def list_case_owners(
-    session: AsyncSession, *, exclude_user_id: UUID | None = None
+    session: AsyncSession, actor: User, *, exclude_user_id: UUID | None = None
 ) -> list[User]:
+    from nexa_bos_api.applications.visibility import visible_case_owner_ids
+
     stmt = (
         select(User)
         .options(*user_load_options())
@@ -693,6 +721,11 @@ async def list_case_owners(
     )
     if exclude_user_id is not None:
         stmt = stmt.where(User.id != exclude_user_id)
+    allowed = await visible_case_owner_ids(session, actor)
+    if allowed is not None:
+        if not allowed:
+            return []
+        stmt = stmt.where(User.id.in_(allowed))
     return list((await session.execute(stmt)).scalars().unique().all())
 
 
@@ -906,6 +939,12 @@ async def update_self_mobile(session: AsyncSession, user: User, mobile: str) -> 
 async def assign_user_type(
     session: AsyncSession, actor: User, target: User, user_type_id: UUID
 ) -> User:
+    if not _can_assign_final_user_type(actor):
+        raise AppError(
+            status_code=403,
+            code="USER_TYPE_ASSIGN_FORBIDDEN",
+            message="Only OWNER or GM may assign a final user type",
+        )
     if is_owner(target):
         raise AppError(
             status_code=403,

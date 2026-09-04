@@ -346,7 +346,11 @@ async def find_possible_duplicates(
 
 
 async def create_customer(
-    session: AsyncSession, actor: User, payload: CustomerCreateRequest
+    session: AsyncSession,
+    actor: User,
+    payload: CustomerCreateRequest,
+    *,
+    commit: bool = True,
 ) -> Customer:
     full_name = _blank_to_none(payload.full_name)
     company_name = _blank_to_none(payload.company_name)
@@ -435,7 +439,8 @@ async def create_customer(
         new_values=serialize_customer(customer),
         note="Created despite possible duplicate matches" if payload.create_anyway else None,
     )
-    await session.commit()
+    if commit:
+        await session.commit()
     return (await session.get(Customer, customer.id)) or customer
 
 

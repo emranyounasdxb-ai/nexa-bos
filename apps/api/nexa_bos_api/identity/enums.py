@@ -52,6 +52,7 @@ class AssignmentField(StrEnum):
 
 
 SYSTEM_USER_TYPE_CODES: tuple[str, ...] = (
+    "PENDING",
     "OWNER",
     "GM",
     "BDM",
@@ -67,6 +68,7 @@ SYSTEM_USER_TYPE_CODES: tuple[str, ...] = (
 )
 
 SYSTEM_USER_TYPE_NAMES: dict[str, str] = {
+    "PENDING": "Pending Assignment",
     "OWNER": "Owner",
     "GM": "General Manager",
     "BDM": "Business Development Manager",
@@ -82,7 +84,7 @@ SYSTEM_USER_TYPE_NAMES: dict[str, str] = {
 }
 
 DEFAULT_REPORTING_MANAGER_CODES: frozenset[str] = frozenset(
-    {"OWNER", "GM", "BDM", "SM", "OM", "TL"}
+    {"OWNER", "GM", "BDM", "SM", "COD", "TL"}
 )
 
 OWNER_FORBIDDEN_EMPLOYMENT: frozenset[EmploymentStatus] = frozenset(

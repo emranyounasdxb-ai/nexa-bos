@@ -68,6 +68,7 @@ REPORTS_EXPORT_PDF = "Reports.ExportPDF"
 REPORTS_PRINT = "Reports.Print"
 ATTENDANCE_VIEW = "Attendance.View"
 ATTENDANCE_MANAGE = "Attendance.Manage"
+ATTENDANCE_MANAGE_OFFICE = "Attendance.ManageOffice"
 ATTENDANCE_CORRECT = "Attendance.Correct"
 ATTENDANCE_REPORTS = "Attendance.Reports"
 NOTIFICATIONS_VIEW = "Notifications.View"
@@ -174,6 +175,10 @@ PERMISSION_CATALOG: tuple[tuple[str, str], ...] = (
     (
         ATTENDANCE_MANAGE,
         "Record attendance and configure schedules, holidays, leave types, and impact rules",
+    ),
+    (
+        ATTENDANCE_MANAGE_OFFICE,
+        "Record attendance only for employees within the assigned office visibility scope",
     ),
     (
         ATTENDANCE_CORRECT,

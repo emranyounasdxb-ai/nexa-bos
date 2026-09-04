@@ -163,6 +163,12 @@ async def set_user_type_status(
             code="OWNER_PROTECTED",
             message="OWNER user type cannot be deactivated",
         )
+    if user_type.code == "PENDING" and status is not UserTypeStatus.ACTIVE:
+        raise AppError(
+            status_code=403,
+            code="PENDING_USER_TYPE_PROTECTED",
+            message="PENDING user type must remain active",
+        )
     old = {"status": user_type.status}
     user_type.status = status
     user_type.updated_at = utcnow()
@@ -194,6 +200,12 @@ async def assign_permissions(
             code="PERMISSION_UNKNOWN",
             message="Permissions are system-defined and cannot be created",
             details=unknown,
+        )
+    if user_type.code == "PENDING" and permissions:
+        raise AppError(
+            status_code=403,
+            code="PENDING_USER_TYPE_PROTECTED",
+            message="PENDING must remain a zero-permission user type",
         )
     if user_type.code == "OWNER":
         raise AppError(
@@ -232,6 +244,12 @@ async def assign_scope(
     user_type: UserType,
     scope: VisibilityScope | None,
 ) -> UserType:
+    if user_type.code == "PENDING" and scope is not None:
+        raise AppError(
+            status_code=403,
+            code="PENDING_USER_TYPE_PROTECTED",
+            message="PENDING cannot be assigned a visibility scope",
+        )
     if user_type.code == "OWNER":
         raise AppError(
             status_code=403,
@@ -265,6 +283,12 @@ async def assign_customer_scope(
     user_type: UserType,
     scope: VisibilityScope | None,
 ) -> UserType:
+    if user_type.code == "PENDING" and scope is not None:
+        raise AppError(
+            status_code=403,
+            code="PENDING_USER_TYPE_PROTECTED",
+            message="PENDING cannot be assigned a customer visibility scope",
+        )
     if user_type.code == "OWNER":
         raise AppError(
             status_code=403,
@@ -298,6 +322,12 @@ async def assign_application_scope(
     user_type: UserType,
     scope: VisibilityScope | None,
 ) -> UserType:
+    if user_type.code == "PENDING" and scope is not None:
+        raise AppError(
+            status_code=403,
+            code="PENDING_USER_TYPE_PROTECTED",
+            message="PENDING cannot be assigned an application visibility scope",
+        )
     if user_type.code == "OWNER":
         raise AppError(
             status_code=403,
@@ -331,6 +361,12 @@ async def assign_reporting_scope(
     user_type: UserType,
     scope: VisibilityScope | None,
 ) -> UserType:
+    if user_type.code == "PENDING" and scope is not None:
+        raise AppError(
+            status_code=403,
+            code="PENDING_USER_TYPE_PROTECTED",
+            message="PENDING cannot be assigned a reporting visibility scope",
+        )
     if user_type.code == "OWNER":
         raise AppError(
             status_code=403,
@@ -361,6 +397,12 @@ async def assign_reporting_scope(
 async def assign_case_owner_eligibility(
     session: AsyncSession, actor: User, user_type: UserType, enabled: bool
 ) -> UserType:
+    if user_type.code == "PENDING" and enabled:
+        raise AppError(
+            status_code=403,
+            code="PENDING_USER_TYPE_PROTECTED",
+            message="PENDING cannot be eligible for Case ownership",
+        )
     old = {"canBeCaseOwner": user_type.can_be_case_owner}
     user_type.can_be_case_owner = enabled
     user_type.updated_at = utcnow()

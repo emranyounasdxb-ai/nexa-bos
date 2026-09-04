@@ -1,15 +1,32 @@
 from __future__ import annotations
 
 from datetime import date
+from typing import Annotated
 from uuid import UUID
 
-from pydantic import BaseModel, EmailStr, Field
+from email_validator import EmailNotValidError, validate_email
+from pydantic import AfterValidator, BaseModel, EmailStr, Field
 
+from nexa_bos_api.core.config import get_settings
 from nexa_bos_api.identity.enums import EmploymentStatus, VisibilityScope
 
 
+def _validate_account_email(value: str) -> str:
+    try:
+        return validate_email(
+            value,
+            check_deliverability=False,
+            test_environment=not get_settings().is_production,
+        ).normalized
+    except EmailNotValidError as exc:
+        raise ValueError("value is not a valid email address") from exc
+
+
+AccountEmail = Annotated[str, AfterValidator(_validate_account_email)]
+
+
 class LoginRequest(BaseModel):
-    email: EmailStr
+    email: AccountEmail
     password: str
 
 
@@ -50,7 +67,7 @@ class SecuritySettingsUpdate(BaseModel):
 class UserCreateRequest(BaseModel):
     full_name: str = Field(min_length=1, max_length=200)
     employee_code: str = Field(min_length=1, max_length=64)
-    email: EmailStr
+    email: AccountEmail
     mobile: str = Field(min_length=5, max_length=32)
     designation_id: UUID
     employment_status: EmploymentStatus
@@ -66,7 +83,7 @@ class UserCreateRequest(BaseModel):
 class UserUpdateRequest(BaseModel):
     full_name: str | None = Field(default=None, min_length=1, max_length=200)
     employee_code: str | None = Field(default=None, min_length=1, max_length=64)
-    email: EmailStr | None = None
+    email: AccountEmail | None = None
     mobile: str | None = Field(default=None, min_length=5, max_length=32)
     designation_id: UUID | None = None
     employment_status: EmploymentStatus | None = None
