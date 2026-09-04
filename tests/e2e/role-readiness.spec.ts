@@ -393,6 +393,171 @@ async function configureRoleMatrix(request: APIRequestContext): Promise<Prepared
   return prepared;
 }
 
+async function prepareApplicationStageFixture(
+  request: APIRequestContext,
+  roles: PreparedRole[],
+) {
+  const headers = await ensureOwner(request);
+  const ownerLogin = await expectOk(await request.post(`${apiOrigin}/api/v1/auth/login`, {
+    data: { email: "owner@example.com", password: "OwnerPass1!" },
+  }));
+  headers["X-CSRF-Token"] = ((await ownerLogin.json()) as { csrfToken: string }).csrfToken;
+  const suffix = Date.now().toString().slice(-8);
+  const offices = ((await (await request.get(`${apiOrigin}/api/v1/offices`)).json()) as {
+    items: Array<{ id: string; code: string }>;
+  }).items;
+  const dxb = offices.find((office) => office.code === "DXB")!;
+  const department = await expectOk(await request.post(`${apiOrigin}/api/v1/departments`, {
+    headers,
+    data: { office_id: dxb.id, name: `Stage Readiness ${suffix}`, code: `SR-${suffix}` },
+  }));
+  const departmentId = ((await department.json()) as { id: string }).id;
+  const team = await expectOk(await request.post(`${apiOrigin}/api/v1/teams`, {
+    headers,
+    data: {
+      office_id: dxb.id,
+      department_id: departmentId,
+      name: `Stage Readiness Team ${suffix}`,
+      code: `SRT-${suffix}`,
+    },
+  }));
+  const teamId = ((await team.json()) as { id: string }).id;
+  const byCode = new Map(roles.map((role) => [role.code, role]));
+  const findUser = async (code: "TL" | "SE") => {
+    const email = byCode.get(code)!.email;
+    const response = await expectOk(
+      await request.get(`${apiOrigin}/api/v1/users?q=${encodeURIComponent(email)}`),
+    );
+    return ((await response.json()) as { items: Array<{ id: string; email: string }> })
+      .items.find((user) => user.email === email)!;
+  };
+  const [tl, se] = await Promise.all([findUser("TL"), findUser("SE")]);
+  await expectOk(await request.patch(`${apiOrigin}/api/v1/users/${tl.id}`, {
+    headers,
+    data: { office_id: dxb.id, department_id: departmentId, team_id: teamId },
+  }));
+  await expectOk(await request.patch(`${apiOrigin}/api/v1/users/${se.id}`, {
+    headers,
+    data: {
+      office_id: dxb.id,
+      department_id: departmentId,
+      team_id: teamId,
+      reporting_manager_id: tl.id,
+    },
+  }));
+  await expectOk(await request.put(`${apiOrigin}/api/v1/teams/${teamId}/leader`, {
+    headers,
+    data: { user_id: tl.id },
+  }));
+
+  const banks = ((await (await request.get(`${apiOrigin}/api/v1/banks`)).json()) as {
+    items: Array<{ id: string; code: string }>;
+  }).items;
+  const products = ((await (await request.get(`${apiOrigin}/api/v1/products`)).json()) as {
+    items: Array<{ id: string; code: string }>;
+  }).items;
+  const bank = banks.find((item) => item.code === "DIB")!;
+  const product = products.find((item) => item.code === "PF")!;
+  const workflows = ((await (
+    await request.get(
+      `${apiOrigin}/api/v1/workflows?bank_id=${bank.id}&product_id=${product.id}`,
+    )
+  ).json()) as {
+    items: Array<{
+      id: string;
+      status: string;
+      stages: Array<{ id: string; systemKey: string | null }>;
+    }>;
+  }).items;
+  let workflow = workflows.find(
+    (item) =>
+      item.status === "active" &&
+      item.stages.some((stage) => stage.systemKey === "submitted"),
+  );
+  if (!workflow) {
+    const created = await expectOk(await request.post(`${apiOrigin}/api/v1/workflows`, {
+      headers,
+      data: { bank_id: bank.id, product_id: product.id },
+    }));
+    const createdWorkflow = (await created.json()) as {
+      id: string;
+      stages: Array<{ id: string; systemKey: string | null }>;
+    };
+    await expectOk(await request.post(
+      `${apiOrigin}/api/v1/workflows/${createdWorkflow.id}/stages`,
+      { headers, data: { name: "Submitted", code: "SUBMITTED", sort_order: 20 } },
+    ));
+    const refreshed = (await (
+      await request.get(`${apiOrigin}/api/v1/workflows/${createdWorkflow.id}`)
+    ).json()) as {
+      id: string;
+      stages: Array<{ id: string; systemKey: string | null }>;
+    };
+    const entry = refreshed.stages.find(
+      (stage) => stage.systemKey === "application_created",
+    )!;
+    const submitted = refreshed.stages.find((stage) => stage.systemKey === "submitted")!;
+    await expectOk(await request.put(
+      `${apiOrigin}/api/v1/workflows/${createdWorkflow.id}/transitions`,
+      {
+        headers,
+        data: { items: [{ from_stage_id: entry.id, to_stage_id: submitted.id }] },
+      },
+    ));
+    workflow = { ...refreshed, status: "active" };
+  }
+  const mappings = ((await (
+    await request.get(
+      `${apiOrigin}/api/v1/bank-products?bankId=${bank.id}&productId=${product.id}`,
+    )
+  ).json()) as { items: Array<{ id: string }> }).items;
+  let variants = ((await (
+    await request.get(`${apiOrigin}/api/v1/product-variants?bankProductId=${mappings[0].id}`)
+  ).json()) as { items: Array<{ id: string }> }).items;
+  if (!variants.length) {
+    const variant = await expectOk(await request.post(`${apiOrigin}/api/v1/product-variants`, {
+      headers,
+      data: {
+        bank_product_id: mappings[0].id,
+        name: `Stage Readiness Variant ${suffix}`,
+        code: `SRV${suffix}`,
+        description: "Disposable application-stage readiness fixture",
+      },
+    }));
+    variants = [(await variant.json()) as { id: string }];
+  }
+  const seLogin = await expectOk(await request.post(`${apiOrigin}/api/v1/auth/login`, {
+    data: { email: byCode.get("SE")!.email, password: byCode.get("SE")!.password },
+  }));
+  const seHeaders = {
+    "X-CSRF-Token": ((await seLogin.json()) as { csrfToken: string }).csrfToken,
+  };
+  const createdApplication = await expectOk(await request.post(
+    `${apiOrigin}/api/v1/applications`,
+    {
+      headers: seHeaders,
+      data: {
+        customer: {
+          customer_type: "individual",
+          full_name: `Stage Readiness Customer ${suffix}`,
+          mobile: `+97157${suffix}`,
+        },
+        bank_id: bank.id,
+        product_id: product.id,
+        product_variant_id: variants[0].id,
+        requested_amount: "10000",
+      },
+    },
+  ));
+  const application = (await createdApplication.json()) as {
+    id: string;
+    applicationCode: string;
+    caseOwnerId: string;
+  };
+  expect(application.caseOwnerId).toBe(se.id);
+  return { ...application, workflowId: workflow.id };
+}
+
 async function signIn(page: Page, role: PreparedRole) {
   await page.goto("/login");
   await page.getByLabel("Email").fill(role.email);
@@ -477,5 +642,50 @@ test("role actions remain bounded and responsive on desktop and mobile", async (
     )).toBeTruthy();
     await page.getByLabel("Application sidebar").getByLabel("Close navigation").click();
     await signOut(page);
+  }
+});
+
+test("COD, TL, and SE use application-bound stage metadata without Workflow access", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(420_000);
+  const roles = await configureRoleMatrix(request);
+  const fixture = await prepareApplicationStageFixture(request, roles);
+  const byCode = new Map(roles.map((role) => [role.code, role]));
+
+  for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
+    await page.setViewportSize(viewport);
+    for (const code of ["COD", "TL", "SE"] as const) {
+      await signIn(page, byCode.get(code)!);
+      const deniedResponses: Array<{ path: string; status: number }> = [];
+      const captureDenied = (response: { url(): string; status(): number }) => {
+        if (response.status() < 400 || !response.url().includes("/api/v1/")) return;
+        deniedResponses.push({
+          path: new URL(response.url()).pathname,
+          status: response.status(),
+        });
+      };
+      page.on("response", captureDenied);
+      await page.goto(`/applications/${fixture.id}?tab=actions`);
+      await expect(page.getByText(fixture.applicationCode, { exact: true })).toBeVisible();
+      await expect(page.getByText("You do not have permission to perform this action")).toHaveCount(0);
+      if (code === "COD") {
+        await expect(page.getByRole("button", { name: "Save and submit" })).toBeVisible();
+        await expect(page.getByRole("heading", { name: "Update stage" })).toBeVisible();
+      } else {
+        await expect(page.getByRole("button", { name: "Save and submit" })).toHaveCount(0);
+        await expect(page.getByRole("heading", { name: "Update stage" })).toHaveCount(0);
+      }
+      expect(await page.evaluate(
+        () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+      )).toBeTruthy();
+      expect(deniedResponses).toEqual([]);
+      page.off("response", captureDenied);
+
+      await page.goto("/workflows");
+      await expect(page.getByText("Workflow access is restricted to OWNER and GM.")).toBeVisible();
+      await signOut(page);
+    }
   }
 });

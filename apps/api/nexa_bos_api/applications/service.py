@@ -1585,10 +1585,19 @@ async def application_progress(
     return {
         "workflowId": str(workflow.id),
         "version": workflow.version,
+        "status": workflow.status,
         "currentStageId": str(application.current_stage_id),
         "activeDelay": tat["activeDelay"],
         "currentStageElapsedSeconds": tat["currentStageElapsedSeconds"],
         "stages": stages,
+        "transitions": [
+            {
+                "id": str(row.id),
+                "fromStageId": str(row.from_stage_id),
+                "toStageId": str(row.to_stage_id),
+            }
+            for row in workflow.transitions
+        ],
     }
 
 
@@ -1600,6 +1609,7 @@ def serialize_progress_stage(stage: WorkflowStage, current_id: UUID) -> dict[str
         "systemKey": stage.system_key,
         "current": stage.id == current_id,
         "sortOrder": stage.sort_order,
+        "status": stage.status,
     }
 
 

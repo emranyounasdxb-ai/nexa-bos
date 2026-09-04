@@ -42,6 +42,14 @@ import type {
 
 type DetailTab = "overview" | "workflow" | "actions" | "timeline";
 
+type ApplicationStageMetadata = {
+  workflowId: string;
+  version: number;
+  status: string;
+  stages: WorkflowStageRecord[];
+  transitions: WorkflowRecord["transitions"];
+};
+
 type Confirmation = {
   title: string;
   description: string;
@@ -181,9 +189,9 @@ export default function ApplicationDetailPage() {
         current === previousSavedCaseNumber ? savedCaseNumber : current,
       );
       savedCaseNumberRef.current = savedCaseNumber;
-      const [progressData, timelineData, workflowData, ownerData, versionData, variantData] =
+      const [progressData, timelineData, ownerData, versionData, variantData] =
         await Promise.all([
-          apiGet<{ version: number; stages: WorkflowStageRecord[] }>(
+          apiGet<ApplicationStageMetadata>(
             `/api/v1/applications/${params.id}/progress`,
             api,
           ),
@@ -191,26 +199,43 @@ export default function ApplicationDetailPage() {
             `/api/v1/applications/${params.id}/timeline`,
             api,
           ),
-          apiGet<WorkflowRecord>(`/api/v1/workflows/${data.workflowId}`, api),
           can("Applications.ReassignCaseOwner")
-            ? apiGet<{ items: ManagerOption[] }>("/api/v1/users/case-owners", api)
+            ? apiGet<{ items: ManagerOption[] }>("/api/v1/applications/case-owners", api)
             : Promise.resolve({ items: [] as ManagerOption[] }),
-          apiGet<{ items: WorkflowRecord[] }>(
-            `/api/v1/workflows?bank_id=${data.bankId}&product_id=${data.productId}`,
-            api,
-          ),
+          can("Workflows.MigrateApplication")
+            ? apiGet<{ items: WorkflowRecord[] }>(
+                `/api/v1/workflows?bank_id=${data.bankId}&product_id=${data.productId}`,
+                api,
+              )
+            : Promise.resolve({ items: [] as WorkflowRecord[] }),
           apiGet<{ items: ProductVariantRecord[] }>(
-            `/api/v1/product-variants?bankId=${data.bankId}&productId=${data.productId}`,
+            "/api/v1/applications/product-variants",
             api,
           ),
         ]);
+      const applicationWorkflow: WorkflowRecord = {
+        id: progressData.workflowId,
+        bankId: data.bankId,
+        productId: data.productId,
+        version: progressData.version,
+        status: progressData.status,
+        bank: null,
+        product: null,
+        stages: progressData.stages,
+        transitions: progressData.transitions,
+      };
       setProgress(progressData.stages);
       setVersion(progressData.version);
       setTimeline(timelineData.items);
-      setWorkflow(workflowData);
+      setWorkflow(applicationWorkflow);
       setOwners(ownerData.items);
       setVersions(versionData.items);
-      setVariants(variantData.items);
+      setVariants(
+        variantData.items.filter(
+          (variant) =>
+            variant.bankId === data.bankId && variant.productId === data.productId,
+        ),
+      );
       setVariantId(data.productVariantId ?? "");
     } catch (value) {
       setError(value instanceof Error ? value.message : "Unable to load application");
