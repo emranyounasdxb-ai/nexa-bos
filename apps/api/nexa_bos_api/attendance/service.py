@@ -1397,6 +1397,98 @@ def summarize_records(
     }
 
 
+def _worked_minutes(time_in: time | None, time_out: time | None) -> int | None:
+    if time_in is None or time_out is None:
+        return None
+    start = time_in.hour * 60 + time_in.minute
+    end = time_out.hour * 60 + time_out.minute
+    if end < start:
+        end += 24 * 60
+    return end - start
+
+
+async def personal_attendance_snapshot(
+    session: AsyncSession,
+    actor: User,
+) -> dict[str, object]:
+    """Return the authenticated user's own, read-only attendance snapshot."""
+    today = business_today()
+    month_from = today.replace(day=1)
+    month_to = (month_from.replace(day=28) + timedelta(days=4)).replace(day=1) - timedelta(days=1)
+    records = list(
+        (
+            await session.execute(
+                _scoped_record_query(
+                    {actor.id},
+                    date_from=month_from,
+                    date_to=month_to,
+                    employee_id=actor.id,
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    rules = list((await session.execute(select(AttendanceImpactRule))).scalars().all())
+    summary = summarize_records(records, rules)
+    today_record = next((row for row in records if row.attendance_date == today), None)
+    schedules = await load_schedules(session)
+    schedule = (
+        today_record.schedule
+        if today_record and today_record.schedule
+        else select_schedule(
+            schedules,
+            office_id=actor.office_id,
+            department_id=actor.department_id,
+            on_date=today,
+        )
+    )
+    holidays = await load_holiday_dates(session)
+    working_days = await load_working_weekdays(session)
+    if today_record:
+        today_status = today_record.status
+    elif today in holidays:
+        today_status = AttendanceStatus.OFFICIAL_HOLIDAY
+    elif today.weekday() not in working_days:
+        today_status = AttendanceStatus.WEEKLY_OFF
+    else:
+        today_status = "Not recorded"
+
+    return {
+        "month": month_from.isoformat(),
+        "today": {
+            "date": today.isoformat(),
+            "status": today_status,
+            "scheduledStart": _time_iso(schedule.start_time) if schedule else None,
+            "scheduledEnd": _time_iso(schedule.end_time) if schedule else None,
+            "actualCheckIn": _time_iso(today_record.time_in) if today_record else None,
+            "actualCheckOut": _time_iso(today_record.time_out) if today_record else None,
+            "workedMinutes": _worked_minutes(
+                today_record.time_in if today_record else None,
+                today_record.time_out if today_record else None,
+            ),
+            "lateMinutes": today_record.late_minutes if today_record else 0,
+            "earlyDepartureMinutes": today_record.early_exit_minutes if today_record else 0,
+            "overtimeConfigured": False,
+            "overtimeMinutes": None,
+        },
+        "summary": summary,
+        "items": [
+            {
+                "id": str(row.id),
+                "date": row.attendance_date.isoformat(),
+                "status": row.status,
+                "checkIn": _time_iso(row.time_in),
+                "checkOut": _time_iso(row.time_out),
+                "workedMinutes": _worked_minutes(row.time_in, row.time_out),
+                "lateMinutes": row.late_minutes,
+                "earlyDepartureMinutes": row.early_exit_minutes,
+            }
+            for row in sorted(records, key=lambda item: item.attendance_date, reverse=True)
+        ],
+    }
+
+
 def _scoped_record_query(
     allowed: set[UUID] | None,
     *,

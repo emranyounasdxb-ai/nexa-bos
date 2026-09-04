@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, date, datetime
 from decimal import Decimal
 from uuid import UUID
@@ -1531,7 +1532,7 @@ async def _employee_kpi_components(
     }
 
 
-async def profile_targets_kpi(
+async def _profile_targets_kpi(
     session: AsyncSession,
     actor: User,
     employee_id: UUID,
@@ -1540,8 +1541,6 @@ async def profile_targets_kpi(
     facts: list[AppFact],
     access: ReportingAccess,
 ) -> dict[str, object] | None:
-    if not has_permission(actor, TARGETS_VIEW):
-        return None
     users, teams, offices, products, banks = await _load_catalog(session)
     if not _entity_visible(
         access,
@@ -1608,6 +1607,47 @@ async def profile_targets_kpi(
         "targets": items,
         "kpi": kpi,
     }
+
+
+async def profile_targets_kpi(
+    session: AsyncSession,
+    actor: User,
+    employee_id: UUID,
+    *,
+    window: PeriodWindow,
+    facts: list[AppFact],
+    access: ReportingAccess,
+) -> dict[str, object] | None:
+    if not has_permission(actor, TARGETS_VIEW):
+        return None
+    return await _profile_targets_kpi(
+        session,
+        actor,
+        employee_id,
+        window=window,
+        facts=facts,
+        access=access,
+    )
+
+
+async def personal_targets_kpi(
+    session: AsyncSession,
+    actor: User,
+    *,
+    window: PeriodWindow,
+    facts: list[AppFact],
+    access: ReportingAccess,
+) -> dict[str, object] | None:
+    """Return only the authenticated user's own assigned targets and KPI."""
+    own_access = replace(access, scope=VisibilityScope.OWN, descendant_ids=set())
+    return await _profile_targets_kpi(
+        session,
+        actor,
+        actor.id,
+        window=window,
+        facts=facts,
+        access=own_access,
+    )
 
 
 async def dashboard_targets_summary(
