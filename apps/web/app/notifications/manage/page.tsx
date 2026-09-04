@@ -177,10 +177,11 @@ function TargetBuilder({
 }
 
 export default function NotificationManagementPage() {
-  const { can } = useAuth();
-  const manageRules = can("Notifications.ManageRules");
-  const sendUrgent = can("Notifications.SendUrgent");
-  const viewAudit = can("Notifications.ViewAudit");
+  const { can, user } = useAuth();
+  const salesExecutive = user?.userType?.code === "SE";
+  const manageRules = !salesExecutive && can("Notifications.ManageRules");
+  const sendUrgent = !salesExecutive && can("Notifications.SendUrgent");
+  const viewAudit = !salesExecutive && can("Notifications.ViewAudit");
   const api = getBrowserApiUrl();
   const [options, setOptions] = useState<Options | null>(null);
   const [rules, setRules] = useState<Rule[]>([]);

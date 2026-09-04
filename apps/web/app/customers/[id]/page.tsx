@@ -24,6 +24,7 @@ import {
 import { apiGet, apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { getBrowserApiUrl } from "@/lib/env";
+import { canManageCustomers } from "@/lib/role-access";
 import type { ApplicationRecord, CustomerRecord } from "@/lib/types";
 
 type DetailTab = "overview" | "applications" | "history" | "merge";
@@ -90,7 +91,7 @@ function formatDate(value: string): string {
 
 export default function CustomerDetailPage() {
   const params = useParams<{ id: string }>();
-  const { can } = useAuth();
+  const { can, user } = useAuth();
   const api = getBrowserApiUrl();
   const [customer, setCustomer] = useState<CustomerRecord | null>(null);
   const [applications, setApplications] = useState<ApplicationRecord[]>([]);
@@ -169,9 +170,9 @@ export default function CustomerDetailPage() {
     }
     restoreTab();
     window.addEventListener("popstate", restoreTab);
-    if (can("Customers.View")) void refresh();
+    if (canManageCustomers(user)) void refresh();
     return () => window.removeEventListener("popstate", restoreTab);
-  }, [can, refresh]);
+  }, [refresh, user]);
 
   useEffect(() => {
     if (!customer || activeTab !== "merge") return;
@@ -329,7 +330,7 @@ export default function CustomerDetailPage() {
     }
   }
 
-  if (!can("Customers.View")) {
+  if (!canManageCustomers(user)) {
     return <EmptyState>You do not have permission to view Customers.</EmptyState>;
   }
 

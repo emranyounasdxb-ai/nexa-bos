@@ -778,7 +778,7 @@ async def test_application_list_query_count_does_not_grow_per_row(client: AsyncC
 
 
 @pytest.mark.asyncio
-async def test_case_owner_reassignment_and_customer_office_visibility(
+async def test_case_owner_reassignment_visibility_without_customer_directory_access(
     client: AsyncClient,
 ) -> None:
     authed, _owner = await owner_client(client)
@@ -847,13 +847,10 @@ async def test_case_owner_reassignment_and_customer_office_visibility(
         apps = {item["id"] for item in (await other.get("/api/v1/applications")).json()["items"]}
         assert visible_app["id"] in apps
         assert hidden_app["id"] not in apps
-        customers = {item["id"] for item in (await other.get("/api/v1/customers")).json()["items"]}
-        assert visible_customer["id"] in customers
-        assert hidden_customer["id"] not in customers
+        customers = await other.get("/api/v1/customers")
+        assert customers.status_code == 403
         shown = await other.get(f"/api/v1/customers/{visible_customer['id']}/applications")
-        shown_ids = {item["id"] for item in shown.json()["items"]}
-        assert visible_app["id"] in shown_ids
-        assert hidden_app["id"] not in shown_ids
+        assert shown.status_code == 403
     reassigned = await authed.post(
         f"/api/v1/applications/{hidden_app['id']}/reassign-owner",
         json={"case_owner_id": viewer["id"], "reason": "Coverage"},
@@ -868,8 +865,8 @@ async def test_case_owner_reassignment_and_customer_office_visibility(
         await authenticate(other, viewer["email"], "UserPass1!")
         apps = {item["id"] for item in (await other.get("/api/v1/applications")).json()["items"]}
         assert hidden_app["id"] in apps
-        customers = {item["id"] for item in (await other.get("/api/v1/customers")).json()["items"]}
-        assert hidden_customer["id"] in customers
+        customers = await other.get("/api/v1/customers")
+        assert customers.status_code == 403
 
 
 @pytest.mark.asyncio

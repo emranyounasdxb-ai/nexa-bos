@@ -32,6 +32,7 @@ import {
 import { apiGet, ApiClientError } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { getBrowserApiUrl } from "@/lib/env";
+import { canManageCustomers } from "@/lib/role-access";
 import type { CustomerRecord } from "@/lib/types";
 
 const CUSTOMER_STATUSES = ["Active", "Inactive", "Merged"] as const;
@@ -59,7 +60,7 @@ function displayName(customer: CustomerRecord): string {
 }
 
 function CustomersDirectory() {
-  const { can } = useAuth();
+  const { can, user } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const api = getBrowserApiUrl();
@@ -100,7 +101,7 @@ function CustomersDirectory() {
   }, [query, searchDraft, updateUrl]);
 
   useEffect(() => {
-    if (!can("Customers.View")) return;
+    if (!canManageCustomers(user)) return;
     let active = true;
     const params = new URLSearchParams({ page: String(page), page_size: String(pageSize) });
     if (query.trim()) params.set("q", query.trim());
@@ -123,9 +124,9 @@ function CustomersDirectory() {
     return () => {
       active = false;
     };
-  }, [api, can, page, pageSize, query, requestVersion, status]);
+  }, [api, page, pageSize, query, requestVersion, status, user]);
 
-  if (!can("Customers.View")) {
+  if (!canManageCustomers(user)) {
     return <EmptyState>You do not have permission to view Customers.</EmptyState>;
   }
 

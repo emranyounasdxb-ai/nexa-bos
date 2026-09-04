@@ -3,9 +3,11 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-import { Button, ErrorText, PageHeader, TextInput, secondaryButtonClass } from "@/components/ui";
+import { Button, EmptyState, ErrorText, PageHeader, TextInput, secondaryButtonClass } from "@/components/ui";
 import { apiRequest, ApiClientError } from "@/lib/api";
+import { useAuth } from "@/lib/auth-context";
 import { getBrowserApiUrl } from "@/lib/env";
+import { canManageCustomers } from "@/lib/role-access";
 import type { CustomerRecord } from "@/lib/types";
 
 type DuplicateMatch = {
@@ -21,6 +23,7 @@ type DuplicateMatch = {
 
 export default function CreateCustomerPage() {
   const router = useRouter();
+  const { user } = useAuth();
   const [error, setError] = useState("");
   const [duplicates, setDuplicates] = useState<DuplicateMatch[]>([]);
   const [form, setForm] = useState({
@@ -68,6 +71,10 @@ export default function CreateCustomerPage() {
   }
 
   const individual = form.customer_type === "individual";
+
+  if (!canManageCustomers(user)) {
+    return <EmptyState>You do not have permission to create Customers.</EmptyState>;
+  }
 
   return (
     <section className="max-w-2xl space-y-4">

@@ -42,7 +42,7 @@ const roleDefinitions: RoleDefinition[] = [
     application: null,
     reporting: null,
     expectedLinks: ["Dashboard", "Users", "Organization", "Banks & products", "Assets"],
-    hiddenLinks: ["Applications", "Workflows", "Reports", "Finance"],
+    hiddenLinks: ["Customers", "Applications", "Workflows", "Reports", "Finance"],
   },
   {
     code: "HR",
@@ -62,7 +62,7 @@ const roleDefinitions: RoleDefinition[] = [
     application: null,
     reporting: "company",
     expectedLinks: ["Dashboard", "Users", "Attendance", "Attendance reports", "Targets"],
-    hiddenLinks: ["Applications", "Workflows", "Finance"],
+    hiddenLinks: ["Customers", "Applications", "Workflows", "Finance"],
   },
   {
     code: "PRO",
@@ -76,7 +76,7 @@ const roleDefinitions: RoleDefinition[] = [
     application: null,
     reporting: null,
     expectedLinks: ["Dashboard", "Users"],
-    hiddenLinks: ["Applications", "Organization", "Workflows", "Reports", "Finance"],
+    hiddenLinks: ["Customers", "Applications", "Organization", "Workflows", "Reports", "Finance"],
   },
   {
     code: "FIN",
@@ -96,7 +96,7 @@ const roleDefinitions: RoleDefinition[] = [
     application: null,
     reporting: "company",
     expectedLinks: ["Dashboard", "Finance"],
-    hiddenLinks: ["Users", "Applications", "Workflows", "Organization"],
+    hiddenLinks: ["Users", "Customers", "Applications", "Workflows", "Organization"],
   },
   {
     code: "AUDITOR",
@@ -120,8 +120,8 @@ const roleDefinitions: RoleDefinition[] = [
     customer: "company",
     application: "company",
     reporting: "company",
-    expectedLinks: ["Dashboard", "Users", "Customers", "Applications", "Reports", "Finance"],
-    hiddenLinks: ["Workflows", "Organization", "Banks & products", "User types"],
+    expectedLinks: ["Dashboard", "Users", "Applications", "Reports", "Finance"],
+    hiddenLinks: ["Customers", "Workflows", "Organization", "Banks & products", "User types"],
   },
   {
     code: "BDM",
@@ -147,8 +147,8 @@ const roleDefinitions: RoleDefinition[] = [
     reporting: "office",
     caseOwner: true,
     office: "DXB",
-    expectedLinks: ["Dashboard", "Customers", "Applications", "Organization", "Banks & products", "Targets", "Reports"],
-    hiddenLinks: ["Users", "Workflows", "Finance"],
+    expectedLinks: ["Dashboard", "Applications", "Organization", "Banks & products", "Targets", "Reports"],
+    hiddenLinks: ["Users", "Customers", "Workflows", "Finance"],
   },
   {
     code: "SM",
@@ -169,8 +169,8 @@ const roleDefinitions: RoleDefinition[] = [
     reporting: "office",
     caseOwner: true,
     office: "DXB",
-    expectedLinks: ["Dashboard", "Users", "Customers", "Applications", "Organization", "Banks & products", "Reports"],
-    hiddenLinks: ["Workflows", "Finance"],
+    expectedLinks: ["Dashboard", "Users", "Applications", "Organization", "Banks & products", "Reports"],
+    hiddenLinks: ["Customers", "Workflows", "Finance"],
   },
   {
     code: "COD",
@@ -197,8 +197,8 @@ const roleDefinitions: RoleDefinition[] = [
     reporting: "office",
     caseOwner: true,
     office: "DXB",
-    expectedLinks: ["Dashboard", "Customers", "Applications", "Organization", "Banks & products"],
-    hiddenLinks: ["Users", "Workflows", "Finance"],
+    expectedLinks: ["Dashboard", "Applications", "Organization", "Banks & products"],
+    hiddenLinks: ["Users", "Customers", "Workflows", "Finance"],
   },
   {
     code: "TL",
@@ -217,8 +217,8 @@ const roleDefinitions: RoleDefinition[] = [
     reporting: "team",
     caseOwner: true,
     office: "DXB",
-    expectedLinks: ["Dashboard", "Customers", "Applications", "Organization", "Banks & products"],
-    hiddenLinks: ["Users", "Workflows", "Reports", "Finance"],
+    expectedLinks: ["Dashboard", "Applications", "Organization", "Banks & products"],
+    hiddenLinks: ["Users", "Customers", "Workflows", "Reports", "Finance"],
   },
   {
     code: "SE",
@@ -237,8 +237,8 @@ const roleDefinitions: RoleDefinition[] = [
     reporting: "own",
     caseOwner: true,
     office: "DXB",
-    expectedLinks: ["Dashboard", "Customers", "Applications"],
-    hiddenLinks: ["Users", "Organization", "Banks & products", "Workflows", "Reports", "Finance"],
+    expectedLinks: ["Dashboard", "Applications"],
+    hiddenLinks: ["Users", "Customers", "Organization", "Banks & products", "Workflows", "Reports", "Finance"],
   },
   {
     code: "OM",
@@ -268,8 +268,8 @@ const roleDefinitions: RoleDefinition[] = [
     reporting: "office",
     caseOwner: true,
     office: "DXB",
-    expectedLinks: ["Dashboard", "Customers", "Applications", "Organization", "Banks & products", "Attendance", "Assets"],
-    hiddenLinks: ["Users", "Workflows", "Finance"],
+    expectedLinks: ["Dashboard", "Applications", "Organization", "Banks & products", "Attendance", "Assets"],
+    hiddenLinks: ["Users", "Customers", "Workflows", "Finance"],
   },
 ];
 
@@ -622,14 +622,14 @@ test("role actions remain bounded and responsive on desktop and mobile", async (
 
   await signIn(page, byCode.get("BDM")!);
   await page.goto("/applications");
-  await expect(page.getByRole("link", { name: "Create application" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Create application" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Workflows" })).toHaveCount(0);
   await signOut(page);
 
   await signIn(page, byCode.get("ITM")!);
   await page.goto("/applications");
   await expect(page.getByText(/permission/i).first()).toBeVisible();
-  await expect(page.getByRole("link", { name: "Create application" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Create application" })).toHaveCount(0);
   await signOut(page);
 
   await page.setViewportSize({ width: 390, height: 844 });

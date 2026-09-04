@@ -7,7 +7,9 @@ from fastapi import APIRouter, Depends
 
 from nexa_bos_api.api.v1.deps import CurrentUser, require_permission
 from nexa_bos_api.api.v1.pagination import PaginationDep
+from nexa_bos_api.core.exceptions import AppError
 from nexa_bos_api.db.session import SessionDep
+from nexa_bos_api.identity.access import has_user_type
 from nexa_bos_api.identity.permissions import (
     NOTIFICATIONS_MANAGE_RULES,
     NOTIFICATIONS_SEND_URGENT,
@@ -35,6 +37,15 @@ from nexa_bos_api.notifications.service import (
 )
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
+
+
+def _reject_sales_executive_administration(actor: CurrentUser) -> None:
+    if has_user_type(actor, "SE"):
+        raise AppError(
+            status_code=403,
+            code="FORBIDDEN",
+            message="Sales Executives cannot administer notifications",
+        )
 
 
 @router.get("")
@@ -87,6 +98,7 @@ async def notifications_options(
     session: SessionDep,
     actor: CurrentUser,
 ) -> dict[str, object]:
+    _reject_sales_executive_administration(actor)
     return await notification_options(session, actor)
 
 
@@ -95,6 +107,7 @@ async def notification_rules_list(
     session: SessionDep,
     actor: Annotated[CurrentUser, Depends(require_permission(NOTIFICATIONS_MANAGE_RULES))],
 ) -> dict[str, object]:
+    _reject_sales_executive_administration(actor)
     return await list_rules(session, actor)
 
 
@@ -104,6 +117,7 @@ async def notification_rules_create(
     session: SessionDep,
     actor: Annotated[CurrentUser, Depends(require_permission(NOTIFICATIONS_MANAGE_RULES))],
 ) -> dict[str, object]:
+    _reject_sales_executive_administration(actor)
     return await create_rule(session, actor, payload)
 
 
@@ -113,6 +127,7 @@ async def notification_rules_get(
     session: SessionDep,
     actor: Annotated[CurrentUser, Depends(require_permission(NOTIFICATIONS_MANAGE_RULES))],
 ) -> dict[str, object]:
+    _reject_sales_executive_administration(actor)
     return await get_rule(session, actor, rule_id)
 
 
@@ -123,6 +138,7 @@ async def notification_rules_update(
     session: SessionDep,
     actor: Annotated[CurrentUser, Depends(require_permission(NOTIFICATIONS_MANAGE_RULES))],
 ) -> dict[str, object]:
+    _reject_sales_executive_administration(actor)
     return await update_rule(session, actor, rule_id, payload)
 
 
@@ -132,6 +148,7 @@ async def notification_rules_activate(
     session: SessionDep,
     actor: Annotated[CurrentUser, Depends(require_permission(NOTIFICATIONS_MANAGE_RULES))],
 ) -> dict[str, object]:
+    _reject_sales_executive_administration(actor)
     return await set_rule_status(session, actor, rule_id, active=True)
 
 
@@ -141,6 +158,7 @@ async def notification_rules_deactivate(
     session: SessionDep,
     actor: Annotated[CurrentUser, Depends(require_permission(NOTIFICATIONS_MANAGE_RULES))],
 ) -> dict[str, object]:
+    _reject_sales_executive_administration(actor)
     return await set_rule_status(session, actor, rule_id, active=False)
 
 
@@ -150,6 +168,7 @@ async def notifications_urgent_send(
     session: SessionDep,
     actor: Annotated[CurrentUser, Depends(require_permission(NOTIFICATIONS_SEND_URGENT))],
 ) -> dict[str, object]:
+    _reject_sales_executive_administration(actor)
     return await send_urgent(session, actor, payload)
 
 
@@ -159,6 +178,7 @@ async def notifications_audit(
     actor: Annotated[CurrentUser, Depends(require_permission(NOTIFICATIONS_VIEW_AUDIT))],
     pagination: PaginationDep,
 ) -> dict[str, object]:
+    _reject_sales_executive_administration(actor)
     return await notification_audit(
         session, actor, page=pagination.page, page_size=pagination.page_size
     )

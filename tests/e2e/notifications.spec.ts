@@ -40,10 +40,11 @@ async function signIn(page: Page, request: APIRequestContext, email = "owner@exa
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill(email === "owner@example.com" ? "OwnerPass1!" : "UserPass1!");
   await page.getByRole("button", { name: "Sign in" }).click();
-  await page.getByRole("button", { name: "Administration menu" }).click();
-  await expect(page.getByRole("link", { name: "Notifications", exact: true })).toBeVisible({
+  await expect(page.getByRole("link", { name: /Notifications, \d+ unread/ })).toBeVisible({
     timeout: 30_000,
   });
+  await expect(page.getByRole("link", { name: "Notifications", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Notification admin" })).toHaveCount(0);
 }
 
 async function createViewOnlyUser(request: APIRequestContext) {
@@ -129,7 +130,7 @@ async function createViewOnlyUser(request: APIRequestContext) {
 test("owner manages rules and uses the in-app notification center", async ({ page, request }) => {
   test.setTimeout(120_000);
   await signIn(page, request);
-  await page.getByRole("link", { name: "Notification admin" }).click();
+  await page.goto("/notifications/manage");
   await expect(page.getByRole("heading", { name: "Notification administration" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "New notification rule" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Send urgent in-app notification" })).toBeVisible();
@@ -159,9 +160,11 @@ test("owner manages rules and uses the in-app notification center", async ({ pag
   await page.getByRole("button", { name: "Send urgent notification" }).click();
   await expect(page.getByText("Urgent in-app notification sent.")).toBeVisible();
 
-  await page.getByRole("link", { name: "Notifications", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Notification center" })).toBeVisible();
-  const notice = page.locator("div.rounded-xl").filter({ hasText: urgentTitle });
+  await page.getByRole("link", { name: /Notifications, \d+ unread/ }).click();
+  await expect(page.getByRole("heading", { name: "Notifications", exact: true })).toBeVisible();
+  const notice = page
+    .getByRole("heading", { name: urgentTitle })
+    .locator("xpath=ancestor::div[contains(@class, 'relative')][1]");
   await expect(notice).toContainText("System");
   await expect(notice).toContainText("Urgent");
   await expect(notice).toContainText("Acknowledgement required");
@@ -194,7 +197,7 @@ test("view-only user has own notification UI but no administration controls", as
   await signIn(page, request, user.email);
   await expect(page.getByRole("link", { name: "Notification admin" })).toHaveCount(0);
   await expect(page.getByLabel(/Notifications, 1 unread/)).toBeVisible();
-  await page.getByRole("link", { name: "Notifications", exact: true }).click();
+  await page.getByLabel(/Notifications, 1 unread/).click();
   await expect(page.getByText("Viewer-only delivery")).toBeVisible();
   await page.goto("/notifications/manage");
   await expect(page.getByText("You do not have permission to administer notifications.")).toBeVisible();
