@@ -599,8 +599,9 @@ test("application detail sections, confirmations, timeline filters, permissions,
   await expect(page.getByRole("heading", { name: application.applicationCode })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBeTruthy();
 
-  await page.getByLabel("Open user menu").click();
-  await page.locator("header").getByRole("button", { name: "Sign out" }).click();
+  await page.getByRole("button", { name: "Open navigation" }).click();
+  await page.getByTestId("sidebar-footer").getByLabel("Open user menu").click();
+  await page.getByRole("menu", { name: "User account" }).getByRole("menuitem", { name: "Sign out" }).click();
   await expect(page).toHaveURL(/\/login/, { timeout: 30_000 });
   await signIn(page, viewer.email, "UserPass1!");
   await page.goto(`/applications/${application.id}?tab=actions`);

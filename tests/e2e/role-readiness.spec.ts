@@ -566,20 +566,19 @@ async function signIn(page: Page, role: PreparedRole) {
   await expect(page).toHaveURL(/\/reports$/, { timeout: 30_000 });
   await expect(
     page.locator("header").getByRole("heading", {
-      name: role.code === "SE" ? "My Dashboard" : "Dashboard",
+      name: role.code === "SE" ? "My Dashboard" : role.code === "TL" ? "Team Leader Dashboard" : "Dashboard",
       exact: true,
     }),
   ).toBeVisible();
 }
 
 async function signOut(page: Page) {
-  const navigationBackdrop = page.locator('button.fixed[aria-label="Close navigation"]');
-  if (await navigationBackdrop.isVisible()) {
-    await navigationBackdrop.click();
-    await expect(navigationBackdrop).toBeHidden();
+  const navigationTrigger = page.getByRole("button", { name: "Open navigation" });
+  if (await navigationTrigger.isVisible() && await navigationTrigger.getAttribute("aria-expanded") !== "true") {
+    await navigationTrigger.click();
   }
   await page.getByLabel("Open user menu").click();
-  const signOutButton = page.locator("header").getByRole("button", { name: "Sign out" });
+  const signOutButton = page.getByRole("menu", { name: "User account" }).getByRole("menuitem", { name: "Sign out" });
   await signOutButton.waitFor({ state: "visible" });
   const logoutResponse = page.waitForResponse(
     (response) => response.url().endsWith("/api/v1/auth/logout") && response.request().method() === "POST",
@@ -756,7 +755,10 @@ test.describe("shared sidebar role regression matrix", () => {
       const trigger = page.getByRole("button", { name: "Open navigation" });
       const close = sidebar.getByRole("button", { name: "Close navigation" });
       const dashboard = navigation.locator('a[aria-label="Dashboard"]');
-      const notifications = page.getByRole("link", { name: /Notifications, \d+ unread/ });
+      const footer = sidebar.getByTestId("sidebar-footer");
+      const notifications = footer.getByRole("link", { name: /Notifications, \d+ unread/ });
+      const avatar = footer.getByRole("button", { name: "Open user menu" });
+      const accountMenu = page.getByRole("menu", { name: "User account" });
       const errors: string[] = [];
       page.on("pageerror", (error) => errors.push(error.message));
 
@@ -773,6 +775,88 @@ test.describe("shared sidebar role regression matrix", () => {
           await expect(navigation.locator(`a[aria-label="${label}"]`)).toHaveCount(0);
         }
         await expect(navigation.getByRole("link", { name: "Notifications", exact: true })).toHaveCount(0);
+        await expect(page.locator("header").getByRole("link", { name: /Notifications, \d+ unread/ })).toHaveCount(0);
+        await expect(page.locator("header").getByLabel("Open user menu")).toHaveCount(0);
+      };
+      const expectAnchoredFooter = async () => {
+        await expect(footer).toBeInViewport({ ratio: 1 });
+        await expect(notifications).toBeInViewport({ ratio: 1 });
+        await expect(avatar).toBeInViewport({ ratio: 1 });
+        await expect(notifications).toHaveAttribute("href", "/notifications");
+        await expect(avatar).toHaveAttribute("aria-haspopup", "menu");
+        const boxes = await Promise.all([navigation.boundingBox(), footer.boundingBox(), notifications.boundingBox(), avatar.boundingBox()]);
+        const [navBox, footerBox, bellBox, avatarBox] = boxes.map((box) => { expect(box).not.toBeNull(); return box!; });
+        expect(navBox.y + navBox.height).toBeLessThanOrEqual(footerBox.y + 1);
+        expect(bellBox.y + bellBox.height).toBeLessThanOrEqual(avatarBox.y + 1);
+        expect(footerBox.y + footerBox.height).toBeLessThanOrEqual(page.viewportSize()!.height + 1);
+      };
+      const expectAccountKeyboard = async () => {
+        const profile = accountMenu.getByRole("menuitem", { name: "My profile" });
+        const logout = accountMenu.getByRole("menuitem", { name: "Sign out" });
+        await avatar.focus();
+        for (let cycle = 0; cycle < 2; cycle += 1) {
+          await page.keyboard.press("Enter");
+          await expect(accountMenu).toBeVisible();
+          await expect(avatar).toHaveAttribute("aria-expanded", "true");
+          await expect(profile).toBeFocused();
+          await expect(profile).toHaveAttribute("href", "/account");
+          await expect(accountMenu).toBeInViewport({ ratio: 1 });
+          const menuBox = await accountMenu.boundingBox();
+          const avatarBox = await avatar.boundingBox();
+          expect(menuBox).not.toBeNull();
+          expect(avatarBox).not.toBeNull();
+          expect(menuBox!.y).toBeGreaterThanOrEqual(0);
+          expect(menuBox!.x).toBeGreaterThanOrEqual(0);
+          expect(menuBox!.x + menuBox!.width).toBeLessThanOrEqual(page.viewportSize()!.width);
+          expect(menuBox!.y + menuBox!.height).toBeLessThanOrEqual(avatarBox!.y + 1);
+          await page.keyboard.press("ArrowDown");
+          await expect(logout).toBeFocused();
+          await page.keyboard.press("Home");
+          await expect(profile).toBeFocused();
+          await page.keyboard.press("End");
+          await expect(logout).toBeFocused();
+          await page.keyboard.press("Escape");
+          await expect(accountMenu).toBeHidden();
+          await expect(avatar).toBeFocused();
+          await expect(avatar).toHaveAttribute("aria-expanded", "false");
+          if (await trigger.isVisible()) await expect(trigger).toHaveAttribute("aria-expanded", "true");
+        }
+        await page.keyboard.press("Enter");
+        await expect(profile).toBeFocused();
+        await page.keyboard.press("Shift+Tab");
+        await expect(accountMenu).toBeHidden();
+        await expect(avatar).toBeFocused();
+        await page.keyboard.press("Enter");
+        await expect(profile).toBeFocused();
+        await page.keyboard.press("Tab");
+        await expect(accountMenu).toBeHidden();
+        if (await trigger.isVisible()) {
+          await expect(sidebar.getByRole("link", { name: "AMAFH CORE home" })).toBeFocused();
+          await expect(trigger).toHaveAttribute("aria-expanded", "true");
+        } else {
+          expect(await page.locator("main").evaluate((element) => element.contains(document.activeElement))).toBe(true);
+        }
+        await avatar.focus();
+        await page.keyboard.press("Enter");
+        await expect(accountMenu).toBeVisible();
+        // Click unused footer padding, not a navigation or account action.
+        await footer.click({ position: { x: 2, y: 2 } });
+        await expect(accountMenu).toBeHidden();
+        await expect(avatar).toBeFocused();
+        await page.keyboard.press("Enter");
+        await expect(accountMenu).toBeVisible();
+        const outsideGroup = navigation.getByRole("button").first();
+        const wasExpanded = await outsideGroup.getAttribute("aria-expanded");
+        await outsideGroup.click();
+        await expect(accountMenu).toBeHidden();
+        await expect(outsideGroup).toBeFocused();
+        await expect(avatar).not.toBeFocused();
+        await expect(outsideGroup).toHaveAttribute("aria-expanded", wasExpanded === "true" ? "false" : "true");
+        // Restore only this disclosure so subsequent long-menu assertions still
+        // inspect the same fully expanded set of authorized links.
+        await page.keyboard.press("Enter");
+        await expect(outsideGroup).toHaveAttribute("aria-expanded", wasExpanded!);
+        await expectAnchoredFooter();
       };
       const expectClosed = async () => {
         await expect(trigger).toHaveAttribute("aria-expanded", "false");
@@ -781,14 +865,16 @@ test.describe("shared sidebar role regression matrix", () => {
         // Inert descendants remain in the DOM and can match role locators;
         // verify actual focus exclusion rather than asserting their removal.
         expect(await sidebar.evaluate((element) => {
-          for (const control of element.querySelectorAll<HTMLElement>("a, button")) {
+          for (const control of element.querySelectorAll<HTMLElement>("a, button, [tabindex]")) {
             control.focus();
             if (element.contains(document.activeElement)) return false;
           }
           return true;
         })).toBe(true);
         await page.keyboard.press("Tab");
-        await expect(notifications).toBeFocused();
+        expect(await sidebar.evaluate((element) => element.contains(document.activeElement))).toBe(false);
+        await expect(notifications).not.toBeFocused();
+        await expect(avatar).not.toBeFocused();
         await page.keyboard.press("Shift+Tab");
         await expect(trigger).toBeFocused();
         await expectNoOverflow();
@@ -837,10 +923,21 @@ test.describe("shared sidebar role regression matrix", () => {
         await expect(control).toBeInViewport({ ratio: 1 });
       }
       await expect(lastLink).toBeFocused();
+      await expectAnchoredFooter();
+      const lastLinkBox = await lastLink.boundingBox();
+      const footerBox = await footer.boundingBox();
+      expect(lastLinkBox).not.toBeNull();
+      expect(footerBox).not.toBeNull();
+      expect(lastLinkBox!.y + lastLinkBox!.height).toBeLessThanOrEqual(footerBox!.y + 1);
       if (longMenu) {
         expect(await navigation.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
         await expect(close).toBeInViewport({ ratio: 1 });
       }
+      await page.keyboard.press("Tab");
+      await expect(notifications).toBeFocused();
+      await page.keyboard.press("Tab");
+      await expect(avatar).toBeFocused();
+      await expectAccountKeyboard();
       await expectNoOverflow();
       await page.keyboard.press("Escape");
       await expectClosed();
@@ -861,11 +958,52 @@ test.describe("shared sidebar role regression matrix", () => {
         await expect(control).toBeInViewport({ ratio: 1 });
       }
       await expect(lastLink).toBeFocused();
+      await expectAnchoredFooter();
+      await page.keyboard.press("Tab");
+      await expect(notifications).toBeFocused();
+      await page.keyboard.press("Tab");
+      await expect(avatar).toBeFocused();
+      await expectAccountKeyboard();
       await dashboard.focus();
       await page.keyboard.press("Enter");
       await expect(page).toHaveURL(/\/reports$/);
       await expectNoOverflow();
+
+      // The relocated footer remains the usable entry point on mobile for every
+      // permitted role; no customer or workflow permission is added by the move.
+      await page.setViewportSize({ width: 390, height: 844 });
+      await trigger.click();
+      const notificationsResponse = page.waitForResponse((response) =>
+        new URL(response.url()).pathname === "/api/v1/notifications" && response.request().method() === "GET",
+      );
+      await notifications.click();
+      expect((await notificationsResponse).status()).toBe(200);
+      await expect(page).toHaveURL(/\/notifications$/);
+      await expect(page.getByRole("heading", { name: "Notifications", exact: true })).toBeVisible();
+      await expect(page.getByRole("button", { name: "Mark all as read", exact: true })).toBeVisible();
+      await expectClosed();
+      await trigger.click();
+      await avatar.click();
+      await accountMenu.getByRole("menuitem", { name: "My profile" }).click();
+      await expect(page).toHaveURL(/\/account$/);
+      await expect(page.locator("header").getByRole("heading", { name: "My profile", exact: true })).toBeVisible();
+      await expectClosed();
+      await expectAuthorizedLinks();
+      await page.setViewportSize({ width: 1440, height: 900 });
+      await avatar.click();
+      await expect(accountMenu).toBeVisible();
+      const profileMobile = page.getByLabel("Mobile number", { exact: true });
+      await profileMobile.click();
+      await expect(accountMenu).toBeHidden();
+      await expect(profileMobile).toBeFocused();
+      await expect(avatar).not.toBeFocused();
+      await expectNoOverflow();
+      await page.setViewportSize({ width: 390, height: 844 });
       expect(errors).toEqual([]);
+      await signOut(page);
+      await signIn(page, role);
+      await expectAuthorizedLinks();
+      await expectNoOverflow();
       await signOut(page);
     });
   }

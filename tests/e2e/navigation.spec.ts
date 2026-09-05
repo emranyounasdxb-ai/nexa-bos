@@ -47,6 +47,37 @@ async function openGroup(page: Page, label: string) {
   await expect(parent).toHaveAttribute("aria-expanded", "true");
 }
 
+async function expectCompactShell(page: Page, title: string) {
+  const content = page.getByTestId("authenticated-content");
+  const header = content.locator(":scope > header");
+  const main = content.locator(":scope > main");
+  const breadcrumb = header.getByRole("navigation", { name: "Breadcrumb" });
+  await expect(breadcrumb.getByRole("heading", { name: title, exact: true })).toHaveAttribute("aria-current", "page");
+  await expect(breadcrumb.locator('a[href="#"], a:not([href])')).toHaveCount(0);
+  await expect(header.getByRole("link", { name: /Notifications, \d+ unread/ })).toHaveCount(0);
+  await expect(header.getByLabel("Open user menu")).toHaveCount(0);
+  const [headerBox, mainBox, firstContentBox] = await Promise.all([
+    header.boundingBox(), main.boundingBox(), main.locator(":scope > *").first().boundingBox(),
+  ]);
+  expect(headerBox).not.toBeNull();
+  expect(mainBox).not.toBeNull();
+  expect(firstContentBox).not.toBeNull();
+  expect(headerBox!.height).toBeLessThanOrEqual(48);
+  expect(mainBox!.y - (headerBox!.y + headerBox!.height)).toBeGreaterThanOrEqual(-1);
+  expect(firstContentBox!.y - (headerBox!.y + headerBox!.height)).toBeLessThanOrEqual(16);
+  expect(firstContentBox!.y - (headerBox!.y + headerBox!.height)).toBeGreaterThanOrEqual(0);
+  const trigger = header.getByRole("button", { name: "Open navigation" });
+  if (page.viewportSize()!.width < 1024) {
+    const triggerBox = await trigger.boundingBox();
+    expect(triggerBox).not.toBeNull();
+    expect(Math.abs(triggerBox!.width - 32)).toBeLessThanOrEqual(1);
+    expect(Math.abs(triggerBox!.height - 32)).toBeLessThanOrEqual(1);
+  } else {
+    await expect(trigger).toBeHidden();
+  }
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
+}
+
 test("mobile sidebar Escape and close button restore focus and exclude closed controls", async ({
   page,
   request,
@@ -66,7 +97,7 @@ test("mobile sidebar Escape and close button restore focus and exclude closed co
     await expect(trigger).toBeFocused();
     // Even explicit focus attempts must not reach off-screen controls.
     const focusStayedOutside = await sidebar.evaluate((element) => {
-      for (const control of element.querySelectorAll<HTMLElement>("a, button")) {
+      for (const control of element.querySelectorAll<HTMLElement>("a, button, [tabindex]")) {
         control.focus();
         if (element.contains(document.activeElement)) return false;
       }
@@ -74,7 +105,9 @@ test("mobile sidebar Escape and close button restore focus and exclude closed co
     });
     expect(focusStayedOutside).toBe(true);
     await page.keyboard.press("Tab");
-    await expect(page.getByRole("link", { name: /Notifications, \d+ unread/ })).toBeFocused();
+    expect(await sidebar.evaluate((element) => element.contains(document.activeElement))).toBe(false);
+    await expect(sidebar.getByRole("link", { name: /Notifications, \d+ unread/ })).not.toBeFocused();
+    await expect(sidebar.getByLabel("Open user menu")).not.toBeFocused();
     expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
   };
 
@@ -161,6 +194,50 @@ test("sidebar keyboard focus remains usable across desktop and mobile breakpoint
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
 });
 
+test("compact shared header and permitted breadcrumbs align existing workspaces on desktop and mobile", async ({
+  page,
+  request,
+}, testInfo) => {
+  test.setTimeout(120_000);
+  await signIn(page, request);
+  const breadcrumb = page.getByRole("navigation", { name: "Breadcrumb" });
+  for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
+    await page.setViewportSize(viewport);
+    for (const workspace of [
+      { path: "/applications", title: "Applications" },
+      { path: "/organization", title: "Organization masters" },
+      { path: "/targets", title: "Targets" },
+      { path: "/assets", title: "Asset Register" },
+      { path: "/account", title: "My profile" },
+    ]) {
+      await page.goto(workspace.path);
+      await expectCompactShell(page, workspace.title);
+      await expect(breadcrumb.getByRole("link", { name: "Dashboard", exact: true })).toHaveAttribute("href", "/reports");
+      await expect(breadcrumb.getByRole("link", { name: workspace.title, exact: true })).toHaveCount(0);
+    }
+    for (const workspace of [
+      { path: "/organization/hierarchy", title: "Organization hierarchy", parent: "Organization", parentPath: "/organization", parentTitle: "Organization masters" },
+      { path: "/targets/kpi", title: "KPI scorecards", parent: "Targets", parentPath: "/targets", parentTitle: "Targets" },
+      { path: "/assets/categories", title: "Asset Categories", parent: "Assets", parentPath: "/assets", parentTitle: "Asset Register" },
+    ]) {
+      await page.goto(workspace.path);
+      await expectCompactShell(page, workspace.title);
+      const parent = breadcrumb.getByRole("link", { name: workspace.parent, exact: true });
+      await expect(parent).toHaveAttribute("href", workspace.parentPath);
+      await parent.focus();
+      await page.keyboard.press("Enter");
+      await expect(page).toHaveURL(url => url.pathname === workspace.parentPath);
+      if (workspace.parentPath === "/organization") await expect(page).toHaveURL(/tab=offices/);
+      await expectCompactShell(page, workspace.parentTitle);
+    }
+    await breadcrumb.getByRole("link", { name: "Dashboard", exact: true }).click();
+    await expect(page).toHaveURL(/\/reports$/);
+    await expectCompactShell(page, "Dashboard");
+    await expect(breadcrumb.getByRole("link")).toHaveCount(0);
+    await page.screenshot({ path: testInfo.outputPath(`shared-compact-shell-${viewport.width}.png`), animations: "disabled" });
+  }
+});
+
 test("owner can log in, navigate major screens, sign out, and log in again", async ({
   page,
   request,
@@ -184,7 +261,7 @@ test("owner can log in, navigate major screens, sign out, and log in again", asy
   await page.getByRole("link", { name: "Workflows" }).click();
   await expect(page.getByRole("heading", { name: "Workflow Designer" })).toBeVisible();
 
-  await page.getByRole("link", { name: "Dashboard", exact: true }).click();
+  await page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "Dashboard", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
 
   await openGroup(page, "Performance");
@@ -204,7 +281,7 @@ test("owner can log in, navigate major screens, sign out, and log in again", asy
   await expect(page.getByRole("heading", { name: "Finance", exact: true })).toBeVisible();
 
   await expect(page.getByRole("link", { name: "Notifications", exact: true })).toHaveCount(0);
-  await page.getByRole("link", { name: /Notifications, \d+ unread/ }).click();
+  await page.getByTestId("sidebar-footer").getByRole("link", { name: /Notifications, \d+ unread/ }).click();
   await expect(page.getByRole("heading", { name: "Notifications" })).toBeVisible();
 
   await openGroup(page, "Assets");
@@ -234,13 +311,13 @@ test("owner can log in, navigate major screens, sign out, and log in again", asy
   await expect(page.getByRole("button", { name: "Save" })).toBeVisible({ timeout: 15_000 });
 
   await page.getByLabel("Open user menu").click();
-  await page.getByRole("link", { name: "My profile" }).click();
+  await page.getByRole("menu", { name: "User account" }).getByRole("menuitem", { name: "My profile" }).click();
   await expect(page.getByRole("heading", { name: "My profile" })).toBeVisible();
 
   await page.getByLabel("Open user menu").click();
-  const signOut = page.locator("header").getByRole("button", { name: "Sign out" });
+  const signOut = page.getByRole("menu", { name: "User account" }).getByRole("menuitem", { name: "Sign out" });
   await signOut.waitFor({ state: "visible" });
-  await signOut.evaluate((button: HTMLButtonElement) => button.click());
+  await signOut.click();
   await expect(page).toHaveURL(/\/login/, { timeout: 20_000 });
   await expect(page.getByRole("heading", { name: "Sign in to AMAFH CORE" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Sign in", exact: true })).toBeVisible();

@@ -108,7 +108,10 @@ test("dashboard presents a compact executive summary with bounded detail", async
   expect(Math.max(...actionYPositions.map((value) => value ?? 0)) - Math.min(...actionYPositions.map((value) => value ?? 0))).toBeLessThan(2);
   expect(await page.getByTestId("dashboard-actions").evaluate((element) => element.closest('[data-testid="dashboard-filters"]') !== null)).toBeTruthy();
   await expect(page.getByLabel(/Notifications, \d+ unread/).locator("svg")).toBeVisible();
-  await expect(page.getByLabel("Open user menu").locator("svg")).toBeVisible();
+  const accountAvatar = page.getByTestId("sidebar-footer").getByRole("button", { name: "Open user menu" }).locator('span[aria-hidden="true"]');
+  await expect(accountAvatar).toBeVisible();
+  await expect(accountAvatar).toHaveCSS("width", "32px");
+  await expect(accountAvatar).toHaveCSS("height", "32px");
 
   await expect(page.getByTestId("stage-breakdown-panel")).toBeVisible();
   const stageScroll = page.getByTestId("stage-breakdown-scroll");
@@ -469,6 +472,40 @@ test("dashboard charts render contract data responsively and preserve drill-down
   await page.unrouteAll({ behavior: "wait" });
 });
 
+test("sidebar hover stays active while dashboard data loads", async ({ page, request }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const requested = deferred();
+  const release = deferred();
+  await page.route(`${apiOrigin}/api/v1/reports/dashboard**`, async route => {
+    const response = await route.fetch();
+    requested.resolve();
+    await release.promise;
+    await route.fulfill({ response });
+  });
+  try {
+    await signIn(page, request);
+    await requested.promise;
+    const sidebar = page.locator('aside[aria-label="Application sidebar"]');
+    const skeleton = page.getByTestId("dashboard-loading-skeleton");
+    await expect(skeleton).toBeVisible();
+    await expect(page.getByTestId("dashboard-kpi-grid")).toHaveCount(0);
+    await expect(sidebar).toHaveJSProperty("inert", false);
+    await sidebar.hover({ position: { x: 40, y: 300 } });
+    await expect(sidebar).toHaveCSS("width", "224px");
+    expect(await sidebar.evaluate(element => element.matches(":hover"))).toBe(true);
+    release.resolve();
+    await expect(skeleton).toHaveCount(0);
+    await expect(page.getByTestId("dashboard-kpi-grid")).toBeVisible();
+    await expect(sidebar).toHaveCSS("width", "224px");
+    await page.mouse.move(1200, 300);
+    await expect(sidebar).toHaveCSS("width", "80px");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
+  } finally {
+    release.resolve();
+    await page.unrouteAll({ behavior: "wait" });
+  }
+});
+
 test("sidebar groups are folded by default and toggle across desktop and mobile", async ({
   page,
   request,
@@ -476,7 +513,7 @@ test("sidebar groups are folded by default and toggle across desktop and mobile"
   await page.setViewportSize({ width: 1440, height: 900 });
   await signIn(page, request);
 
-  const sidebar = page.getByRole("complementary", { name: "Application sidebar" });
+  const sidebar = page.locator('aside[aria-label="Application sidebar"]');
   await page.mouse.move(1200, 300);
   await expect(sidebar).toHaveCSS("width", "80px");
   await expect(sidebar).toHaveAttribute("data-expanded", "false");
@@ -510,7 +547,8 @@ test("sidebar groups are folded by default and toggle across desktop and mobile"
   });
 
   for (let cycle = 0; cycle < 5; cycle += 1) {
-    await page.mouse.move(40, 300);
+    await sidebar.hover({ position: { x: 40, y: 300 } });
+    expect(await sidebar.evaluate(element => element.matches(":hover"))).toBe(true);
     await expect(sidebar).toHaveCSS("width", "224px");
     await expect(sidebar).toHaveAttribute("data-expanded", "true");
     expect((await dashboardIconFrame.boundingBox())?.x ?? 0).toBeCloseTo(collapsedIconX, 0);
@@ -532,6 +570,10 @@ test("sidebar groups are folded by default and toggle across desktop and mobile"
   await sidebar.getByRole("link", { name: "Dashboard", exact: true }).focus();
   await expect(sidebar).toHaveCSS("width", "224px");
   await page.getByLabel(/Notifications, \d+ unread/).focus();
+  await expect(sidebar).toHaveCSS("width", "224px");
+  // Footer focus is now inside the sidebar. Moving to the workspace must still
+  // collapse it, while a focused footer action remains fully accessible.
+  await page.getByTestId("dashboard-actions").getByRole("button", { name: "Refresh", exact: true }).focus();
   await expect(sidebar).toHaveCSS("width", "80px");
 
   for (const group of groups) {
@@ -578,6 +620,8 @@ test("sidebar groups are folded by default and toggle across desktop and mobile"
   await expect(peopleMenu).toHaveClass(/bg-brand-soft/);
   await page.mouse.move(1200, 300);
   await page.getByLabel(/Notifications, \d+ unread/).focus();
+  await expect(sidebar).toHaveCSS("width", "224px");
+  await page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link", { name: "Dashboard", exact: true }).focus();
   await expect(sidebar).toHaveCSS("width", "80px");
 
   await page.setViewportSize({ width: 1100, height: 800 });
@@ -595,6 +639,8 @@ test("sidebar groups are folded by default and toggle across desktop and mobile"
   await page.reload();
   await expect(page.getByRole("heading", { name: "Users", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Open navigation" }).click();
+  await expect(sidebar).toHaveAttribute("role", "dialog");
+  await expect(sidebar).toHaveAttribute("aria-modal", "true");
   for (const group of groups) {
     await expect(sidebar.getByRole("button", { name: `${group.label} menu` })).toHaveAttribute(
       "aria-expanded",
@@ -619,7 +665,7 @@ test("shared shell supports breadcrumbs, auto expansion, user menu, and mobile n
   await page.setViewportSize({ width: 1440, height: 900 });
   await signIn(page, request);
 
-  const sidebar = page.getByRole("complementary", { name: "Application sidebar" });
+  const sidebar = page.locator('aside[aria-label="Application sidebar"]');
   await expect(sidebar).toBeVisible();
   await expect(page.getByRole("navigation", { name: "Primary" })).toBeVisible();
   await expect(page.getByLabel(/Notifications, \d+ unread/)).toBeVisible();
@@ -643,7 +689,7 @@ test("shared shell supports breadcrumbs, auto expansion, user menu, and mobile n
     expect(box?.x).toBeCloseTo(80, 0);
     expect(box?.width).toBeCloseTo(1360, 0);
   }
-  expect(collapsedGeometry[3]?.x).toBeCloseTo(112, 0);
+  expect(collapsedGeometry[3]?.x).toBeCloseTo(104, 0);
   await expect(shellMain).toHaveCSS("max-width", "100%");
   await page.mouse.move(40, 300);
   await expect(sidebar).toHaveCSS("width", "224px");
@@ -657,7 +703,7 @@ test("shared shell supports breadcrumbs, auto expansion, user menu, and mobile n
     expect(box?.x).toBeCloseTo(224, 0);
     expect(box?.width).toBeCloseTo(1216, 0);
   }
-  expect(expandedGeometry[3]?.x).toBeCloseTo(256, 0);
+  expect(expandedGeometry[3]?.x).toBeCloseTo(248, 0);
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
@@ -667,8 +713,10 @@ test("shared shell supports breadcrumbs, auto expansion, user menu, and mobile n
   await expect(sidebar).toHaveCSS("width", "80px");
 
   await page.getByLabel("Open user menu").click();
-  await expect(page.getByRole("link", { name: "My profile" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
+  const accountMenu = page.getByRole("menu", { name: "User account" });
+  await expect(accountMenu.getByRole("menuitem", { name: "My profile" })).toBeVisible();
+  await expect(accountMenu.getByRole("menuitem", { name: "Sign out" })).toBeVisible();
+  await expect(accountMenu).toBeInViewport({ ratio: 1 });
   await page.getByLabel("Open user menu").click();
 
   const operationsMenu = page.getByRole("button", { name: "Operations menu" });
@@ -713,6 +761,8 @@ test("shared shell supports breadcrumbs, auto expansion, user menu, and mobile n
   await page.getByRole("button", { name: "Open navigation" }).click();
   await expect(page.getByRole("navigation", { name: "Primary" })).toBeVisible();
   await expect(sidebar).toHaveCSS("width", "288px");
+  await expect(sidebar).toHaveAttribute("role", "dialog");
+  await expect(sidebar).toHaveAttribute("aria-modal", "true");
   const mobilePeopleMenu = page.getByRole("button", { name: "People menu" });
   if ((await mobilePeopleMenu.getAttribute("aria-expanded")) !== "true") {
     await mobilePeopleMenu.click();
@@ -749,8 +799,8 @@ test("shared application layout stays compact, aligned, and overflow-free across
   ];
 
   for (const viewport of [
-    { width: 1440, height: 900, expectedMainPaddingTop: "24px" },
-    { width: 390, height: 844, expectedMainPaddingTop: "20px" },
+    { width: 1440, height: 900, expectedMainPaddingTop: "0px" },
+    { width: 390, height: 844, expectedMainPaddingTop: "0px" },
   ]) {
     await page.setViewportSize(viewport);
     for (const route of routes) {

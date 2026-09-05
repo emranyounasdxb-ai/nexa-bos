@@ -133,8 +133,11 @@ async function signIn(page: Page, email: string, title: string) {
   await expect(page.getByRole("heading", { name: title, exact: true })).toBeVisible({ timeout: 30_000 });
 }
 async function signOut(page: Page) {
-  await page.getByLabel("Open user menu").click();
-  await page.locator("header").getByRole("button", { name: "Sign out" }).click();
+  const sidebar = page.getByLabel("Application sidebar", { exact: true });
+  const trigger = page.getByRole("button", { name: "Open navigation", exact: true });
+  if (await trigger.isVisible() && await sidebar.evaluate(element => element.inert)) await trigger.click();
+  await sidebar.getByRole("button", { name: "Open user menu", exact: true }).click();
+  await sidebar.getByRole("menu", { name: "User account" }).getByRole("menuitem", { name: "Sign out" }).click();
   await expect(page).toHaveURL(/\/login$/);
 }
 
@@ -196,12 +199,40 @@ async function expectTabFrame(page: Page, tabKey: "review" | "team" | "analytics
     expect(box).not.toBeNull();
     expect(Math.abs(box!.height - 32)).toBeLessThanOrEqual(1);
   }
-  if (viewportWidth === 1440) expect(Math.max(...controlBoxes.map(box => box!.y)) - Math.min(...controlBoxes.map(box => box!.y))).toBeLessThanOrEqual(1);
+  for (const control of controls.slice(0, 2)) {
+    // The selected value must remain readable, not just accessible by its label.
+    expect(await control.locator(":scope > span").evaluate(element => element.scrollWidth - element.clientWidth)).toBe(0);
+  }
+  await expect(page.getByTestId("tl-dashboard").getByText("Period", { exact: true })).toHaveCount(0);
+  await expect(page.getByTestId("tl-dashboard").getByText("Scope", { exact: true })).toHaveCount(0);
+  if (viewportWidth === 1440) {
+    expect(Math.max(...controlBoxes.map(box => box!.y)) - Math.min(...controlBoxes.map(box => box!.y))).toBeLessThanOrEqual(1);
+    const tabBox = (await tabs.boundingBox())!;
+    expect(Math.abs(controlBoxes[0]!.y + 16 - (tabBox.y + tabBox.height / 2))).toBeLessThanOrEqual(1);
+    const lastTabBox = (await tabs.getByRole("tab").last().boundingBox())!;
+    expect(lastTabBox.x + lastTabBox.width).toBeLessThanOrEqual(controlBoxes[0]!.x);
+  }
   else {
     expect(Math.abs(controlBoxes[0]!.y - controlBoxes[1]!.y)).toBeLessThanOrEqual(1);
     expect(Math.abs(controlBoxes[2]!.y - controlBoxes[3]!.y)).toBeLessThanOrEqual(1);
   }
   await expectNoOverflow(page);
+}
+
+async function expectAlignedPanels(page: Page, titles: string[], viewportWidth: number) {
+  // Attendance includes its current status badge in the heading's accessible name.
+  const panels = titles.map(title => page.getByRole("heading").filter({ has: page.getByText(title, { exact: true }) }).locator(".."));
+  for (const panel of panels) await expect(panel).toHaveCount(1);
+  const boxes = await Promise.all(panels.map(panel => panel.boundingBox()));
+  if (viewportWidth === 1440) {
+    expect(Math.max(...boxes.map(box => box!.y)) - Math.min(...boxes.map(box => box!.y))).toBeLessThanOrEqual(1);
+    expect(Math.max(...boxes.map(box => box!.height)) - Math.min(...boxes.map(box => box!.height))).toBeLessThanOrEqual(1);
+  } else {
+    for (let index = 1; index < boxes.length; index++) expect(boxes[index]!.y).toBeGreaterThanOrEqual(boxes[index - 1]!.y + boxes[index - 1]!.height);
+  }
+  for (const panel of panels) {
+    expect(await panel.evaluate(element => element.scrollHeight - element.clientHeight)).toBeLessThanOrEqual(1);
+  }
 }
 
 async function expectReviewLayout(page: Page, viewportWidth: number) {
@@ -210,6 +241,10 @@ async function expectReviewLayout(page: Page, viewportWidth: number) {
   await expect(cards).toHaveCount(4);
   const cardBoxes = await Promise.all((await cards.all()).map(card => card.locator("..").boundingBox()));
   expect(Math.max(...cardBoxes.map(box => box!.width)) - Math.min(...cardBoxes.map(box => box!.width))).toBeLessThanOrEqual(1);
+  for (let index = 0; index < cardBoxes.length; index += viewportWidth === 1440 ? 4 : 2) {
+    const row = cardBoxes.slice(index, index + (viewportWidth === 1440 ? 4 : 2));
+    expect(Math.max(...row.map(box => box!.height)) - Math.min(...row.map(box => box!.height))).toBeLessThanOrEqual(1);
+  }
   for (const card of await cards.all()) await expect(card.locator("strong")).toHaveCSS("font-size", viewportWidth === 1440 ? "40px" : "36px");
   if (viewportWidth === 1440) expect(Math.max(...cardBoxes.map(box => box!.y)) - Math.min(...cardBoxes.map(box => box!.y))).toBeLessThanOrEqual(1);
   else {
@@ -402,6 +437,13 @@ test("DXB and AUH TL review: scope, tabs, charts, breadcrumbs and responsive que
       await expectTabFrame(page, "team", viewport.width);
       await expect(page.getByTestId("tl-team-performance")).toContainText(group.users.SE.fullName);
       const member = page.getByTestId(`tl-staff-row-${group.users.SE.id}`);
+      await expect(member.getByText("Historical trends for these team metrics are not provided by the current dashboard.", { exact: true })).toHaveCount(1);
+      await expect(member.getByText("Trend unavailable", { exact: true })).toHaveCount(0);
+      for (const metric of await member.locator('[data-history="unavailable"]').all()) {
+        await expect(metric).toHaveAttribute("aria-describedby", `tl-team-history-${group.users.SE.id}`);
+        await expect(metric.locator("svg")).toHaveCount(0);
+      }
+      await expect(page.getByTestId("tl-team-performance").getByText(`${report.staff.length} ${report.staff.length === 1 ? "member" : "members"}`, { exact: true })).toBeVisible();
       await expectProgress(member, group.users.SE.fullName, 20);
       await expect(member).toContainText(/Application count|Applications|Count/);
       await expect(member.getByRole("definition").filter({ hasText: /^5$/ })).toHaveCount(1);
@@ -435,8 +477,23 @@ test("DXB and AUH TL review: scope, tabs, charts, breadcrumbs and responsive que
       await page.keyboard.press("ArrowRight");
       await expect(page.getByRole("tab", { name: "Analytics", exact: true })).toHaveAttribute("aria-selected", "true");
       await expectTabFrame(page, "analytics", viewport.width);
+      await expectAlignedPanels(page, ["Applications trend", "Bank Stage tracker"], viewport.width);
+      await expectAlignedPanels(page, ["Product mix", "Bank outcomes", "Waiting time & delays"], viewport.width);
+      const trendToggle = page.getByRole("button", { name: "Applications trend", exact: true });
+      await trendToggle.focus(); await trendToggle.press("Enter");
+      await expect(trendToggle).toHaveAttribute("aria-expanded", "false");
+      await expectAlignedPanels(page, ["Applications trend", "Bank Stage tracker"], viewport.width);
+      await trendToggle.press("Enter");
+      await expect(trendToggle).toHaveAttribute("aria-expanded", "true");
       for (const title of ["Applications trend", "Internal Review tracker", "Bank Stage tracker", "Product mix", "Bank outcomes", "Waiting time & delays"]) await expect(page.getByRole("heading", { name: title, exact: true }).getByRole("button", { name: title, exact: true })).toBeVisible();
       await expect(page.getByTestId("tl-trend-chart").getByRole("img").first()).toHaveAttribute("aria-label", /Applications trend/);
+      const chartText = await page.getByTestId("tl-trend-chart").locator("svg text").evaluateAll(nodes => nodes.filter(node => ["Created", "Submitted", "Cases"].includes(node.textContent ?? "")).map(node => { const box = node.getBoundingClientRect(); return { label: node.textContent, top: box.top, bottom: box.bottom }; }));
+      const createdLegend = chartText.find(item => item.label === "Created")!;
+      const submittedLegend = chartText.find(item => item.label === "Submitted")!;
+      const casesAxis = chartText.find(item => item.label === "Cases")!;
+      expect(createdLegend).toBeDefined(); expect(submittedLegend).toBeDefined(); expect(casesAxis).toBeDefined();
+      expect(Math.abs(createdLegend.top - submittedLegend.top)).toBeLessThanOrEqual(1);
+      expect(casesAxis.top).toBeGreaterThan(createdLegend.bottom + 8);
       await expect(page.getByTestId("tl-stage-chart").getByRole("img").first()).toHaveAttribute("aria-label", /workflow context/);
       const firstStage = report.charts.stages[0] as { label: string; workflowContext: string };
       const stageHelp = page.getByTestId("tl-stage-chart").getByRole("button", { name: `About ${firstStage.label}`, exact: true });
@@ -476,6 +533,7 @@ test("DXB and AUH TL review: scope, tabs, charts, breadcrumbs and responsive que
       await expect(page.getByTestId("my-performance")).toBeVisible();
       await expect(page.getByTestId("my-attendance")).toBeVisible();
       await expectTabFrame(page, "personal", viewport.width);
+      await expectAlignedPanels(page, ["My Performance", "My Attendance"], viewport.width);
       const attendance = page.getByTestId("my-attendance");
       expect(report.personalAttendance.month).toMatch(/^\d{4}-\d{2}-01$/);
       const attendanceMonth = new Intl.DateTimeFormat("en", { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${report.personalAttendance.month}T00:00:00Z`));
@@ -483,10 +541,13 @@ test("DXB and AUH TL review: scope, tabs, charts, breadcrumbs and responsive que
       for (const label of ["Duty", "Check-in", "Check-out", "Worked"]) await expect(attendance.getByRole("term").filter({ hasText: new RegExp(`^${label}$`) })).toBeVisible();
       await expect(attendance.getByRole("button", { name: /save|edit|check in|check out/i })).toHaveCount(0);
       const personal = page.getByTestId("my-performance");
-      const unavailablePersonalHistory = personal.getByTestId("tl-sparkline-personal-applications");
-      await expect(unavailablePersonalHistory).toHaveAttribute("data-state", "unavailable");
-      await expect(unavailablePersonalHistory).toContainText("Trend unavailable");
+      const unavailablePersonalHistory = personal.getByTestId("tl-metric-personal-applications");
+      await expect(unavailablePersonalHistory).toHaveAttribute("data-history", "unavailable");
+      await expect(unavailablePersonalHistory).toHaveAccessibleDescription("Historical trends for personal targets, KPI scores and application totals are not provided by the current dashboard.");
       await expect(unavailablePersonalHistory.locator("svg")).toHaveCount(0);
+      await expect(personal.getByText("Trend unavailable", { exact: true })).toHaveCount(0);
+      await expect(attendance.getByText("Trend unavailable", { exact: true })).toHaveCount(0);
+      await expect(attendance.getByTestId("tl-metric-attendance-duty")).toHaveAttribute("data-history", "unavailable");
       if (index === 0) {
         expect(report.personalPerformance.target).toMatchObject({ assigned: "50000.00", achieved: "12500.00", remaining: "37500.00", achievementPct: 25, measurement: "amount" });
         await expectProgress(personal, "Personal Finance submitted", 25);
@@ -495,6 +556,8 @@ test("DXB and AUH TL review: scope, tabs, charts, breadcrumbs and responsive que
         for (const value of ["09:00–17:00", "09:05", "17:00", "7h 55m"]) await expect(attendance.getByRole("definition").filter({ hasText: new RegExp(`^${value}$`) })).toHaveCount(1);
         const workedHistory = attendance.getByTestId("tl-sparkline-attendance-worked");
         await expect(workedHistory).toHaveAttribute("data-state", "available");
+        await expect(attendance.getByTestId("tl-metric-attendance-worked")).toHaveAttribute("data-history", "available");
+        await expect(attendance).toContainText("Worked, late and early-departure trends use recorded days; gaps are not zero.");
         const expectedDays: Array<{ date: string; value: number | null }> = [];
         for (let date = new Date(`${report.personalAttendance.month}T00:00:00Z`); date.toISOString().slice(0, 10) <= fixture.attendanceDate; date = new Date(date.getTime() + 86400000)) {
           const day = date.toISOString().slice(0, 10);
@@ -533,6 +596,12 @@ test("DXB and AUH TL review: scope, tabs, charts, breadcrumbs and responsive que
         await expect(personal).toContainText("No target or KPI scorecard is assigned for this period.");
         await expect(personal.getByRole("progressbar")).toHaveCount(0);
         await expect(attendance).toContainText("Not recorded");
+        await expect(attendance).toContainText("No recorded daily values for Worked, Late arrival, Early departure in this period.");
+        for (const key of ["duty", "check-in", "check-out", "worked"]) {
+          const metric = attendance.getByTestId(`tl-metric-attendance-${key}`);
+          await expect(metric).toHaveAttribute("data-history", "unavailable");
+          await expect(metric.locator("dd").first()).toHaveCSS("font-size", "16px");
+        }
       }
       const monthly = attendance.locator("summary").filter({ hasText: /Monthly/ });
       await monthly.focus(); await page.keyboard.press("Enter");
@@ -689,6 +758,8 @@ test("DXB and AUH TL review: scope, tabs, charts, breadcrumbs and responsive que
     await capturePreview(page, testInfo, `tl-empty-${viewport.width}-team`);
     await page.getByRole("tab", { name: "Analytics", exact: true }).click();
     await expectTabFrame(page, "analytics", viewport.width);
+    await expectAlignedPanels(page, ["Applications trend", "Bank Stage tracker"], viewport.width);
+    await expectAlignedPanels(page, ["Product mix", "Bank outcomes", "Waiting time & delays"], viewport.width);
     for (const chart of ["tl-trend-chart", "tl-stage-chart", "tl-product-chart", "tl-outcome-chart"]) {
       await expect(page.getByTestId(chart)).toBeVisible();
       await expect(page.getByTestId(chart).locator("canvas")).toHaveCount(0);
@@ -697,6 +768,7 @@ test("DXB and AUH TL review: scope, tabs, charts, breadcrumbs and responsive que
     await capturePreview(page, testInfo, `tl-empty-${viewport.width}-analytics`);
     await page.getByRole("tab", { name: "My Performance & Attendance", exact: true }).click();
     await expectTabFrame(page, "personal", viewport.width);
+    await expectAlignedPanels(page, ["My Performance", "My Attendance"], viewport.width);
     await expect(page.getByTestId("my-performance")).toContainText("No target or KPI scorecard is assigned for this period.");
     await expect(page.getByTestId("my-performance").getByRole("progressbar")).toHaveCount(0);
     await capturePreview(page, testInfo, `tl-empty-${viewport.width}-personal`);
