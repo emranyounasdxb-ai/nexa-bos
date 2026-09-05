@@ -5,7 +5,7 @@
 .dashboard h3 { font-size: 14px; font-weight: 600; }
 .workspaceBar { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 0; }
 .context { min-width: 0; display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 16px; padding-bottom: 12px; }
-.context p { font-weight: 600; overflow-wrap: anywhere; }
+.context p { font-weight: 400; color: var(--amafh-text-secondary); overflow-wrap: anywhere; }
 .context > span { display: block; margin-top: 3px; color: var(--amafh-text-secondary); font-size: 12px; }
 .toolbarControls { display: flex; flex-shrink: 0; align-items: center; gap: 6px; }
 .toolbarControls > :nth-child(-n+2) { width: 136px; min-width: 0; }
@@ -226,7 +226,7 @@
 
 /* Approved AMAFH TL workspace theme, shared across its four URL-backed panels. */
 .reviewPreview { --review-canvas: #f3eef7; --review-ink: #382345; --review-muted: #6f6178; }
-.reviewPreview .context p { font-size: 14px; color: var(--review-ink); }
+.reviewPreview .context p { font-size: 14px; color: var(--review-muted); }
 .reviewPreview .context > span { font-size: 12px; }
 .reviewPreview .tabs { position: relative; gap: 5px; margin-bottom: 0; padding: 0 5px 0 0; border-bottom: 0; }
 .reviewPreview .tab { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; padding: 10px; font-size: 13px; border: 1px solid transparent; border-bottom: 0; border-radius: 11px 11px 0 0; background: #eae5ee; color: #62546d; }

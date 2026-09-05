@@ -123,7 +123,7 @@ async function seed(request: APIRequestContext) {
   const attendanceDate = new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString().slice(0, 10);
   await save(request, "attendance/schedules", targetHeaders, { office_id: groups[0].office.id, department_id: groups[0].departmentId, kind: "normal", start_time: "09:00", end_time: "17:00", grace_minutes: 0 });
   await save(request, "attendance/records", targetHeaders, { attendance_date: attendanceDate, entries: [{ employee_id: groups[0].users.TL.id, status: "Present", time_in: "09:05", time_out: "17:00", notes: "Disposable TL dashboard preview" }] }, "put");
-  return { groups, cases, attendanceDate };
+  return { groups, cases, attendanceDate, bank, product, variant };
 }
 async function signIn(page: Page, email: string, title: string) {
   await page.goto("/login");
@@ -164,7 +164,7 @@ async function expectTabFrame(page: Page, tabKey: "review" | "team" | "analytics
   await expect(selected).toHaveAttribute("aria-controls", `tl-panel-${tabKey}`);
   await expect(workspace).toHaveAttribute("id", `tl-panel-${tabKey}`);
   await expect(workspace).toHaveAttribute("aria-labelledby", `tl-tab-${tabKey}`);
-  await expect(page.getByRole("heading", { name: "Team Leader Dashboard", exact: true })).toHaveCount(1);
+  await expect(page.getByRole("heading", { name: /^Welcome back, /, level: 1 })).toHaveCount(1);
   for (const tab of await tabs.getByRole("tab").all()) {
     expect((await tab.boundingBox())!.height).toBeGreaterThanOrEqual(40);
     await expect(tab.locator('svg[aria-hidden="true"]')).toHaveCount(1);
@@ -361,9 +361,9 @@ test("DXB and AUH TL review: scope, tabs, charts, breadcrumbs and responsive que
     for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
       const app = viewport.width === 1440 ? fixture.cases[index].desktop : fixture.cases[index].mobile;
       await page.setViewportSize(viewport);
-      await signIn(page, group.users.TL.email, "Team Leader Dashboard");
-      await expect(page.getByText(`${group.office.name} · ${group.team.name}`, { exact: true })).toBeVisible();
-      await expect(page.getByRole("heading", { name: "Team Leader Dashboard", exact: true })).toHaveCount(1);
+      await signIn(page, group.users.TL.email, `Welcome back, ${group.users.TL.fullName}`);
+      await expect(page.getByTestId("tl-team-context")).toHaveText(group.team.name);
+      await expect(page.getByRole("heading", { name: `Welcome back, ${group.users.TL.fullName}`, exact: true })).toHaveCount(1);
       await expect(page.getByRole("tab", { name: "Review", exact: true })).toHaveAttribute("aria-selected", "true");
       await expect(page.getByTestId("tl-dashboard")).not.toContainText(fixture.groups[1-index].users.SE.fullName);
       await expect(page.getByTestId("tl-dashboard")).not.toContainText(other.applicationCode);
@@ -712,7 +712,7 @@ test("DXB and AUH TL review: scope, tabs, charts, breadcrumbs and responsive que
       await page.getByRole("dialog").getByRole("button", { name: "Confirm", exact: true }).click();
       await expect(page.getByTestId("internal-review")).toContainText("Resubmitted to TL");
       await signOut(page);
-      await signIn(page, group.users.TL.email, "Team Leader Dashboard");
+      await signIn(page, group.users.TL.email, `Welcome back, ${group.users.TL.fullName}`);
       await page.getByRole("button", { name: "Resubmitted queue", exact: true }).click();
       await expect(page.getByText(app.applicationCode).first()).toBeVisible();
       await page.goto(`/applications/${app.id}`);
@@ -729,6 +729,7 @@ test("DXB and AUH TL review: scope, tabs, charts, breadcrumbs and responsive que
         await page.route("**/api/v1/reports/tl-dashboard?**", route => route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: { message: "Isolated dashboard unavailable" } }) }));
         await page.goto("/reports");
         await expect(page.getByText("Isolated dashboard unavailable", { exact: true })).toBeVisible();
+        await expect(page.getByTestId("tl-last-update")).toHaveText("Last update: —");
         await expect(page.getByTestId("tl-cards")).toHaveCount(0);
         await page.unroute("**/api/v1/reports/tl-dashboard?**");
         await page.getByRole("button", { name: "Refresh", exact: true }).click();
@@ -739,7 +740,7 @@ test("DXB and AUH TL review: scope, tabs, charts, breadcrumbs and responsive que
   }
   for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
     await page.setViewportSize(viewport);
-    await signIn(page, fixture.groups[0].users.EMPTY.email, "Team Leader Dashboard");
+    await signIn(page, fixture.groups[0].users.EMPTY.email, `Welcome back, ${fixture.groups[0].users.EMPTY.fullName}`);
     const queue = page.getByTestId("tl-review-queue");
     await expect(queue).toContainText("No Applications in this queue.");
     expect((await queue.boundingBox())!.height).toBeLessThan(200);
@@ -775,4 +776,104 @@ test("DXB and AUH TL review: scope, tabs, charts, breadcrumbs and responsive que
     await signOut(page);
   }
   expect(errors).toEqual([]);
+});
+
+test("TL welcome header and real database refresh preserve selections and last successful time", async ({ page, request }, testInfo) => {
+  test.setTimeout(180_000);
+  const fixture = await seed(request);
+  const group = fixture.groups[0];
+  await signIn(page, group.users.TL.email, `Welcome back, ${group.users.TL.fullName}`);
+  const endpoint = "**/api/v1/reports/tl-dashboard?**";
+  for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
+    await page.setViewportSize(viewport);
+    await page.goto("/reports?tab=analytics&period=ytd&view=team&queue=pending_review&page=1");
+    await expect(page.getByTestId("tl-dashboard")).toHaveAttribute("aria-busy", "false");
+    const heading = page.getByRole("heading", { level: 1, name: `Welcome back, ${group.users.TL.fullName}`, exact: true });
+    await expect(heading).toBeVisible();
+    await expect(heading).toHaveCSS("font-weight", "700");
+    await expect(page.getByTestId("tl-team-context")).toHaveText(group.team.name);
+    await expect(page.getByTestId("tl-team-context")).toHaveCSS("font-weight", "400");
+    expect(await page.getByTestId("tl-team-context").evaluate(e => getComputedStyle(e).color)).not.toBe(await heading.evaluate(e => getComputedStyle(e).color));
+    await expect(page.getByText("Team Leader Dashboard", { exact: true })).toHaveCount(0);
+    await expect(page.getByTestId("tl-last-update")).not.toContainText("My Team");
+    const url = page.url();
+    const lastUpdate = page.getByTestId("tl-last-update").locator("time");
+    const previousTime = await lastUpdate.getAttribute("datetime");
+    const baselineResponse = await page.request.get(`${api}/api/v1/reports/tl-dashboard?period=ytd&view=team&queue=pending_review&page=1`);
+    expect(baselineResponse.status()).toBe(200);
+    const baseline = await baselineResponse.json();
+
+    // Supported SE creation changes only this disposable database; never canonical data.
+    const seHeaders = await login(request, group.users.SE.email);
+    const created = await save(request, "applications", seHeaders, {
+      customer: { customer_type: "individual", full_name: `Disposable refresh ${viewport.width} ${Date.now()}`, mobile: "+971500000012" },
+      bank_id: fixture.bank.id, product_id: fixture.product.id, product_variant_id: fixture.variant.id, requested_amount: "13000",
+    });
+    expect(created.caseOwnerId).toBe(group.users.SE.id);
+    let release!: () => void;
+    let fetched!: () => void;
+    const held = new Promise<void>(resolve => { release = resolve; });
+    const fetchedResponse = new Promise<void>(resolve => { fetched = resolve; });
+    let fresh = baseline;
+    let requests = 0;
+    await page.route(endpoint, async route => {
+      requests++;
+      expect(route.request().method()).toBe("GET");
+      const response = await route.fetch();
+      expect(response.status()).toBe(200);
+      fresh = await response.json();
+      fetched();
+      await held;
+      await route.fulfill({ response }); // Unchanged, authenticated response from the real test database.
+    });
+    try {
+      await page.getByRole("button", { name: "Refresh", exact: true }).click();
+      await fetchedResponse;
+      await expect(page.getByRole("button", { name: "Refresh", exact: true })).toBeDisabled();
+      await expect(lastUpdate).toHaveAttribute("datetime", previousTime!);
+      await expect(page).toHaveURL(url);
+    } finally { release(); }
+    await expect(page.getByTestId("tl-dashboard")).toHaveAttribute("aria-busy", "false");
+    await expect(lastUpdate).toHaveAttribute("datetime", fresh.updatedAt);
+    expect(Date.parse(fresh.updatedAt)).toBeGreaterThan(Date.parse(previousTime!));
+    expect(requests).toBe(1);
+    expect(fresh.charts.trend.at(-1).created).toBe(baseline.charts.trend.at(-1).created + 1);
+    const pending = (report: { cards: Array<{ key: string; count: number }> }) => report.cards.find(card => card.key === "pending_review")!.count;
+    expect(pending(fresh)).toBe(pending(baseline) + 1);
+    const trendSummary = page.getByTestId("tl-trend-chart").getByRole("img", { name: /^Applications trend\./ });
+    await expect(trendSummary).toHaveCount(1);
+    await expect(trendSummary).toHaveAttribute("aria-label", new RegExp(`${fresh.charts.trend.at(-1).created} created`));
+    await expect(page).toHaveURL(url);
+    await expect(page.getByRole("tab", { name: "Analytics", exact: true })).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByLabel("Period", { exact: true })).toContainText("YTD");
+    await expect(page.getByLabel("Scope", { exact: true })).toContainText("Team Cases");
+    await page.unroute(endpoint);
+
+    const successfulTime = fresh.updatedAt;
+    await page.route(endpoint, route => route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: { message: "Disposable refresh unavailable" } }) }));
+    await page.getByRole("button", { name: "Refresh", exact: true }).click();
+    await expect(page.getByText("Disposable refresh unavailable", { exact: true })).toBeVisible();
+    await expect(lastUpdate).toHaveAttribute("datetime", successfulTime);
+    await expect(page.getByRole("tabpanel")).toHaveCount(0);
+    await expect(page).toHaveURL(url);
+    await page.unroute(endpoint);
+    const recovery = page.waitForResponse(response => response.url().includes("/api/v1/reports/tl-dashboard?") && response.request().method() === "GET");
+    await page.getByRole("button", { name: "Refresh", exact: true }).click();
+    const recovered = await recovery;
+    expect(recovered.status()).toBe(200);
+    const recoveredData = await recovered.json();
+    await expect(lastUpdate).toHaveAttribute("datetime", recoveredData.updatedAt);
+    await expect(page.getByText("Disposable refresh unavailable", { exact: true })).toHaveCount(0);
+    await expect(page).toHaveURL(url);
+    await capturePreview(page, testInfo, `tl-welcome-${viewport.width}-analytics`);
+    await page.getByRole("tab", { name: "Review", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Pending Review queue", exact: true }).locator("strong")).toHaveText(String(pending(recoveredData)));
+    await expect(page.getByTestId("tl-review-queue")).toContainText(created.applicationCode);
+    await capturePreview(page, testInfo, `tl-welcome-${viewport.width}-review`);
+    await page.reload();
+    await expect(page.getByRole("tab", { name: "Review", exact: true })).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByLabel("Period", { exact: true })).toContainText("YTD");
+    await expect(page.getByLabel("Scope", { exact: true })).toContainText("Team Cases");
+  }
+  await signOut(page);
 });
