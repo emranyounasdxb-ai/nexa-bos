@@ -21,10 +21,14 @@ export function DonutChart({
   rows,
   accessibleDescription,
   testId = "donut-chart",
+  emptyMessage = "No active delays are currently in scope.",
+  centerLabel = "Active",
 }: {
   rows: DonutDatum[];
   accessibleDescription: string;
   testId?: string;
+  emptyMessage?: string;
+  centerLabel?: string;
 }) {
   const total = rows.reduce((sum, row) => sum + row.value, 0);
   const option = useMemo<BosChartOption>(
@@ -72,14 +76,14 @@ export function DonutChart({
         option={option}
         accessibleDescription={accessibleDescription}
         empty={total === 0}
-        emptyMessage="No active delays are currently in scope."
+        emptyMessage={emptyMessage}
         testId={total === 0 ? `${testId}-empty` : testId}
         height={196}
       />
       {total > 0 ? (
         <div aria-hidden="true" className="pointer-events-none absolute left-1/2 top-[42%] -translate-x-1/2 -translate-y-1/2 text-center">
           <strong className="block text-2xl font-semibold tabular-nums text-slate-950">{formatCount(total)}</strong>
-          <span className="text-[11px] font-medium uppercase tracking-wide text-slate-500">Active</span>
+          <span className="text-[11px] font-medium uppercase tracking-wide text-slate-500">{centerLabel}</span>
         </div>
       ) : null}
       {total > 0 ? (

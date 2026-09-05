@@ -1,127 +1,108 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Badge, Button, Card, ErrorText, Field, PageHeader, Select, primaryButtonClass } from "@/components/ui";
+
+import { BosChart, type BosChartOption } from "@/components/charts/bos-chart";
+import { DonutChart } from "@/components/charts/donut-chart";
+import { RankedBarChart } from "@/components/charts/ranked-bar-chart";
+import { chartAnimation, chartAxisText, chartBarRadius, chartFontFamily, chartPalette, chartSplitLine, chartTooltip } from "@/components/charts/chart-theme";
+import { IconChevronDown } from "@/components/icons";
+import { Badge, Button, Card, ErrorText, Field, Select, cx, focusRing, primaryButtonClass } from "@/components/ui";
 import { apiGet } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { getBrowserApiUrl } from "@/lib/env";
 import { formatDuration } from "@/lib/duration";
-import { formatAed, formatPct, type PersonalPerformance, type PersonalAttendance } from "@/lib/reports";
+import { formatAed, formatPct, type PersonalAttendance, type PersonalPerformance } from "@/lib/reports";
 import { PersonalPerformanceAttendance } from "./personal-dashboard";
 
-type Case = {
-  id: string; fileNumber: string; customer: string; caseOwner: string; bank: string; product: string;
-  requestedAmount: string | null; routingLabel: string; bankStage: string; bankNumber: string | null;
-  tatSeconds: number; delayed: boolean; updatedAt: string; reason: string | null; canReview: boolean;
-};
+type Case = { id: string; fileNumber: string; customer: string; caseOwner: string; bank: string; product: string; requestedAmount: string | null; routingLabel: string; bankStage: string; bankNumber: string | null; tatSeconds: number; delayed: boolean; updatedAt: string; reason: string | null; canReview: boolean };
 type Bar = { name: string; count: number };
-type Payload = {
-  office: string; team: string; updatedAt: string; period: string; view: string; queue: string; queueLabel: string;
-  cards: Array<{ key: string; label: string; count: number }>;
-  items: Case[]; total: number; page: number; pageSize: number; attention: Case[]; returned: Case[];
-  charts: Record<"trend" | "ownership" | "review" | "stages" | "products" | "outcomes" | "tat", Bar[]>;
-  staff: Array<{ id: string; name: string; applications: number; cc: number; pf: number; submitted: number;
-    approved: number; funded: number; conversion: number | null; pendingReview: number;
-    target: { assigned: string | null; achieved: string | null; remaining: string | null; achievementPct: number | null; measurement: string | null } }>;
-  activity: Array<{ id: string; fileNumber: string; applicationId: string; event: string; at: string; reason: string | null }>;
-  personalPerformance: PersonalPerformance; personalAttendance: PersonalAttendance;
-};
+type StageBar = Bar & { stageId: string; label: string; workflowContext: string };
+type Trend = { name: string; created: number; submitted: number };
+type Staff = { id: string; name: string; applications: number; cc: number; pf: number; submitted: number; approved: number; funded: number; conversion: number | null; pendingReview: number; target: { assigned: string | null; achieved: string | null; remaining: string | null; achievementPct: number | null; measurement: string | null } };
+type Payload = { office: string; team: string; updatedAt: string; period: string; view: string; queue: string; queueLabel: string; cards: Array<{ key: string; label: string; count: number }>; items: Case[]; total: number; page: number; pageSize: number; attention: Case[]; returned: Case[]; charts: { trend: Trend[]; ownership: Bar[]; review: Bar[]; stages: StageBar[]; products: Bar[]; outcomes: Bar[]; tat: Bar[] }; staff: Staff[]; activity: Array<{ id: string; fileNumber: string; applicationId: string; event: string; at: string; reason: string | null }>; personalPerformance: PersonalPerformance; personalAttendance: PersonalAttendance };
 
-function Chart({ title, rows, description }: { title: string; rows: Bar[]; description?: string }) {
-  const maximum = Math.max(1, ...rows.map(row => row.count));
-  return <Card className="min-w-0 p-4"><h2 className="font-semibold text-text-primary">{title}</h2>
-    {description && <p className="mt-1 text-xs text-text-secondary">{description}</p>}
-    {!rows.length || rows.every(row => row.count === 0) ? <p className="mt-3 text-sm text-text-secondary">No activity for this scope.</p> : null}
-    <ul aria-label={title} className="mt-3 space-y-2">{rows.map((row, index) => <li key={`${row.name}-${index}`}>
-      <div className="flex min-w-0 justify-between gap-2 text-xs"><span className="break-words">{row.name}</span><span className="font-semibold tabular-nums">{row.count}</span></div>
-      <div className="mt-1 h-2 rounded-full bg-surface-subtle" aria-hidden="true"><div className="h-full rounded-full bg-brand-primary" style={{ width: `${row.count / maximum * 100}%` }} /></div>
-    </li>)}</ul></Card>;
+const TABS = [{ key: "review", label: "Review" }, { key: "team", label: "Team Performance" }, { key: "analytics", label: "Analytics" }, { key: "personal", label: "My Performance & Attendance" }] as const;
+type TabKey = (typeof TABS)[number]["key"];
+
+function Disclosure({ title, description, children, defaultOpen = true, testId }: { title: string; description?: string; children: ReactNode; defaultOpen?: boolean; testId?: string }) {
+  const [open, setOpen] = useState(defaultOpen);
+  const id = `tl-${title.toLowerCase().replaceAll(/[^a-z0-9]+/g, "-")}`;
+  return <div className="min-w-0" data-testid={testId}><Card className="min-w-0 overflow-hidden p-0">
+    <button type="button" aria-expanded={open} aria-controls={id} onClick={() => setOpen(value => !value)} className={cx(focusRing, "flex w-full min-w-0 items-start justify-between gap-3 px-4 py-3 text-left hover:bg-surface-subtle")}><span className="min-w-0"><span className="block font-semibold text-text-primary">{title}</span>{description ? <span className="mt-0.5 block text-xs font-normal text-text-secondary">{description}</span> : null}</span><IconChevronDown aria-hidden="true" className={cx("mt-0.5 size-4 shrink-0 transition-transform", open && "rotate-180")} /></button>
+    {open ? <div id={id} className="border-t border-brand-border p-4">{children}</div> : null}
+  </Card></div>;
 }
 
 function Cases({ rows }: { rows: Case[] }) {
-  return rows.length ? <ul className="grid min-w-0 gap-3 lg:grid-cols-2">{rows.map(item => <li key={item.id} className="min-w-0 rounded-lg border border-brand-border p-3">
-    <div className="flex flex-wrap justify-between gap-2"><Link className="break-all font-semibold text-brand-link hover:underline" href={`/applications/${item.id}`}>{item.fileNumber}</Link><Badge>{item.routingLabel}</Badge></div>
-    <dl className="mt-2 grid min-w-0 grid-cols-2 gap-x-3 gap-y-2 text-xs">{[
-      ["Customer", item.customer], ["Case owner", item.caseOwner], ["Bank / Product", `${item.bank} · ${item.product}`],
-      ["Requested amount", formatAed(item.requestedAmount)], ["Bank stage", item.bankStage], ["Bank number", item.bankNumber ?? "Not assigned"],
-      ["TAT", `${formatDuration(item.tatSeconds)}${item.delayed ? " · Delayed" : ""}`], ["Updated", new Date(item.updatedAt).toLocaleString()],
-    ].map(([label, value]) => <div className="min-w-0" key={label}><dt className="text-text-secondary">{label}</dt><dd className="break-words font-medium text-text-primary">{value}</dd></div>)}</dl>
-    {item.reason && <p className="mt-2 break-words text-sm text-text-secondary">Return reason: {item.reason}</p>}
-    <Link href={`/applications/${item.id}`} className="mt-3 inline-flex text-sm font-semibold text-brand-link hover:underline">{item.canReview ? "Review Application" : "Open Application"}</Link>
-  </li>)}</ul> : <p className="py-4 text-sm text-text-secondary">No Applications in this queue.</p>;
+  if (!rows.length) return <p className="py-2 text-sm text-text-secondary">No Applications in this queue.</p>;
+  return <ul className="grid min-w-0 gap-3 lg:grid-cols-2">{rows.map(item => <li key={item.id} className="min-w-0 rounded-lg border border-brand-border p-3">
+    <div className="flex flex-wrap items-start justify-between gap-2"><Link className="break-all font-semibold text-brand-link hover:underline" href={`/applications/${item.id}`}>{item.fileNumber}</Link><Badge>{item.routingLabel}</Badge></div>
+    <dl className="mt-2 grid min-w-0 grid-cols-2 gap-x-3 gap-y-2 text-xs">{[["Customer", item.customer], ["SE / Case owner", item.caseOwner], ["Bank / Product", `${item.bank} · ${item.product}`], ["Requested amount", formatAed(item.requestedAmount)], ["Bank stage", item.bankStage], ["Bank number", item.bankNumber ?? "Not assigned"], ["Waiting time", `${formatDuration(item.tatSeconds)}${item.delayed ? " · Delayed" : ""}`], ["Updated", new Date(item.updatedAt).toLocaleString()]].map(([label, value]) => <div className="min-w-0" key={label}><dt className="text-text-secondary">{label}</dt><dd className="break-words font-medium text-text-primary">{value}</dd></div>)}</dl>
+    {item.reason ? <p className="mt-2 break-words text-sm text-text-secondary">Return reason: {item.reason}</p> : null}
+    <div className="mt-3 flex flex-wrap gap-3">{item.canReview ? <><Link href={`/applications/${item.id}?tab=actions#internal-review`} className="text-sm font-semibold text-brand-link hover:underline">Forward to COD</Link><Link href={`/applications/${item.id}?tab=actions#internal-review`} className="text-sm font-semibold text-brand-link hover:underline">Return to SE</Link></> : <Link href={`/applications/${item.id}`} className="text-sm font-semibold text-brand-link hover:underline">Open Application</Link>}</div>
+  </li>)}</ul>;
+}
+
+function TrendChart({ rows }: { rows: Trend[] }) {
+  const empty = rows.every(row => row.created === 0 && row.submitted === 0);
+  const option = useMemo<BosChartOption>(() => ({ ...chartAnimation, color: [chartPalette.blue, chartPalette.emerald], textStyle: { fontFamily: chartFontFamily }, grid: { left: 8, right: 8, top: 34, bottom: 8, containLabel: true }, tooltip: { ...chartTooltip, trigger: "axis", renderMode: "richText" }, legend: { top: 0, data: ["Created", "Submitted"], textStyle: chartAxisText }, xAxis: { type: "category", data: rows.map(row => row.name), axisLabel: { ...chartAxisText, rotate: rows.length > 4 ? 25 : 0 }, axisTick: { show: false }, axisLine: { lineStyle: { color: chartPalette.slate300 } } }, yAxis: { type: "value", min: 0, minInterval: 1, axisLabel: chartAxisText, splitLine: chartSplitLine }, series: [{ name: "Created", type: "bar", data: rows.map(row => row.created), barMaxWidth: 28, itemStyle: { borderRadius: [chartBarRadius, chartBarRadius, 0, 0] } }, { name: "Submitted", type: "line", data: rows.map(row => row.submitted), smooth: true, symbolSize: 7, lineStyle: { width: 3 } }] }), [rows]);
+  const summary = rows.map(row => `${row.name}: ${row.created} created and ${row.submitted} submitted`).join("; ");
+  return <><BosChart option={option} height={220} empty={empty} emptyMessage="No created or submitted Applications in this six-month range." accessibleDescription={`Applications trend. ${summary}`} testId="tl-trend-chart" /><ul className="sr-only">{rows.map(row => <li key={row.name}>{row.name}: {row.created} created, {row.submitted} submitted</li>)}</ul><Link href="/applications" className="mt-2 inline-flex text-xs font-semibold text-brand-link hover:underline">Open authorized Application list</Link></>;
+}
+
+function Bars({ rows, label, testId }: { rows: Bar[]; label: string; testId: string }) {
+  return <><RankedBarChart rows={rows.filter(row => row.count > 0).map((row, index) => ({ id: `${row.name}-${index}`, label: row.name, value: row.count }))} accessibleDescription={`${label}. ${rows.map(row => `${row.name}: ${row.count}`).join("; ")}`} testId={testId} /><Link href="/applications" className="mt-2 inline-flex text-xs font-semibold text-brand-link hover:underline">Open authorized Application list</Link></>;
+}
+
+function Donut({ rows, label, testId }: { rows: Bar[]; label: string; testId: string }) {
+  return <><DonutChart rows={rows.filter(row => row.count > 0).map(row => ({ name: row.name, value: row.count }))} accessibleDescription={`${label}. ${rows.map(row => `${row.name}: ${row.count}`).join("; ")}`} emptyMessage={`No ${label.toLowerCase()} data is currently in scope.`} centerLabel="Cases" testId={testId} /><Link href="/applications" className="mt-2 inline-flex text-xs font-semibold text-brand-link hover:underline">Open authorized Application list</Link></>;
+}
+
+function targetValue(value: string | null, measurement: string | null) {
+  if (value === null) return "Not assigned";
+  return measurement === "amount" ? formatAed(value) : Number(value).toLocaleString("en-US", { maximumFractionDigits: 2 });
+}
+function targetBasis(measurement: string | null) {
+  if (measurement === "amount") return "AED value at the assigned Application milestone";
+  if (measurement === "count") return "Application count at the assigned milestone";
+  return "No single comparable target basis";
+}
+
+function TeamPerformance({ staff }: { staff: Staff[] }) {
+  const progressRows = staff.filter(row => row.target.achievementPct !== null).map(row => ({ id: row.id, label: row.name, value: row.target.achievementPct! }));
+  return <div className="space-y-4"><div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]"><div><h3 className="font-semibold">Team target progress</h3><p className="mt-1 text-xs text-text-secondary">Achievement is calculated against each SE&apos;s assigned milestone and unit.</p><RankedBarChart rows={progressRows} accessibleDescription={`Team target achievement percentages. ${progressRows.map(row => `${row.label}: ${row.value}%`).join("; ")}`} testId="tl-target-progress-chart" /></div><div className="min-w-0">{!staff.length ? <p className="text-sm text-text-secondary">No SEs are currently assigned to this team.</p> : <ul className="grid min-w-0 gap-3 sm:grid-cols-2">{staff.map(person => <li key={person.id} className="min-w-0 rounded-lg border border-brand-border p-3"><h3 className="break-words font-semibold">{person.name}</h3><p className="mt-1 text-xs text-text-secondary">{targetBasis(person.target.measurement)}</p><dl className="mt-3 grid grid-cols-3 gap-2 text-xs">{[["Assigned", targetValue(person.target.assigned, person.target.measurement)], ["Achieved", targetValue(person.target.achieved, person.target.measurement)], ["Remaining", targetValue(person.target.remaining, person.target.measurement)]].map(([name, value]) => <div key={name}><dt className="text-text-secondary">{name}</dt><dd className="break-words font-semibold">{value}</dd></div>)}</dl>{person.target.achievementPct === null ? <p className="mt-3 text-xs text-text-secondary">Achievement is not available.</p> : <><progress className="mt-3 h-2 w-full accent-brand-primary" max={100} value={Math.min(100, person.target.achievementPct)} aria-label={`${person.name} target achievement`} /><p className="text-xs">{formatPct(person.target.achievementPct)} achieved</p></>}</li>)}</ul>}</div></div>
+    {staff.length ? <div className="overflow-x-auto"><table className="w-full min-w-[780px] text-left text-xs"><caption className="sr-only">Assigned SE performance for the selected period</caption><thead><tr>{["SE", "Applications", "CC / PF", "Submitted", "Bank Approved", "Funded", "Conversion", "Pending Review"].map(label => <th key={label} scope="col" className="border-b border-brand-border px-2 py-2 font-semibold text-text-secondary">{label}</th>)}</tr></thead><tbody>{staff.map(person => <tr key={person.id} className="border-b border-brand-border"><th scope="row" className="px-2 py-3 font-medium">{person.name}</th>{[person.applications, `${person.cc} / ${person.pf}`, person.submitted, person.approved, person.funded, formatPct(person.conversion), person.pendingReview].map((value, index) => <td key={index} className="px-2 py-3 tabular-nums">{value}</td>)}</tr>)}</tbody></table></div> : null}
+  </div>;
 }
 
 export function TlDashboard() {
-  const { can } = useAuth();
-  const router = useRouter();
-  const search = useSearchParams();
-  const [data, setData] = useState<Payload | null>(null);
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [reload, setReload] = useState(0);
-  const queueHeading = useRef<HTMLHeadingElement>(null);
+  const { can } = useAuth(); const router = useRouter(); const search = useSearchParams();
+  const [data, setData] = useState<Payload | null>(null); const [error, setError] = useState(""); const [loading, setLoading] = useState(true); const [reload, setReload] = useState(0);
+  const queueHeading = useRef<HTMLHeadingElement>(null); const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const period = ["today", "mtd", "previous_month", "ytd"].includes(search.get("period") ?? "") ? search.get("period")! : "mtd";
   const view = ["own", "team", "combined"].includes(search.get("view") ?? "") ? search.get("view")! : "combined";
-  const queue = search.get("queue") || "pending_review";
-  const page = Math.max(1, Number(search.get("page")) || 1);
+  const tab = (TABS.some(item => item.key === search.get("tab")) ? search.get("tab") : "review") as TabKey;
+  const queue = search.get("queue") || "pending_review"; const page = Math.max(1, Number(search.get("page")) || 1);
   const query = new URLSearchParams({ period, view, queue, page: String(page) }).toString();
-  useEffect(() => {
-    let active = true;
-    apiGet<Payload>(`/api/v1/reports/tl-dashboard?${query}`, getBrowserApiUrl())
-      .then(result => { if (active) { setData(result); setError(""); } })
-      .catch((failure: unknown) => { if (active) { setData(null); setError(failure instanceof Error ? failure.message : "Unable to load TL dashboard."); } })
-      .finally(() => { if (active) setLoading(false); });
-    return () => { active = false; };
-  }, [query, reload]);
-  function navigate(changes: Record<string, string>) {
-    setLoading(true);
-    const next = new URLSearchParams({ period, view, queue, page: "1", ...changes });
-    router.push(`/reports?${next}`, { scroll: false });
-  }
-  return <section className="min-w-0 space-y-4" data-testid="tl-dashboard" aria-busy={loading}>
-    <h2 className="text-xl font-semibold tracking-tight text-text-primary">Team Leader Dashboard</h2>
-    <PageHeader title="Team Leader Dashboard" description={`${data?.office ?? "Loading office…"} · ${data?.team ?? "Loading team…"} · My Team`} actions={can("Applications.Create") ? <Link className={primaryButtonClass} href="/applications?create=true">Create Application</Link> : undefined} />
-    <Card className="flex min-w-0 flex-wrap items-end gap-3 p-3">
-      <Field label="Review period"><Select aria-label="Review period" value={period} onChange={e => navigate({ period: e.target.value })}><option value="today">Today</option><option value="mtd">This Month</option><option value="previous_month">Last Month</option><option value="ytd">YTD</option></Select></Field>
-      <Field label="Case scope"><Select aria-label="Case scope" value={view} onChange={e => navigate({ view: e.target.value })}><option value="own">My Cases</option><option value="team">Team Cases</option><option value="combined">Combined</option></Select></Field>
-      <Button variant="secondary" disabled={loading} onClick={() => { setLoading(true); setReload(value => value + 1); }}>Refresh</Button>
-      <p className="text-xs text-text-secondary" role="status">{loading ? "Updating dashboard…" : data ? `Updated ${new Date(data.updatedAt).toLocaleTimeString()}` : "Dashboard unavailable"}</p>
-    </Card>
+  useEffect(() => { let active = true; setLoading(true); apiGet<Payload>(`/api/v1/reports/tl-dashboard?${query}`, getBrowserApiUrl()).then(result => { if (active) { setData(result); setError(""); } }).catch((failure: unknown) => { if (active) { setData(null); setError(failure instanceof Error ? failure.message : "Unable to load TL dashboard."); } }).finally(() => { if (active) setLoading(false); }); return () => { active = false; }; }, [query, reload]);
+  function navigate(changes: Record<string, string>) { const next = new URLSearchParams(search.toString()); next.set("tab", changes.tab ?? tab); next.set("period", changes.period ?? period); next.set("view", changes.view ?? view); next.set("queue", changes.queue ?? queue); next.set("page", changes.page ?? "1"); if (Object.keys(changes).some(key => key !== "tab")) setLoading(true); router.push(`/reports?${next}`, { scroll: false }); }
+  function selectTab(next: TabKey, focus = false) { navigate({ tab: next }); if (focus) requestAnimationFrame(() => tabRefs.current[TABS.findIndex(item => item.key === next)]?.focus()); }
+  function onTabKeyDown(event: KeyboardEvent<HTMLButtonElement>, index: number) { if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return; event.preventDefault(); const nextIndex = event.key === "Home" ? 0 : event.key === "End" ? TABS.length - 1 : (index + (event.key === "ArrowRight" ? 1 : -1) + TABS.length) % TABS.length; selectTab(TABS[nextIndex].key, true); }
+  const priority = ["pending_review", "resubmitted", "returned", "forwarded"];
+  const cards = data ? [...data.cards].sort((left, right) => { const l = priority.indexOf(left.key); const r = priority.indexOf(right.key); return (l < 0 ? 99 : l) - (r < 0 ? 99 : r); }) : [];
+  const cardLabel = (card: { key: string; label: string }) => card.key === "approved" ? "Bank Approved" : card.key === "forwarded" ? "Forwarded to COD · Internal" : card.label;
+  return <section className="-mt-2 min-w-0 space-y-3 lg:-mt-3" data-testid="tl-dashboard" aria-busy={loading}>
+    <Card className="flex min-w-0 flex-wrap items-end gap-x-4 gap-y-2 p-3"><div className="mr-auto min-w-[12rem]"><p className="text-sm font-semibold text-text-primary">{data?.office ?? "Loading office…"} · {data?.team ?? "Loading team…"}</p><p className="text-xs text-text-secondary">My Team · {loading ? "Updating…" : data ? `Updated ${new Date(data.updatedAt).toLocaleTimeString()}` : "Unavailable"}</p></div><Field label="Period"><Select aria-label="Period" value={period} onChange={event => navigate({ period: event.target.value })}><option value="today">Today</option><option value="mtd">This Month</option><option value="previous_month">Last Month</option><option value="ytd">YTD</option></Select></Field><Field label="Scope"><Select aria-label="Scope" value={view} onChange={event => navigate({ view: event.target.value })}><option value="own">My Cases</option><option value="team">Team Cases</option><option value="combined">Combined</option></Select></Field><Button variant="secondary" disabled={loading} onClick={() => setReload(value => value + 1)}>Refresh</Button>{can("Applications.Create") ? <Link className={primaryButtonClass} href="/applications?create=true">Create Application</Link> : null}</Card>
     <ErrorText>{error}</ErrorText>
-    {data && <>
-      <div className="grid min-w-0 grid-cols-2 gap-3 xl:grid-cols-4" data-testid="tl-cards">{data.cards.map(card => <button type="button" key={card.key} aria-label={`${card.label} queue`} aria-pressed={queue === card.key} onClick={() => { navigate({ queue: card.key }); queueHeading.current?.focus(); }} className={`min-w-0 rounded-lg border p-3 text-left focus-visible:outline-2 focus-visible:outline-brand-primary ${queue === card.key ? "border-brand-primary bg-brand-soft" : "border-brand-border bg-surface"}`}>
-        <span className="block text-xs font-medium text-text-secondary">{card.label}</span><span className="mt-1 block text-2xl font-semibold text-text-primary">{card.count}</span>
-      </button>)}</div>
-      <Card className="min-w-0 p-4"><div className="mb-3 flex flex-wrap items-end justify-between gap-2"><div><h2 ref={queueHeading} tabIndex={-1} className="font-semibold text-text-primary">{data.queueLabel} · Review queue</h2><p className="mt-1 text-xs text-text-secondary">Open review work spans all dates. Submitted, approved and completed activity uses the selected period. Ownership never changes during review.</p></div>
-        <Button variant="secondary" onClick={() => navigate({ queue: "all" })}>All period cases</Button></div>
-        <Cases rows={data.items} /><div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs"><span>{data.total} cases · Page {data.page} of {Math.max(1, Math.ceil(data.total / data.pageSize))}</span><div className="flex gap-2"><Button variant="secondary" disabled={loading || page <= 1} onClick={() => navigate({ page: String(page - 1) })}>Previous</Button><Button variant="secondary" disabled={loading || page * data.pageSize >= data.total} onClick={() => navigate({ page: String(page + 1) })}>Next</Button></div></div>
-      </Card>
-      <div className="grid min-w-0 gap-3 md:grid-cols-2 xl:grid-cols-3">
-        <Chart title="Applications trend" rows={data.charts.trend} description="Created Applications over the last six months." />
-        <Chart title="My vs Team" rows={data.charts.ownership} /><Chart title="Internal Review tracker" rows={data.charts.review} description="Current review funnel; internal routing does not change bank stages." />
-        <Chart title="Bank Stage tracker" rows={data.charts.stages} description="Configured stages for this team's Application workflows." /><Chart title="Product mix" rows={data.charts.products} /><Chart title="Outcomes" rows={data.charts.outcomes} />
-        <Chart title="TAT and delays" rows={data.charts.tat} description="Recorded delay status, not an inferred SLA. Per-case elapsed TAT appears in the queue." />
-      </div>
-      <section data-testid="tl-team-performance"><Card className="min-w-0 p-4"><h2 className="font-semibold text-text-primary">Team target progress & performance</h2><p className="mt-1 text-xs text-text-secondary">Only SEs directly assigned to your team. Mixed target units are never added together.</p>
-        {!data.staff.length && <p className="mt-3 text-sm text-text-secondary">No SEs assigned to this team.</p>}
-        <div className="mt-3 hidden xl:block"><table className="w-full table-fixed text-left text-xs"><caption className="sr-only">Assigned SE performance for the selected period</caption><thead><tr>{["SE", "Assigned", "Achieved", "Remaining", "Progress", "Cases", "CC / PF", "Submitted", "Approved", "Funded", "Conversion", "Review"].map(label => <th key={label} scope="col" className="break-words border-b border-brand-border px-1 py-2 text-[10px] font-semibold text-text-secondary">{label}</th>)}</tr></thead><tbody>{data.staff.map(staff => <tr key={staff.id} className="border-b border-brand-border align-top">
-          <th scope="row" className="break-words px-1 py-3 font-medium">{staff.name}</th>
-          {[staff.target.assigned, staff.target.achieved, staff.target.remaining].map((value, index) => <td key={index} className="break-words px-1 py-3 tabular-nums">{value ?? "—"}{value && staff.target.measurement === "amount" ? <span className="block text-[10px] text-text-secondary">AED</span> : null}</td>)}
-          <td className="px-1 py-3">{formatPct(staff.target.achievementPct)}{staff.target.achievementPct !== null && <progress className="h-2 w-full accent-brand-primary" aria-label={`${staff.name} target progress`} max={100} value={Math.min(100, staff.target.achievementPct)} />}</td>
-          {[staff.applications, `${staff.cc} / ${staff.pf}`, staff.submitted, staff.approved, staff.funded, formatPct(staff.conversion), staff.pendingReview].map((value, index) => <td key={index} className="break-words px-1 py-3 tabular-nums">{value}</td>)}
-        </tr>)}</tbody></table></div>
-        <ul className="mt-3 grid min-w-0 gap-3 md:grid-cols-2 xl:hidden">{data.staff.map(staff => <li key={staff.id} className="min-w-0 rounded-lg border border-brand-border p-3"><h3 className="break-words font-semibold">{staff.name}</h3>
-          <p className="mt-1 text-xs">Target: {staff.target.assigned ?? "Not assigned"} · Achieved: {staff.target.achieved ?? "—"} · Remaining: {staff.target.remaining ?? "—"}{staff.target.measurement === "amount" ? " AED" : ""}</p>
-          {staff.target.achievementPct !== null && <><progress className="mt-2 h-2 w-full accent-brand-primary" max={100} value={Math.min(100, staff.target.achievementPct)} aria-label={`${staff.name} target achievement`} /><p className="text-xs">{formatPct(staff.target.achievementPct)} achieved</p></>}
-          <dl className="mt-3 grid grid-cols-2 gap-2 text-xs">{[["Applications", staff.applications], ["CC / PF", `${staff.cc} / ${staff.pf}`], ["Submitted", staff.submitted], ["Approved", staff.approved], ["Funded", staff.funded], ["Conversion", formatPct(staff.conversion)], ["Pending review", staff.pendingReview]].map(([name, value]) => <div key={name}><dt className="text-text-secondary">{name}</dt><dd className="font-semibold">{value}</dd></div>)}</dl>
-        </li>)}</ul>
-      </Card></section>
-      <Card className="min-w-0 p-4"><h2 className="mb-3 font-semibold">Attention Required</h2><Cases rows={data.attention} /></Card>
-      <Card className="min-w-0 p-4"><h2 className="mb-3 font-semibold">Returned · Awaiting correction</h2><Cases rows={data.returned} /></Card>
-      <Card className="min-w-0 p-4"><h2 className="font-semibold">Recent team activity</h2>{!data.activity.length && <p className="mt-3 text-sm text-text-secondary">No recorded activity.</p>}<ol className="mt-3 divide-y divide-brand-border">{data.activity.map(event => <li key={event.id} className="min-w-0 py-2 text-sm"><Link className="break-all font-semibold text-brand-link" href={`/applications/${event.applicationId}`}>{event.fileNumber}</Link><p className="break-words">{event.event.replaceAll("_", " ")}{event.reason ? ` · ${event.reason}` : ""}</p><time className="text-xs text-text-secondary">{new Date(event.at).toLocaleString()}</time></li>)}</ol></Card>
-      <PersonalPerformanceAttendance performance={data.personalPerformance} attendance={data.personalAttendance} />
-    </>}
+    <div role="tablist" aria-label="Team Leader dashboard workspaces" className="flex max-w-full gap-1 overflow-x-auto rounded-lg border border-brand-border bg-surface p-1">{TABS.map((item, index) => <button ref={node => { tabRefs.current[index] = node; }} key={item.key} type="button" role="tab" id={`tl-tab-${item.key}`} aria-controls={`tl-panel-${item.key}`} aria-selected={tab === item.key} tabIndex={tab === item.key ? 0 : -1} onClick={() => selectTab(item.key)} onKeyDown={event => onTabKeyDown(event, index)} className={cx(focusRing, "min-h-8 shrink-0 rounded-md px-3 text-sm font-medium", tab === item.key ? "bg-brand-primary text-white" : "text-text-secondary hover:bg-surface-subtle hover:text-text-primary")}>{item.label}</button>)}</div>
+    {data ? <div role="tabpanel" id={`tl-panel-${tab}`} aria-labelledby={`tl-tab-${tab}`} className="min-w-0">{tab === "review" ? <div className="space-y-3"><div className="grid min-w-0 grid-cols-2 gap-3 xl:grid-cols-4" data-testid="tl-cards">{cards.map(card => <button type="button" key={card.key} aria-label={`${cardLabel(card)} queue`} aria-pressed={queue === card.key} onClick={() => { navigate({ queue: card.key }); requestAnimationFrame(() => queueHeading.current?.focus()); }} className={cx(focusRing, "min-w-0 rounded-lg border p-3 text-left", priority.includes(card.key) ? "border-brand-primary/40 bg-brand-soft/50" : "border-brand-border bg-surface", queue === card.key && "ring-2 ring-brand-primary")}><span className="block text-xs font-medium text-text-secondary">{cardLabel(card)}</span><span className="mt-1 block text-2xl font-semibold tabular-nums text-text-primary">{card.count.toLocaleString()}</span></button>)}</div>
+      <Disclosure title={`${data.queueLabel} · Review queue`} description="Internal review is separate from the bank Workflow; ownership and commission attribution stay unchanged." testId="tl-review-queue"><h2 ref={queueHeading} tabIndex={-1} className="sr-only">{data.queueLabel} review queue</h2><Cases rows={data.items} />{data.total > data.pageSize ? <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs"><span>{data.total.toLocaleString()} cases · Page {data.page} of {Math.ceil(data.total / data.pageSize)}</span><div className="flex gap-2"><Button variant="secondary" disabled={loading || page <= 1} onClick={() => navigate({ page: String(page - 1) })}>Previous</Button><Button variant="secondary" disabled={loading || page * data.pageSize >= data.total} onClick={() => navigate({ page: String(page + 1) })}>Next</Button></div></div> : data.total > 0 ? <p className="mt-3 text-xs text-text-secondary">{data.total.toLocaleString()} cases in this queue</p> : null}</Disclosure>
+      <Disclosure title="Attention Required" description="Delayed or internal-review cases needing your attention."><Cases rows={data.attention} /></Disclosure><Disclosure title="Returned · Awaiting correction" description="The assigned SE must correct and resubmit these Applications." defaultOpen={false}><Cases rows={data.returned} /></Disclosure><Disclosure title="Recent team activity" description="Latest immutable Application events in your authorized scope." defaultOpen={false}>{!data.activity.length ? <p className="text-sm text-text-secondary">No recorded activity.</p> : <ol className="divide-y divide-brand-border">{data.activity.map(event => <li key={event.id} className="min-w-0 py-2 text-sm"><Link className="break-all font-semibold text-brand-link" href={`/applications/${event.applicationId}`}>{event.fileNumber}</Link><p className="break-words capitalize">{event.event.replaceAll("_", " ")}{event.reason ? ` · ${event.reason}` : ""}</p><time className="text-xs text-text-secondary">{new Date(event.at).toLocaleString()}</time></li>)}</ol>}</Disclosure></div> : null}
+      {tab === "team" ? <div className="space-y-3"><Disclosure title="Team targets & performance" description="Directly assigned SEs only. Missing targets remain distinct from zero." testId="tl-team-performance"><TeamPerformance staff={data.staff} /></Disclosure><Disclosure title="My vs Team Applications" description="Created Applications in the selected period." defaultOpen={false}><Donut rows={data.charts.ownership} label="My versus team Applications" testId="tl-ownership-chart" /></Disclosure></div> : null}
+      {tab === "analytics" ? <div className="grid min-w-0 gap-3 lg:grid-cols-2"><Disclosure title="Applications trend" description="Created volume and bank submissions over the last six months."><TrendChart rows={data.charts.trend} /></Disclosure><Disclosure title="Internal Review tracker" description="Current internal routing status; this does not represent bank approval."><Bars rows={data.charts.review} label="Internal review funnel" testId="tl-review-chart" /></Disclosure><Disclosure title="Bank Stage tracker" description="Each stage is kept separate by Workflow version, even when stage names match."><Bars rows={data.charts.stages.map(row => ({ name: row.label, count: row.count }))} label="Bank stage distribution by workflow context" testId="tl-stage-chart" /></Disclosure><Disclosure title="Product mix" description="Created Applications by configured product."><Donut rows={data.charts.products} label="Product mix" testId="tl-product-chart" /></Disclosure><Disclosure title="Bank outcomes" description="Bank outcome or in-progress state for the selected period."><Donut rows={data.charts.outcomes} label="Bank outcomes" testId="tl-outcome-chart" /></Disclosure><Disclosure title="Waiting time & delays" description="Recorded delay state only; per-case elapsed waiting time appears in Review."><Donut rows={data.charts.tat} label="Recorded delay distribution" testId="tl-tat-chart" /></Disclosure></div> : null}
+      {tab === "personal" ? <Disclosure title="My Performance & Attendance" description="Your read-only targets, Application performance and attendance records."><PersonalPerformanceAttendance performance={data.personalPerformance} attendance={data.personalAttendance} /></Disclosure> : null}</div> : loading ? <Card className="p-4 text-sm text-text-secondary">Loading Team Leader dashboard…</Card> : null}
   </section>;
 }

@@ -3,8 +3,10 @@
 from collections import Counter
 from datetime import UTC, datetime
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from nexa_bos_api.applications.models import Workflow
 from nexa_bos_api.applications.review import REVIEW_LABELS, review_state
 from nexa_bos_api.attendance.service import personal_attendance_snapshot
 from nexa_bos_api.core.exceptions import AppError
@@ -201,7 +203,11 @@ async def tl_dashboard(
     trend = [
         {
             "name": m.strftime("%b %Y"),
-            "count": sum(_aware(f.created_at).date().replace(day=1) == m for f in selected),
+            "created": sum(_aware(f.created_at).date().replace(day=1) == m for f in selected),
+            "submitted": sum(
+                bool(f.submitted_at and _aware(f.submitted_at).date().replace(day=1) == m)
+                for f in selected
+            ),
         }
         for m in months
     ]
@@ -211,9 +217,32 @@ async def tl_dashboard(
         for s in f.stages.values()
         if s.workflow_id == f.workflow_id and s.status == "active"
     }
+    workflow_ids = {stage.workflow_id for stage in stage_rows.values()}
+    workflows = {
+        row.id: row
+        for row in (
+            await session.scalars(select(Workflow).where(Workflow.id.in_(workflow_ids)))
+            if workflow_ids
+            else []
+        )
+    }
+    workflow_context = {
+        f.workflow_id: f"{f.bank_name} · {f.product_name} · v{workflows[f.workflow_id].version}"
+        for f in selected
+        if f.workflow_id in workflows
+    }
     stages = [
-        {"name": s.name, "count": sum(f.current_stage_id == s.id for f in selected)}
-        for s in sorted(stage_rows.values(), key=lambda s: (s.sort_order, s.name, str(s.id)))
+        {
+            "stageId": str(s.id),
+            "name": s.name,
+            "workflowContext": workflow_context.get(s.workflow_id, "Configured workflow"),
+            "label": f"{workflow_context.get(s.workflow_id, 'Configured workflow')} · {s.name}",
+            "count": sum(f.current_stage_id == s.id for f in selected),
+        }
+        for s in sorted(
+            stage_rows.values(),
+            key=lambda s: (workflow_context.get(s.workflow_id, ""), s.sort_order, str(s.id)),
+        )
     ]
     rows = latest(queues[queue])
     size = 8

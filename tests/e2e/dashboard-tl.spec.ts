@@ -99,8 +99,8 @@ async function signOut(page: Page) {
   await expect(page).toHaveURL(/\/login$/);
 }
 
-test("DXB and AUH TL review: scope, return/correct/resubmit/forward, keyboard and responsive queues", async ({ page, request }, testInfo) => {
-  test.setTimeout(240_000);
+test("DXB and AUH TL review: scope, tabs, charts, breadcrumbs and responsive queues", async ({ page, request }, testInfo) => {
+  test.setTimeout(300_000);
   const fixture = await seed(request);
   const errors: string[] = [];
   page.on("pageerror", error => errors.push(error.message));
@@ -111,26 +111,46 @@ test("DXB and AUH TL review: scope, return/correct/resubmit/forward, keyboard an
       const app = viewport.width === 1440 ? fixture.cases[index].desktop : fixture.cases[index].mobile;
       await page.setViewportSize(viewport);
       await signIn(page, group.users.TL.email, "Team Leader Dashboard");
-      await expect(page.getByText(`${group.office.name} · ${group.team.name} · My Team`)).toBeVisible();
-      await expect(page.getByTestId("tl-team-performance")).toContainText(group.users.SE.fullName);
+      await expect(page.getByText(`${group.office.name} · ${group.team.name}`, { exact: true })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Team Leader Dashboard", exact: true })).toHaveCount(1);
+      await expect(page.getByRole("tab", { name: "Review", exact: true })).toHaveAttribute("aria-selected", "true");
       await expect(page.getByTestId("tl-dashboard")).not.toContainText(fixture.groups[1-index].users.SE.fullName);
       await expect(page.getByTestId("tl-dashboard")).not.toContainText(other.applicationCode);
+      await expect(page.getByText("Top employees", { exact: true })).toHaveCount(0);
+      await page.getByRole("tab", { name: "Team Performance", exact: true }).click();
+      await expect(page).toHaveURL(/tab=team/);
+      await expect(page.getByTestId("tl-dashboard")).toHaveAttribute("aria-busy", "false");
+      await expect(page.getByTestId("tl-team-performance")).toContainText(group.users.SE.fullName);
+      await expect(page.getByTestId("tl-target-progress-chart")).toBeVisible();
+      await page.reload();
+      await expect(page.getByRole("tab", { name: "Team Performance", exact: true })).toHaveAttribute("aria-selected", "true");
+      await page.getByRole("tab", { name: "Team Performance", exact: true }).focus();
+      await page.keyboard.press("ArrowRight");
+      await expect(page.getByRole("tab", { name: "Analytics", exact: true })).toHaveAttribute("aria-selected", "true");
+      for (const title of ["Applications trend", "Internal Review tracker", "Bank Stage tracker", "Product mix", "Bank outcomes", "Waiting time & delays"]) await expect(page.getByRole("button", { name: new RegExp(`^${title}`) })).toBeVisible();
+      await expect(page.getByTestId("tl-trend-chart").getByRole("img").first()).toHaveAttribute("aria-label", /Applications trend/);
+      await expect(page.getByTestId("tl-stage-chart").getByRole("img").first()).toHaveAttribute("aria-label", /workflow context/);
+      await expect(page.getByRole("link", { name: "Open authorized Application list" })).toHaveCount(6);
+      await page.getByRole("tab", { name: "My Performance & Attendance", exact: true }).click();
       await expect(page.getByTestId("my-performance")).toBeVisible();
       await expect(page.getByTestId("my-attendance")).toBeVisible();
-      await expect(page.getByText("Top employees", { exact: true })).toHaveCount(0);
-      for (const title of ["Applications trend", "My vs Team", "Internal Review tracker", "Bank Stage tracker", "Product mix", "Outcomes", "TAT and delays"]) await expect(page.getByRole("heading", { name: title, exact: true })).toBeVisible();
+      await page.getByRole("tab", { name: "Review", exact: true }).click();
+      const attention = page.getByRole("button", { name: /^Attention Required/ });
+      await expect(attention).toHaveAttribute("aria-expanded", "true");
+      await attention.press("Enter");
+      await expect(attention).toHaveAttribute("aria-expanded", "false");
       expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
       await page.screenshot({ path: testInfo.outputPath(`tl-${group.office.code}-${viewport.width}.png`) });
       const card = page.getByRole("button", { name: "Returned queue", exact: true });
       await card.focus(); await page.keyboard.press("Enter");
       await expect(page).toHaveURL(/queue=returned/);
-      await expect(page.getByRole("heading", { name: "Returned · Review queue" })).toBeFocused();
+      await expect(page.getByRole("heading", { name: "Returned review queue", exact: true })).toBeFocused();
       await page.reload();
       await expect(page.getByRole("button", { name: "Returned queue", exact: true })).toHaveAttribute("aria-pressed", "true");
-      await selectBrandedOption(page.getByLabel("Case scope"), "own");
-      await page.getByRole("button", { name: "All period cases" }).click();
+      await selectBrandedOption(page.getByLabel("Scope"), "own");
+      await page.getByRole("button", { name: "Active Team Cases queue" }).click();
       await expect(page.getByText(fixture.cases[index].own.applicationCode).first()).toBeVisible();
-      await selectBrandedOption(page.getByLabel("Case scope"), "team");
+      await selectBrandedOption(page.getByLabel("Scope"), "team");
       await expect(page.getByTestId("tl-dashboard")).not.toContainText(fixture.cases[index].own.applicationCode);
       for (const suffix of ["", "/progress", "/timeline", "/internal-review"]) expect((await page.request.get(`${api}/api/v1/applications/${other.id}${suffix}`)).status()).toBe(404);
       expect((await page.request.get(`${api}/api/v1/customers`)).status()).toBe(403);
@@ -142,6 +162,10 @@ test("DXB and AUH TL review: scope, return/correct/resubmit/forward, keyboard an
       await page.goto(`/applications/${other.id}`);
       await expect(page.getByText("Application not found", { exact: true })).toBeVisible();
       await page.goto(`/applications/${app.id}`);
+      const breadcrumb = page.getByRole("navigation", { name: "Breadcrumb" });
+      await expect(breadcrumb.getByRole("link", { name: "Dashboard", exact: true })).toHaveAttribute("href", "/reports");
+      await expect(breadcrumb.getByRole("link", { name: "Applications", exact: true })).toHaveAttribute("href", "/applications");
+      await expect(breadcrumb.getByRole("heading", { name: "Application details", exact: true })).toHaveAttribute("aria-current", "page");
       const review = page.getByTestId("internal-review");
       await expect(review).toContainText("Pending TL Review");
       await expect(page.getByRole("button", { name: "Save Product Variant" })).toHaveCount(0);

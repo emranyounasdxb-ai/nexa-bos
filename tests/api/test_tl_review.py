@@ -179,6 +179,18 @@ async def test_tl_scope_routing_ownership_and_dashboard(workspace, index):
     assert data["staff"][0]["target"]["assigned"] is None
     for key in ("personalPerformance", "personalAttendance", "charts"):
         assert key in data
+    assert all({"name", "created", "submitted"} <= set(row) for row in data["charts"]["trend"])
+    assert all(
+        {"stageId", "name", "workflowContext", "label", "count"} <= set(row)
+        for row in data["charts"]["stages"]
+    )
+    assert len({row["stageId"] for row in data["charts"]["stages"]}) == len(
+        data["charts"]["stages"]
+    )
+    assert all(
+        row["name"] in row["label"] and " · v" in row["workflowContext"]
+        for row in data["charts"]["stages"]
+    )
     own_data = (await tl.get("/api/v1/reports/tl-dashboard?view=own&queue=all")).json()
     assert {row["id"] for row in own_data["items"]} == {own["id"]}
     team_data = (await tl.get("/api/v1/reports/tl-dashboard?view=team&queue=all")).json()
