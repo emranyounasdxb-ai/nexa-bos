@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
 
 import pytest
 from httpx import AsyncClient
@@ -10,6 +10,7 @@ from helpers import (
     create_activated_user,
     owner_client,
     spawned_client,
+    utc_today,
     unique_tag,
 )
 from nexa_bos_api.applications.tat import duration_seconds
@@ -53,7 +54,7 @@ async def _move(
     client: AsyncClient, application: dict, key: str, extra: dict | None = None
 ) -> dict:
     stage = await _stage_by_key(client, application["workflowId"], key)
-    payload = {"stage_id": stage["id"], "bank_stage_date": date.today().isoformat()}
+    payload = {"stage_id": stage["id"], "bank_stage_date": utc_today().isoformat()}
     if extra:
         payload.update(extra)
     response = await client.post(f"/api/v1/applications/{application['id']}/stage", json=payload)
@@ -127,7 +128,7 @@ async def test_stage_move_closes_completed_duration_and_starts_current_elapsed(
     returned = next(
         row for row in moved["stageDurations"] if row["stageName"].startswith("Returned")
     )
-    assert returned["bankStageDate"] == date.today().isoformat()
+    assert returned["bankStageDate"] == utc_today().isoformat()
     assert returned["stageNote"] == "Bank query"
     assert returned["completed"] is False
     submitted = next(row for row in moved["stageDurations"] if row["stageName"] == "Submitted")

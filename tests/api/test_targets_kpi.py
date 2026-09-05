@@ -7,11 +7,13 @@ from uuid import UUID
 import pytest
 from helpers import (
     authenticate,
+    business_today,
     create_activated_user,
     create_product_variant,
     office_id,
     owner_client,
     spawned_client,
+    utc_today,
     unique_tag,
 )
 from httpx import AsyncClient
@@ -173,7 +175,7 @@ async def _advance(client: AsyncClient, app: dict, key: str, extra: dict | None 
     stage = await _stage(client, app["workflowId"], key)
     payload = {
         "stage_id": stage["id"],
-        "bank_stage_date": date.today().isoformat(),
+        "bank_stage_date": utc_today().isoformat(),
         **(extra or {}),
     }
     response = await client.post(f"/api/v1/applications/{app['id']}/stage", json=payload)
@@ -381,7 +383,7 @@ async def test_milestones_pf_cc_bank_attribution_and_results(client: AsyncClient
     first = await create_activated_user(authed, office_id=dxb)
     second = await create_activated_user(authed, office_id=dxb)
     await _enable_case_owner(authed, "SE")
-    month = date.today().replace(day=1).isoformat()
+    month = business_today().replace(day=1).isoformat()
     overall = await authed.post(
         "/api/v1/targets",
         json={
@@ -555,7 +557,7 @@ async def test_period_aggregation_prorate_run_rate_lock_kpi_profile_scope(
     _dib, _eib, pf, _cc = await _catalog(authed)
     employee = await create_activated_user(authed, office_id=dxb)
     await authed.put("/api/v1/attendance/working-days", json={"weekdays": [0, 1, 2, 3, 4]})
-    today = date.today()
+    today = business_today()
     month = today.replace(day=1)
     july = date(today.year, 7, 1) if today.month >= 7 else date(today.year, 1, 1)
     july_row = await authed.post(

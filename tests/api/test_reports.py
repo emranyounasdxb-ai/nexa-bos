@@ -1,17 +1,19 @@
 from __future__ import annotations
 
-from datetime import UTC, date, datetime, time, timedelta
+from datetime import UTC, datetime, time, timedelta
 from io import BytesIO
 from uuid import UUID
 
 import pytest
 from helpers import (
     authenticate,
+    business_today,
     create_activated_user,
     create_product_variant,
     office_id,
     owner_client,
     spawned_client,
+    utc_today,
     unique_tag,
 )
 from httpx import AsyncClient
@@ -305,7 +307,7 @@ async def test_se_dashboard_is_personal_and_includes_read_only_attendance_and_ta
         json={
             "level": "employee",
             "entity_id": first["id"],
-            "period_month": date.today().replace(day=1).isoformat(),
+            "period_month": business_today().replace(day=1).isoformat(),
             "product_id": pf["id"],
             "milestone": "submitted",
             "measurement": "count",
@@ -318,7 +320,7 @@ async def test_se_dashboard_is_personal_and_includes_read_only_attendance_and_ta
     attendance = await authed.put(
         "/api/v1/attendance/records",
         json={
-            "attendance_date": date.today().isoformat(),
+            "attendance_date": business_today().isoformat(),
             "entries": [
                 {
                     "employee_id": first["id"],
@@ -497,7 +499,7 @@ async def test_cod_dashboard_is_office_scoped_operational_and_personal(
         json={
             "level": "employee",
             "entity_id": dxb_cod["id"],
-            "period_month": date.today().replace(day=1).isoformat(),
+            "period_month": business_today().replace(day=1).isoformat(),
             "product_id": pf["id"],
             "milestone": "submitted",
             "measurement": "count",
@@ -509,7 +511,7 @@ async def test_cod_dashboard_is_office_scoped_operational_and_personal(
     attendance = await authed.put(
         "/api/v1/attendance/records",
         json={
-            "attendance_date": date.today().isoformat(),
+            "attendance_date": business_today().isoformat(),
             "entries": [
                 {
                     "employee_id": dxb_cod["id"],
@@ -589,7 +591,7 @@ async def test_non_application_role_personal_dashboard_never_fakes_sales_metrics
         body = response.json()
         assert body["personalPerformance"]["applicationMetrics"] is None
         assert body["personalPerformance"]["target"]["count"] == 0
-        assert body["personalAttendance"]["today"]["date"] == date.today().isoformat()
+        assert body["personalAttendance"]["today"]["date"] == business_today().isoformat()
         assert body["seWorkspace"] is None
 
 
@@ -658,7 +660,7 @@ async def test_pending_is_current_state_and_can_include_earlier_created(
         case_owner_id=owner["id"],
         requested_amount="2000",
     )
-    earlier = date.today().replace(day=1) - timedelta(days=10)
+    earlier = utc_today().replace(day=1) - timedelta(days=10)
     async with app.state.session_factory() as session:
         await session.execute(
             text("UPDATE applications SET created_at = :created_at WHERE id = :id"),
@@ -742,7 +744,7 @@ async def test_conversions_rankings_ties_comparisons_custom_and_since_joining(
     assert dashboard["kpis"]["creditCard"]["count"] >= 1
     assert dashboard["kpis"]["creditCard"]["value"] is None
     assert dashboard["kpis"]["finalRejected"]["count"] >= 1
-    today = date.today().isoformat()
+    today = utc_today().isoformat()
     custom = await authed.get(
         f"/api/v1/reports/dashboard?period=custom&date_from={today}&date_to={today}"
     )
