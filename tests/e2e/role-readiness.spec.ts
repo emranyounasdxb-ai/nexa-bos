@@ -565,7 +565,10 @@ async function signIn(page: Page, role: PreparedRole) {
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(page).toHaveURL(/\/reports$/, { timeout: 30_000 });
   await expect(
-    page.getByRole("heading", { name: role.code === "SE" ? "My Dashboard" : "Dashboard" }),
+    page.locator("header").getByRole("heading", {
+      name: role.code === "SE" ? "My Dashboard" : "Dashboard",
+      exact: true,
+    }),
   ).toBeVisible();
 }
 
@@ -694,5 +697,176 @@ test("COD, TL, and SE use application-bound stage metadata without Workflow acce
       await expect(page.getByText("Workflow access is restricted to OWNER and GM.")).toBeVisible();
       await signOut(page);
     }
+  }
+});
+
+test.describe("shared sidebar role regression matrix", () => {
+  let roles: PreparedRole[] = [];
+
+  // Complete the existing matrix's representative expectations, without changing
+  // any fixture permissions or deriving expected access from application code.
+  const additionalLinks: Record<string, string[]> = {
+    GM: ["Organization", "Hierarchy", "Attendance", "Attendance reports", "Targets",
+      "KPI scorecards", "Assets", "Asset categories", "Asset reports", "Banks & products", "Security"],
+    ITM: ["Hierarchy", "Asset categories", "Asset reports"],
+    HR: ["Hierarchy", "KPI scorecards"],
+    PRO: ["Hierarchy"],
+    FIN: [],
+    AUDITOR: ["Hierarchy", "Attendance", "Attendance reports", "Targets", "KPI scorecards",
+      "Assets", "Asset reports"],
+    BDM: ["KPI scorecards"],
+    SM: ["Hierarchy"],
+    COD: [],
+    TL: [],
+    SE: [],
+    OM: ["Attendance reports", "Asset categories", "Asset reports"],
+  };
+
+  test.beforeAll(async ({ playwright }) => {
+    test.setTimeout(120_000);
+    const request = await playwright.request.newContext();
+    try {
+      roles = await configureRoleMatrix(request);
+      const gm = roles.find((role) => role.code === "GM")!;
+      roles.unshift({
+        ...gm,
+        code: "OWNER",
+        // The existing disposable bootstrap account; never a canonical login.
+        email: "owner@example.com",
+        password: "OwnerPass1!",
+      });
+    } finally {
+      await request.dispose();
+    }
+  });
+
+  test.afterAll(() => { roles = []; });
+
+  for (const code of ["OWNER", "GM", ...roleDefinitions.map((role) => role.code)]) {
+    test(`${code}: authorized mobile menus, dismissal, keyboard exclusion and desktop navigation`, async ({ page }) => {
+      test.setTimeout(90_000);
+      const role = roles.find((item) => item.code === code)!;
+      const expectedLinks = [...role.expectedLinks, ...additionalLinks[code === "OWNER" ? "GM" : code]].sort();
+      const longMenu = code === "OWNER" || code === "GM";
+      await page.setViewportSize({ width: 390, height: 844 });
+      await signIn(page, role);
+
+      const sidebar = page.locator('aside[aria-label="Application sidebar"]');
+      const navigation = sidebar.getByRole("navigation", { name: "Primary" });
+      const trigger = page.getByRole("button", { name: "Open navigation" });
+      const close = sidebar.getByRole("button", { name: "Close navigation" });
+      const dashboard = navigation.locator('a[aria-label="Dashboard"]');
+      const notifications = page.getByRole("link", { name: /Notifications, \d+ unread/ });
+      const errors: string[] = [];
+      page.on("pageerror", (error) => errors.push(error.message));
+
+      const expectNoOverflow = async () => {
+        expect(await page.evaluate(
+          () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        )).toBe(0);
+      };
+      const expectAuthorizedLinks = async () => {
+        expect(await navigation.locator("a").evaluateAll(
+          (links) => links.map((link) => link.getAttribute("aria-label")).sort(),
+        )).toEqual(expectedLinks);
+        for (const label of role.hiddenLinks) {
+          await expect(navigation.locator(`a[aria-label="${label}"]`)).toHaveCount(0);
+        }
+        await expect(navigation.getByRole("link", { name: "Notifications", exact: true })).toHaveCount(0);
+      };
+      const expectClosed = async () => {
+        await expect(trigger).toHaveAttribute("aria-expanded", "false");
+        await expect(trigger).toBeFocused();
+        await expect(sidebar).toHaveJSProperty("inert", true);
+        // Inert descendants remain in the DOM and can match role locators;
+        // verify actual focus exclusion rather than asserting their removal.
+        expect(await sidebar.evaluate((element) => {
+          for (const control of element.querySelectorAll<HTMLElement>("a, button")) {
+            control.focus();
+            if (element.contains(document.activeElement)) return false;
+          }
+          return true;
+        })).toBe(true);
+        await page.keyboard.press("Tab");
+        await expect(notifications).toBeFocused();
+        await page.keyboard.press("Shift+Tab");
+        await expect(trigger).toBeFocused();
+        await expectNoOverflow();
+      };
+
+      await expectAuthorizedLinks();
+      await trigger.focus();
+      await expectClosed();
+      for (let cycle = 0; cycle < 3; cycle += 1) {
+        await page.keyboard.press("Enter");
+        await expect(trigger).toHaveAttribute("aria-expanded", "true");
+        await expect(sidebar).toHaveJSProperty("inert", false);
+        await expect(close).toBeFocused();
+        await page.keyboard.press("Tab");
+        await expect(dashboard).toBeFocused();
+        await page.keyboard.press("Escape");
+        await expectClosed();
+
+        await page.keyboard.press("Enter");
+        await expect(close).toBeFocused();
+        await close.click();
+        await expectClosed();
+      }
+
+      await page.keyboard.press("Enter");
+      for (const group of await navigation.getByRole("button").all()) {
+        if (await group.getAttribute("aria-expanded") !== "true") await group.click();
+        await expect(group).toHaveAttribute("aria-expanded", "true");
+      }
+      await expect(navigation.getByRole("link")).toHaveCount(expectedLinks.length);
+      await expectAuthorizedLinks();
+      const controls = navigation.locator("a:visible, button:visible");
+      const lastLink = navigation.getByRole("link").last();
+      await dashboard.focus();
+      await expect.poll(() => navigation.evaluate((element) => element.scrollTop)).toBe(0);
+      if (longMenu) {
+        expect(await navigation.evaluate((element) => element.scrollHeight - element.clientHeight)).toBeGreaterThan(0);
+        await expect(lastLink).toHaveAccessibleName("Security");
+        await expect(lastLink).not.toBeInViewport();
+      }
+      await close.focus();
+      for (const control of await controls.all()) {
+        // Tab, not locator.focus/click, must bring every authorized item into view.
+        await page.keyboard.press("Tab");
+        await expect(control).toBeFocused();
+        await expect(control).toBeInViewport({ ratio: 1 });
+      }
+      await expect(lastLink).toBeFocused();
+      if (longMenu) {
+        expect(await navigation.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+        await expect(close).toBeInViewport({ ratio: 1 });
+      }
+      await expectNoOverflow();
+      await page.keyboard.press("Escape");
+      await expectClosed();
+
+      await page.setViewportSize({ width: 1440, height: 900 });
+      await expect(sidebar).toHaveJSProperty("inert", false);
+      await expect(trigger).toBeHidden();
+      await expect(close).toBeHidden();
+      await dashboard.focus();
+      await expect(sidebar).toHaveCSS("width", "224px");
+      await expectAuthorizedLinks();
+      await page.keyboard.press("Escape");
+      await expect(dashboard).toBeFocused();
+      await expect(sidebar).toHaveJSProperty("inert", false);
+      for (const control of (await controls.all()).slice(1)) {
+        await page.keyboard.press("Tab");
+        await expect(control).toBeFocused();
+        await expect(control).toBeInViewport({ ratio: 1 });
+      }
+      await expect(lastLink).toBeFocused();
+      await dashboard.focus();
+      await page.keyboard.press("Enter");
+      await expect(page).toHaveURL(/\/reports$/);
+      await expectNoOverflow();
+      expect(errors).toEqual([]);
+      await signOut(page);
+    });
   }
 });
