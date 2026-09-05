@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 
 import {
   IconBell,
@@ -49,6 +49,16 @@ import {
 } from "@/lib/role-access";
 
 const PUBLIC_PATHS = ["/login", "/setup", "/reset", "/status", "/bootstrap"];
+
+// Match the existing lg sidebar layout without changing its styling or animation.
+const DESKTOP_SIDEBAR_QUERY = "(min-width: 64rem)";
+const getDesktopSidebarSnapshot = () => window.matchMedia(DESKTOP_SIDEBAR_QUERY).matches;
+const getServerDesktopSidebarSnapshot = () => false;
+function subscribeDesktopSidebar(onChange: () => void) {
+  const media = window.matchMedia(DESKTOP_SIDEBAR_QUERY);
+  media.addEventListener("change", onChange);
+  return () => media.removeEventListener("change", onChange);
+}
 
 type NavItem = {
   href: string;
@@ -171,6 +181,13 @@ function Shell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const desktopSidebar = useSyncExternalStore(
+    subscribeDesktopSidebar,
+    getDesktopSidebarSnapshot,
+    getServerDesktopSidebarSnapshot,
+  );
+  const mobileMenuTriggerRef = useRef<HTMLButtonElement>(null);
+  const mobileMenuCloseRef = useRef<HTMLButtonElement>(null);
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set());
   const baseContext = routeContext(pathname);
@@ -182,6 +199,24 @@ function Shell({ children }: { children: ReactNode }) {
   useEffect(() => {
     setMobileNavOpen(false);
   }, [pathname]);
+
+  useEffect(() => {
+    if (!mobileNavOpen || desktopSidebar) return;
+    const trigger = mobileMenuTriggerRef.current;
+    mobileMenuCloseRef.current?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setMobileNavOpen(false);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      // The trigger is hidden on desktop; never move focus to a hidden control.
+      if (trigger?.getClientRects().length) trigger.focus();
+    };
+  }, [mobileNavOpen, desktopSidebar]);
 
   async function logout() {
     try {
@@ -311,7 +346,9 @@ function Shell({ children }: { children: ReactNode }) {
         />
       ) : null}
       <aside
+        id="application-sidebar"
         aria-label="Application sidebar"
+        inert={!desktopSidebar && !mobileNavOpen}
         data-expanded={sidebarExpanded}
         className={cx(
           "fixed inset-y-0 left-0 z-50 flex w-72 flex-col overflow-x-hidden bg-app-background transition-transform duration-200 ease-out motion-reduce:duration-0 motion-reduce:transition-none lg:sticky lg:top-0 lg:z-20 lg:h-screen lg:translate-x-0 lg:transition-[width]",
@@ -372,6 +409,7 @@ function Shell({ children }: { children: ReactNode }) {
             )}
           </Link>
           <button
+            ref={mobileMenuCloseRef}
             type="button"
             aria-label="Close navigation"
             className={cx(focusRing, "rounded-md p-2 text-slate-500 hover:bg-slate-100 lg:hidden")}
@@ -532,8 +570,11 @@ function Shell({ children }: { children: ReactNode }) {
         <header className="sticky top-0 z-30 flex h-[70px] items-center justify-between gap-4 bg-app-background px-4 backdrop-blur-sm sm:px-6 lg:px-8">
           <div className="flex min-w-0 items-center gap-3">
             <button
+              ref={mobileMenuTriggerRef}
               type="button"
               aria-label="Open navigation"
+              aria-controls="application-sidebar"
+              aria-expanded={mobileNavOpen}
               className={cx(
                 focusRing,
                 "inline-flex size-10 shrink-0 items-center justify-center rounded-md border border-slate-200 text-lg text-slate-600 hover:bg-slate-50 lg:hidden",

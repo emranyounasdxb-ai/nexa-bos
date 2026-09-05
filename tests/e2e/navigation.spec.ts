@@ -47,6 +47,120 @@ async function openGroup(page: Page, label: string) {
   await expect(parent).toHaveAttribute("aria-expanded", "true");
 }
 
+test("mobile sidebar Escape and close button restore focus and exclude closed controls", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(60_000);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await signIn(page, request);
+  const sidebar = page.locator('aside[aria-label="Application sidebar"]');
+  const trigger = page.getByRole("button", { name: "Open navigation" });
+  const close = sidebar.getByRole("button", { name: "Close navigation" });
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+
+  const expectClosed = async () => {
+    await expect(trigger).toHaveAttribute("aria-expanded", "false");
+    await expect(sidebar).toHaveJSProperty("inert", true);
+    await expect(trigger).toBeFocused();
+    // Even explicit focus attempts must not reach off-screen controls.
+    const focusStayedOutside = await sidebar.evaluate((element) => {
+      for (const control of element.querySelectorAll<HTMLElement>("a, button")) {
+        control.focus();
+        if (element.contains(document.activeElement)) return false;
+      }
+      return true;
+    });
+    expect(focusStayedOutside).toBe(true);
+    await page.keyboard.press("Tab");
+    await expect(page.getByRole("link", { name: /Notifications, \d+ unread/ })).toBeFocused();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
+  };
+
+  await expect(sidebar).toHaveJSProperty("inert", true);
+  for (let cycle = 0; cycle < 3; cycle += 1) {
+    await trigger.focus();
+    await page.keyboard.press("Enter");
+    await expect(trigger).toHaveAttribute("aria-expanded", "true");
+    await expect(sidebar).toHaveJSProperty("inert", false);
+    await expect(close).toBeFocused();
+    await page.keyboard.press("Tab");
+    await expect(sidebar.getByRole("link", { name: "Dashboard", exact: true })).toBeFocused();
+    await page.keyboard.press("Tab");
+    const operations = sidebar.getByRole("button", { name: "Operations menu" });
+    await expect(operations).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(operations).toHaveAttribute("aria-expanded", "true");
+    await page.keyboard.press("Tab");
+    await expect(sidebar.getByRole("link", { name: "Customers", exact: true })).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expectClosed();
+
+    await trigger.click();
+    await expect(close).toBeFocused();
+    await close.click();
+    await expectClosed();
+    // Keep the next cycle's group-toggle expectation independent of retained expansion.
+    await trigger.click();
+    await operations.click();
+    await expect(operations).toHaveAttribute("aria-expanded", "false");
+    await page.keyboard.press("Escape");
+    await expectClosed();
+  }
+
+  await trigger.click();
+  await sidebar.getByRole("button", { name: "Operations menu" }).click();
+  const applications = sidebar.getByRole("link", { name: "Applications", exact: true });
+  await applications.focus();
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(/\/applications$/);
+  await expect(page.getByRole("heading", { name: "Applications", exact: true })).toBeVisible();
+  await expectClosed();
+  expect(errors).toEqual([]);
+});
+
+test("sidebar keyboard focus remains usable across desktop and mobile breakpoints", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(60_000);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await signIn(page, request);
+  const sidebar = page.locator('aside[aria-label="Application sidebar"]');
+  const dashboard = sidebar.locator('a[aria-label="Dashboard"]');
+  const trigger = page.getByRole("button", { name: "Open navigation" });
+  await expect(sidebar).toHaveJSProperty("inert", false);
+  await expect(sidebar).toHaveCSS("width", "80px");
+  await dashboard.focus();
+  await expect(dashboard).toBeFocused();
+  await expect(sidebar).toHaveCSS("width", "224px");
+  await page.keyboard.press("Escape");
+  await expect(dashboard).toBeFocused();
+  await expect(trigger).toBeHidden();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(sidebar).toHaveJSProperty("inert", true);
+  await expect(dashboard).not.toBeFocused();
+  await trigger.focus();
+  await page.keyboard.press("Enter");
+  await expect(sidebar.getByRole("button", { name: "Close navigation" })).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(trigger).toBeFocused();
+  await expect(sidebar).toHaveJSProperty("inert", true);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await expect(sidebar).toHaveJSProperty("inert", false);
+  await dashboard.focus();
+  await expect(dashboard).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(sidebar.getByRole("button", { name: "Operations menu" })).toBeFocused();
+  await expect(trigger).toBeHidden();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
+});
+
 test("owner can log in, navigate major screens, sign out, and log in again", async ({
   page,
   request,
