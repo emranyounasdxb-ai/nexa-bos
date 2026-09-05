@@ -166,8 +166,9 @@ function PersonalPanels({ performance, attendance, period }: { performance: Pers
 }
 
 export function TlDashboard() {
-  const { can } = useAuth(); const search = useSearchParams();
+  const { can, user } = useAuth(); const search = useSearchParams();
   const [data, setData] = useState<DashboardPayload | null>(null); const [error, setError] = useState(""); const [loading, setLoading] = useState(true); const [reload, setReload] = useState(0);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
   const queueHeading = useRef<HTMLHeadingElement>(null); const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const [queueOpen, setQueueOpen] = useState(true);
   const [queueFocusRequest, setQueueFocusRequest] = useState(0);
@@ -176,7 +177,7 @@ export function TlDashboard() {
   const tab = (TABS.some(item => item.key === search.get("tab")) ? search.get("tab") : "review") as TabKey;
   const queue = search.get("queue") || "pending_review"; const page = Math.max(1, Number(search.get("page")) || 1);
   const query = new URLSearchParams({ period, view, queue, page: String(page) }).toString();
-  useEffect(() => { let active = true; setLoading(true); apiGet<DashboardPayload>(`/api/v1/reports/tl-dashboard?${query}`, getBrowserApiUrl()).then(result => { if (active) { setData(result); setError(""); } }).catch((failure: unknown) => { if (active) { setData(null); setError(failure instanceof Error ? failure.message : "Unable to load TL dashboard."); } }).finally(() => { if (active) setLoading(false); }); return () => { active = false; }; }, [query, reload]);
+  useEffect(() => { let active = true; setLoading(true); apiGet<DashboardPayload>(`/api/v1/reports/tl-dashboard?${query}`, getBrowserApiUrl()).then(result => { if (active) { setData(result); setLastUpdatedAt(result.updatedAt); setError(""); } }).catch((failure: unknown) => { if (active) { setData(null); setError(failure instanceof Error ? failure.message : "Unable to load TL dashboard."); } }).finally(() => { if (active) setLoading(false); }); return () => { active = false; }; }, [query, reload]);
   function navigate(changes: Record<string, string>) {
     // Native history integrates with Next search params and commits consecutive filter changes synchronously.
     const next = new URLSearchParams(window.location.search);
@@ -197,7 +198,7 @@ export function TlDashboard() {
   const reviewHref = (key = "active") => `/reports?${new URLSearchParams({ tab: "review", period, view, queue: key, page: "1" })}`;
   const tabIndex = TABS.findIndex(item => item.key === tab);
   return <section className={cx(styles.dashboard, styles.reviewPreview)} data-testid="tl-dashboard" aria-busy={loading}>
-    <div className={styles.context}><p>{data?.office ?? "Loading office…"} · {data?.team ?? "Loading team…"}</p><span>My Team <span aria-hidden="true">·</span> {loading ? "Updating…" : data ? `Updated ${new Date(data.updatedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}` : "Unavailable"}</span></div>
+    <div className={styles.context}><p data-testid="tl-team-context">{data?.team ?? user?.team?.name ?? "No team assigned"}</p><span data-testid="tl-last-update">Last update: {lastUpdatedAt ? <time dateTime={lastUpdatedAt}>{new Date(lastUpdatedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit", second: "2-digit" })}</time> : "—"}</span></div>
     <div className={styles.workspaceBar}>
     <div className={styles.tabsFrame}><button type="button" className={cx(focusRing, styles.tabStep)} aria-label="Previous dashboard tab" disabled={tabIndex === 0} onClick={() => selectTab(TABS[tabIndex - 1].key, true)}><IconChevronLeft aria-hidden="true" /></button><div role="tablist" aria-label="Team Leader dashboard workspaces" className={styles.tabs}>{TABS.map((item, index) => { const TabIcon = TAB_ICONS[item.key]; return <button ref={node => { tabRefs.current[index] = node; }} key={item.key} type="button" role="tab" id={`tl-tab-${item.key}`} aria-controls={`tl-panel-${item.key}`} aria-selected={tab === item.key} tabIndex={tab === item.key ? 0 : -1} onClick={() => selectTab(item.key)} onKeyDown={event => onTabKeyDown(event, index)} className={cx(focusRing, styles.tab)}><TabIcon aria-hidden="true" /><span>{item.label}</span></button>; })}</div><button type="button" className={cx(focusRing, styles.tabStep)} aria-label="Next dashboard tab" disabled={tabIndex === TABS.length - 1} onClick={() => selectTab(TABS[tabIndex + 1].key, true)}><IconChevronRight aria-hidden="true" /></button></div>
       <div className={styles.toolbarControls}><Select aria-label="Period" value={period} onChange={event => navigate({ period: event.target.value })}><option value="today">Today</option><option value="mtd">This Month</option><option value="previous_month">Last Month</option><option value="ytd">YTD</option></Select><Select aria-label="Scope" value={view} onChange={event => navigate({ view: event.target.value })}><option value="own">My Cases</option><option value="team">Team Cases</option><option value="combined">Combined</option></Select><Button variant="secondary" disabled={loading} onClick={() => setReload(value => value + 1)}>Refresh</Button>{can("Applications.Create") ? <Link className={primaryButtonClass} href="/applications?create=true">Create Application</Link> : null}</div>

@@ -206,11 +206,12 @@ function Shell({ children }: { children: ReactNode }) {
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set());
   const baseContext = routeContext(pathname);
+  const isTlDashboard = pathname === "/reports" && user?.userType?.code === "TL";
   const context =
     pathname === "/reports" && user?.userType?.code === "SE"
       ? { ...baseContext, title: "My Dashboard" }
-      : pathname === "/reports" && user?.userType?.code === "TL"
-        ? { ...baseContext, title: "Team Leader Dashboard" }
+      : isTlDashboard
+        ? { ...baseContext, title: `Welcome back, ${user.fullName}` }
         : baseContext;
 
   useEffect(() => {
@@ -721,7 +722,7 @@ function Shell({ children }: { children: ReactNode }) {
               className="flex min-w-0 flex-nowrap items-center gap-2 whitespace-nowrap text-sm"
             >
               {breadcrumbAncestors.map((ancestor) => <span key={ancestor.href} className="contents"><Link href={ancestor.href} className={cx(focusRing, "truncate rounded-sm font-medium text-slate-500 hover:text-brand-primary hover:underline")}>{ancestor.label}</Link><IconChevronRight aria-hidden="true" className="size-4 shrink-0 text-slate-400" /></span>)}
-              <h1 aria-current="page" className="truncate font-semibold text-slate-900 sm:text-base">{context.title}</h1>
+              <h1 aria-current="page" className={cx("text-slate-900 sm:text-base", isTlDashboard ? "whitespace-normal break-words font-bold" : "truncate font-semibold")}>{context.title}</h1>
             </nav>
           </div>
         </header>

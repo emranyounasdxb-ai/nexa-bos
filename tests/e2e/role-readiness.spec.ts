@@ -566,7 +566,7 @@ async function signIn(page: Page, role: PreparedRole) {
   await expect(page).toHaveURL(/\/reports$/, { timeout: 30_000 });
   await expect(
     page.locator("header").getByRole("heading", {
-      name: role.code === "SE" ? "My Dashboard" : role.code === "TL" ? "Team Leader Dashboard" : "Dashboard",
+      name: role.code === "SE" ? "My Dashboard" : role.code === "TL" ? `Welcome back, REVIEW ONLY ${role.code}` : "Dashboard",
       exact: true,
     }),
   ).toBeVisible();
