@@ -7,7 +7,12 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from nexa_bos_api.identity.access import descendant_ids, reporting_visibility_scope
+from nexa_bos_api.identity.access import (
+    descendant_ids,
+    has_user_type,
+    reporting_visibility_scope,
+    tl_team_owner_ids,
+)
 from nexa_bos_api.identity.enums import AssignmentField, VisibilityScope
 from nexa_bos_api.identity.models import User, UserAssignmentHistory
 
@@ -24,6 +29,7 @@ class ReportingAccess:
     current_managers: dict[UUID, UUID | None]
     manager_spans: dict[UUID, list[tuple[datetime, datetime | None, UUID | None]]]
     office_spans: dict[UUID, list[tuple[datetime, datetime | None, UUID | None]]]
+    restrict_current_team: bool = False
 
     @property
     def label(self) -> str | None:
@@ -72,6 +78,8 @@ class ReportingAccess:
     ) -> bool:
         if self.scope is None or owner_id is None:
             return False
+        if self.restrict_current_team:
+            return owner_id == self.actor.id or owner_id in self.descendant_ids
         if self.scope is VisibilityScope.COMPANY:
             return True
         if self.scope is VisibilityScope.OWN:
@@ -97,6 +105,8 @@ async def load_reporting_access(session: AsyncSession, actor: User) -> Reporting
     descendants: set[UUID] = set()
     if scope is VisibilityScope.TEAM:
         descendants = await descendant_ids(session, actor.id)
+    if has_user_type(actor, "TL"):
+        descendants = (await tl_team_owner_ids(session, actor)) - {actor.id}
     users = (await session.execute(select(User.id, User.reporting_manager_id))).all()
     current_managers = {row[0]: row[1] for row in users}
     history = (
@@ -128,6 +138,7 @@ async def load_reporting_access(session: AsyncSession, actor: User) -> Reporting
         current_managers=current_managers,
         manager_spans=manager_spans,
         office_spans=office_spans,
+        restrict_current_team=has_user_type(actor, "TL"),
     )
 
 

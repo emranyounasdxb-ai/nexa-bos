@@ -115,6 +115,20 @@ async def reporting_reader(actor: CurrentUser) -> User:
 ReportingReader = Annotated[User, Depends(reporting_reader)]
 
 
+@router.get("/tl-dashboard")
+async def get_tl_dashboard(
+    session: SessionDep,
+    actor: Annotated[CurrentUser, Depends(require_permission(DASHBOARD_VIEW))],
+    period: str = "mtd",
+    view: str = "combined",
+    queue: str = "pending_review",
+    page: int = Query(default=1, ge=1),
+) -> dict[str, object]:
+    from nexa_bos_api.reporting.tl import tl_dashboard
+
+    return await tl_dashboard(session, actor, period=period, view=view, queue=queue, page=page)
+
+
 @router.get("/dashboard")
 async def get_dashboard(
     session: SessionDep,

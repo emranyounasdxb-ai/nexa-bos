@@ -33,6 +33,25 @@ uv run pytest
 
 `GET /api/v1/health` does not require PostgreSQL. `GET /api/v1/ready` requires a reachable PostgreSQL instance.
 
+### Explicit initialization controls
+
+The API container runs `python -m nexa_bos_api.startup`. Both initialization
+settings default to `true`, preserving automatic migration and reference-data bootstrap:
+
+- `RUN_MIGRATIONS_ON_STARTUP=false` skips the container's automatic Alembic upgrade.
+- `BOOTSTRAP_ON_STARTUP=false` skips startup reference-data seeds, but still connects
+  to PostgreSQL before accepting requests. Normal authentication and application behavior remain enabled.
+
+For an already initialized canonical local deployment, set **both** explicitly in
+the deployment environment. First verify the stored migration revision and schema
+against the release, required permissions (including every OWNER permission),
+system types, settings/counters, offices and catalog mappings. Stop if anything is
+missing; these switches do not repair or silently initialize an incompatible database.
+Recreate only API/Web with `--no-deps`; never recreate PostgreSQL for this operation.
+These settings do not disable explicit migration commands or the fail-closed test
+guards. All tests, fixtures and migration validation require a separately created,
+identity-verified disposable PostgreSQL database with a distinct `test` name segment.
+
 ## Web
 
 From the repository root:

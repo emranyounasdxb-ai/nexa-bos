@@ -67,6 +67,7 @@ import {
 } from "./dashboard-visuals";
 import { PersonalPerformanceAttendance } from "./personal-dashboard";
 import { CodDashboard } from "./cod-dashboard";
+import { TlDashboard } from "./tl-dashboard";
 import { SeDashboard } from "./se-dashboard";
 
 const comparisonPeriodFor: Partial<Record<string, string>> = {
@@ -729,10 +730,15 @@ export function DashboardInner() {
   );
 }
 
+function RoleDashboard() {
+  const { user } = useAuth();
+  return user?.userType?.code === "TL" ? <TlDashboard /> : <DashboardInner />;
+}
+
 export default function DashboardPage() {
   return (
     <Suspense fallback={<p className="text-sm text-slate-500">Loading…</p>}>
-      <DashboardInner />
+      <RoleDashboard />
     </Suspense>
   );
 }

@@ -34,6 +34,8 @@ class Settings(BaseSettings):
     bootstrap_secret: str = ""
     file_storage_dir: Path = API_ROOT / "var" / "uploads"
     session_cookie_secure: bool | None = None
+    run_migrations_on_startup: bool = True
+    bootstrap_on_startup: bool = True
 
     @property
     def cors_origin_list(self) -> list[str]:

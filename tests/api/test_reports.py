@@ -372,6 +372,38 @@ async def test_cod_dashboard_is_office_scoped_operational_and_personal(
     variant = await create_product_variant(authed, bank_id=dib["id"], product_id=pf["id"])
     await _configure_system_type(
         authed,
+        "TL",
+        permissions=["Applications.View", "Applications.Edit"],
+        application_scope="team",
+    )
+
+    async def review_team(office):
+        tag = unique_tag()
+        department = await authed.post(
+            "/api/v1/departments",
+            json={
+                "office_id": office,
+                "code": f"CD{tag}",
+                "name": f"COD review {tag}",
+            },
+        )
+        assert department.status_code == 200, department.text
+        team = await authed.post(
+            "/api/v1/teams",
+            json={
+                "office_id": office,
+                "department_id": department.json()["id"],
+                "code": f"CT{tag}",
+                "name": f"COD team {tag}",
+            },
+        )
+        assert team.status_code == 200, team.text
+        return {"department_id": department.json()["id"], "team_id": team.json()["id"]}
+
+    dxb_review_team = await review_team(dxb)
+    auh_review_team = await review_team(auh)
+    await _configure_system_type(
+        authed,
         "COD",
         permissions=[
             "Dashboard.View",
@@ -397,20 +429,20 @@ async def test_cod_dashboard_is_office_scoped_operational_and_personal(
         authed, user_type_code="COD", office_id=dxb, manager_id=dxb_sm["id"]
     )
     dxb_tl = await create_activated_user(
-        authed, user_type_code="TL", office_id=dxb, manager_id=dxb_cod["id"]
+        authed, user_type_code="TL", office_id=dxb, manager_id=dxb_cod["id"], **dxb_review_team
     )
     dxb_se = await create_activated_user(
-        authed, user_type_code="SE", office_id=dxb, manager_id=dxb_tl["id"]
+        authed, user_type_code="SE", office_id=dxb, manager_id=dxb_tl["id"], **dxb_review_team
     )
     auh_sm = await create_activated_user(authed, user_type_code="SM", office_id=auh)
     auh_cod = await create_activated_user(
         authed, user_type_code="COD", office_id=auh, manager_id=auh_sm["id"]
     )
     auh_tl = await create_activated_user(
-        authed, user_type_code="TL", office_id=auh, manager_id=auh_cod["id"]
+        authed, user_type_code="TL", office_id=auh, manager_id=auh_cod["id"], **auh_review_team
     )
     auh_se = await create_activated_user(
-        authed, user_type_code="SE", office_id=auh, manager_id=auh_tl["id"]
+        authed, user_type_code="SE", office_id=auh, manager_id=auh_tl["id"], **auh_review_team
     )
 
     async def create_owned(user: dict, label: str) -> dict:
@@ -436,6 +468,16 @@ async def test_cod_dashboard_is_office_scoped_operational_and_personal(
     dxb_waiting = await create_owned(dxb_se, "DXB waiting")
     dxb_processing = await create_owned(dxb_se, "DXB processing")
     auh_waiting = await create_owned(auh_se, "AUH waiting")
+    for leader, applications in ((dxb_tl, (dxb_waiting, dxb_processing)), (auh_tl, (auh_waiting,))):
+        async with await spawned_client() as reviewer:
+            await authenticate(reviewer, leader["email"], "UserPass1!")
+            for application in applications:
+                path = f"/api/v1/applications/{application['id']}/internal-review"
+                state = (await reviewer.get(path)).json()
+                forwarded = await reviewer.post(
+                    path, json={"action": "forward", "expected_event_id": state["eventId"]}
+                )
+                assert forwarded.status_code == 200, forwarded.text
 
     async with await spawned_client() as dxb_client:
         await authenticate(dxb_client, dxb_cod["email"], "UserPass1!")

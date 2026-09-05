@@ -62,6 +62,7 @@ async function createUser(
   role: string,
   suffix: string,
   managerId?: string,
+  organization?: { department_id: string; team_id: string },
 ) {
   const designations = (await (await request.get(`${apiOrigin}/api/v1/designations`)).json()) as { items: Array<{ id: string }> };
   const created = await request.post(`${apiOrigin}/api/v1/users`, {
@@ -76,6 +77,7 @@ async function createUser(
       joining_date: "2026-01-01",
       office_id: officeId,
       reporting_manager_id: managerId,
+      ...organization,
     },
   });
   expect(created.ok(), await created.text()).toBeTruthy();
@@ -157,24 +159,42 @@ test("COD Operations Dashboard is office-scoped, actionable, keyboard accessible
   let headers = await ownerLogin(request);
   const codType = await configureType(request, headers, "COD", ["Dashboard.View", "Applications.View", "Applications.Submit", "Applications.UpdateStage", "Applications.MarkDelay"], "office", "office");
   const smType = await configureType(request, headers, "SM", [], null, null);
-  const tlType = await configureType(request, headers, "TL", [], null, null);
+  const tlType = await configureType(request, headers, "TL", ["Applications.View", "Applications.Edit"], "team", null);
   const seType = await configureType(request, headers, "SE", ["Dashboard.View", "Applications.View", "Applications.Create"], "own", "own");
   const offices = (await (await request.get(`${apiOrigin}/api/v1/offices`)).json()) as { items: Array<{ id: string; code: string; name: string }> };
   const dxb = offices.items.find((item) => item.code === "DXB")!;
   const auh = offices.items.find((item) => item.code === "AUH")!;
   const stamp = Date.now().toString().slice(-7);
+  async function reviewTeam(officeId: string, code: string) {
+    const departmentResponse = await request.post(`${apiOrigin}/api/v1/departments`, { headers, data: { office_id: officeId, code: `CD-${code}-${stamp}`, name: `COD review ${code} ${stamp}` } });
+    expect(departmentResponse.status()).toBe(200);
+    const department = await departmentResponse.json() as { id: string };
+    const teamResponse = await request.post(`${apiOrigin}/api/v1/teams`, { headers, data: { office_id: officeId, department_id: department.id, code: `CT-${code}-${stamp}`, name: `COD team ${code} ${stamp}` } });
+    expect(teamResponse.status()).toBe(200);
+    return { department_id: department.id, team_id: ((await teamResponse.json()) as { id: string }).id };
+  }
+  const dxbTeam = await reviewTeam(dxb.id, "DXB");
+  const auhTeam = await reviewTeam(auh.id, "AUH");
   const dxbSm = await createUser(request, headers, smType.id, dxb.id, "SM", `1${stamp.slice(1)}`);
   const dxbCod = await createUser(request, headers, codType.id, dxb.id, "COD", `2${stamp.slice(1)}`, dxbSm.id);
-  const dxbTl = await createUser(request, headers, tlType.id, dxb.id, "TL", `3${stamp.slice(1)}`, dxbCod.id);
-  const dxbSe = await createUser(request, headers, seType.id, dxb.id, "SE", `4${stamp.slice(1)}`, dxbTl.id);
+  const dxbTl = await createUser(request, headers, tlType.id, dxb.id, "TL", `3${stamp.slice(1)}`, dxbCod.id, dxbTeam);
+  const dxbSe = await createUser(request, headers, seType.id, dxb.id, "SE", `4${stamp.slice(1)}`, dxbTl.id, dxbTeam);
   const auhSm = await createUser(request, headers, smType.id, auh.id, "SM", `5${stamp.slice(1)}`);
   const auhCod = await createUser(request, headers, codType.id, auh.id, "COD", `6${stamp.slice(1)}`, auhSm.id);
-  const auhTl = await createUser(request, headers, tlType.id, auh.id, "TL", `7${stamp.slice(1)}`, auhCod.id);
-  const auhSe = await createUser(request, headers, seType.id, auh.id, "SE", `8${stamp.slice(1)}`, auhTl.id);
+  const auhTl = await createUser(request, headers, tlType.id, auh.id, "TL", `7${stamp.slice(1)}`, auhCod.id, auhTeam);
+  const auhSe = await createUser(request, headers, seType.id, auh.id, "SE", `8${stamp.slice(1)}`, auhTl.id, auhTeam);
   const catalog = await ensureVariant(request, headers);
   const dxbWaiting = await createApplication(request, await loginApi(request, dxbSe.email), "DXB waiting", catalog);
   const dxbProcessing = await createApplication(request, await loginApi(request, dxbSe.email), "DXB processing", catalog);
   const auhWaiting = await createApplication(request, await loginApi(request, auhSe.email), "AUH waiting", catalog);
+  for (const [reviewer, applications] of [[dxbTl, [dxbWaiting, dxbProcessing]], [auhTl, [auhWaiting]]] as const) {
+    const reviewHeaders = await loginApi(request, reviewer.email);
+    for (const application of applications) {
+      const path = `${apiOrigin}/api/v1/applications/${application.id}/internal-review`;
+      const state = await (await request.get(path)).json() as { eventId: string };
+      expect((await request.post(path, { headers: reviewHeaders, data: { action: "forward", expected_event_id: state.eventId } })).status()).toBe(200);
+    }
+  }
   const dxbHeaders = await loginApi(request, dxbCod.email);
   expect((await request.post(`${apiOrigin}/api/v1/applications/${dxbProcessing.id}/case-number`, { headers: dxbHeaders, data: { bank_case_number: `COD-${stamp}` } })).ok()).toBeTruthy();
   expect((await request.post(`${apiOrigin}/api/v1/applications/${dxbProcessing.id}/delays`, { headers: dxbHeaders, data: { delay_type: "Customer", reason: "Disposable COD dashboard delay" } })).ok()).toBeTruthy();

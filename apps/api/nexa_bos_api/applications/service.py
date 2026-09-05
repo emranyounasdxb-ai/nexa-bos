@@ -23,6 +23,12 @@ from nexa_bos_api.applications.models import (
     WorkflowTransition,
     new_uuid,
 )
+from nexa_bos_api.applications.review import (
+    REVIEW_EVENTS,
+    get_review,
+    require_review_mutation,
+    start_review,
+)
 from nexa_bos_api.applications.schemas import (
     ApplicationCreateRequest,
     ApplicationUpdateRequest,
@@ -622,6 +628,7 @@ async def create_application(
     session.add(application)
     await session.flush()
     await _open_owner_history(session, application, owner, now)
+    await start_review(session, application, actor)
     await _add_event(
         session,
         application=application,
@@ -644,6 +651,8 @@ async def create_application(
         at=now,
     )
     case_number = _blank(payload.bank_case_number)
+    if case_number:
+        await require_review_mutation(session, actor, application)
     if case_number:
         if not has_permission(actor, APPLICATIONS_SUBMIT):
             raise AppError(
@@ -927,6 +936,18 @@ async def list_applications(
             stmt = stmt.where(column <= datetime.fromisoformat(value))
     dashboard_metric = filters.get("dashboard_metric")
     if dashboard_metric:
+        if has_user_type(actor, "COD"):
+            review_status = (
+                select(ApplicationEvent.payload["status"].astext)
+                .where(
+                    ApplicationEvent.application_id == Application.id,
+                    ApplicationEvent.event_type.in_(REVIEW_EVENTS),
+                )
+                .order_by(ApplicationEvent.bos_updated_at.desc(), ApplicationEvent.id.desc())
+                .limit(1)
+                .scalar_subquery()
+            )
+            stmt = stmt.where(func.coalesce(review_status, "legacy").in_(("legacy", "forwarded")))
         if dashboard_metric not in {
             "applications",
             "submitted",
@@ -1113,6 +1134,18 @@ async def update_application(
     _reject_terminal(application)
     submitted = application.submitted_at is not None
     data = payload.model_dump(exclude_unset=True)
+    if (
+        has_user_type(actor, "TL", "SE")
+        and (await get_review(session, application))["status"] != "legacy"
+    ):
+        if {"approved_amount", "booked_amount", "funded_amount", "bank_case_number"}.intersection(
+            data
+        ):
+            raise AppError(
+                status_code=403,
+                code="REVIEW_FORBIDDEN",
+                message="Bank processing fields are not editable during internal review.",
+            )
     audit_old_values: dict[str, object] | None = None
     if "bank_case_number" in data:
         value = _blank(payload.bank_case_number)

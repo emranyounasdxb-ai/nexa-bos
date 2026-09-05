@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
 
 from nexa_bos_api.api.v1.router import api_v1_router
 from nexa_bos_api.applications import models as _application_models  # noqa: F401
@@ -30,10 +31,15 @@ async def lifespan(app: FastAPI):
     app.state.settings = settings
     app.state.engine = engine
     app.state.session_factory = create_session_factory(engine)
-    async with app.state.session_factory() as session:
-        await bootstrap_identity(session)
-    yield
-    await engine.dispose()
+    try:
+        async with app.state.session_factory() as session:
+            if settings.bootstrap_on_startup:
+                await bootstrap_identity(session)
+            else:
+                await session.execute(text("SELECT 1"))
+        yield
+    finally:
+        await engine.dispose()
 
 
 def create_app() -> FastAPI:
