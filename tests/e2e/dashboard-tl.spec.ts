@@ -180,6 +180,43 @@ async function expectTabFrame(page: Page, tabKey: "review" | "team" | "analytics
   expect(tabStyle.radius).toBeGreaterThanOrEqual(8);
   expect(tabStyle.rightRadius).toBeGreaterThanOrEqual(8);
   expect(tabStyle.color !== inactiveStyle.color || tabStyle.background !== inactiveStyle.background).toBe(true);
+  const geometry = await tabs.getByRole("tab").evaluateAll(elements => elements.map(element => {
+    const rect = element.getBoundingClientRect();
+    const surface = getComputedStyle(element, "::before");
+    const fill = getComputedStyle(element, "::after");
+    const label = element.querySelector("span")!;
+    const icon = element.querySelector("svg")!;
+    const labelBox = label.getBoundingClientRect();
+    const iconBox = icon.getBoundingClientRect();
+    const strip = element.parentElement!.getBoundingClientRect();
+    const visible = labelBox.left >= strip.left && labelBox.right <= strip.right;
+    return { left: rect.left, right: rect.right, height: rect.height, shape: surface.clipPath, pointerEvents: surface.pointerEvents, surfaceLeft: Number.parseFloat(surface.left), surfaceRight: Number.parseFloat(surface.right), fill: fill.backgroundImage, bottom: fill.bottom, z: Number(getComputedStyle(element).zIndex), labelTransform: getComputedStyle(label).transform, iconTransform: getComputedStyle(icon).transform, labelOverflow: label.scrollWidth - label.clientWidth, baselineDifference: Math.abs(labelBox.y + labelBox.height / 2 - iconBox.y - iconBox.height / 2), visible, unobstructed: !visible || element.contains(document.elementFromPoint(labelBox.x + labelBox.width / 2, labelBox.y + labelBox.height / 2)) };
+  }));
+  expect(new Set(geometry.map(item => item.height)).size).toBe(1);
+  for (const [index, item] of geometry.entries()) {
+    expect(item.shape).toContain("shape(");
+    expect(item.shape).toContain("curve");
+    expect(item.pointerEvents).toBe("none");
+    expect(item.fill).toContain("linear-gradient");
+    expect(item.bottom).toBe("0px");
+    expect(item.labelTransform).toBe("none");
+    expect(item.iconTransform).toBe("none");
+    expect(item.labelOverflow).toBeLessThanOrEqual(1);
+    expect(item.baselineDifference).toBeLessThanOrEqual(1);
+    expect(item.unobstructed).toBe(true);
+    if (index > 0) {
+      // Only decorative shoulders overlap: actual button hit areas never cover one another.
+      expect(item.left).toBeGreaterThanOrEqual(geometry[index - 1].right - 1);
+      expect(item.left + item.surfaceLeft).toBeLessThan(geometry[index - 1].right - geometry[index - 1].surfaceRight);
+    }
+  }
+  await expect(selected).toHaveCSS("z-index", "10");
+  for (const item of geometry.filter(item => item.z !== 10)) expect(item.z).toBeLessThan(10);
+  expect(await selected.evaluate(element => getComputedStyle(element, "::after").backgroundImage)).toContain("rgb(243, 238, 247)");
+  const beforeHover = await selected.boundingBox();
+  await selected.hover();
+  expect(await selected.boundingBox()).toEqual(beforeHover);
+  await expect(selected).toHaveAttribute("aria-selected", "true");
   const activeTabBox = (await selected.boundingBox())!;
   const workspaceBox = (await workspace.boundingBox())!;
   expect(Math.abs(activeTabBox.y + activeTabBox.height - workspaceBox.y)).toBeLessThanOrEqual(3);
