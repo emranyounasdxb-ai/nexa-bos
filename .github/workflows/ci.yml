@@ -91,7 +91,7 @@ jobs:
               engine = create_async_engine(os.environ['DATABASE_URL'])
               try:
                   async with engine.connect() as connection:
-                      row = (await connection.execute(text('SELECT current_database(), inet_server_addr()::text, inet_server_port()'))).one()
+                      row = (await connection.execute(text('SELECT current_database(), host(inet_server_addr()), inet_server_port()'))).one()
                       assert row == (target.database, os.environ['VERIFIED_TEST_SERVER'], 5432)
               finally:
                   await engine.dispose()
