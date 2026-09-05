@@ -72,7 +72,7 @@ test("dashboard presents a compact executive summary with bounded detail", async
 
   const shellHeader = page.locator("header").first();
   const breadcrumb = shellHeader.getByRole("navigation", { name: "Breadcrumb" });
-  await expect(breadcrumb.getByText("Workspace", { exact: true })).toBeVisible();
+  await expect(breadcrumb.getByRole("link")).toHaveCount(0);
   await expect(breadcrumb.getByRole("heading", { name: "Dashboard", exact: true })).toBeVisible();
   await expect(breadcrumb).toHaveCSS("flex-wrap", "nowrap");
   await expect(page.getByRole("heading", { name: "Dashboard", exact: true })).toHaveCount(1);
@@ -624,7 +624,7 @@ test("shared shell supports breadcrumbs, auto expansion, user menu, and mobile n
   await expect(page.getByRole("navigation", { name: "Primary" })).toBeVisible();
   await expect(page.getByLabel(/Notifications, \d+ unread/)).toBeVisible();
   const breadcrumb = page.getByRole("navigation", { name: "Breadcrumb" });
-  await expect(breadcrumb.getByText("Workspace", { exact: true })).toBeVisible();
+  await expect(breadcrumb.getByRole("link")).toHaveCount(0);
   await expect(breadcrumb.getByRole("heading", { name: "Dashboard", exact: true })).toBeVisible();
   await expect(page.locator("main h1")).toHaveCount(0);
 
@@ -644,7 +644,7 @@ test("shared shell supports breadcrumbs, auto expansion, user menu, and mobile n
     expect(box?.width).toBeCloseTo(1360, 0);
   }
   expect(collapsedGeometry[3]?.x).toBeCloseTo(112, 0);
-  await expect(shellMain).toHaveCSS("max-width", "none");
+  await expect(shellMain).toHaveCSS("max-width", "100%");
   await page.mouse.move(40, 300);
   await expect(sidebar).toHaveCSS("width", "224px");
   const expandedGeometry = await Promise.all([
@@ -678,7 +678,7 @@ test("shared shell supports breadcrumbs, auto expansion, user menu, and mobile n
   await page.getByRole("link", { name: "Applications", exact: true }).click();
   await expect(sidebar).toHaveAttribute("data-expanded", "false");
   await expect(sidebar).toHaveCSS("width", "80px");
-  await expect(breadcrumb.getByText("Operations", { exact: true })).toBeVisible();
+  await expect(breadcrumb.getByRole("link", { name: "Dashboard", exact: true })).toHaveAttribute("href", "/reports");
   await expect(breadcrumb.getByRole("heading", { name: "Applications", exact: true })).toBeVisible();
   await expect(page.locator("main h1")).toHaveCount(0);
   await expect(sidebar.locator('a[href="/applications"]')).toHaveAttribute("aria-current", "page");
@@ -690,10 +690,18 @@ test("shared shell supports breadcrumbs, auto expansion, user menu, and mobile n
   await page.getByRole("link", { name: "Organization", exact: true }).click();
   await expect(sidebar).toHaveAttribute("data-expanded", "false");
   await expect(sidebar).toHaveCSS("width", "80px");
-  await expect(breadcrumb.getByText("People", { exact: true })).toBeVisible();
+  await expect(breadcrumb.getByRole("link", { name: "Dashboard", exact: true })).toHaveAttribute("href", "/reports");
   await expect(page.getByRole("heading", { name: "Organization masters", exact: true })).toHaveCount(1);
   await expect(page.locator("main h1")).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Offices", exact: true })).toBeVisible();
+
+  await page.goto("/users/new");
+  await expect(breadcrumb.getByRole("link", { name: "Dashboard", exact: true })).toHaveAttribute("href", "/reports");
+  await expect(breadcrumb.getByRole("link", { name: "Users", exact: true })).toHaveAttribute("href", "/users");
+  await expect(breadcrumb.getByRole("heading", { name: "Create user", exact: true })).toHaveAttribute("aria-current", "page");
+  await breadcrumb.getByRole("link", { name: "Users", exact: true }).click();
+  await expect(page).toHaveURL(/\/users(?:\?|$)/);
+  await expect(breadcrumb.getByRole("heading", { name: "Users", exact: true })).toBeVisible();
 
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.getByRole("button", { name: "Open navigation" })).toBeVisible();

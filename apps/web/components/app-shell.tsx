@@ -73,32 +73,40 @@ type NavGroup = {
   items: NavItem[];
 };
 
-const routeContext = (pathname: string) => {
+type RouteContext = { group: string; title: string; parent?: { href: string; label: string } };
+
+const routeContext = (pathname: string): RouteContext => {
+  if (pathname !== "/applications/new" && /^\/applications\/[^/]+$/.test(pathname)) return { group: "Operations", title: "Application details", parent: { href: "/applications", label: "Applications" } };
+  if (pathname !== "/customers/new" && /^\/customers\/[^/]+$/.test(pathname)) return { group: "Operations", title: "Customer details", parent: { href: "/customers", label: "Customers" } };
+  if (/^\/users\/[^/]+\/edit$/.test(pathname)) return { group: "People", title: "Edit employee profile", parent: { href: "/users", label: "Users" } };
+  if (pathname !== "/users/new" && /^\/users\/[^/]+$/.test(pathname)) return { group: "People", title: "Employee profile", parent: { href: "/users", label: "Users" } };
+  if (/^\/assets\/[^/]+$/.test(pathname) && !["/assets/categories", "/assets/reports"].includes(pathname)) return { group: "Assets", title: "Asset details", parent: { href: "/assets", label: "Assets" } };
+  if (/^\/user-types\/[^/]+$/.test(pathname)) return { group: "Administration", title: "User type details", parent: { href: "/user-types", label: "User types" } };
   const routes = [
-    { prefix: "/reports/compare", group: "Performance / Reports", title: "Comparisons" },
-    { prefix: "/reports/drill-down", group: "Performance / Reports", title: "Report drill-down" },
-    { prefix: "/reports/employees", group: "Performance / Reports", title: "Employee report" },
+    { prefix: "/reports/compare", group: "Performance", title: "Comparisons" },
+    { prefix: "/reports/drill-down", group: "Performance", title: "Report drill-down", parent: { href: "/reports/compare", label: "Reports" } },
+    { prefix: "/reports/employees", group: "Performance", title: "Employee report", parent: { href: "/reports/compare", label: "Reports" } },
     { prefix: "/reports", group: "Workspace", title: "Dashboard" },
-    { prefix: "/customers/new", group: "Operations / Customers", title: "Create customer" },
+    { prefix: "/customers/new", group: "Operations", title: "Create customer", parent: { href: "/customers", label: "Customers" } },
     { prefix: "/customers", group: "Operations", title: "Customers" },
-    { prefix: "/applications/new", group: "Operations / Applications", title: "Create application" },
+    { prefix: "/applications/new", group: "Operations", title: "Create application", parent: { href: "/applications", label: "Applications" } },
     { prefix: "/applications", group: "Operations", title: "Applications" },
     { prefix: "/workflows", group: "Operations", title: "Workflow Designer" },
-    { prefix: "/users/new", group: "People / Users", title: "Create user" },
+    { prefix: "/users/new", group: "People", title: "Create user", parent: { href: "/users", label: "Users" } },
     { prefix: "/users", group: "People", title: "Users" },
-    { prefix: "/organization/hierarchy", group: "People / Organization", title: "Organization hierarchy" },
+    { prefix: "/organization/hierarchy", group: "People", title: "Organization hierarchy", parent: { href: "/organization", label: "Organization" } },
     { prefix: "/organization", group: "People", title: "Organization masters" },
-    { prefix: "/attendance/reports", group: "People / Attendance", title: "Attendance reports" },
-    { prefix: "/attendance/holidays", group: "People / Attendance", title: "Official holidays" },
-    { prefix: "/attendance/schedules", group: "People / Attendance", title: "Attendance schedules" },
+    { prefix: "/attendance/reports", group: "People", title: "Attendance reports", parent: { href: "/attendance", label: "Attendance" } },
+    { prefix: "/attendance/holidays", group: "People", title: "Official holidays", parent: { href: "/attendance", label: "Attendance" } },
+    { prefix: "/attendance/schedules", group: "People", title: "Attendance schedules", parent: { href: "/attendance", label: "Attendance" } },
     { prefix: "/attendance", group: "People", title: "Attendance" },
-    { prefix: "/targets/kpi", group: "Performance / Targets", title: "KPI scorecards" },
+    { prefix: "/targets/kpi", group: "Performance", title: "KPI scorecards", parent: { href: "/targets", label: "Targets" } },
     { prefix: "/targets", group: "Performance", title: "Targets" },
     { prefix: "/finance", group: "Finance", title: "Finance" },
-    { prefix: "/assets/categories", group: "Assets", title: "Asset Categories" },
-    { prefix: "/assets/reports", group: "Assets", title: "Asset Reports" },
+    { prefix: "/assets/categories", group: "Assets", title: "Asset Categories", parent: { href: "/assets", label: "Assets" } },
+    { prefix: "/assets/reports", group: "Assets", title: "Asset Reports", parent: { href: "/assets", label: "Assets" } },
     { prefix: "/assets", group: "Assets", title: "Asset Register" },
-    { prefix: "/notifications/manage", group: "Administration / Notifications", title: "Notification administration" },
+    { prefix: "/notifications/manage", group: "Administration", title: "Notification administration", parent: { href: "/notifications", label: "Notifications" } },
     { prefix: "/notifications", group: "Administration", title: "Notifications" },
     { prefix: "/catalog", group: "Administration", title: "Banks and products" },
     { prefix: "/user-types", group: "Administration", title: "User types" },
@@ -194,7 +202,9 @@ function Shell({ children }: { children: ReactNode }) {
   const context =
     pathname === "/reports" && user?.userType?.code === "SE"
       ? { ...baseContext, title: "My Dashboard" }
-      : baseContext;
+      : pathname === "/reports" && user?.userType?.code === "TL"
+        ? { ...baseContext, title: "Team Leader Dashboard" }
+        : baseContext;
 
   useEffect(() => {
     setMobileNavOpen(false);
@@ -306,11 +316,14 @@ function Shell({ children }: { children: ReactNode }) {
   const visibleGroups = groups
     .map((group) => ({ ...group, items: group.items.filter((item) => item.show) }))
     .filter((group) => group.items.length > 0);
-  const breadcrumbGroup =
-    visibleGroups.find((group) => group.items.some((item) => isActiveRoute(pathname, item.href)))?.label ??
-    context.group.split(" / ")[0];
   const dashboardItem = visibleGroups.find((group) => group.label === "Workspace")?.items[0];
   const menuGroups = visibleGroups.filter((group) => group.label !== "Workspace");
+  const permittedBreadcrumbRoutes = new Set(visibleGroups.flatMap((group) => group.items.map((item) => item.href)));
+  if (can("Notifications.View")) permittedBreadcrumbRoutes.add("/notifications");
+  const breadcrumbAncestors = [
+    ...(dashboardItem && pathname !== dashboardItem.href ? [{ href: dashboardItem.href, label: dashboardItem.label }] : []),
+    ...(context.parent && context.parent.href !== pathname && permittedBreadcrumbRoutes.has(context.parent.href) ? [context.parent] : []),
+  ].filter((item, index, rows) => rows.findIndex((candidate) => candidate.href === item.href) === index);
   const initials = (user?.fullName ?? "AMAFH User")
     .split(/\s+/)
     .slice(0, 2)
@@ -587,9 +600,8 @@ function Shell({ children }: { children: ReactNode }) {
               aria-label="Breadcrumb"
               className="flex min-w-0 flex-nowrap items-center gap-2 whitespace-nowrap text-sm"
             >
-              <span className="truncate font-medium text-slate-500">{breadcrumbGroup}</span>
-              <IconChevronRight className="size-4 shrink-0 text-slate-400" />
-              <h1 className="truncate font-semibold text-slate-900 sm:text-base">{context.title}</h1>
+              {breadcrumbAncestors.map((ancestor) => <span key={ancestor.href} className="contents"><Link href={ancestor.href} className={cx(focusRing, "truncate rounded-sm font-medium text-slate-500 hover:text-brand-primary hover:underline")}>{ancestor.label}</Link><IconChevronRight aria-hidden="true" className="size-4 shrink-0 text-slate-400" /></span>)}
+              <h1 aria-current="page" className="truncate font-semibold text-slate-900 sm:text-base">{context.title}</h1>
             </nav>
           </div>
           <div className="flex shrink-0 items-center gap-2 sm:gap-3">
