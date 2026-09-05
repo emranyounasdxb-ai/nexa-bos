@@ -1,13 +1,13 @@
 """Read-only TL workspace: current, directly assigned team membership is authoritative."""
 
 from collections import Counter
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from nexa_bos_api.applications.models import Workflow
-from nexa_bos_api.applications.review import REVIEW_LABELS, review_state
+from nexa_bos_api.applications.review import REVIEW_EVENTS, REVIEW_LABELS, review_state
 from nexa_bos_api.attendance.service import personal_attendance_snapshot
 from nexa_bos_api.core.exceptions import AppError
 from nexa_bos_api.identity.access import (
@@ -19,7 +19,7 @@ from nexa_bos_api.identity.access import (
 )
 from nexa_bos_api.identity.models import User
 from nexa_bos_api.identity.permissions import APPLICATIONS_VIEW, DASHBOARD_VIEW
-from nexa_bos_api.reporting.periods import in_window, resolve_period
+from nexa_bos_api.reporting.periods import PeriodWindow, end_of_day, in_window, resolve_period
 from nexa_bos_api.reporting.scope import load_reporting_access
 from nexa_bos_api.reporting.service import (
     AppFact,
@@ -46,6 +46,125 @@ QUEUE_LABELS = {
     "attention": "Attention Required",
     "all": "All cases",
 }
+
+
+def _history_cutoffs(window: PeriodWindow, now: datetime) -> list[datetime]:
+    """Daily period endpoints, or monthly YTD endpoints; never invent future points."""
+    last = min(window.end, now)
+    cursor = window.date_from
+    cutoffs = []
+    while cursor <= last.date():
+        if window.key == "ytd":
+            next_month = _month_start_shift(cursor.replace(day=1), 1)
+            cutoff = min(end_of_day(next_month - timedelta(days=1)), last)
+            cursor = next_month
+        else:
+            cutoff = min(end_of_day(cursor), last)
+            cursor += timedelta(days=1)
+        cutoffs.append(cutoff)
+    return cutoffs
+
+
+def _metric_history(facts: list[AppFact], window: PeriodWindow, now: datetime) -> dict[str, object]:
+    """Histories share the TL's already-authorized current-owner cohort and view."""
+    cutoffs = _history_cutoffs(window, now)
+    reviews = {
+        fact.id: sorted(
+            (event for event in fact.events if event.event_type in REVIEW_EVENTS),
+            key=lambda event: (_aware(event.bos_updated_at), str(event.id)),
+        )
+        for fact in facts
+    }
+    current_states = {fact.id: review_state(fact.events)["status"] for fact in facts}
+
+    def open_at(fact: AppFact, cutoff: datetime) -> bool | None:
+        if _aware(fact.created_at) > cutoff:
+            return False
+        if fact.terminal_at is not None:
+            return _aware(fact.terminal_at) > cutoff
+        # A terminal legacy record without its completion date has unknown historical stock.
+        return None if fact.terminal_outcome else True
+
+    def routing_at(fact: AppFact, cutoff: datetime) -> str | None:
+        rows = [event for event in reviews[fact.id] if _aware(event.bos_updated_at) <= cutoff]
+        if not rows:
+            return None
+        status = (rows[-1].payload or {}).get("status")
+        if isinstance(status, str) and status in {
+            "pending_review",
+            "returned",
+            "resubmitted",
+            "forwarded",
+        }:
+            return status
+        return None
+
+    stock_basis = (
+        "Open cases at each selected-period endpoint, using the current permitted owner scope. "
+        "The card shows current stock and may differ from a past period endpoint. "
+        "A gap means the historical state cannot be established."
+    )
+    cumulative_basis = (
+        "Cumulative unique cases from the selected-period start to each endpoint, "
+        "using the card's current permitted owner scope and recorded milestone dates."
+    )
+    histories = {}
+    for key in list(QUEUE_LABELS)[:8]:
+        points = []
+        for cutoff in cutoffs:
+            count = 0
+            unknown = False
+            for fact in facts:
+                if key in {"pending_review", "returned", "resubmitted", "active"}:
+                    opened = open_at(fact, cutoff)
+                    if opened is None:
+                        unknown = True
+                    elif opened:
+                        if key == "active":
+                            count += 1
+                        else:
+                            state = routing_at(fact, cutoff)
+                            if state is None:
+                                unknown = True
+                            elif state == key:
+                                count += 1
+                elif key == "forwarded":
+                    existed = _aware(fact.created_at) <= cutoff
+                    overlaps = fact.terminal_at is None or _aware(fact.terminal_at) >= window.start
+                    if existed and overlaps and routing_at(fact, cutoff) is None:
+                        unknown = True
+                    elif current_states[fact.id] == "forwarded" and any(
+                        event.event_type in {"internal_forwarded", "internal_review_started"}
+                        and (event.payload or {}).get("status") == "forwarded"
+                        and window.start <= _aware(event.bos_updated_at) <= cutoff
+                        for event in reviews[fact.id]
+                    ):
+                        count += 1
+                else:
+                    dates = {
+                        "submitted": [fact.submitted_at],
+                        "approved": [fact.approved_at],
+                        "funded": [
+                            fact.funded_at,
+                            fact.terminal_at if fact.terminal_outcome == "Completed" else None,
+                        ],
+                    }[key]
+                    if any(moment and window.start <= _aware(moment) <= cutoff for moment in dates):
+                        count += 1
+            points.append({"date": cutoff.date().isoformat(), "value": None if unknown else count})
+        basis = (
+            stock_basis
+            if key in {"pending_review", "returned", "resubmitted", "active"}
+            else cumulative_basis
+        )
+        if key == "forwarded":
+            basis += (
+                " Only currently forwarded cases qualify; missing legacy review history is a gap."
+            )
+        if key == "funded":
+            basis += " A case that is both funded and completed is counted once."
+        histories[key] = {"unit": "cases", "basis": basis, "points": points}
+    return histories
 
 
 async def tl_dashboard(
@@ -259,6 +378,7 @@ async def tl_dashboard(
             {"key": key, "label": QUEUE_LABELS[key], "count": len(queues[key])}
             for key in list(QUEUE_LABELS)[:8]
         ],
+        "metricHistory": _metric_history(selected, window, now),
         "items": [item(f) for f in rows[(page - 1) * size : page * size]],
         "total": len(rows),
         "page": page,

@@ -5,6 +5,8 @@ const api = `http://127.0.0.1:${process.env.PLAYWRIGHT_API_PORT ?? "8010"}`;
 const testPassword = "UserPass1!";
 type RecordId = { id: string; email: string; fullName: string; applicationCode: string; code: string; name: string };
 type Group = { office: RecordId; departmentId: string; team: RecordId; users: Record<string, RecordId>; targetUsers: Record<string, RecordId> };
+type MetricHistory = { unit: "cases"; basis: string; points: Array<{ date: string; value: number | null }> };
+type MetricReport = { cards: Array<{ key: string }>; metricHistory: Record<string, MetricHistory | null> };
 
 async function login(request: APIRequestContext, email: string, password = testPassword) {
   const response = await request.post(`${api}/api/v1/auth/login`, { data: { email, password } });
@@ -148,6 +150,156 @@ async function capturePreview(page: Page, testInfo: TestInfo, name: string) {
   await page.screenshot({ path: testInfo.outputPath(`${name}.png`), fullPage: true, animations: "disabled" });
 }
 
+async function expectTabFrame(page: Page, tabKey: "review" | "team" | "analytics" | "personal", viewportWidth: number) {
+  await expect(page.getByTestId("tl-dashboard")).toHaveAttribute("aria-busy", "false");
+  const workspace = page.getByRole("tabpanel");
+  const tabs = page.getByRole("tablist", { name: "Team Leader dashboard workspaces" });
+  const selected = tabs.locator(`[role="tab"][id="tl-tab-${tabKey}"]`);
+  const inactive = tabs.getByRole("tab", { selected: false }).first();
+  await expect(tabs.getByRole("tab")).toHaveCount(4);
+  await expect(selected).toHaveAttribute("aria-selected", "true");
+  await expect(selected).toHaveAttribute("aria-controls", `tl-panel-${tabKey}`);
+  await expect(workspace).toHaveAttribute("id", `tl-panel-${tabKey}`);
+  await expect(workspace).toHaveAttribute("aria-labelledby", `tl-tab-${tabKey}`);
+  await expect(page.getByRole("heading", { name: "Team Leader Dashboard", exact: true })).toHaveCount(1);
+  for (const tab of await tabs.getByRole("tab").all()) {
+    expect((await tab.boundingBox())!.height).toBeGreaterThanOrEqual(40);
+    await expect(tab.locator('svg[aria-hidden="true"]')).toHaveCount(1);
+  }
+  const tabStyle = await selected.evaluate(element => {
+    const style = getComputedStyle(element);
+    return { radius: Number.parseFloat(style.borderTopLeftRadius), rightRadius: Number.parseFloat(style.borderTopRightRadius), color: style.color, background: style.backgroundColor };
+  });
+  const inactiveStyle = await inactive.evaluate(element => {
+    const style = getComputedStyle(element);
+    return { color: style.color, background: style.backgroundColor };
+  });
+  expect(tabStyle.radius).toBeGreaterThanOrEqual(8);
+  expect(tabStyle.rightRadius).toBeGreaterThanOrEqual(8);
+  expect(tabStyle.color !== inactiveStyle.color || tabStyle.background !== inactiveStyle.background).toBe(true);
+  const activeTabBox = (await selected.boundingBox())!;
+  const workspaceBox = (await workspace.boundingBox())!;
+  expect(Math.abs(activeTabBox.y + activeTabBox.height - workspaceBox.y)).toBeLessThanOrEqual(3);
+  if (viewportWidth === 390) {
+    const tabStripBox = (await tabs.boundingBox())!;
+    expect(activeTabBox.x).toBeGreaterThanOrEqual(tabStripBox.x - 1);
+    expect(activeTabBox.x + activeTabBox.width).toBeLessThanOrEqual(tabStripBox.x + tabStripBox.width + 1);
+    await expect(page.getByRole("button", { name: "Previous dashboard tab", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Next dashboard tab", exact: true })).toBeVisible();
+    if (tabKey === "review") await expect(page.getByRole("button", { name: "Previous dashboard tab", exact: true })).toBeDisabled();
+    if (tabKey === "personal") await expect(page.getByRole("button", { name: "Next dashboard tab", exact: true })).toBeDisabled();
+  }
+
+  const controls = [page.getByLabel("Period", { exact: true }), page.getByLabel("Scope", { exact: true }), page.getByRole("button", { name: "Refresh", exact: true }), page.getByRole("link", { name: "Create Application", exact: true })];
+  const controlBoxes = await Promise.all(controls.map(control => control.boundingBox()));
+  for (const box of controlBoxes) {
+    expect(box).not.toBeNull();
+    expect(Math.abs(box!.height - 32)).toBeLessThanOrEqual(1);
+  }
+  if (viewportWidth === 1440) expect(Math.max(...controlBoxes.map(box => box!.y)) - Math.min(...controlBoxes.map(box => box!.y))).toBeLessThanOrEqual(1);
+  else {
+    expect(Math.abs(controlBoxes[0]!.y - controlBoxes[1]!.y)).toBeLessThanOrEqual(1);
+    expect(Math.abs(controlBoxes[2]!.y - controlBoxes[3]!.y)).toBeLessThanOrEqual(1);
+  }
+  await expectNoOverflow(page);
+}
+
+async function expectReviewLayout(page: Page, viewportWidth: number) {
+  await expectTabFrame(page, "review", viewportWidth);
+  const cards = page.getByTestId("tl-cards").getByRole("button");
+  await expect(cards).toHaveCount(4);
+  const cardBoxes = await Promise.all((await cards.all()).map(card => card.locator("..").boundingBox()));
+  expect(Math.max(...cardBoxes.map(box => box!.width)) - Math.min(...cardBoxes.map(box => box!.width))).toBeLessThanOrEqual(1);
+  for (const card of await cards.all()) await expect(card.locator("strong")).toHaveCSS("font-size", viewportWidth === 1440 ? "40px" : "36px");
+  if (viewportWidth === 1440) expect(Math.max(...cardBoxes.map(box => box!.y)) - Math.min(...cardBoxes.map(box => box!.y))).toBeLessThanOrEqual(1);
+  else {
+    expect(Math.abs(cardBoxes[0]!.y - cardBoxes[1]!.y)).toBeLessThanOrEqual(1);
+    expect(Math.abs(cardBoxes[2]!.y - cardBoxes[3]!.y)).toBeLessThanOrEqual(1);
+    expect(cardBoxes[2]!.y).toBeGreaterThanOrEqual(cardBoxes[0]!.y + cardBoxes[0]!.height);
+  }
+  const queue = page.getByTestId("tl-review-queue");
+  const activity = page.getByTestId("tl-review-activity");
+  await expect(activity.getByRole("button", { name: "Recent team activity", exact: true })).toBeVisible();
+  const queueBox = (await queue.boundingBox())!;
+  const activityBox = (await activity.boundingBox())!;
+  if (viewportWidth === 1440) {
+    expect(Math.abs(queueBox.y - activityBox.y)).toBeLessThanOrEqual(1);
+    expect(queueBox.width / activityBox.width).toBeGreaterThanOrEqual(1.5);
+    expect(queueBox.width / activityBox.width).toBeLessThanOrEqual(3);
+    expect(activityBox.x).toBeGreaterThan(queueBox.x + queueBox.width);
+  } else {
+    const queueColumnBottom = await queue.evaluate(element => element.parentElement!.getBoundingClientRect().bottom);
+    expect(activityBox.y).toBeGreaterThanOrEqual(queueColumnBottom - 1);
+    expect(Math.abs(activityBox.x - queueBox.x)).toBeLessThanOrEqual(1);
+    expect(Math.abs(activityBox.width - queueBox.width)).toBeLessThanOrEqual(1);
+  }
+  await expectNoOverflow(page);
+}
+
+async function expectMetricSparklines(page: Page, report: MetricReport, interactive = false) {
+  for (const { key } of report.cards) {
+    const spark = page.getByTestId(`tl-sparkline-${key}`);
+    const history = report.metricHistory[key];
+    if (!history || history.points.every(point => point.value === null)) {
+      await expect(spark).toHaveAttribute("data-state", "unavailable");
+      await expect(spark).toContainText("Trend unavailable");
+      await expect(spark.locator("svg")).toHaveCount(0);
+      continue;
+    }
+    expect(history.unit).toBe("cases");
+    expect(history.basis.trim().length).toBeGreaterThan(0);
+    await expect(spark).toHaveAttribute("data-state", "available");
+    const points = spark.locator("g[data-date][data-value]");
+    await expect(points).toHaveCount(history.points.length);
+    await expect.poll(() => points.evaluateAll(nodes => nodes.map(node => ({ date: node.getAttribute("data-date"), value: node.getAttribute("data-value") === "null" ? null : Number(node.getAttribute("data-value")) })))).toEqual(history.points);
+    if (!interactive || !["pending_review", "approved"].includes(key)) continue;
+    const expectTooltip = async (point: { date: string; value: number | null }) => {
+      const tooltip = spark.getByRole("tooltip");
+      await expect(tooltip).toBeVisible();
+      await expect(tooltip).toContainText(point.date);
+      await expect(tooltip).toContainText(point.value === null ? "Unavailable" : `${point.value.toLocaleString("en-US", { maximumFractionDigits: 2 })} cases`);
+      await expect(tooltip).toContainText(history.basis);
+    };
+    await spark.focus();
+    await spark.press("End");
+    await expectTooltip(history.points.at(-1)!);
+    await spark.press("Home");
+    await expectTooltip(history.points[0]);
+    if (history.points.length > 1) {
+      await spark.press("ArrowRight");
+      await expectTooltip(history.points[1]);
+      await spark.press("ArrowLeft");
+      await expectTooltip(history.points[0]);
+    }
+    await spark.press("Escape");
+    await expect(spark.getByRole("tooltip")).toHaveCount(0);
+    await points.last().locator("rect").hover();
+    await expectTooltip(history.points.at(-1)!);
+    await spark.press("Escape");
+    await expect(spark).toBeFocused();
+    await expect(spark.getByRole("tooltip")).toHaveCount(0);
+  }
+}
+
+async function expectCompleteActivity(page: Page, eventCount: number) {
+  const activity = page.getByTestId("tl-review-activity");
+  const list = activity.getByTestId("tl-activity-list");
+  await expect(list.getByRole("listitem")).toHaveCount(Math.min(3, eventCount));
+  if (eventCount <= 3) return;
+  const expand = activity.getByRole("button", { name: `Show all ${eventCount} updates`, exact: true });
+  await expand.click();
+  await expect(list.getByRole("listitem")).toHaveCount(eventCount);
+  expect(await list.evaluate(element => element.scrollHeight - element.clientHeight)).toBeLessThanOrEqual(1);
+  const links = list.getByRole("link");
+  await links.first().focus();
+  for (let index = 1; index < eventCount; index += 1) await page.keyboard.press("Tab");
+  await expect(links.last()).toBeFocused();
+  await expect(links.last()).toBeInViewport({ ratio: 1 });
+  await activity.getByRole("button", { name: "Show fewer updates", exact: true }).click();
+  await expect(list.getByRole("listitem")).toHaveCount(3);
+  await expect(expand).toBeFocused();
+}
+
 async function expectProgress(row: Locator, name: string, percentage: number) {
   const progress = row.getByRole("progressbar", { name: `${name} target achievement`, exact: true });
   const bounded = Math.min(percentage, 100);
@@ -187,6 +339,24 @@ test("DXB and AUH TL review: scope, tabs, charts, breadcrumbs and responsive que
       await expect(page.getByTestId("tl-bank-status").getByRole("button", { name: "Bank Approved queue", exact: true })).toBeVisible();
       await expect(page.getByTestId("tl-review-queue")).toContainText(app.applicationCode);
       await expect(page.getByTestId("tl-review-queue")).toContainText(group.users.SE.fullName);
+      const initialReportResponse = await page.request.get(`${api}/api/v1/reports/tl-dashboard?period=mtd&view=combined&queue=pending_review&page=1`);
+      expect(initialReportResponse.status()).toBe(200);
+      const report = await initialReportResponse.json();
+      expect(report.metricHistory.approved.points.every((point: { value: number | null }) => point.value === 0)).toBe(true);
+      for (const card of report.cards as Array<{ key: string; count: number }>) expect(report.metricHistory[card.key].points.at(-1).value).toBe(card.count);
+      await expectReviewLayout(page, viewport.width);
+      await expectMetricSparklines(page, report, true);
+      await expectCompleteActivity(page, report.activity.length);
+      if (index === 0 && viewport.width === 1440) {
+        await selectBrandedOption(page.getByLabel("Period"), "today");
+        const todayResponse = await page.request.get(`${api}/api/v1/reports/tl-dashboard?period=today&view=combined&queue=pending_review&page=1`);
+        expect(todayResponse.status()).toBe(200);
+        const todayReport = await todayResponse.json();
+        expect(todayReport.metricHistory.pending_review.points).toHaveLength(1);
+        await expectMetricSparklines(page, todayReport, true);
+        await selectBrandedOption(page.getByLabel("Period"), "mtd");
+        await expectMetricSparklines(page, report);
+      }
       await capturePreview(page, testInfo, `tl-${group.office.code}-${viewport.width}-review`);
       const reviewQueue = page.getByTestId("tl-review-queue");
       const reviewToggle = reviewQueue.getByRole("button", { name: /· Review queue/ });
@@ -211,18 +381,30 @@ test("DXB and AUH TL review: scope, tabs, charts, breadcrumbs and responsive que
         await expect(sidebar).toHaveJSProperty("inert", true);
         await page.keyboard.press("Tab");
         expect(await sidebar.evaluate(element => element.contains(document.activeElement))).toBe(false);
+        const previousTab = page.getByRole("button", { name: "Previous dashboard tab", exact: true });
+        const nextTab = page.getByRole("button", { name: "Next dashboard tab", exact: true });
+        await expect(previousTab).toBeDisabled();
+        for (const label of ["Team Performance", "Analytics", "My Performance & Attendance"]) {
+          await nextTab.click();
+          await expect(page.getByRole("tab", { name: label, exact: true })).toHaveAttribute("aria-selected", "true");
+          await expect(page.getByRole("tab", { name: label, exact: true })).toBeInViewport({ ratio: 1 });
+        }
+        await expect(nextTab).toBeDisabled();
+        await page.getByRole("tab", { name: "My Performance & Attendance", exact: true }).focus();
+        await page.keyboard.press("Home");
+        await expect(page.getByRole("tab", { name: "Review", exact: true })).toBeFocused();
+        await expect(page.getByRole("tab", { name: "Review", exact: true })).toBeInViewport({ ratio: 1 });
+        await expect(previousTab).toBeDisabled();
       }
       await page.getByRole("tab", { name: "Team Performance", exact: true }).click();
       await expect(page).toHaveURL(/tab=team/);
       await expect(page.getByTestId("tl-dashboard")).toHaveAttribute("aria-busy", "false");
+      await expectTabFrame(page, "team", viewport.width);
       await expect(page.getByTestId("tl-team-performance")).toContainText(group.users.SE.fullName);
       const member = page.getByTestId(`tl-staff-row-${group.users.SE.id}`);
       await expectProgress(member, group.users.SE.fullName, 20);
       await expect(member).toContainText(/Application count|Applications|Count/);
       await expect(member.getByRole("definition").filter({ hasText: /^5$/ })).toHaveCount(1);
-      const reportResponse = await page.request.get(`${api}/api/v1/reports/tl-dashboard?period=mtd&view=combined&queue=pending_review&page=1`);
-      expect(reportResponse.status()).toBe(200);
-      const report = await reportResponse.json();
       expect(report.staff.find((person: { id: string }) => person.id === group.users.SE.id).target).toMatchObject({ assigned: "5.00", achieved: "1.00", remaining: "4.00", achievementPct: 20, measurement: "count" });
       if (index === 0) {
         const over = page.getByTestId(`tl-staff-row-${group.targetUsers.OVER.id}`);
@@ -252,7 +434,8 @@ test("DXB and AUH TL review: scope, tabs, charts, breadcrumbs and responsive que
       await page.getByRole("tab", { name: "Team Performance", exact: true }).focus();
       await page.keyboard.press("ArrowRight");
       await expect(page.getByRole("tab", { name: "Analytics", exact: true })).toHaveAttribute("aria-selected", "true");
-      for (const title of ["Applications trend", "Internal Review tracker", "Bank Stage tracker", "Product mix", "Bank outcomes", "Waiting time & delays"]) await expect(page.getByRole("button", { name: new RegExp(`^${title}`) })).toBeVisible();
+      await expectTabFrame(page, "analytics", viewport.width);
+      for (const title of ["Applications trend", "Internal Review tracker", "Bank Stage tracker", "Product mix", "Bank outcomes", "Waiting time & delays"]) await expect(page.getByRole("heading", { name: title, exact: true }).getByRole("button", { name: title, exact: true })).toBeVisible();
       await expect(page.getByTestId("tl-trend-chart").getByRole("img").first()).toHaveAttribute("aria-label", /Applications trend/);
       await expect(page.getByTestId("tl-stage-chart").getByRole("img").first()).toHaveAttribute("aria-label", /workflow context/);
       const firstStage = report.charts.stages[0] as { label: string; workflowContext: string };
@@ -292,6 +475,7 @@ test("DXB and AUH TL review: scope, tabs, charts, breadcrumbs and responsive que
       await page.getByRole("tab", { name: "My Performance & Attendance", exact: true }).click();
       await expect(page.getByTestId("my-performance")).toBeVisible();
       await expect(page.getByTestId("my-attendance")).toBeVisible();
+      await expectTabFrame(page, "personal", viewport.width);
       const attendance = page.getByTestId("my-attendance");
       expect(report.personalAttendance.month).toMatch(/^\d{4}-\d{2}-01$/);
       const attendanceMonth = new Intl.DateTimeFormat("en", { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${report.personalAttendance.month}T00:00:00Z`));
@@ -299,12 +483,52 @@ test("DXB and AUH TL review: scope, tabs, charts, breadcrumbs and responsive que
       for (const label of ["Duty", "Check-in", "Check-out", "Worked"]) await expect(attendance.getByRole("term").filter({ hasText: new RegExp(`^${label}$`) })).toBeVisible();
       await expect(attendance.getByRole("button", { name: /save|edit|check in|check out/i })).toHaveCount(0);
       const personal = page.getByTestId("my-performance");
+      const unavailablePersonalHistory = personal.getByTestId("tl-sparkline-personal-applications");
+      await expect(unavailablePersonalHistory).toHaveAttribute("data-state", "unavailable");
+      await expect(unavailablePersonalHistory).toContainText("Trend unavailable");
+      await expect(unavailablePersonalHistory.locator("svg")).toHaveCount(0);
       if (index === 0) {
         expect(report.personalPerformance.target).toMatchObject({ assigned: "50000.00", achieved: "12500.00", remaining: "37500.00", achievementPct: 25, measurement: "amount" });
         await expectProgress(personal, "Personal Finance submitted", 25);
         for (const amount of ["50,000.00", "12,500.00", "37,500.00"]) await expect(personal.getByRole("definition").filter({ hasText: new RegExp(`^AED ${amount.replace(".", "\\.")}$`) })).toHaveCount(1);
         expect(report.personalAttendance.today).toMatchObject({ date: fixture.attendanceDate, status: "Present", scheduledStart: "09:00", scheduledEnd: "17:00", actualCheckIn: "09:05", actualCheckOut: "17:00", workedMinutes: 475 });
         for (const value of ["09:00–17:00", "09:05", "17:00", "7h 55m"]) await expect(attendance.getByRole("definition").filter({ hasText: new RegExp(`^${value}$`) })).toHaveCount(1);
+        const workedHistory = attendance.getByTestId("tl-sparkline-attendance-worked");
+        await expect(workedHistory).toHaveAttribute("data-state", "available");
+        const expectedDays: Array<{ date: string; value: number | null }> = [];
+        for (let date = new Date(`${report.personalAttendance.month}T00:00:00Z`); date.toISOString().slice(0, 10) <= fixture.attendanceDate; date = new Date(date.getTime() + 86400000)) {
+          const day = date.toISOString().slice(0, 10);
+          expectedDays.push({ date: day, value: day === fixture.attendanceDate ? 475 : null });
+        }
+        expect(await workedHistory.locator("g[data-date][data-value]").evaluateAll(nodes => nodes.map(node => ({ date: node.getAttribute("data-date"), value: node.getAttribute("data-value") === "null" ? null : Number(node.getAttribute("data-value")) })))).toEqual(expectedDays);
+        const knownPoint = workedHistory.locator(`g[data-date="${fixture.attendanceDate}"]`);
+        const nullPoints = workedHistory.locator('g[data-value="null"]');
+        await expect(nullPoints).toHaveCount(expectedDays.length - 1);
+        await expect(nullPoints.locator("circle")).toHaveCount(0);
+        const otherMetric = attendance.getByRole("term").filter({ hasText: /^Check-in$/ });
+        await otherMetric.hover();
+        await page.getByRole("tab", { name: "My Performance & Attendance", exact: true }).focus();
+        await expect(workedHistory.getByRole("tooltip")).toHaveCount(0);
+        await expect(knownPoint.locator("circle")).toHaveAttribute("r", "1.5");
+        expect(Number(await knownPoint.locator("circle").getAttribute("cy"))).toBeLessThan(29);
+        // One isolated recorded day must remain visible; missing days cannot become a zero line.
+        await expect(workedHistory.locator("path").nth(1)).toHaveAttribute("d", /^\s*M[^ML]*$/);
+        await workedHistory.focus();
+        await workedHistory.press("Home");
+        await expect(workedHistory.getByRole("tooltip")).toContainText(expectedDays[0].date);
+        await expect(workedHistory.getByRole("tooltip")).toContainText(expectedDays[0].value === null ? "Unavailable" : "475 minutes");
+        await workedHistory.press("End");
+        await expect(workedHistory.getByRole("tooltip")).toContainText(`${fixture.attendanceDate}`);
+        await expect(workedHistory.getByRole("tooltip")).toContainText("475 minutes");
+        await knownPoint.locator("rect").hover();
+        await otherMetric.hover();
+        await expect(workedHistory).toBeFocused();
+        await expect(workedHistory.getByRole("tooltip")).toBeVisible();
+        await knownPoint.locator("rect").hover();
+        await workedHistory.press("Escape");
+        await otherMetric.hover();
+        await expect(workedHistory).toBeFocused();
+        await expect(workedHistory.getByRole("tooltip")).toHaveCount(0);
       } else {
         await expect(personal).toContainText("No target or KPI scorecard is assigned for this period.");
         await expect(personal.getByRole("progressbar")).toHaveCount(0);
@@ -328,11 +552,15 @@ test("DXB and AUH TL review: scope, tabs, charts, breadcrumbs and responsive que
       await capturePreview(page, testInfo, `tl-${group.office.code}-${viewport.width}-personal`);
       await page.getByRole("tab", { name: "Review", exact: true }).click();
       const attention = page.getByRole("button", { name: /^Attention Required/ });
-      await expect(attention).toHaveAttribute("aria-expanded", "true");
-      await attention.press("Enter");
       await expect(attention).toHaveAttribute("aria-expanded", "false");
-      await attention.press("Space");
+      const attentionContent = page.locator(`[id="${await attention.getAttribute("aria-controls")}"]`);
+      await expect(attentionContent).toHaveCount(0);
+      await attention.press("Enter");
       await expect(attention).toHaveAttribute("aria-expanded", "true");
+      await expect(attentionContent).toBeVisible();
+      await attention.press("Space");
+      await expect(attention).toHaveAttribute("aria-expanded", "false");
+      await expect(attentionContent).toHaveCount(0);
       await expectNoOverflow(page);
       await reviewToggle.click();
       await expect(reviewToggle).toHaveAttribute("aria-expanded", "false");
@@ -367,6 +595,12 @@ test("DXB and AUH TL review: scope, tabs, charts, breadcrumbs and responsive que
       await page.getByRole("tab", { name: "Analytics", exact: true }).focus();
       await page.keyboard.press("Home");
       await expect(page.getByRole("tab", { name: "Review", exact: true })).toBeFocused();
+      const ytdResponse = await page.request.get(`${api}/api/v1/reports/tl-dashboard?period=ytd&view=team&queue=active&page=1`);
+      expect(ytdResponse.status()).toBe(200);
+      const ytdReport = await ytdResponse.json();
+      expect(ytdReport.view).toBe("team");
+      expect(ytdReport.metricHistory.pending_review.points.length).toBe(new Date().getUTCMonth() + 1);
+      await expectMetricSparklines(page, ytdReport);
       await page.keyboard.press("End");
       await expect(page.getByRole("tab", { name: "My Performance & Attendance", exact: true })).toBeFocused();
       for (const suffix of ["", "/progress", "/timeline", "/internal-review"]) expect((await page.request.get(`${api}/api/v1/applications/${other.id}${suffix}`)).status()).toBe(404);
@@ -441,12 +675,20 @@ test("DXB and AUH TL review: scope, tabs, charts, breadcrumbs and responsive que
     await expect(queue).toContainText("No Applications in this queue.");
     expect((await queue.boundingBox())!.height).toBeLessThan(200);
     await expect(queue.getByRole("button", { name: /^(Previous|Next)$/ })).toHaveCount(0);
+    await expectReviewLayout(page, viewport.width);
+    const emptyReportResponse = await page.request.get(`${api}/api/v1/reports/tl-dashboard?period=mtd&view=combined&queue=pending_review&page=1`);
+    expect(emptyReportResponse.status()).toBe(200);
+    const emptyReport = await emptyReportResponse.json();
+    for (const history of Object.values(emptyReport.metricHistory) as MetricHistory[]) expect(history.points.every(point => point.value === 0)).toBe(true);
+    await expectMetricSparklines(page, emptyReport, true);
     await capturePreview(page, testInfo, `tl-empty-${viewport.width}-review`);
     await page.getByRole("tab", { name: "Team Performance", exact: true }).click();
+    await expectTabFrame(page, "team", viewport.width);
     await expect(page.getByTestId("tl-team-performance")).toContainText("No SEs are currently assigned to this team.");
     await expect(page.getByTestId("tl-team-performance").getByRole("progressbar")).toHaveCount(0);
     await capturePreview(page, testInfo, `tl-empty-${viewport.width}-team`);
     await page.getByRole("tab", { name: "Analytics", exact: true }).click();
+    await expectTabFrame(page, "analytics", viewport.width);
     for (const chart of ["tl-trend-chart", "tl-stage-chart", "tl-product-chart", "tl-outcome-chart"]) {
       await expect(page.getByTestId(chart)).toBeVisible();
       await expect(page.getByTestId(chart).locator("canvas")).toHaveCount(0);
@@ -454,6 +696,7 @@ test("DXB and AUH TL review: scope, tabs, charts, breadcrumbs and responsive que
     }
     await capturePreview(page, testInfo, `tl-empty-${viewport.width}-analytics`);
     await page.getByRole("tab", { name: "My Performance & Attendance", exact: true }).click();
+    await expectTabFrame(page, "personal", viewport.width);
     await expect(page.getByTestId("my-performance")).toContainText("No target or KPI scorecard is assigned for this period.");
     await expect(page.getByTestId("my-performance").getByRole("progressbar")).toHaveCount(0);
     await capturePreview(page, testInfo, `tl-empty-${viewport.width}-personal`);
