@@ -245,7 +245,7 @@ async function expectReviewLayout(page: Page, viewportWidth: number) {
     const row = cardBoxes.slice(index, index + (viewportWidth === 1440 ? 4 : 2));
     expect(Math.max(...row.map(box => box!.height)) - Math.min(...row.map(box => box!.height))).toBeLessThanOrEqual(1);
   }
-  for (const card of await cards.all()) await expect(card.locator("strong")).toHaveCSS("font-size", viewportWidth === 1440 ? "40px" : "36px");
+  for (const card of await cards.all()) await expect(card.locator("strong")).toHaveCSS("font-size", "36px");
   if (viewportWidth === 1440) expect(Math.max(...cardBoxes.map(box => box!.y)) - Math.min(...cardBoxes.map(box => box!.y))).toBeLessThanOrEqual(1);
   else {
     expect(Math.abs(cardBoxes[0]!.y - cardBoxes[1]!.y)).toBeLessThanOrEqual(1);
@@ -776,6 +776,102 @@ test("DXB and AUH TL review: scope, tabs, charts, breadcrumbs and responsive que
     await signOut(page);
   }
   expect(errors).toEqual([]);
+});
+
+test("TL embossed review cards preserve metrics, selection, focus and motion preferences", async ({ page, request, browser }, testInfo) => {
+  test.setTimeout(180_000);
+  const fixture = await seed(request);
+  const group = fixture.groups[0];
+  await signIn(page, group.users.TL.email, `Welcome back, ${group.users.TL.fullName}`);
+  const keys = ["pending_review", "resubmitted", "returned", "forwarded"];
+  for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
+    await page.setViewportSize(viewport);
+    await page.emulateMedia({ reducedMotion: "no-preference" });
+    await page.goto("/reports?tab=review&period=ytd&view=combined&queue=pending_review&page=1");
+    await expect(page.getByTestId("tl-dashboard")).toHaveAttribute("aria-busy", "false");
+    const cards = page.getByTestId("tl-cards").locator("[data-queue]");
+    await expect(cards).toHaveCount(4);
+    const baseline = await cards.evaluateAll(elements => elements.map(element => {
+      const box = element.getBoundingClientRect();
+      return { x: box.x, y: box.y, width: box.width, height: box.height };
+    }));
+    expect(new Set(baseline.map(box => box.height)).size).toBe(1);
+    expect(new Set(baseline.map(box => box.y)).size).toBe(viewport.width === 1440 ? 1 : 2);
+    const response = await page.request.get(`${api}/api/v1/reports/tl-dashboard?period=ytd&view=combined&queue=pending_review&page=1`);
+    expect(response.status()).toBe(200);
+    const report = await response.json();
+    for (const [index, key] of keys.entries()) {
+      const card = cards.nth(index);
+      const count = report.cards.find((item: { key: string }) => item.key === key).count;
+      await expect(card.locator("button > strong")).toHaveText(count.toLocaleString());
+      await expect(card).toHaveCSS("transform", "none");
+      await expect(card).toHaveCSS("overflow", "visible");
+      expect(await card.evaluate(element => getComputedStyle(element).boxShadow)).toContain("inset");
+      const colors = ["rgb(152, 30, 188)", "rgb(245, 240, 252)", "rgb(255, 245, 234)", "rgb(239, 251, 246)"];
+      expect(await card.evaluate(element => getComputedStyle(element).backgroundImage)).toContain(colors[index]);
+      await expect(card.locator("button > strong")).toHaveCSS("font-size", "36px");
+      await expect(card.locator("button > strong")).toHaveCSS("text-shadow", "none");
+    }
+    await capturePreview(page, testInfo, `embossed-${viewport.width}-default`);
+    const hovered = cards.nth(1);
+    await hovered.hover({ position: { x: 10, y: 10 } });
+    const sheen = await hovered.evaluate(element => {
+      const style = getComputedStyle(element, "::before");
+      return { name: style.animationName, duration: style.animationDuration, easing: style.animationTimingFunction, iterations: style.animationIterationCount, pointerEvents: style.pointerEvents, clip: style.clipPath, fade: style.transitionDuration };
+    });
+    expect(sheen.name).not.toBe("none");
+    expect(sheen).toMatchObject({ duration: "0.65s", easing: "ease-out", iterations: "1", pointerEvents: "none", fade: "0.18s" });
+    expect(sheen.clip).toContain("inset");
+    // Inspect the actual CSS animation at its midpoint, without changing app data or geometry.
+    await hovered.evaluate(element => {
+      const animation = element.getAnimations({ subtree: true }).find(item => item instanceof CSSAnimation);
+      if (!animation) throw new Error("Expected a real CSS sheen animation");
+      animation.pause();
+      animation.currentTime = 325;
+    });
+    await page.screenshot({ path: testInfo.outputPath(`embossed-${viewport.width}-hover.png`), fullPage: true });
+    expect(await cards.evaluateAll(elements => elements.map(element => {
+      const box = element.getBoundingClientRect();
+      return { x: box.x, y: box.y, width: box.width, height: box.height };
+    }))).toEqual(baseline);
+    await page.getByRole("heading", { level: 1 }).hover();
+    await expect.poll(() => hovered.evaluate(element => getComputedStyle(element, "::before").opacity)).toBe("0");
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await hovered.hover();
+    expect(await hovered.evaluate(element => getComputedStyle(element, "::before").animationName)).toBe("none");
+    for (const [index, key] of keys.entries()) {
+      const action = cards.nth(index).getByRole("button");
+      await action.focus();
+      await expect(action).toBeFocused();
+      await expect(action).toHaveCSS("outline-style", "solid");
+      await expect(action).toHaveCSS("outline-width", "3px");
+      await action.press("Enter");
+      await expect(page.getByTestId("tl-dashboard")).toHaveAttribute("aria-busy", "false");
+      await expect(action).toHaveAttribute("aria-pressed", "true");
+      await expect(page).toHaveURL(new RegExp(`queue=${key}`));
+      expect(await cards.nth(index).evaluate(element => getComputedStyle(element).backgroundImage)).toContain("rgb(152, 30, 188)");
+      await expect(cards.nth(index)).toHaveCSS("outline-width", "2px");
+      expect(new URL(page.url()).searchParams.get("period")).toBe("ytd");
+      expect(new URL(page.url()).searchParams.get("view")).toBe("combined");
+    }
+    await capturePreview(page, testInfo, `embossed-${viewport.width}-selected-focus`);
+    await expectNoOverflow(page);
+  }
+  await signOut(page);
+  const touchContext = await browser.newContext({ baseURL: new URL(page.url()).origin, viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, reducedMotion: "no-preference" });
+  try {
+    const touchPage = await touchContext.newPage();
+    await touchPage.goto(new URL("/login", page.url()).href);
+    await signIn(touchPage, group.users.TL.email, `Welcome back, ${group.users.TL.fullName}`);
+    const touchCard = touchPage.getByTestId("tl-cards").locator('[data-queue="returned"]');
+    await touchCard.getByRole("button").tap();
+    await expect(touchCard.getByRole("button")).toHaveAttribute("aria-pressed", "true");
+    expect(await touchCard.evaluate(element => ({ hover: matchMedia("(hover: hover) and (pointer: fine)").matches, animation: getComputedStyle(element, "::before").animationName }))).toEqual({ hover: false, animation: "none" });
+    await capturePreview(touchPage, testInfo, "embossed-touch-static");
+    await signOut(touchPage);
+  } finally {
+    await touchContext.close();
+  }
 });
 
 test("TL welcome header and real database refresh preserve selections and last successful time", async ({ page, request }, testInfo) => {
