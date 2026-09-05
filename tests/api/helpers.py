@@ -1,15 +1,27 @@
 from __future__ import annotations
 
 import os
+from datetime import UTC, date, datetime
 from uuid import uuid4
 
 from httpx import ASGITransport, AsyncClient
 
+from nexa_bos_api.attendance.enums import BUSINESS_TZ
 from nexa_bos_api.main import app
 
 OWNER_EMAIL = "owner@example.com"
 OWNER_PASSWORD = "OwnerPass1!"
 BOOTSTRAP_SECRET = os.environ.get("BOOTSTRAP_SECRET", "nexa-test-bootstrap-secret")
+
+
+def utc_today() -> date:
+    """Return the calendar date used by UTC-bound API validation."""
+    return datetime.now(UTC).date()
+
+
+def business_today() -> date:
+    """Return the UAE business date used by attendance and target snapshots."""
+    return datetime.now(BUSINESS_TZ).date()
 
 
 async def ensure_owner(client: AsyncClient) -> None:

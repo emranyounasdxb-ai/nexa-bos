@@ -553,6 +553,7 @@ function Shell({ children }: { children: ReactNode }) {
               >
                 <span
                   aria-hidden="true"
+                  data-amafh-icon-tile=""
                   className={cx(
                     "inline-flex size-8 shrink-0 items-center justify-center rounded-md border",
                     isActiveRoute(pathname, dashboardItem.href)
@@ -600,6 +601,7 @@ function Shell({ children }: { children: ReactNode }) {
                   >
                     <span
                       aria-hidden="true"
+                      data-amafh-icon-tile=""
                       className={cx(
                         "inline-flex size-8 shrink-0 items-center justify-center rounded-md border",
                         groupActive

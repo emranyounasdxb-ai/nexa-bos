@@ -159,3 +159,25 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   display: none;
   -webkit-appearance: none;
 }
+
+/* Scoped icon depth: applies only to the shared UI icon library, never logos or charts. */
+[data-amafh-ui-icon] {
+  --amafh-icon-shadow: color-mix(in srgb, currentColor 38%, transparent);
+  filter:
+    drop-shadow(-0.5px -0.5px 0 rgba(255, 255, 255, 0.72))
+    drop-shadow(0.7px 0.8px 0.45px var(--amafh-icon-shadow));
+}
+
+[data-amafh-icon-tile] {
+  background-image: linear-gradient(135deg, rgba(255, 255, 255, 0.62), rgba(49, 17, 65, 0.055)) !important;
+  box-shadow:
+    0 3px 7px -4px rgba(49, 17, 65, 0.32),
+    0 1px 2px rgba(49, 17, 65, 0.08),
+    inset 1px 1px 1px rgba(255, 255, 255, 0.78),
+    inset -1px -1px 1px rgba(49, 17, 65, 0.08);
+}
+
+:is(button, [role="button"], a):disabled [data-amafh-ui-icon],
+[aria-disabled="true"] [data-amafh-ui-icon] {
+  filter: none;
+}

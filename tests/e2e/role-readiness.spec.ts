@@ -777,6 +777,13 @@ test.describe("shared sidebar role regression matrix", () => {
         await expect(navigation.getByRole("link", { name: "Notifications", exact: true })).toHaveCount(0);
         await expect(page.locator("header").getByRole("link", { name: /Notifications, \d+ unread/ })).toHaveCount(0);
         await expect(page.locator("header").getByLabel("Open user menu")).toHaveCount(0);
+        const iconStyles = await navigation.locator('[data-amafh-ui-icon]').evaluateAll((icons) => icons.map((icon) => getComputedStyle(icon).filter));
+        expect(iconStyles.length, `${code} should render authorized navigation icons`).toBeGreaterThan(0);
+        expect(iconStyles.every((filter) => filter.includes("drop-shadow"))).toBe(true);
+        const tiles = navigation.locator('[data-amafh-icon-tile]');
+        expect(await tiles.count(), `${code} should preserve existing sidebar icon tiles`).toBeGreaterThan(0);
+        await expect(tiles.first()).toHaveCSS("background-image", /linear-gradient/);
+        await expect(tiles.first()).toHaveCSS("box-shadow", /inset/);
       };
       const expectAnchoredFooter = async () => {
         await expect(footer).toBeInViewport({ ratio: 1 });

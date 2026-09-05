@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from datetime import date
-
 import pytest
 from helpers import (
     authenticate,
@@ -10,6 +8,7 @@ from helpers import (
     office_id,
     owner_client,
     spawned_client,
+    utc_today,
     unique_tag,
 )
 from httpx import AsyncClient, Response
@@ -255,7 +254,7 @@ async def test_application_id_generation_and_entry_stage(client: AsyncClient) ->
         product_id=pf["id"],
         case_owner_id=owner["id"],
     )
-    year = date.today().year
+    year = utc_today().year
     assert created["applicationCode"].startswith(f"PF-DIB-{year}-")
     assert created["currentStage"] == "Application Created"
     assert created["terminalOutcome"] is None
@@ -456,7 +455,7 @@ async def test_workflow_transitions_return_resubmit_approval_fund(
     approved = await _stage_by_key(authed, created["workflowId"], "approved")
     blocked = await authed.post(
         f"/api/v1/applications/{created['id']}/stage",
-        json={"stage_id": approved["id"], "bank_stage_date": date.today().isoformat()},
+        json={"stage_id": approved["id"], "bank_stage_date": utc_today().isoformat()},
     )
     assert blocked.status_code == 422
     assert blocked.json()["error"]["code"] == "TRANSITION_NOT_ALLOWED"
@@ -467,14 +466,14 @@ async def test_workflow_transitions_return_resubmit_approval_fund(
     returned = await _stage_by_key(authed, created["workflowId"], "returned_requirement_pending")
     missing_reason = await authed.post(
         f"/api/v1/applications/{created['id']}/stage",
-        json={"stage_id": returned["id"], "bank_stage_date": date.today().isoformat()},
+        json={"stage_id": returned["id"], "bank_stage_date": utc_today().isoformat()},
     )
     assert missing_reason.status_code == 422
     returned_ok = await authed.post(
         f"/api/v1/applications/{created['id']}/stage",
         json={
             "stage_id": returned["id"],
-            "bank_stage_date": date.today().isoformat(),
+            "bank_stage_date": utc_today().isoformat(),
             "requirement_text": "Salary certificate",
             "stage_note": "Bank query",
         },
@@ -483,14 +482,14 @@ async def test_workflow_transitions_return_resubmit_approval_fund(
     resubmitted = await _stage_by_key(authed, created["workflowId"], "resubmitted")
     resub = await authed.post(
         f"/api/v1/applications/{created['id']}/stage",
-        json={"stage_id": resubmitted["id"], "bank_stage_date": date.today().isoformat()},
+        json={"stage_id": resubmitted["id"], "bank_stage_date": utc_today().isoformat()},
     )
     assert resub.json()["currentStage"] == "Resubmitted"
     approved_ok = await authed.post(
         f"/api/v1/applications/{created['id']}/stage",
         json={
             "stage_id": approved["id"],
-            "bank_stage_date": date.today().isoformat(),
+            "bank_stage_date": utc_today().isoformat(),
             "approved_amount": "9000",
         },
     )
@@ -501,7 +500,7 @@ async def test_workflow_transitions_return_resubmit_approval_fund(
         f"/api/v1/applications/{created['id']}/stage",
         json={
             "stage_id": booked["id"],
-            "bank_stage_date": date.today().isoformat(),
+            "bank_stage_date": utc_today().isoformat(),
             "booked_amount": "9000",
         },
     )
@@ -510,7 +509,7 @@ async def test_workflow_transitions_return_resubmit_approval_fund(
         f"/api/v1/applications/{created['id']}/stage",
         json={
             "stage_id": funded["id"],
-            "bank_stage_date": date.today().isoformat(),
+            "bank_stage_date": utc_today().isoformat(),
             "funded_amount": "9000",
         },
     )
@@ -563,7 +562,7 @@ async def test_terminal_outcomes_and_stage_correction(client: AsyncClient) -> No
         f"/api/v1/applications/{created['id']}/correct-stage",
         json={
             "stage_id": submitted["id"],
-            "bank_stage_date": date.today().isoformat(),
+            "bank_stage_date": utc_today().isoformat(),
             "reason": "Wrong stage recorded",
             "stage_note": "corrected note",
         },
