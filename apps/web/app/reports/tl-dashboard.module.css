@@ -243,23 +243,29 @@
 .reviewEyebrow > :last-child { font-weight: 500; letter-spacing: .03em; }
 .reviewEyebrow > :last-child > span { margin-inline: 5px; color: #9987a4; }
 .reviewPreview .cards { gap: 12px; }
-.reviewPreview .kpiCard { position: relative; padding: 0; border: 0; border-radius: 12px; color: var(--review-ink); background: #e8dbf0; box-shadow: none; }
+.reviewPreview .kpiCard { --kpi-surface: linear-gradient(135deg, #f5f0fc, #eae2f6); --kpi-shadow: 0 12px 22px -9px rgba(49,17,65,.28), 0 3px 6px rgba(49,17,65,.08), inset 1px 1px 2px rgba(255,255,255,.9), inset -1px -2px 3px rgba(49,17,65,.08); --kpi-sheen: .22; position: relative; isolation: isolate; padding: 0; border: 0; border-radius: 12px; color: var(--review-ink); background: var(--kpi-surface); box-shadow: var(--kpi-shadow); }
+.reviewPreview .kpiCard::before { content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; clip-path: inset(0 round 12px); pointer-events: none; background: linear-gradient(135deg, transparent 35%, rgba(255,255,255,.1) 42%, white 50%, rgba(255,255,255,.1) 58%, transparent 65%) 100% 100% / 300% 300% no-repeat; opacity: 0; transition: opacity 180ms ease-out; }
+.reviewPreview .kpiCard[data-queue="pending_review"], .reviewPreview .kpiCard[data-selected="true"] { --kpi-surface: linear-gradient(135deg, #981ebc, #790f98 55%, #6b0b84); --kpi-shadow: 0 12px 22px -9px rgba(107,11,132,.32), 0 3px 6px rgba(79,12,98,.16), inset 1px 1px 2px rgba(255,255,255,.35), inset -1px -2px 3px rgba(49,17,65,.18); --kpi-sheen: .12; color: white; }
 .reviewPreview .kpiAction { padding: 14px 16px; }
-.reviewPreview .kpiCard[data-queue="resubmitted"] { background: #e9e4f7; }
-.reviewPreview .kpiCard[data-queue="returned"] { background: #f7ebdf; }
-.reviewPreview .kpiCard[data-queue="forwarded"] { background: #e1eee9; }
-.reviewPreview .kpiCard:hover { box-shadow: inset 0 0 0 2px #6f0d8345; }
-.reviewPreview .kpiCard[data-selected="true"] { color: white; background: var(--amafh-primary); box-shadow: 0 4px 10px #6f0d831c; }
+.reviewPreview .kpiCard[data-queue="returned"]:not([data-selected="true"]) { --kpi-surface: linear-gradient(135deg, #fff5ea, #f5e6d7); }
+.reviewPreview .kpiCard[data-queue="forwarded"]:not([data-selected="true"]) { --kpi-surface: linear-gradient(135deg, #effbf6, #dceee7); }
+.reviewPreview .kpiCard:hover { background: var(--kpi-surface); box-shadow: var(--kpi-shadow); }
+.reviewPreview .kpiCard[data-selected="true"] { outline: 2px solid #6b0b84; outline-offset: 2px; box-shadow: var(--kpi-shadow); }
+.reviewPreview .kpiAction:focus-visible { outline: 3px solid #382345; outline-offset: 5px; }
+@keyframes reviewSheen { from { background-position: 100% 100%; } to { background-position: 0 0; } }
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  .reviewPreview .kpiCard:hover::before { opacity: var(--kpi-sheen); animation: reviewSheen 650ms ease-out 1 both; }
+}
 .kpiLabel { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 14px; font-weight: 600 !important; }
 .kpiIcon { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 28px; height: 28px; border-radius: 8px; background: #ffffff80; color: var(--amafh-primary); }
 .kpiIcon > svg { width: 18px; height: 18px; }
 .reviewPreview [data-queue="returned"] .kpiIcon { color: #8f541a; }
 .reviewPreview [data-queue="forwarded"] .kpiIcon { color: #246550; }
-.reviewPreview .kpiCard[data-selected="true"] .kpiIcon { color: white; background: #ffffff24; }
-.reviewPreview .kpiAction > strong { font-size: 40px; line-height: 1.15; letter-spacing: -1.2px; font-weight: 700; color: inherit; }
+.reviewPreview .kpiCard[data-queue="pending_review"] .kpiIcon, .reviewPreview .kpiCard[data-selected="true"] .kpiIcon { color: white; background: #ffffff24; }
+.reviewPreview .kpiAction > strong { font-size: 36px; line-height: 1.15; letter-spacing: -1.2px; font-weight: 700; color: inherit; }
 .reviewPreview .kpiCard[data-selected="true"] .kpiAction > strong { color: inherit; }
 .reviewPreview .kpiCard small { padding-right: 18px; font-size: 12px; color: #63526d; }
-.reviewPreview .kpiCard[data-selected="true"] small, .reviewPreview .kpiCard[data-selected="true"] .trendUnavailable { color: #f0d9f5; }
+.reviewPreview .kpiCard[data-queue="pending_review"] small, .reviewPreview .kpiCard[data-queue="pending_review"] .trendUnavailable, .reviewPreview .kpiCard[data-selected="true"] small, .reviewPreview .kpiCard[data-selected="true"] .trendUnavailable { color: #f0d9f5; }
 .kpiArrow { position: absolute; right: 15px; bottom: 15px; width: 16px; height: 16px; opacity: .65; }
 .bankBand { display: flex; align-items: center; gap: 12px; padding-block: 4px 12px; border-bottom: 1px solid #dfd4e6; }
 .bankCaption { display: inline-flex; align-items: center; gap: 7px; flex: 0 0 150px; font-size: 12px; color: var(--review-muted); }
@@ -329,6 +335,7 @@
   .reviewEyebrow { font-size: 11px; }
   .reviewPreview .cards { gap: 8px; }
   .reviewPreview .kpiCard { padding: 0; border-radius: 10px; }
+  .reviewPreview .kpiCard::before { clip-path: inset(0 round 10px); }
   .reviewPreview .kpiAction { padding: 12px; gap: 5px; }
   .reviewPreview .kpiLabel { align-items: start; gap: 4px; min-height: 28px; font-size: 13px; }
   .kpiIcon { width: 23px; height: 23px; border-radius: 6px; }
