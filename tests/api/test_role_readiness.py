@@ -546,7 +546,7 @@ async def test_application_stage_metadata_respects_application_scope_without_wor
     await _configure_system_type(
         authed,
         "TL",
-        permissions=["Applications.View"],
+        permissions=["Applications.View", "Applications.Edit"],
         application_scope="team",
         can_be_case_owner=True,
     )
@@ -663,6 +663,19 @@ async def test_application_stage_metadata_respects_application_scope_without_wor
     await assert_scoped_metadata(dxb_tl, dxb_application, auh_application)
     await assert_scoped_metadata(dxb_se, dxb_application, auh_application)
     await assert_scoped_metadata(dxb_cod, dxb_application, auh_application)
+
+    async with await spawned_client() as reviewer:
+        await authenticate(reviewer, dxb_tl["email"], "UserPass1!")
+        path = f"/api/v1/applications/{dxb_application['id']}/internal-review"
+        state = (await reviewer.get(path)).json()
+        forwarded = await reviewer.post(
+            path,
+            json={
+                "action": "forward",
+                "expected_event_id": state["eventId"],
+            },
+        )
+        assert forwarded.status_code == 200, forwarded.text
 
     async with await spawned_client() as cod_client:
         await authenticate(cod_client, dxb_cod["email"], "UserPass1!")

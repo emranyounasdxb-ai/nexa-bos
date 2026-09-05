@@ -11,6 +11,8 @@ from nexa_bos_api.identity.access import (
     application_visibility_scope,
     customer_visibility_scope,
     descendant_ids,
+    has_user_type,
+    tl_team_owner_ids,
 )
 from nexa_bos_api.identity.enums import VisibilityScope
 from nexa_bos_api.identity.models import User
@@ -21,6 +23,8 @@ async def visible_case_owner_ids(session: AsyncSession, actor: User) -> set[UUID
     scope = application_visibility_scope(actor)
     if scope is None:
         return set()
+    if has_user_type(actor, "TL"):
+        return await tl_team_owner_ids(session, actor)
     if scope is VisibilityScope.COMPANY:
         return None
     allowed = {actor.id}

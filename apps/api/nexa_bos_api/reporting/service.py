@@ -17,6 +17,7 @@ from nexa_bos_api.applications.models import (
     ApplicationStageOccupancy,
     WorkflowStage,
 )
+from nexa_bos_api.applications.review import review_state
 from nexa_bos_api.attendance.service import (
     employee_attendance_summary,
     personal_attendance_snapshot,
@@ -25,7 +26,7 @@ from nexa_bos_api.catalog.models import Bank, Product, ProductVariant
 from nexa_bos_api.core.exceptions import AppError
 from nexa_bos_api.core.pagination import PageResult
 from nexa_bos_api.customers.models import Customer
-from nexa_bos_api.identity.access import has_permission, has_user_type
+from nexa_bos_api.identity.access import has_permission, has_user_type, tl_team_owner_ids
 from nexa_bos_api.identity.enums import AccountStatus, StageSystemKey, VisibilityScope
 from nexa_bos_api.identity.models import Department, Office, Team, User
 from nexa_bos_api.identity.permissions import (
@@ -260,7 +261,12 @@ def stage_at_cutoff(
 
 async def load_facts(
     session: AsyncSession,
+    *,
+    owner_ids: set[UUID] | None = None,
+    actor: User | None = None,
 ) -> tuple[list[AppFact], dict[UUID, User], dict[UUID, Office], dict[UUID, Team]]:
+    if actor is not None and has_user_type(actor, "TL"):
+        owner_ids = await tl_team_owner_ids(session, actor)
     stage = aliased(WorkflowStage)
     rows = (
         await session.execute(
@@ -270,6 +276,7 @@ async def load_facts(
             .outerjoin(ProductVariant, Application.product_variant_id == ProductVariant.id)
             .join(stage, Application.current_stage_id == stage.id)
             .join(Customer, Application.customer_id == Customer.id)
+            .where(Application.case_owner_id.in_(owner_ids) if owner_ids is not None else True)
         )
     ).all()
     app_ids = [app.id for app, *_ in rows]
@@ -1346,6 +1353,7 @@ def _cod_workspace_payload(
             now,
             fact.current_attr.office_id,
         )
+        and review_state(fact.events)["status"] in {"legacy", "forwarded"}
     ]
     opened = [fact for fact in visible if fact.terminal_outcome is None]
     new_cases = [fact for fact in visible if in_window(fact.created_at, window)]
@@ -1544,7 +1552,7 @@ async def dashboard_payload(
     ranking_metric: str = "funded_value",
 ) -> dict[str, object]:
     access = await load_reporting_access(session, actor)
-    facts, users, offices, teams = await load_facts(session)
+    facts, users, offices, teams = await load_facts(session, actor=actor)
     window = await resolve_window(
         access,
         period=period,
@@ -1616,7 +1624,7 @@ async def drilldown_payload(
     page_size: int | None = None,
 ) -> dict[str, object]:
     access = await load_reporting_access(session, actor)
-    facts, users, _offices, _teams = await load_facts(session)
+    facts, users, _offices, _teams = await load_facts(session, actor=actor)
     window = await resolve_window(
         access,
         period=period,
@@ -1678,7 +1686,7 @@ async def rankings_payload(
     ranking_metric: str,
 ) -> dict[str, object]:
     access = await load_reporting_access(session, actor)
-    facts, users, offices, teams = await load_facts(session)
+    facts, users, offices, teams = await load_facts(session, actor=actor)
     window = await resolve_window(
         access,
         period=period,
@@ -1787,7 +1795,7 @@ async def comparison_payload(
     from nexa_bos_api.reporting.periods import comparison_windows
 
     access = await load_reporting_access(session, actor)
-    facts, users, _offices, _teams = await load_facts(session)
+    facts, users, _offices, _teams = await load_facts(session, actor=actor)
     if access.scope is None:
         return {
             "reportingScope": None,
@@ -1857,7 +1865,7 @@ async def employee_profile_payload(
     ranking_metric: str = "funded_value",
 ) -> dict[str, object]:
     access = await load_reporting_access(session, actor)
-    facts, users, offices, teams = await load_facts(session)
+    facts, users, offices, teams = await load_facts(session, actor=actor)
     employee = users.get(employee_id)
     if employee is None:
         raise AppError(status_code=404, code="NOT_FOUND", message="Employee was not found")
@@ -1936,7 +1944,7 @@ async def filter_options_payload(session: AsyncSession, actor: User) -> dict[str
             "products": [],
             "stages": [],
         }
-    facts, users, offices, teams = await load_facts(session)
+    facts, users, offices, teams = await load_facts(session, actor=actor)
     visible_users: set[UUID] = set()
     visible_offices: set[UUID] = set()
     visible_depts: set[UUID] = set()

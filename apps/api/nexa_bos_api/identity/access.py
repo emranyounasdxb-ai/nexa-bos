@@ -128,6 +128,25 @@ async def descendant_ids(session: AsyncSession, manager_id: UUID) -> set[UUID]:
     return {row[0] for row in result.all()}
 
 
+async def tl_team_owner_ids(session: AsyncSession, actor: User) -> set[UUID]:
+    """A TL owns their cases and reviews only directly assigned, same-team SEs."""
+    allowed = {actor.id}
+    if not actor.office_id or not actor.team_id or not actor.department_id:
+        return allowed
+    rows = await session.scalars(
+        select(User.id)
+        .join(UserType, User.user_type_id == UserType.id)
+        .where(
+            User.reporting_manager_id == actor.id,
+            User.team_id == actor.team_id,
+            User.office_id == actor.office_id,
+            User.department_id == actor.department_id,
+            UserType.code == "SE",
+        )
+    )
+    return allowed | set(rows)
+
+
 async def visible_user_ids(session: AsyncSession, actor: User) -> set[UUID] | None:
     """None means company-wide (no id filter). Always includes the actor."""
     scope = visibility_scope(actor)

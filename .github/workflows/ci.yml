@@ -77,7 +77,31 @@ jobs:
       - name: API tests
         working-directory: apps/api
         run: |
+          export VERIFIED_TEST_SERVER=$(docker inspect --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' '${{ job.services.postgres.id }}')
+          verify_test_database() {
+            uv run python - <<'PY'
+          import asyncio, os, runpy
+          from sqlalchemy import text
+          from sqlalchemy.ext.asyncio import create_async_engine
+          guard = runpy.run_path('../../tests/api/database_safety.py')['validate_test_database_url']
+          target = guard(os.environ.get('DATABASE_URL'))
+          assert (target.host, target.port, target.database) == ('localhost', 5432, 'nexa_bos_test_ci')
+          assert os.environ['VERIFIED_TEST_SERVER']
+          async def verify():
+              engine = create_async_engine(os.environ['DATABASE_URL'])
+              try:
+                  async with engine.connect() as connection:
+                      row = (await connection.execute(text('SELECT current_database(), inet_server_addr()::text, inet_server_port()'))).one()
+                      assert row == (target.database, os.environ['VERIFIED_TEST_SERVER'], 5432)
+              finally:
+                  await engine.dispose()
+          asyncio.run(verify())
+          print(f'Guard PASSED; connected identity verified: host={target.host} port={target.port} database={target.database}')
+          PY
+          }
+          verify_test_database
           uv run alembic upgrade head
+          verify_test_database
           uv run pytest
 
       - name: Next.js production build

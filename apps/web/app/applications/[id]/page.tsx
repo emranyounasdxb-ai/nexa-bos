@@ -12,6 +12,7 @@ import {
 } from "react";
 
 import { DatePicker } from "@/components/date-picker";
+import { ApplicationInternalReview, type InternalReview } from "@/components/application-internal-review";
 import {
   Badge,
   Button,
@@ -120,9 +121,17 @@ function Value({ label, children }: { label: string; children: React.ReactNode }
 
 export default function ApplicationDetailPage() {
   const params = useParams<{ id: string }>();
-  const { can, user } = useAuth();
+  const { user } = useAuth();
+  const can = useCallback((permission: string) => Boolean(user?.permissions.includes(permission)) && (
+    user?.userType?.code !== "TL" || ![
+      "Applications.Submit", "Applications.UpdateStage", "Applications.CorrectStage",
+      "Applications.CorrectSubmittedData", "Applications.ReassignCaseOwner", "Applications.SetOutcome",
+      "Applications.MarkDelay", "Applications.CorrectDelay", "Workflows.MigrateApplication",
+    ].includes(permission)
+  ), [user]);
   const api = getBrowserApiUrl();
   const [item, setItem] = useState<ApplicationRecord | null>(null);
+  const [review, setReview] = useState<InternalReview | null>(null);
   const [progress, setProgress] = useState<WorkflowStageRecord[]>([]);
   const [version, setVersion] = useState<number | null>(null);
   const [timeline, setTimeline] = useState<ApplicationEventRecord[]>([]);
@@ -190,7 +199,7 @@ export default function ApplicationDetailPage() {
         current === previousSavedCaseNumber ? savedCaseNumber : current,
       );
       savedCaseNumberRef.current = savedCaseNumber;
-      const [progressData, timelineData, ownerData, versionData, variantData] =
+      const [progressData, timelineData, ownerData, versionData, variantData, reviewData] =
         await Promise.all([
           apiGet<ApplicationStageMetadata>(
             `/api/v1/applications/${params.id}/progress`,
@@ -213,7 +222,9 @@ export default function ApplicationDetailPage() {
             "/api/v1/product-variants",
             api,
           ),
+          apiGet<InternalReview>(`/api/v1/applications/${params.id}/internal-review`, api),
         ]);
+      setReview(reviewData);
       const applicationWorkflow: WorkflowRecord = {
         id: progressData.workflowId,
         bankId: data.bankId,
@@ -457,6 +468,10 @@ export default function ApplicationDetailPage() {
   const selectedNext = nextStages.find((stage) => stage.id === stageId);
   const status = item.terminalOutcome || item.currentStage || "In progress";
   const currentStageIndex = progress.findIndex((stage) => stage.current);
+  const canEditOwn = can("Applications.Edit") && !item.submitted && !item.terminal &&
+    (!["TL", "SE", "BDM", "SM", "OM"].includes(user?.userType?.code ?? "") || item.caseOwnerId === user?.id) &&
+    Boolean(review && (review.status === "legacy" || ["OWNER", "GM"].includes(user?.userType?.code ?? "") ||
+      (user?.userType?.code === "SE" ? review.status === "returned" : review.status === "forwarded")));
   const hasActions =
     item.terminal ||
     (Boolean(item.activeDelay) && can("Applications.CorrectDelay")) ||
@@ -511,6 +526,8 @@ export default function ApplicationDetailPage() {
           </dl>
         </div>
       </Card>
+
+      {review && <ApplicationInternalReview applicationId={item.id} state={review} requestedAmount={item.requestedAmount} onSaved={async text => { setMessage(text); await refresh(); }} />}
 
       <Card className="border-brand-primary/30 bg-brand-soft/30">
         <div className="flex min-w-0 flex-wrap items-start justify-between gap-2">
@@ -605,7 +622,7 @@ export default function ApplicationDetailPage() {
                 <Field label="Bank"><Select aria-label="Bank" value={item.bankId} disabled><option value={item.bankId}>{item.bankName} ({item.bankCode})</option></Select></Field>
                 <Field label="Product Category"><Select aria-label="Product Category" value={item.productId} disabled><option value={item.productId}>{item.productName} ({item.productCode})</option></Select></Field>
                 <Field label="Product Variant">
-                  {can("Applications.Edit") && !item.submitted && !item.terminal ? (
+                  {canEditOwn ? (
                     <Select aria-label="Product Variant" value={variantId} disabled={variantSaving} onChange={(event) => setVariantId(event.target.value)}>
                       <option value="">Select product variant</option>
                       {item.productVariantId && !variants.some((variant) => variant.id === item.productVariantId) ? <option value={item.productVariantId} disabled>{item.productVariantName} ({item.productVariantCode}) — unavailable for new selection</option> : null}
@@ -616,7 +633,7 @@ export default function ApplicationDetailPage() {
               </div>
               {variantFeedback?.tone === "error" ? <div className="mt-3"><ErrorText>{variantFeedback.text}</ErrorText></div> : null}
               {variantFeedback?.tone === "success" ? <p role="status" className="mt-3 text-sm font-medium text-success">{variantFeedback.text}</p> : null}
-              {can("Applications.Edit") && !item.submitted && !item.terminal ? <div className="mt-3 flex justify-end"><Button type="button" disabled={variantSaving || !variantId || variantId === item.productVariantId} onClick={() => void saveVariant()}>{variantSaving ? "Saving…" : "Save Product Variant"}</Button></div> : null}
+              {canEditOwn ? <div className="mt-3 flex justify-end"><Button type="button" disabled={variantSaving || !variantId || variantId === item.productVariantId} onClick={() => void saveVariant()}>{variantSaving ? "Saving…" : "Save Product Variant"}</Button></div> : null}
             </Card>
             <div className="grid min-w-0 gap-4 lg:grid-cols-3">
               <Card><h3 className="font-semibold">Customer</h3><dl className="mt-3 grid gap-3"><Value label="Customer">{item.customerCode} · {item.customerName}</Value><Value label="Mobile">{item.customerMobile ?? "Not recorded"}</Value></dl></Card>

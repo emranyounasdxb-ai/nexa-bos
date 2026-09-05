@@ -29,6 +29,8 @@ services:
       DATABASE_URL: postgresql+asyncpg://${NEXA_POSTGRES_USER:-nexa}:${NEXA_POSTGRES_PASSWORD:-nexa}@postgres:5432/${NEXA_POSTGRES_DB:-nexa_bos}
       WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:3000}
       BOOTSTRAP_SECRET: ${BOOTSTRAP_SECRET:-}
+      RUN_MIGRATIONS_ON_STARTUP: ${RUN_MIGRATIONS_ON_STARTUP:-true}
+      BOOTSTRAP_ON_STARTUP: ${BOOTSTRAP_ON_STARTUP:-true}
     ports:
       - "${API_PORT:-8000}:8000"
     depends_on:
