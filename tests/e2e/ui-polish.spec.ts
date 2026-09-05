@@ -533,7 +533,14 @@ test("sidebar groups are folded by default and toggle across desktop and mobile"
   await expect(sidebar.getByTestId("sidebar-main-icon")).toHaveCount(7);
   await expect(sidebar.getByTestId("sidebar-group-chevron")).toHaveCount(0);
   const dashboardIconFrame = sidebar.locator('a[href="/reports"] span[aria-hidden="true"]');
+  await expect(dashboardIconFrame).toHaveAttribute("data-amafh-icon-tile", "");
+  await expect(dashboardIconFrame).toHaveCSS("background-image", /linear-gradient/);
+  await expect(dashboardIconFrame).toHaveCSS("box-shadow", /inset/);
+  const dashboardIcon = dashboardIconFrame.getByTestId("sidebar-main-icon");
+  await expect(dashboardIcon).toHaveAttribute("data-amafh-ui-icon", "");
+  await expect(dashboardIcon).toHaveCSS("filter", /drop-shadow/);
   const collapsedIconX = (await dashboardIconFrame.boundingBox())?.x ?? 0;
+  const collapsedIconBox = await dashboardIcon.boundingBox();
   for (const group of groups) {
     await expect(sidebar.getByRole("button", { name: `${group.label} menu` })).toHaveAttribute(
       "aria-expanded",
@@ -552,6 +559,10 @@ test("sidebar groups are folded by default and toggle across desktop and mobile"
     await expect(sidebar).toHaveCSS("width", "224px");
     await expect(sidebar).toHaveAttribute("data-expanded", "true");
     expect((await dashboardIconFrame.boundingBox())?.x ?? 0).toBeCloseTo(collapsedIconX, 0);
+    const expandedIconBox = await dashboardIcon.boundingBox();
+    expect(expandedIconBox?.x).toBeCloseTo(collapsedIconBox?.x ?? 0, 0);
+    expect(expandedIconBox?.width).toBe(collapsedIconBox?.width);
+    expect(expandedIconBox?.height).toBe(collapsedIconBox?.height);
     await page.mouse.move(1200, 300);
     await expect(sidebar).toHaveCSS("width", "80px");
     await expect(sidebar).toHaveAttribute("data-expanded", "false");
@@ -807,6 +818,19 @@ test("shared application layout stays compact, aligned, and overflow-free across
       await page.goto(route);
       await expect(page.getByTestId("authenticated-content")).toBeVisible();
       await expect(page.locator("header h1")).toHaveCount(1);
+
+      const iconPresentation = await page.locator('[data-amafh-ui-icon]').evaluateAll((icons) => icons
+        .filter((icon) => {
+          const style = getComputedStyle(icon);
+          return style.display !== "none" && style.visibility !== "hidden";
+        })
+        .map((icon) => ({
+          filter: getComputedStyle(icon).filter,
+          disabled: Boolean(icon.closest('button:disabled, [aria-disabled="true"]')),
+        })));
+      expect(iconPresentation.length, `${route} should expose shared UI icons`).toBeGreaterThan(0);
+      expect(iconPresentation.every((icon) => icon.disabled ? icon.filter === "none" : icon.filter.includes("drop-shadow"))).toBe(true);
+      await expect(page.locator('img[src*="/brand/"][data-amafh-ui-icon]')).toHaveCount(0);
 
       const layout = await page.evaluate(() => {
         const main = document.querySelector<HTMLElement>("main");

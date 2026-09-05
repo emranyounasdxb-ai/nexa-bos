@@ -226,8 +226,16 @@ async function expectTabFrame(page: Page, tabKey: "review" | "team" | "analytics
     expect(activeTabBox.x + activeTabBox.width).toBeLessThanOrEqual(tabStripBox.x + tabStripBox.width + 1);
     await expect(page.getByRole("button", { name: "Previous dashboard tab", exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Next dashboard tab", exact: true })).toBeVisible();
-    if (tabKey === "review") await expect(page.getByRole("button", { name: "Previous dashboard tab", exact: true })).toBeDisabled();
-    if (tabKey === "personal") await expect(page.getByRole("button", { name: "Next dashboard tab", exact: true })).toBeDisabled();
+    if (tabKey === "review") {
+      const previous = page.getByRole("button", { name: "Previous dashboard tab", exact: true });
+      await expect(previous).toBeDisabled();
+      await expect(previous.locator('[data-amafh-ui-icon]')).toHaveCSS("filter", "none");
+    }
+    if (tabKey === "personal") {
+      const next = page.getByRole("button", { name: "Next dashboard tab", exact: true });
+      await expect(next).toBeDisabled();
+      await expect(next.locator('[data-amafh-ui-icon]')).toHaveCSS("filter", "none");
+    }
   }
 
   const controls = [page.getByLabel("Period", { exact: true }), page.getByLabel("Scope", { exact: true }), page.getByRole("button", { name: "Refresh", exact: true }), page.getByRole("link", { name: "Create Application", exact: true })];
@@ -852,6 +860,7 @@ test("TL embossed review cards preserve metrics, selection, focus and motion pre
     await capturePreview(page, testInfo, `embossed-${viewport.width}-default`);
     const hovered = cards.nth(1);
     await hovered.hover({ position: { x: 10, y: 10 } });
+    expect(await hovered.evaluate(element => getComputedStyle(element).backgroundImage)).not.toContain("rgb(152, 30, 188)");
     const sheen = await hovered.evaluate(element => {
       const style = getComputedStyle(element, "::before");
       return { name: style.animationName, duration: style.animationDuration, easing: style.animationTimingFunction, iterations: style.animationIterationCount, pointerEvents: style.pointerEvents, clip: style.clipPath, fade: style.transitionDuration };
@@ -876,7 +885,8 @@ test("TL embossed review cards preserve metrics, selection, focus and motion pre
     await page.emulateMedia({ reducedMotion: "reduce" });
     await hovered.hover();
     expect(await hovered.evaluate(element => getComputedStyle(element, "::before").animationName)).toBe("none");
-    for (const [index, key] of keys.entries()) {
+    for (const index of [0, 1, 2, 3, 0]) {
+      const key = keys[index];
       const action = cards.nth(index).getByRole("button");
       await action.focus();
       await expect(action).toBeFocused();
@@ -886,8 +896,30 @@ test("TL embossed review cards preserve metrics, selection, focus and motion pre
       await expect(page.getByTestId("tl-dashboard")).toHaveAttribute("aria-busy", "false");
       await expect(action).toHaveAttribute("aria-pressed", "true");
       await expect(page).toHaveURL(new RegExp(`queue=${key}`));
+      const selectedLabel = (await action.getAttribute("aria-label"))!.replace(/ queue$/, "");
+      await expect(page.getByRole("heading", { name: `${selectedLabel} review queue`, exact: true })).toBeAttached();
       expect(await cards.nth(index).evaluate(element => getComputedStyle(element).backgroundImage)).toContain("rgb(152, 30, 188)");
       await expect(cards.nth(index)).toHaveCSS("outline-width", "2px");
+      await expect(cards.locator('button[aria-pressed="true"]')).toHaveCount(1);
+      const lightColors = ["rgb(246, 240, 250)", "rgb(245, 240, 252)", "rgb(255, 245, 234)", "rgb(239, 251, 246)"];
+      for (const otherIndex of keys.keys()) {
+        const other = cards.nth(otherIndex);
+        const selected = otherIndex === index;
+        const surface = await other.evaluate(element => getComputedStyle(element).backgroundImage);
+        expect(surface).toContain(selected ? "rgb(152, 30, 188)" : lightColors[otherIndex]);
+        if (!selected) {
+          expect(surface).not.toContain("rgb(152, 30, 188)");
+          await expect(other).toHaveCSS("outline-style", "none");
+        }
+        if (selected) await expect(other.locator("button > strong")).toHaveCSS("color", "rgb(255, 255, 255)");
+        if (selected) await expect(other.locator('button > span > span')).toHaveCSS("color", "rgb(255, 255, 255)");
+        if (otherIndex === 0 && !selected) {
+          await expect(other.locator("button > strong")).toHaveCSS("color", "rgb(46, 21, 61)");
+          await expect(other.locator('button > span > span')).toHaveCSS("color", "rgb(116, 82, 139)");
+          expect(surface).toContain("rgb(231, 219, 241)");
+        }
+      }
+      if (index === 1) await capturePreview(page, testInfo, `selection-${viewport.width}-resubmitted`);
       expect(new URL(page.url()).searchParams.get("period")).toBe("ytd");
       expect(new URL(page.url()).searchParams.get("view")).toBe("combined");
     }

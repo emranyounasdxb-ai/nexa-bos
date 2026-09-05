@@ -17,6 +17,7 @@ export function Icon({
   return (
     <svg
       aria-hidden="true"
+      data-amafh-ui-icon=""
       className={className}
       fill="none"
       height={size}

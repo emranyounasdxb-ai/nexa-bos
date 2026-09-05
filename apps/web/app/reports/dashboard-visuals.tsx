@@ -95,7 +95,7 @@ export function KpiCard({
     >
       <div className="flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2.5">
-          <span className={`inline-flex size-8 shrink-0 items-center justify-center rounded-md ${metricToneClasses[tone].icon}`}>
+          <span data-amafh-icon-tile="" className={`inline-flex size-8 shrink-0 items-center justify-center rounded-md ${metricToneClasses[tone].icon}`}>
             <MetricIcon className="size-5" />
           </span>
           <p className="truncate text-[11px] font-semibold uppercase tracking-[0.1em] text-slate-500">{label}</p>
@@ -133,7 +133,7 @@ export function PipelineMetric({
       aria-label={`${label} KPI`}
       className="group flex min-w-0 items-center gap-2 rounded-lg border border-slate-200 bg-slate-50/60 px-2.5 py-2 hover:border-slate-300 hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary"
     >
-      <span aria-hidden="true" className={`inline-flex size-7 shrink-0 items-center justify-center rounded-md ${metricToneClasses[tone].icon}`}>
+      <span aria-hidden="true" data-amafh-icon-tile="" className={`inline-flex size-7 shrink-0 items-center justify-center rounded-md ${metricToneClasses[tone].icon}`}>
         <MetricIcon className="size-4" />
       </span>
       <span className="min-w-0 flex-1">
