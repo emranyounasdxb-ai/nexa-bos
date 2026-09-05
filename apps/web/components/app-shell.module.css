@@ -1,0 +1,28 @@
+.pageHeader { display: flex; min-width: 0; min-height: 40px; align-items: center; padding: 8px 16px; background: var(--amafh-background); }
+.pageHeader > div { width: 100%; }
+.pageMain { width: 100%; min-width: 0; max-width: 100%; padding: 0 16px 20px; }
+.sidebarFooter { position: relative; display: flex; flex-shrink: 0; flex-direction: column; gap: 4px; min-width: 0; padding: 8px 12px max(12px, env(safe-area-inset-bottom)); border-top: 1px solid var(--amafh-border); background: var(--amafh-background); }
+.footerAction { display: flex; width: 100%; min-width: 0; min-height: 40px; align-items: center; gap: 10px; padding: 4px 10px; border-radius: 7px; color: var(--amafh-text-secondary); text-align: left; }
+.footerAction:hover, .footerAction[aria-expanded="true"] { background: var(--amafh-brand-soft); color: var(--amafh-primary); }
+.footerIcon { position: relative; display: inline-flex; flex: 0 0 32px; width: 32px; height: 32px; align-items: center; justify-content: center; }
+.unreadBadge { position: absolute; top: -3px; right: -4px; min-width: 17px; padding: 1px 4px; border: 2px solid var(--amafh-background); border-radius: 10px; background: var(--amafh-primary); color: white; font-size: 9px; font-weight: 700; line-height: 13px; text-align: center; }
+.avatar { display: inline-flex; flex: 0 0 32px; width: 32px; height: 32px; align-items: center; justify-content: center; border-radius: 50%; background: var(--amafh-primary); color: white; font-size: 11px; font-weight: 600; }
+.footerLabel { display: block; min-width: 0; flex: 1; overflow: hidden; font-size: 12px; font-weight: 500; }
+.accountName, .accountType { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.accountName { font-size: 12px; font-weight: 600; color: var(--amafh-text); }
+.accountType { margin-top: 1px; color: var(--amafh-text-secondary); font-size: 10px; }
+.accountChevron { width: 14px; height: 14px; flex-shrink: 0; }
+.accountMenu { position: absolute; z-index: 2; right: 12px; bottom: calc(56px + env(safe-area-inset-bottom)); left: 12px; min-width: 0; max-height: min(320px, calc(100dvh - 144px)); overflow: auto; overscroll-behavior: contain; border: 1px solid var(--amafh-border); border-radius: 10px; padding: 6px; background: var(--amafh-surface); box-shadow: 0 8px 24px #25132f1f; }
+.accountSummary { min-width: 0; margin-bottom: 4px; padding: 6px 8px 10px; border-bottom: 1px solid var(--amafh-border); overflow-wrap: anywhere; }
+.accountSummary p { margin: 0; font-size: 12px; font-weight: 600; color: var(--amafh-text); }
+.accountSummary > span { display: block; margin-top: 2px; color: var(--amafh-text-secondary); font-size: 11px; }
+.accountMenuItem { display: flex; width: 100%; min-height: 32px; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 5px; color: var(--amafh-text); text-align: left; font-size: 13px; }
+.accountMenuItem:hover, .accountMenuItem:focus-visible { background: var(--amafh-brand-soft); color: var(--amafh-primary); }
+@media (min-width: 640px) {
+  .pageHeader { padding-inline: 24px; }
+  .pageMain { padding-inline: 24px; }
+}
+@media (min-width: 1024px) {
+  .sidebarFooter[data-expanded="false"] .footerLabel, .sidebarFooter[data-expanded="false"] .accountChevron { display: none; }
+  .sidebarFooter[data-expanded="false"] .footerAction { gap: 0; padding-inline: 12px; }
+}

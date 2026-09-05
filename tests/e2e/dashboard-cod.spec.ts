@@ -147,10 +147,12 @@ async function signIn(page: Page, email: string) {
 }
 
 async function signOut(page: Page) {
-  const navigationBackdrop = page.locator('button.fixed[aria-label="Close navigation"]');
-  if (await navigationBackdrop.isVisible()) await navigationBackdrop.click();
-  await page.getByLabel("Open user menu").click();
-  await page.locator("header").getByRole("button", { name: "Sign out" }).click();
+  const navigationTrigger = page.getByRole("button", { name: "Open navigation" });
+  if (await navigationTrigger.isVisible() && await navigationTrigger.getAttribute("aria-expanded") !== "true") {
+    await navigationTrigger.click();
+  }
+  await page.getByTestId("sidebar-footer").getByLabel("Open user menu").click();
+  await page.getByRole("menu", { name: "User account" }).getByRole("menuitem", { name: "Sign out" }).click();
   await expect(page).toHaveURL(/\/login$/, { timeout: 20_000 });
 }
 

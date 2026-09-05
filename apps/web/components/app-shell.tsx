@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
 
 import {
   IconBell,
@@ -47,6 +47,7 @@ import {
   canReadOrganization,
   canReadWorkflows,
 } from "@/lib/role-access";
+import styles from "./app-shell.module.css";
 
 const PUBLIC_PATHS = ["/login", "/setup", "/reset", "/status", "/bootstrap"];
 
@@ -58,6 +59,13 @@ function subscribeDesktopSidebar(onChange: () => void) {
   const media = window.matchMedia(DESKTOP_SIDEBAR_QUERY);
   media.addEventListener("change", onChange);
   return () => media.removeEventListener("change", onChange);
+}
+
+function visibleTabStops(container: ParentNode): HTMLElement[] {
+  return Array.from(container.querySelectorAll<HTMLElement>(
+    'a[href], button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), summary, [tabindex]',
+  )).filter((element) => element.tabIndex >= 0 && element.getClientRects().length > 0
+    && !element.closest('[inert], [hidden]') && getComputedStyle(element).visibility !== "hidden");
 }
 
 type NavItem = {
@@ -149,7 +157,7 @@ function SidebarIcon({ icon: IconComponent, item = false }: { icon: IconComponen
 const landingFor = (user: UserRecord) =>
   user.permissions.includes("Dashboard.View") ? "/reports" : "/users";
 
-function NotificationBell() {
+function NotificationBell({ onNavigate }: { onNavigate: () => void }) {
   const [unreadCount, setUnreadCount] = useState(0);
   const api = getBrowserApiUrl();
   const pathname = usePathname();
@@ -168,18 +176,12 @@ function NotificationBell() {
   return (
     <Link
       href="/notifications"
+      onClick={onNavigate}
       aria-label={`Notifications, ${unreadCount} unread`}
-      className={cx(
-        focusRing,
-        "relative inline-flex size-10 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 transition-colors hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900",
-      )}
+      className={cx(focusRing, styles.footerAction)}
     >
-      <IconBell className="size-5" />
-      {unreadCount > 0 ? (
-        <span className="absolute -right-1 -top-1 inline-flex min-w-5 justify-center rounded-full bg-brand-primary px-1.5 py-0.5 text-[10px] font-bold leading-4 text-white ring-2 ring-white">
-          {unreadCount > 99 ? "99+" : unreadCount}
-        </span>
-      ) : null}
+      <span className={styles.footerIcon}><IconBell aria-hidden="true" className="size-5" />{unreadCount > 0 ? <span className={styles.unreadBadge}>{unreadCount > 99 ? "99+" : unreadCount}</span> : null}</span>
+      <span className={styles.footerLabel}>Notifications</span>
     </Link>
   );
 }
@@ -196,6 +198,11 @@ function Shell({ children }: { children: ReactNode }) {
   );
   const mobileMenuTriggerRef = useRef<HTMLButtonElement>(null);
   const mobileMenuCloseRef = useRef<HTMLButtonElement>(null);
+  const sidebarRef = useRef<HTMLElement>(null);
+  const accountTriggerRef = useRef<HTMLButtonElement>(null);
+  const accountMenuRef = useRef<HTMLDivElement>(null);
+  const accountInitialFocus = useRef<"first" | "last">("first");
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set());
   const baseContext = routeContext(pathname);
@@ -208,25 +215,106 @@ function Shell({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     setMobileNavOpen(false);
+    setAccountMenuOpen(false);
   }, [pathname]);
+
+  const closeAccountMenu = useCallback((restoreFocus = true) => {
+    setAccountMenuOpen(false);
+    if (restoreFocus) requestAnimationFrame(() => {
+      const trigger = accountTriggerRef.current;
+      if (trigger?.getClientRects().length && !trigger.closest("[inert]")) trigger.focus();
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!accountMenuOpen) return;
+    const items = accountMenuRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]');
+    if (items?.length) items[accountInitialFocus.current === "last" ? items.length - 1 : 0].focus();
+    const closeOutside = (event: PointerEvent) => {
+      const target = event.target as Node;
+      if (!accountMenuRef.current?.contains(target) && !accountTriggerRef.current?.contains(target)) {
+        const element = target instanceof Element ? target : target.parentElement;
+        const destination = element?.closest<HTMLElement>('a[href], button, input, select, textarea, summary, [tabindex], [contenteditable="true"]')
+          ?? element?.closest("label")?.control;
+        // Do not pull focus away from the control the user intentionally clicked.
+        const acceptsFocus = destination && !destination.matches(":disabled") && !destination.closest("[inert], [hidden]");
+        closeAccountMenu(!acceptsFocus);
+      }
+    };
+    const closeOnFocusOutside = (event: FocusEvent) => {
+      const target = event.target as Node;
+      if (!accountMenuRef.current?.contains(target) && !accountTriggerRef.current?.contains(target)) closeAccountMenu(false);
+    };
+    document.addEventListener("pointerdown", closeOutside);
+    document.addEventListener("focusin", closeOnFocusOutside);
+    return () => {
+      document.removeEventListener("pointerdown", closeOutside);
+      document.removeEventListener("focusin", closeOnFocusOutside);
+    };
+  }, [accountMenuOpen, closeAccountMenu]);
 
   useEffect(() => {
     if (!mobileNavOpen || desktopSidebar) return;
     const trigger = mobileMenuTriggerRef.current;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
     mobileMenuCloseRef.current?.focus();
     const onKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented) return;
       if (event.key === "Escape") {
         event.preventDefault();
+        setAccountMenuOpen(false);
         setMobileNavOpen(false);
+      } else if (event.key === "Tab" && sidebarRef.current) {
+        const stops = visibleTabStops(sidebarRef.current);
+        const first = stops[0];
+        const last = stops[stops.length - 1];
+        if (event.shiftKey && (document.activeElement === first || !sidebarRef.current.contains(document.activeElement))) {
+          event.preventDefault();
+          last?.focus();
+        } else if (!event.shiftKey && (document.activeElement === last || !sidebarRef.current.contains(document.activeElement))) {
+          event.preventDefault();
+          first?.focus();
+        }
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => {
       window.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = previousOverflow;
       // The trigger is hidden on desktop; never move focus to a hidden control.
       if (trigger?.getClientRects().length) trigger.focus();
     };
   }, [mobileNavOpen, desktopSidebar]);
+
+  function openAccountMenu(position: "first" | "last" = "first") {
+    accountInitialFocus.current = position;
+    setSidebarExpanded(true);
+    setAccountMenuOpen(true);
+  }
+
+  function onAccountMenuKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
+    const items = Array.from(accountMenuRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? []);
+    const index = items.indexOf(document.activeElement as HTMLElement);
+    if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      closeAccountMenu();
+    } else if (["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) {
+      event.preventDefault();
+      const next = event.key === "Home" ? 0 : event.key === "End" ? items.length - 1 : (index + (event.key === "ArrowDown" ? 1 : -1) + items.length) % items.length;
+      items[next]?.focus();
+    } else if (event.key === "Tab") {
+      event.preventDefault();
+      event.stopPropagation();
+      const container = !desktopSidebar && mobileNavOpen ? sidebarRef.current : document;
+      const stops = container ? visibleTabStops(container).filter((item) => !accountMenuRef.current?.contains(item)) : [];
+      const triggerIndex = stops.indexOf(accountTriggerRef.current as HTMLElement);
+      const next = event.shiftKey ? accountTriggerRef.current : stops[triggerIndex + 1] ?? (!desktopSidebar ? stops[0] : accountTriggerRef.current);
+      closeAccountMenu(false);
+      next?.focus();
+    }
+  }
 
   async function logout() {
     try {
@@ -346,6 +434,7 @@ function Shell({ children }: { children: ReactNode }) {
     setExpandedGroups(new Set());
     setSidebarExpanded(false);
     setMobileNavOpen(false);
+    setAccountMenuOpen(false);
   }
 
   return (
@@ -355,16 +444,19 @@ function Shell({ children }: { children: ReactNode }) {
           type="button"
           aria-label="Close navigation"
           className="fixed inset-0 z-40 bg-slate-950/40 lg:hidden"
-          onClick={() => setMobileNavOpen(false)}
+          onClick={() => { setAccountMenuOpen(false); setMobileNavOpen(false); }}
         />
       ) : null}
       <aside
+        ref={sidebarRef}
         id="application-sidebar"
         aria-label="Application sidebar"
+        role={!desktopSidebar && mobileNavOpen ? "dialog" : undefined}
+        aria-modal={!desktopSidebar && mobileNavOpen ? true : undefined}
         inert={!desktopSidebar && !mobileNavOpen}
         data-expanded={sidebarExpanded}
         className={cx(
-          "fixed inset-y-0 left-0 z-50 flex w-72 flex-col overflow-x-hidden bg-app-background transition-transform duration-200 ease-out motion-reduce:duration-0 motion-reduce:transition-none lg:sticky lg:top-0 lg:z-20 lg:h-screen lg:translate-x-0 lg:transition-[width]",
+          "fixed inset-y-0 left-0 z-50 flex w-72 max-w-full flex-col overflow-x-hidden bg-app-background transition-transform duration-200 ease-out motion-reduce:duration-0 motion-reduce:transition-none lg:sticky lg:top-0 lg:z-20 lg:h-dvh lg:translate-x-0 lg:transition-[width]",
           mobileNavOpen ? "translate-x-0" : "-translate-x-full",
           sidebarExpanded ? "lg:w-56" : "lg:w-20",
         )}
@@ -383,7 +475,7 @@ function Shell({ children }: { children: ReactNode }) {
           }
         }}
       >
-        <div className="flex h-[70px] shrink-0 items-center justify-between px-5">
+        <div className="flex h-14 shrink-0 items-center justify-between px-5">
           <Link
             href={can("Dashboard.View") ? "/reports" : "/users"}
             onClick={closeNavigationAfterRouteClick}
@@ -426,12 +518,12 @@ function Shell({ children }: { children: ReactNode }) {
             type="button"
             aria-label="Close navigation"
             className={cx(focusRing, "rounded-md p-2 text-slate-500 hover:bg-slate-100 lg:hidden")}
-            onClick={() => setMobileNavOpen(false)}
+            onClick={() => { setAccountMenuOpen(false); setMobileNavOpen(false); }}
           >
             <IconX className="size-5" />
           </button>
         </div>
-        <nav aria-label="Primary" className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
+        <nav aria-label="Primary" className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-2">
           {dashboardItem ? (
             <div className="mb-3">
               <p
@@ -577,10 +669,38 @@ function Shell({ children }: { children: ReactNode }) {
             })}
           </div>
         </nav>
+        <div className={styles.sidebarFooter} data-testid="sidebar-footer" data-expanded={sidebarExpanded}>
+          {can("Notifications.View") ? <NotificationBell onNavigate={closeNavigationAfterRouteClick} /> : null}
+          <button
+            ref={accountTriggerRef}
+            type="button"
+            aria-label="Open user menu"
+            aria-haspopup="menu"
+            aria-expanded={accountMenuOpen}
+            aria-controls="sidebar-account-menu"
+            className={cx(focusRing, styles.footerAction)}
+            onClick={() => accountMenuOpen ? closeAccountMenu() : openAccountMenu()}
+            onKeyDown={(event) => {
+              if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+                event.preventDefault();
+                openAccountMenu(event.key === "ArrowUp" ? "last" : "first");
+              }
+            }}
+          >
+            <span className={styles.avatar} aria-hidden="true">{initials}</span>
+            <span className={styles.footerLabel}><span className={styles.accountName}>{user?.fullName}</span><span className={styles.accountType}>{user?.userType?.name ?? "AMAFH user"}</span></span>
+            <IconChevronDown aria-hidden="true" className={cx(styles.accountChevron, accountMenuOpen && "rotate-180")} />
+          </button>
+          {accountMenuOpen ? <div ref={accountMenuRef} id="sidebar-account-menu" role="menu" aria-label="User account" className={styles.accountMenu} onKeyDown={onAccountMenuKeyDown}>
+            <div role="presentation" className={styles.accountSummary}><p>{user?.fullName}</p><span>{user?.email}</span></div>
+            <Link href="/account" role="menuitem" tabIndex={-1} onClick={closeNavigationAfterRouteClick} className={cx(focusRing, styles.accountMenuItem)}><IconUserCircle aria-hidden="true" className="size-4" />My profile</Link>
+            <button type="button" role="menuitem" tabIndex={-1} className={cx(focusRing, styles.accountMenuItem)} onClick={() => { closeAccountMenu(false); void logout(); }}><IconLogout aria-hidden="true" className="size-4" />Sign out</button>
+          </div> : null}
+        </div>
       </aside>
 
-      <div data-testid="authenticated-content" className="min-w-0 flex-1">
-        <header className="sticky top-0 z-30 flex h-[70px] items-center justify-between gap-4 bg-app-background px-4 backdrop-blur-sm sm:px-6 lg:px-8">
+      <div data-testid="authenticated-content" inert={!desktopSidebar && mobileNavOpen} className="min-w-0 flex-1">
+        <header className={styles.pageHeader}>
           <div className="flex min-w-0 items-center gap-3">
             <button
               ref={mobileMenuTriggerRef}
@@ -590,7 +710,7 @@ function Shell({ children }: { children: ReactNode }) {
               aria-expanded={mobileNavOpen}
               className={cx(
                 focusRing,
-                "inline-flex size-10 shrink-0 items-center justify-center rounded-md border border-slate-200 text-lg text-slate-600 hover:bg-slate-50 lg:hidden",
+                "inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-slate-200 text-lg text-slate-600 hover:bg-slate-50 lg:hidden",
               )}
               onClick={() => setMobileNavOpen(true)}
             >
@@ -604,64 +724,8 @@ function Shell({ children }: { children: ReactNode }) {
               <h1 aria-current="page" className="truncate font-semibold text-slate-900 sm:text-base">{context.title}</h1>
             </nav>
           </div>
-          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-            {can("Notifications.View") ? <NotificationBell /> : null}
-            <details className="group relative">
-              <summary
-                aria-label="Open user menu"
-                className={cx(
-                  focusRing,
-                  "flex cursor-pointer list-none items-center gap-2 rounded-md border border-transparent p-1.5 hover:border-slate-200 hover:bg-slate-50 [&::-webkit-details-marker]:hidden",
-                )}
-              >
-                <span className="inline-flex size-8 items-center justify-center rounded-full bg-slate-900 text-xs font-semibold text-white">
-                  {initials}
-                </span>
-                <span className="hidden max-w-40 text-left sm:block">
-                  <span className="block truncate text-xs font-semibold text-slate-900">{user?.fullName}</span>
-                  <span className="block truncate text-[10px] text-slate-500">
-                    {user?.userType?.name ?? "AMAFH user"}
-                  </span>
-                </span>
-                <IconChevronDown className="hidden size-4 text-slate-400 transition-transform group-open:rotate-180 sm:block" />
-              </summary>
-              <div className="absolute right-0 mt-2 w-64 overflow-hidden rounded-xl border border-slate-200 bg-white p-2 shadow-[0_12px_28px_rgba(15,23,42,0.12)]">
-                <div className="border-b border-slate-100 px-3 py-2 sm:hidden">
-                  <p className="truncate text-sm font-semibold text-slate-900">{user?.fullName}</p>
-                  <p className="truncate text-xs text-slate-500">{user?.email}</p>
-                </div>
-                <Link
-                  href="/account"
-                  onClick={(event) => {
-                    const menu = event.currentTarget.closest("details");
-                    if (menu) {
-                      menu.open = false;
-                    }
-                  }}
-                  className={cx(
-                    focusRing,
-                    "flex items-center gap-2 rounded-md px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 hover:text-slate-900",
-                  )}
-                >
-                  <IconUserCircle className="size-4" />
-                  My profile
-                </Link>
-                <button
-                  type="button"
-                  className={cx(
-                    focusRing,
-                    "flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 hover:text-slate-900",
-                  )}
-                  onClick={() => void logout()}
-                >
-                  <IconLogout className="size-4" />
-                  Sign out
-                </button>
-              </div>
-            </details>
-          </div>
         </header>
-        <main className="w-full min-w-0 max-w-full px-4 py-5 sm:px-6 lg:px-8 lg:py-6">{children}</main>
+        <main className={styles.pageMain}>{children}</main>
       </div>
     </div>
   );

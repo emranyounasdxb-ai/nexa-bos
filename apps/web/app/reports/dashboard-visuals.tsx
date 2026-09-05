@@ -216,7 +216,7 @@ export function TargetProgress({ summary }: { summary: NonNullable<DashboardPayl
         const achievement = item.result?.achievementPct;
         const bounded = achievement === null || achievement === undefined ? 0 : Math.min(100, Math.max(0, achievement));
         return (
-          <div key={item.id} className="rounded-lg border border-slate-200 bg-slate-50/50 p-3">
+          <div key={item.id} className="min-w-0 rounded-lg border border-slate-200 bg-slate-50/50 p-3">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0"><div className="flex items-center gap-2"><Badge>{item.level}</Badge><p className="truncate text-sm font-semibold text-slate-900">{item.entityName ?? "Company"}</p></div><p className="mt-1 truncate text-xs text-slate-500">{[item.bankCode, item.productCode].filter(Boolean).join(" / ") || "All products"}</p></div>
               <span className="shrink-0 text-sm font-semibold tabular-nums text-brand-primary">{formatPct(achievement)}</span>

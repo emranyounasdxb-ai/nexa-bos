@@ -37,7 +37,6 @@
   --bos-error: var(--amafh-danger);
   --bos-radius: 0.375rem;
   --bos-sidebar: 18rem;
-  --bos-header: 4.375rem;
 }
 
 @theme inline {
