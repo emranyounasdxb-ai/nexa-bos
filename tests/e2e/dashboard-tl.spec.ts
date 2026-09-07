@@ -158,61 +158,38 @@ async function expectTabFrame(page: Page, tabKey: "review" | "team" | "analytics
   const workspace = page.getByRole("tabpanel");
   const tabs = page.getByRole("tablist", { name: "Team Leader dashboard workspaces" });
   const selected = tabs.locator(`[role="tab"][id="tl-tab-${tabKey}"]`);
-  const inactive = tabs.getByRole("tab", { selected: false }).first();
   await expect(tabs.getByRole("tab")).toHaveCount(4);
   await expect(selected).toHaveAttribute("aria-selected", "true");
   await expect(selected).toHaveAttribute("aria-controls", `tl-panel-${tabKey}`);
   await expect(workspace).toHaveAttribute("id", `tl-panel-${tabKey}`);
   await expect(workspace).toHaveAttribute("aria-labelledby", `tl-tab-${tabKey}`);
-  await expect(page.getByRole("heading", { name: /^Welcome back, /, level: 1 })).toHaveCount(1);
+  await expect(page.getByRole("heading", { name: "Team Leader Dashboard", level: 1 })).toHaveCount(1);
   for (const tab of await tabs.getByRole("tab").all()) {
-    expect((await tab.boundingBox())!.height).toBeGreaterThanOrEqual(40);
+    expect((await tab.boundingBox())!.height).toBe(32);
     await expect(tab.locator('svg[aria-hidden="true"]')).toHaveCount(1);
   }
-  const tabStyle = await selected.evaluate(element => {
-    const style = getComputedStyle(element);
-    return { radius: Number.parseFloat(style.borderTopLeftRadius), rightRadius: Number.parseFloat(style.borderTopRightRadius), color: style.color, background: style.backgroundColor };
-  });
-  const inactiveStyle = await inactive.evaluate(element => {
-    const style = getComputedStyle(element);
-    return { color: style.color, background: style.backgroundColor };
-  });
-  expect(tabStyle.radius).toBeGreaterThanOrEqual(8);
-  expect(tabStyle.rightRadius).toBeGreaterThanOrEqual(8);
-  expect(tabStyle.color !== inactiveStyle.color || tabStyle.background !== inactiveStyle.background).toBe(true);
+  await expect(tabs).toHaveCSS("gap", "0px");
   const geometry = await tabs.getByRole("tab").evaluateAll(elements => elements.map(element => {
-    const rect = element.getBoundingClientRect();
-    const surface = getComputedStyle(element, "::before");
-    const fill = getComputedStyle(element, "::after");
-    const label = element.querySelector("span")!;
-    const icon = element.querySelector("svg")!;
-    const labelBox = label.getBoundingClientRect();
-    const iconBox = icon.getBoundingClientRect();
-    const strip = element.parentElement!.getBoundingClientRect();
+    const rect = element.getBoundingClientRect(); const style = getComputedStyle(element);
+    const label = element.querySelector("span")!; const icon = element.querySelector("svg")!;
+    const labelBox = label.getBoundingClientRect(); const iconBox = icon.getBoundingClientRect(); const strip = element.parentElement!.getBoundingClientRect();
     const visible = labelBox.left >= strip.left && labelBox.right <= strip.right;
-    return { left: rect.left, right: rect.right, height: rect.height, shape: surface.clipPath, pointerEvents: surface.pointerEvents, surfaceLeft: Number.parseFloat(surface.left), surfaceRight: Number.parseFloat(surface.right), fill: fill.backgroundImage, bottom: fill.bottom, z: Number(getComputedStyle(element).zIndex), labelTransform: getComputedStyle(label).transform, iconTransform: getComputedStyle(icon).transform, labelOverflow: label.scrollWidth - label.clientWidth, baselineDifference: Math.abs(labelBox.y + labelBox.height / 2 - iconBox.y - iconBox.height / 2), visible, unobstructed: !visible || element.contains(document.elementFromPoint(labelBox.x + labelBox.width / 2, labelBox.y + labelBox.height / 2)) };
+    return { left: rect.left, right: rect.right, height: rect.height, backgroundImage: style.backgroundImage, transform: style.transform, shape: getComputedStyle(element, "::before").clipPath, labelOverflow: label.scrollWidth - label.clientWidth, iconTransform: getComputedStyle(icon).transform, baselineDifference: Math.abs(labelBox.y + labelBox.height / 2 - iconBox.y - iconBox.height / 2), unobstructed: !visible || element.contains(document.elementFromPoint(labelBox.x + labelBox.width / 2, labelBox.y + labelBox.height / 2)) };
   }));
-  expect(new Set(geometry.map(item => item.height)).size).toBe(1);
   for (const [index, item] of geometry.entries()) {
-    expect(item.shape).toContain("shape(");
-    expect(item.shape).toContain("curve");
-    expect(item.pointerEvents).toBe("none");
-    expect(item.fill).toContain("linear-gradient");
-    expect(item.bottom).toBe("0px");
-    expect(item.labelTransform).toBe("none");
+    expect(item.height).toBe(32);
+    expect(item.backgroundImage).toBe("none");
+    expect(item.shape).toBe("none");
+    expect(item.transform).toBe("none");
     expect(item.iconTransform).toBe("none");
     expect(item.labelOverflow).toBeLessThanOrEqual(1);
     expect(item.baselineDifference).toBeLessThanOrEqual(1);
     expect(item.unobstructed).toBe(true);
-    if (index > 0) {
-      // Only decorative shoulders overlap: actual button hit areas never cover one another.
-      expect(item.left).toBeGreaterThanOrEqual(geometry[index - 1].right - 1);
-      expect(item.left + item.surfaceLeft).toBeLessThan(geometry[index - 1].right - geometry[index - 1].surfaceRight);
-    }
+    if (index > 0) expect(Math.abs(item.left - geometry[index - 1].right)).toBeLessThanOrEqual(1);
   }
   await expect(selected).toHaveCSS("z-index", "10");
-  for (const item of geometry.filter(item => item.z !== 10)) expect(item.z).toBeLessThan(10);
-  expect(await selected.evaluate(element => getComputedStyle(element, "::after").backgroundImage)).toContain("rgb(243, 238, 247)");
+  await expect(selected).toHaveCSS("box-shadow", "none");
+  expect(await selected.evaluate(e => getComputedStyle(e).backgroundColor)).toBe(await workspace.evaluate(e => getComputedStyle(e).backgroundColor));
   const beforeHover = await selected.boundingBox();
   await selected.hover();
   expect(await selected.boundingBox()).toEqual(beforeHover);
@@ -406,9 +383,8 @@ test("DXB and AUH TL review: scope, tabs, charts, breadcrumbs and responsive que
     for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
       const app = viewport.width === 1440 ? fixture.cases[index].desktop : fixture.cases[index].mobile;
       await page.setViewportSize(viewport);
-      await signIn(page, group.users.TL.email, `Welcome back, ${group.users.TL.fullName}`);
-      await expect(page.getByTestId("tl-team-context")).toHaveText(group.team.name);
-      await expect(page.getByRole("heading", { name: `Welcome back, ${group.users.TL.fullName}`, exact: true })).toHaveCount(1);
+      await signIn(page, group.users.TL.email, "Team Leader Dashboard");
+      await expect(page.getByRole("heading", { name: "Team Leader Dashboard", exact: true })).toHaveCount(1);
       await expect(page.getByRole("tab", { name: "Review", exact: true })).toHaveAttribute("aria-selected", "true");
       await expect(page.getByTestId("tl-dashboard")).not.toContainText(fixture.groups[1-index].users.SE.fullName);
       await expect(page.getByTestId("tl-dashboard")).not.toContainText(other.applicationCode);
@@ -757,7 +733,7 @@ test("DXB and AUH TL review: scope, tabs, charts, breadcrumbs and responsive que
       await page.getByRole("dialog").getByRole("button", { name: "Confirm", exact: true }).click();
       await expect(page.getByTestId("internal-review")).toContainText("Resubmitted to TL");
       await signOut(page);
-      await signIn(page, group.users.TL.email, `Welcome back, ${group.users.TL.fullName}`);
+      await signIn(page, group.users.TL.email, "Team Leader Dashboard");
       await page.getByRole("button", { name: "Resubmitted queue", exact: true }).click();
       await expect(page.getByText(app.applicationCode).first()).toBeVisible();
       await page.goto(`/applications/${app.id}`);
@@ -785,7 +761,7 @@ test("DXB and AUH TL review: scope, tabs, charts, breadcrumbs and responsive que
   }
   for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
     await page.setViewportSize(viewport);
-    await signIn(page, fixture.groups[0].users.EMPTY.email, `Welcome back, ${fixture.groups[0].users.EMPTY.fullName}`);
+    await signIn(page, fixture.groups[0].users.EMPTY.email, "Team Leader Dashboard");
     const queue = page.getByTestId("tl-review-queue");
     await expect(queue).toContainText("No Applications in this queue.");
     expect((await queue.boundingBox())!.height).toBeLessThan(200);
@@ -827,7 +803,7 @@ test("TL embossed review cards preserve metrics, selection, focus and motion pre
   test.setTimeout(180_000);
   const fixture = await seed(request);
   const group = fixture.groups[0];
-  await signIn(page, group.users.TL.email, `Welcome back, ${group.users.TL.fullName}`);
+  await signIn(page, group.users.TL.email, "Team Leader Dashboard");
   const keys = ["pending_review", "resubmitted", "returned", "forwarded"];
   for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
     await page.setViewportSize(viewport);
@@ -852,7 +828,7 @@ test("TL embossed review cards preserve metrics, selection, focus and motion pre
       await expect(card).toHaveCSS("transform", "none");
       await expect(card).toHaveCSS("overflow", "visible");
       expect(await card.evaluate(element => getComputedStyle(element).boxShadow)).toContain("inset");
-      const colors = ["rgb(152, 30, 188)", "rgb(245, 240, 252)", "rgb(255, 245, 234)", "rgb(239, 251, 246)"];
+      const colors = ["rgb(152, 30, 188)", "rgb(237, 245, 255)", "rgb(255, 245, 234)", "rgb(239, 251, 246)"];
       expect(await card.evaluate(element => getComputedStyle(element).backgroundImage)).toContain(colors[index]);
       await expect(card.locator("button > strong")).toHaveCSS("font-size", "36px");
       await expect(card.locator("button > strong")).toHaveCSS("text-shadow", "none");
@@ -880,7 +856,7 @@ test("TL embossed review cards preserve metrics, selection, focus and motion pre
       const box = element.getBoundingClientRect();
       return { x: box.x, y: box.y, width: box.width, height: box.height };
     }))).toEqual(baseline);
-    await page.getByRole("heading", { level: 1 }).hover();
+    await page.getByRole("button", { name: "Refresh", exact: true }).hover();
     await expect.poll(() => hovered.evaluate(element => getComputedStyle(element, "::before").opacity)).toBe("0");
     await page.emulateMedia({ reducedMotion: "reduce" });
     await hovered.hover();
@@ -901,7 +877,7 @@ test("TL embossed review cards preserve metrics, selection, focus and motion pre
       expect(await cards.nth(index).evaluate(element => getComputedStyle(element).backgroundImage)).toContain("rgb(152, 30, 188)");
       await expect(cards.nth(index)).toHaveCSS("outline-width", "2px");
       await expect(cards.locator('button[aria-pressed="true"]')).toHaveCount(1);
-      const lightColors = ["rgb(246, 240, 250)", "rgb(245, 240, 252)", "rgb(255, 245, 234)", "rgb(239, 251, 246)"];
+      const lightColors = ["rgb(246, 240, 250)", "rgb(237, 245, 255)", "rgb(255, 245, 234)", "rgb(239, 251, 246)"];
       for (const otherIndex of keys.keys()) {
         const other = cards.nth(otherIndex);
         const selected = otherIndex === index;
@@ -931,7 +907,7 @@ test("TL embossed review cards preserve metrics, selection, focus and motion pre
   try {
     const touchPage = await touchContext.newPage();
     await touchPage.goto(new URL("/login", page.url()).href);
-    await signIn(touchPage, group.users.TL.email, `Welcome back, ${group.users.TL.fullName}`);
+    await signIn(touchPage, group.users.TL.email, "Team Leader Dashboard");
     const touchCard = touchPage.getByTestId("tl-cards").locator('[data-queue="returned"]');
     await touchCard.getByRole("button").tap();
     await expect(touchCard.getByRole("button")).toHaveAttribute("aria-pressed", "true");
@@ -943,23 +919,20 @@ test("TL embossed review cards preserve metrics, selection, focus and motion pre
   }
 });
 
-test("TL welcome header and real database refresh preserve selections and last successful time", async ({ page, request }, testInfo) => {
+test("TL compact header and real database refresh preserve selections and last successful time", async ({ page, request }, testInfo) => {
   test.setTimeout(180_000);
   const fixture = await seed(request);
   const group = fixture.groups[0];
-  await signIn(page, group.users.TL.email, `Welcome back, ${group.users.TL.fullName}`);
+  await signIn(page, group.users.TL.email, "Team Leader Dashboard");
   const endpoint = "**/api/v1/reports/tl-dashboard?**";
   for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
     await page.setViewportSize(viewport);
     await page.goto("/reports?tab=analytics&period=ytd&view=team&queue=pending_review&page=1");
     await expect(page.getByTestId("tl-dashboard")).toHaveAttribute("aria-busy", "false");
-    const heading = page.getByRole("heading", { level: 1, name: `Welcome back, ${group.users.TL.fullName}`, exact: true });
-    await expect(heading).toBeVisible();
-    await expect(heading).toHaveCSS("font-weight", "700");
-    await expect(page.getByTestId("tl-team-context")).toHaveText(group.team.name);
-    await expect(page.getByTestId("tl-team-context")).toHaveCSS("font-weight", "400");
-    expect(await page.getByTestId("tl-team-context").evaluate(e => getComputedStyle(e).color)).not.toBe(await heading.evaluate(e => getComputedStyle(e).color));
-    await expect(page.getByText("Team Leader Dashboard", { exact: true })).toHaveCount(0);
+    const heading = page.getByRole("heading", { level: 1, name: "Team Leader Dashboard", exact: true });
+    await expect(heading).toHaveClass(/sr-only/);
+    await expect(page.getByTestId("tl-team-context")).toHaveCount(0);
+    expect((await heading.boundingBox())!.height).toBeLessThanOrEqual(1);
     await expect(page.getByTestId("tl-last-update")).not.toContainText("My Team");
     const url = page.url();
     const lastUpdate = page.getByTestId("tl-last-update").locator("time");
