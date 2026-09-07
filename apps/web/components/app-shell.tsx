@@ -206,7 +206,8 @@ function Shell({ children }: { children: ReactNode }) {
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set());
   const baseContext = routeContext(pathname);
-  const isTlDashboard = pathname === "/reports" && user?.userType?.code === "TL";
+  const isTlPortal = user?.userType?.code === "TL";
+  const isTlDashboard = pathname === "/reports" && isTlPortal;
   const context =
     pathname === "/reports" && user?.userType?.code === "SE"
       ? { ...baseContext, title: "My Dashboard" }
@@ -702,8 +703,19 @@ function Shell({ children }: { children: ReactNode }) {
         </div>
       </aside>
 
-      <div data-testid="authenticated-content" inert={!desktopSidebar && mobileNavOpen} className="min-w-0 flex-1">
-        <header className={cx(styles.pageHeader, isTlDashboard && styles.tlPageHeader)}>
+      <div
+        data-testid="authenticated-content"
+        data-portal-role={isTlPortal ? "TL" : undefined}
+        inert={!desktopSidebar && mobileNavOpen}
+        className={cx("min-w-0 flex-1", isTlPortal && styles.tlPortalContent)}
+      >
+        <header
+          data-testid="page-header"
+          className={cx(
+            styles.pageHeader,
+            isTlDashboard ? styles.tlPageHeader : isTlPortal && styles.tlPortalPageHeader,
+          )}
+        >
           <div className="flex min-w-0 items-center gap-3">
             <button
               ref={mobileMenuTriggerRef}
@@ -728,7 +740,16 @@ function Shell({ children }: { children: ReactNode }) {
             </nav>
           </div>
         </header>
-        <main className={styles.pageMain}>{children}</main>
+        <main
+          data-testid="page-main"
+          className={cx(
+            styles.pageMain,
+            isTlPortal && styles.tlPortalMain,
+            isTlPortal && !isTlDashboard && styles.tlPortalWorkspace,
+          )}
+        >
+          {children}
+        </main>
       </div>
     </div>
   );

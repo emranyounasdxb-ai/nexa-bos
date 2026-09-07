@@ -1023,3 +1023,89 @@ test("TL compact header and real database refresh preserve selections and last s
   }
   await signOut(page);
 });
+
+test("TL portal surfaces share compact spacing, connected tabs, embossed cards and responsive access", async ({ page, request }, testInfo) => {
+  test.setTimeout(240_000);
+  const fixture = await seed(request);
+  const group = fixture.groups[0];
+  const application = fixture.cases[0].desktop;
+  await signIn(page, group.users.TL.email, "Team Leader Dashboard");
+
+  const routes = [
+    { path: "/applications", heading: "Applications", tabs: false },
+    { path: `/applications/${application.id}`, heading: "Application details", tabs: true },
+    { path: "/organization?tab=departments", heading: "Organization masters", tabs: true },
+    { path: "/catalog?tab=products", heading: "Banks and products", tabs: true },
+    { path: "/notifications", heading: "Notifications", tabs: false },
+    { path: "/account", heading: "My profile", tabs: false },
+  ] as const;
+
+  for (const viewport of [{ width: 1440, height: 900, top: 16 }, { width: 390, height: 844, top: 12 }]) {
+    await page.setViewportSize(viewport);
+    for (const route of routes) {
+      await page.goto(route.path);
+      await expect(page.getByTestId("authenticated-content")).toHaveAttribute("data-portal-role", "TL");
+      await expect(page.getByRole("heading", { level: 1, name: route.heading, exact: true })).toBeVisible();
+      if (route.path === "/applications") {
+        await expect(page.getByRole("link", { name: application.applicationCode, exact: true })).toBeVisible();
+      }
+      const header = page.getByTestId("page-header");
+      const headerBox = await header.boundingBox();
+      const headerChildBox = await header.locator(":scope > div").boundingBox();
+      expect(headerBox).not.toBeNull();
+      expect(headerChildBox).not.toBeNull();
+      expect(Math.round(headerChildBox!.y - headerBox!.y)).toBe(viewport.top);
+      await expectNoOverflow(page);
+
+      const firstCard = page.locator("[data-amafh-card]").first();
+      if (await firstCard.count()) {
+        await expect(firstCard).toHaveCSS("border-color", "rgb(223, 212, 230)");
+        expect(await firstCard.evaluate(element => getComputedStyle(element).boxShadow)).not.toBe("none");
+      }
+
+      if (route.tabs) {
+        const tablist = page.getByRole("tablist").first();
+        await expect(tablist).toHaveCSS("height", "32px");
+        await expect(tablist).toHaveCSS("gap", "0px");
+        const tabs = tablist.getByRole("tab");
+        expect(await tabs.count()).toBeGreaterThan(1);
+        for (const tab of await tabs.all()) {
+          await expect(tab).toHaveCSS("height", "32px");
+          expect(await tab.evaluate(element => getComputedStyle(element).transform)).toBe("none");
+          expect(await tab.evaluate(element => getComputedStyle(element).backgroundImage)).toBe("none");
+        }
+        await expect(tablist.locator('[role="tab"][aria-selected="true"]')).toHaveCount(1);
+        expect(await tablist.locator('[role="tab"][aria-selected="true"]').evaluate(element => getComputedStyle(element).boxShadow)).toBe("none");
+      }
+      await page.screenshot({
+        path: testInfo.outputPath(`tl-portal-${route.heading.toLowerCase().replaceAll(" ", "-")}-${viewport.width}.png`),
+        fullPage: true,
+        animations: "disabled",
+      });
+    }
+
+    await page.goto("/applications?create=true");
+    const dialog = page.getByRole("dialog", { name: "Create application" });
+    await expect(dialog).toBeVisible();
+    await expectNoOverflow(page);
+    await page.keyboard.press("Escape");
+    await expect(dialog).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Create application", exact: true })).toBeFocused();
+  }
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/reports?tab=review&period=mtd&view=combined&queue=pending_review&page=1");
+  await expect(page.getByTestId("tl-dashboard")).toHaveAttribute("aria-busy", "false");
+  await expect(page.getByRole("heading", { level: 1, name: "Team Leader Dashboard" })).toHaveClass(/sr-only/);
+  await expect(page.getByTestId("tl-team-context")).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Customers", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Users", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Workflows", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Reports", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Finance", exact: true })).toHaveCount(0);
+  await page.screenshot({ path: testInfo.outputPath("tl-portal-dashboard-1440.png"), fullPage: true, animations: "disabled" });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expectNoOverflow(page);
+  await page.screenshot({ path: testInfo.outputPath("tl-portal-dashboard-390.png"), fullPage: true, animations: "disabled" });
+  await signOut(page);
+});
