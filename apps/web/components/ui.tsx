@@ -85,7 +85,7 @@ export function PageHeader({
 }) {
   if (!description && !actions) return null;
   return (
-    <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 sm:gap-3">
+    <div data-amafh-page-purpose="" className="flex min-w-0 flex-wrap items-center justify-between gap-2 sm:gap-3">
       {description ? (
         <p data-testid="page-purpose" className="min-w-0 max-w-4xl text-sm leading-5 text-text-secondary">
           {description}
@@ -125,6 +125,7 @@ export function SearchActionBar({
 export function Card({ children, className }: { children: ReactNode; className?: string }) {
   return (
     <div
+      data-amafh-card=""
       className={cx(
         "min-w-0 rounded-[10px] border border-brand-border bg-surface p-3 shadow-[0_1px_2px_rgba(30,30,30,0.035)] sm:p-4",
         className,
@@ -145,7 +146,7 @@ export function SectionHeader({
   actions?: ReactNode;
 }) {
   return (
-    <div className="flex min-w-0 flex-wrap items-start justify-between gap-2 sm:gap-3">
+    <div data-amafh-section-header="" className="flex min-w-0 flex-wrap items-start justify-between gap-2 sm:gap-3">
       <div className="min-w-0">
         <h2 className="text-base font-semibold text-text-primary">{title}</h2>
         {description ? <p className="mt-1 text-sm text-text-secondary">{description}</p> : null}
