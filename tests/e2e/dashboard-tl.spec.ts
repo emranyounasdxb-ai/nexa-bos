@@ -155,6 +155,8 @@ async function capturePreview(page: Page, testInfo: TestInfo, name: string) {
 
 async function expectTabFrame(page: Page, tabKey: "review" | "team" | "analytics" | "personal", viewportWidth: number) {
   await expect(page.getByTestId("tl-dashboard")).toHaveAttribute("aria-busy", "false");
+  const dashboard = page.getByTestId("tl-dashboard");
+  const workspaceBar = page.getByTestId("tl-workspace-bar");
   const workspace = page.getByRole("tabpanel");
   const tabs = page.getByRole("tablist", { name: "Team Leader dashboard workspaces" });
   const selected = tabs.locator(`[role="tab"][id="tl-tab-${tabKey}"]`);
@@ -227,6 +229,12 @@ async function expectTabFrame(page: Page, tabKey: "review" | "team" | "analytics
   }
   await expect(page.getByTestId("tl-dashboard").getByText("Period", { exact: true })).toHaveCount(0);
   await expect(page.getByTestId("tl-dashboard").getByText("Scope", { exact: true })).toHaveCount(0);
+  const [dashboardBox, workspaceBarBox] = await Promise.all([dashboard.boundingBox(), workspaceBar.boundingBox()]);
+  expect(dashboardBox).not.toBeNull();
+  expect(workspaceBarBox).not.toBeNull();
+  const expectedTopSpacing = viewportWidth === 1440 ? 16 : 12;
+  expect(Math.abs(workspaceBarBox!.y - dashboardBox!.y - expectedTopSpacing)).toBeLessThanOrEqual(1);
+  expect(await dashboard.evaluate(element => Number.parseFloat(getComputedStyle(element).paddingTop))).toBe(expectedTopSpacing);
   if (viewportWidth === 1440) {
     expect(Math.max(...controlBoxes.map(box => box!.y)) - Math.min(...controlBoxes.map(box => box!.y))).toBeLessThanOrEqual(1);
     const tabBox = (await tabs.boundingBox())!;
