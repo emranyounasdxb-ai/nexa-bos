@@ -1,5 +1,5 @@
 /* TL workspace tokens: body 14, section 16, KPI 36, controls inherited at 32px. */
-.dashboard { --tl-line: color-mix(in srgb, var(--amafh-border) 68%, white); --tl-gap: 16px; min-width: 0; color: var(--amafh-text); font-size: 14px; line-height: 1.5; }
+.dashboard { --tl-line: color-mix(in srgb, var(--amafh-border) 68%, white); --tl-gap: 16px; min-width: 0; padding-top: 16px; color: var(--amafh-text); font-size: 14px; line-height: 1.5; }
 .dashboard :is(h2, h3, p, dl, dd, ul, ol) { margin: 0; }
 .dashboard :is(ul, ol) { list-style: none; padding: 0; }
 .dashboard h3 { font-size: 14px; font-weight: 600; }
@@ -179,7 +179,7 @@
   .trendPanel { grid-column: 1 / -1; }
 }
 @media (max-width: 767px) {
-  .dashboard { --tl-gap: 12px; }
+  .dashboard { --tl-gap: 12px; padding-top: 12px; }
   .toolbarControls { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .toolbarControls > :nth-child(-n+2) { width: 100%; min-width: 0; }
   .toolbarControls > :nth-child(n+3) { justify-content: center; }
