@@ -1,5 +1,7 @@
 .pageHeader { display: flex; min-width: 0; min-height: 40px; align-items: center; padding: 8px 16px; background: var(--amafh-background); }
 .pageHeader > div { width: 100%; }
+.tlPageHeader { min-height: 0; padding-block: 0; }
+@media (max-width: 1023px) { .tlPageHeader { padding-block: 4px; } }
 .pageMain { width: 100%; min-width: 0; max-width: 100%; padding: 0 16px 20px; }
 .sidebarFooter { position: relative; display: flex; flex-shrink: 0; flex-direction: column; gap: 4px; min-width: 0; padding: 8px 12px max(12px, env(safe-area-inset-bottom)); border-top: 1px solid var(--amafh-border); background: var(--amafh-background); }
 .footerAction { display: flex; width: 100%; min-width: 0; min-height: 40px; align-items: center; gap: 10px; padding: 4px 10px; border-radius: 7px; color: var(--amafh-text-secondary); text-align: left; }

@@ -211,7 +211,7 @@ function Shell({ children }: { children: ReactNode }) {
     pathname === "/reports" && user?.userType?.code === "SE"
       ? { ...baseContext, title: "My Dashboard" }
       : isTlDashboard
-        ? { ...baseContext, title: `Welcome back, ${user.fullName}` }
+        ? { ...baseContext, title: "Team Leader Dashboard" }
         : baseContext;
 
   useEffect(() => {
@@ -703,7 +703,7 @@ function Shell({ children }: { children: ReactNode }) {
       </aside>
 
       <div data-testid="authenticated-content" inert={!desktopSidebar && mobileNavOpen} className="min-w-0 flex-1">
-        <header className={styles.pageHeader}>
+        <header className={cx(styles.pageHeader, isTlDashboard && styles.tlPageHeader)}>
           <div className="flex min-w-0 items-center gap-3">
             <button
               ref={mobileMenuTriggerRef}
@@ -721,10 +721,10 @@ function Shell({ children }: { children: ReactNode }) {
             </button>
             <nav
               aria-label="Breadcrumb"
-              className="flex min-w-0 flex-nowrap items-center gap-2 whitespace-nowrap text-sm"
+              className={isTlDashboard ? "sr-only" : "flex min-w-0 flex-nowrap items-center gap-2 whitespace-nowrap text-sm"}
             >
               {breadcrumbAncestors.map((ancestor) => <span key={ancestor.href} className="contents"><Link href={ancestor.href} className={cx(focusRing, "truncate rounded-sm font-medium text-slate-500 hover:text-brand-primary hover:underline")}>{ancestor.label}</Link><IconChevronRight aria-hidden="true" className="size-4 shrink-0 text-slate-400" /></span>)}
-              <h1 aria-current="page" className={cx("text-slate-900 sm:text-base", isTlDashboard ? "whitespace-normal break-words font-bold" : "truncate font-semibold")}>{context.title}</h1>
+              <h1 aria-current="page" className={cx("text-slate-900 sm:text-base", isTlDashboard ? "sr-only" : "truncate font-semibold")}>{context.title}</h1>
             </nav>
           </div>
         </header>
