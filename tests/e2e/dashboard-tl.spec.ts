@@ -670,7 +670,7 @@ test("DXB and AUH TL review: scope, tabs, charts, breadcrumbs and responsive que
       await expect(page.getByTestId("tl-dashboard")).toHaveAttribute("aria-busy", "false");
       await expect(page.getByRole("button", { name: "Refresh", exact: true })).toBeEnabled();
       const emptyQueue = page.getByTestId("tl-review-queue");
-      await expect(emptyQueue).toContainText("No Applications in this queue.");
+      await expect(emptyQueue).toContainText("No returned cases in this queue.");
       expect((await emptyQueue.boundingBox())!.height).toBeLessThan(200);
       await expect(emptyQueue.getByRole("button", { name: /^(Previous|Next)$/ })).toHaveCount(0);
       await page.reload();
@@ -771,7 +771,7 @@ test("DXB and AUH TL review: scope, tabs, charts, breadcrumbs and responsive que
     await page.setViewportSize(viewport);
     await signIn(page, fixture.groups[0].users.EMPTY.email, "Team Leader Dashboard");
     const queue = page.getByTestId("tl-review-queue");
-    await expect(queue).toContainText("No Applications in this queue.");
+    await expect(queue).toContainText("No internal review cases in the selected period.");
     expect((await queue.boundingBox())!.height).toBeLessThan(200);
     await expect(queue.getByRole("button", { name: /^(Previous|Next)$/ })).toHaveCount(0);
     await expectReviewLayout(page, viewport.width);
@@ -818,6 +818,22 @@ test("TL embossed review cards preserve metrics, selection, focus and motion pre
     await page.emulateMedia({ reducedMotion: "no-preference" });
     await page.goto("/reports?tab=review&period=ytd&view=combined&queue=pending_review&page=1");
     await expect(page.getByTestId("tl-dashboard")).toHaveAttribute("aria-busy", "false");
+    await expect(page.getByTestId("tl-dashboard")).toHaveCSS("background-color", "rgb(247, 248, 250)");
+    await expect(page.getByTestId("tl-review-workspace")).toHaveCSS("background-color", "rgb(247, 248, 250)");
+    const bankBand = page.getByTestId("tl-bank-status").locator("..");
+    await expect(bankBand).toHaveCSS("background-color", "rgb(255, 255, 255)");
+    await expect(bankBand).toHaveCSS("border-color", "rgb(229, 231, 235)");
+    const queuePanel = page.getByTestId("tl-review-queue");
+    await expect(queuePanel).toHaveCSS("background-color", "rgb(255, 255, 255)");
+    await expect(queuePanel).toHaveCSS("border-color", "rgb(229, 231, 235)");
+    await expect(page.getByTestId("tl-returned-queue")).toHaveCSS("background-color", "rgb(255, 255, 255)");
+    const activityPanel = page.getByTestId("tl-review-activity");
+    await expect(activityPanel).toHaveCSS("background-color", "rgb(255, 255, 255)");
+    await expect(activityPanel).toHaveCSS("border-color", "rgb(229, 231, 235)");
+    const normalBankMetric = page.getByTestId("tl-bank-status").locator("[data-selected=false]").first();
+    await expect(normalBankMetric).toHaveCSS("background-color", "rgb(255, 255, 255)");
+    await normalBankMetric.hover();
+    await expect(normalBankMetric).toHaveCSS("background-color", "rgb(243, 244, 246)");
     const cards = page.getByTestId("tl-cards").locator("[data-queue]");
     await expect(cards).toHaveCount(4);
     const baseline = await cards.evaluateAll(elements => elements.map(element => {
@@ -908,6 +924,10 @@ test("TL embossed review cards preserve metrics, selection, focus and motion pre
       expect(new URL(page.url()).searchParams.get("view")).toBe("combined");
     }
     await capturePreview(page, testInfo, `embossed-${viewport.width}-selected-focus`);
+    for (const tabName of ["Team Performance", "Analytics", "My Performance & Attendance", "Review"]) {
+      await page.getByRole("tab", { name: tabName, exact: true }).click();
+      await expect(page.getByRole("tabpanel")).toHaveCSS("background-color", "rgb(247, 248, 250)");
+    }
     await expectNoOverflow(page);
   }
   await signOut(page);

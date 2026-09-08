@@ -54,8 +54,8 @@ function ActivityFeed({ events }: { events: Payload["activity"] }) {
   if (!events.length) return <Empty>No recorded activity.</Empty>;
   return <><ol className={styles.activity} data-testid="tl-activity-list">{(expanded ? events : events.slice(0, 3)).map(event => <li key={event.id}><span data-amafh-icon-tile="" className={styles.eventIcon}><IconFileDescription aria-hidden="true" /></span><div><Link className={cx(focusRing, styles.fileLink)} href={`/applications/${event.applicationId}`}>{event.fileNumber}</Link><p>{event.event.replaceAll("_", " ")}</p>{event.reason ? <p className={styles.muted}>{event.reason}</p> : null}<time>{new Date(event.at).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</time></div></li>)}</ol>{events.length > 3 ? <button ref={button} type="button" className={cx(focusRing, styles.activityToggle)} aria-expanded={expanded} onClick={() => { setExpanded(!expanded); requestAnimationFrame(() => button.current?.focus()); }}>{expanded ? "Show fewer updates" : `Show all ${events.length} updates`}<IconChevronDown aria-hidden="true" className={expanded ? "rotate-180" : undefined} /></button> : null}</>;
 }
-function Cases({ rows, compact = false, selectedQueue = false }: { rows: Case[]; compact?: boolean; selectedQueue?: boolean }) {
-  if (!rows.length) return selectedQueue ? <div className={styles.queueEmpty}><span data-amafh-icon-tile="" className={styles.emptyIcon}><IconInbox aria-hidden="true" /></span><div><p>No Applications in this queue.</p><span>Choose another queue above to view your cases.</span></div></div> : <Empty>No Applications in this queue.</Empty>;
+function Cases({ rows, compact = false, selectedQueue = false, emptyTitle = "No Applications in this queue.", emptyHint = "Choose another queue above to view your cases." }: { rows: Case[]; compact?: boolean; selectedQueue?: boolean; emptyTitle?: string; emptyHint?: string }) {
+  if (!rows.length) return selectedQueue ? <div className={styles.queueEmpty}><span data-amafh-icon-tile="" className={styles.emptyIcon}><IconInbox aria-hidden="true" /></span><div><p>{emptyTitle}</p><span>{emptyHint}</span></div></div> : <Empty>{emptyTitle}</Empty>;
   return <ul className={cx(styles.caseList, compact && styles.compactCases)}>{rows.map(item => <li key={item.id} className={styles.caseRow}>
     <div className={styles.caseIdentity}><Link className={cx(focusRing, styles.fileLink)} href={`/applications/${item.id}`}>{item.fileNumber}</Link><span className={styles.customer}>{item.customer}</span><span className={styles.caseOwner}><IconUsersGroup aria-hidden="true" />{item.caseOwner}</span></div>
     <div className={styles.caseProduct}><span>{item.bank}</span><span className={styles.muted}>{item.product}</span><span className={styles.muted}>{item.bankNumber ?? "Bank number not assigned"}</span></div>
@@ -194,6 +194,7 @@ export function TlDashboard() {
   useEffect(() => { if (tab === "review") setQueueOpen(true); }, [tab]);
   const cards = data ? PRIORITY.flatMap(key => data.cards.filter(card => card.key === key)) : [];
   const bankCards = data?.cards.filter(card => !PRIORITY.includes(card.key)) ?? [];
+  const allInternalReviewQueuesEmpty = cards.length === PRIORITY.length && cards.every(card => card.count === 0);
   const cardLabel = (card: { key: string; label: string }) => card.key === "approved" ? "Bank Approved" : card.key === "forwarded" ? "Forwarded to COD" : card.label;
   const reviewHref = (key = "active") => `/reports?${new URLSearchParams({ tab: "review", period, view, queue: key, page: "1" })}`;
   const tabIndex = TABS.findIndex(item => item.key === tab);
@@ -214,10 +215,15 @@ export function TlDashboard() {
             <Disclosure expanded={queueOpen} onExpandedChange={setQueueOpen} title={`${data.queueLabel} · Review queue`} testId="tl-review-queue" className={styles.reviewQueuePanel} aside={<span className={styles.rowCount}>{data.total} {data.total === 1 ? "case" : "cases"}</span>}>
               <h2 ref={queueHeading} tabIndex={-1} className="sr-only">{data.queueLabel} review queue</h2>
               {data.items.length ? <div className={styles.queueLabels} aria-hidden="true"><span>Application / owner</span><span>Bank / product</span><span>Review / bank stage</span></div> : null}
-              <Cases rows={data.items} selectedQueue />
+              <Cases
+                rows={data.items}
+                selectedQueue
+                emptyTitle={PRIORITY.includes(queue) && allInternalReviewQueuesEmpty ? "No internal review cases in the selected period." : `No ${data.queueLabel.toLocaleLowerCase()} cases in this queue.`}
+                emptyHint={PRIORITY.includes(queue) && allInternalReviewQueuesEmpty ? "Change the period or scope to review another range." : "Choose another queue above to view your cases."}
+              />
               {data.total > data.pageSize ? <nav aria-label="Review queue pagination" className={styles.pagination}><span>Page {data.page} of {Math.ceil(data.total / data.pageSize)}</span><div><Button variant="secondary" disabled={loading || page <= 1} onClick={() => navigate({ page: String(page - 1) })}>Previous</Button><Button variant="secondary" disabled={loading || page * data.pageSize >= data.total} onClick={() => navigate({ page: String(page + 1) })}>Next</Button></div></nav> : null}
             </Disclosure>
-            <Disclosure title="Returned · Awaiting correction" defaultOpen={false} className={styles.reviewSecondary}><Cases rows={data.returned} /></Disclosure>
+            <Disclosure title="Returned · Awaiting correction" defaultOpen={false} testId="tl-returned-queue" className={styles.reviewSecondary}><Cases rows={data.returned} emptyTitle="No returned cases are awaiting correction." /></Disclosure>
           </div>
           <aside className={styles.activityColumn} data-testid="tl-review-activity">
             <Disclosure title="Recent team activity" className={styles.reviewActivityPanel}><ActivityFeed events={data.activity} /></Disclosure>
