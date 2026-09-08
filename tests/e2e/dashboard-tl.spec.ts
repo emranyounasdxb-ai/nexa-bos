@@ -820,9 +820,40 @@ test("TL embossed review cards preserve metrics, selection, focus and motion pre
     await expect(page.getByTestId("tl-dashboard")).toHaveAttribute("aria-busy", "false");
     await expect(page.getByTestId("tl-dashboard")).toHaveCSS("background-color", "rgb(247, 248, 250)");
     await expect(page.getByTestId("tl-review-workspace")).toHaveCSS("background-color", "rgb(247, 248, 250)");
-    const bankBand = page.getByTestId("tl-bank-status").locator("..");
-    await expect(bankBand).toHaveCSS("background-color", "rgb(255, 255, 255)");
-    await expect(bankBand).toHaveCSS("border-color", "rgb(229, 231, 235)");
+    const bankStrip = page.getByTestId("tl-bank-status");
+    const bankBand = bankStrip.locator("..");
+    await expect(bankBand).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+    await expect(bankBand).toHaveCSS("border-top-width", "0px");
+    await expect(bankStrip).toHaveCSS("column-gap", "12px");
+    await expect(bankStrip).toHaveCSS("row-gap", "12px");
+    const bankMetrics = bankStrip.locator("[data-selected]");
+    await expect(bankMetrics).toHaveCount(4);
+    for (const metric of await bankMetrics.all()) {
+      await expect(metric).toHaveCSS("background-color", "rgb(255, 255, 255)");
+      await expect(metric).toHaveCSS("border-color", "rgb(229, 231, 235)");
+      await expect(metric).toHaveCSS("border-radius", "8px");
+      await expect(metric).toHaveCSS("padding", "12px");
+    }
+    const bankBoxes = await bankMetrics.evaluateAll(elements => elements.map(element => {
+      const box = element.getBoundingClientRect();
+      return { x: box.x, y: box.y, width: box.width, height: box.height };
+    }));
+    expect(new Set(bankBoxes.map(box => box.height)).size).toBe(1);
+    if (viewport.width === 1440) {
+      expect(new Set(bankBoxes.map(box => box.y)).size).toBe(1);
+      const reviewBoxes = await page.getByTestId("tl-cards").locator("[data-queue]").evaluateAll(elements => elements.map(element => {
+        const box = element.getBoundingClientRect();
+        return { x: box.x, width: box.width };
+      }));
+      for (const [index, box] of bankBoxes.entries()) {
+        expect(Math.abs(box.x - reviewBoxes[index].x)).toBeLessThan(1);
+        expect(Math.abs(box.width - reviewBoxes[index].width)).toBeLessThan(1);
+      }
+    } else {
+      expect(new Set(bankBoxes.map(box => box.y)).size).toBe(2);
+      expect(bankBoxes[1].x - (bankBoxes[0].x + bankBoxes[0].width)).toBeCloseTo(12, 0);
+      expect(bankBoxes[2].y - (bankBoxes[0].y + bankBoxes[0].height)).toBeCloseTo(12, 0);
+    }
     const queuePanel = page.getByTestId("tl-review-queue");
     await expect(queuePanel).toHaveCSS("background-color", "rgb(255, 255, 255)");
     await expect(queuePanel).toHaveCSS("border-color", "rgb(229, 231, 235)");
@@ -830,7 +861,7 @@ test("TL embossed review cards preserve metrics, selection, focus and motion pre
     const activityPanel = page.getByTestId("tl-review-activity");
     await expect(activityPanel).toHaveCSS("background-color", "rgb(255, 255, 255)");
     await expect(activityPanel).toHaveCSS("border-color", "rgb(229, 231, 235)");
-    const normalBankMetric = page.getByTestId("tl-bank-status").locator("[data-selected=false]").first();
+    const normalBankMetric = bankStrip.locator("[data-selected=false]").first();
     await expect(normalBankMetric).toHaveCSS("background-color", "rgb(255, 255, 255)");
     await normalBankMetric.hover();
     await expect(normalBankMetric).toHaveCSS("background-color", "rgb(243, 244, 246)");
