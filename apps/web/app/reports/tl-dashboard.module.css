@@ -31,9 +31,8 @@
 .kpiCard[data-selected="true"] .kpiAction > strong { color: var(--amafh-primary); }
 .kpiCard:hover { background: var(--amafh-subtle); }
 .kpiTrend { position: relative; z-index: 1; grid-area: 2 / 2 / 3 / 3; display: flex; align-items: center; align-self: center; justify-self: end; width: calc(100% - 16px); max-width: 100px; min-width: 0; min-height: 34px; margin-right: 16px; color: inherit; }
-.bankStrip { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); background: var(--amafh-surface); border: 1px solid var(--tl-line); border-radius: 8px; }
-.bankMetric { display: grid; gap: 2px; align-content: start; padding: 8px 16px; min-width: 0; text-align: left; }
-.bankMetric + .bankMetric { border-left: 1px solid var(--tl-line); }
+.bankStrip { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; background: transparent; border: 0; border-radius: 0; }
+.bankMetric { display: grid; gap: 2px; align-content: start; min-width: 0; padding: 12px; border: 1px solid var(--tl-line); border-radius: 8px; background: var(--amafh-surface); text-align: left; }
 .bankAction { display: flex; width: 100%; min-width: 0; min-height: 32px; align-items: center; justify-content: space-between; gap: 8px; text-align: left; color: inherit; border-radius: 4px; }
 .bankAction > span { min-width: 0; color: var(--amafh-text-secondary); font-size: 12px; overflow-wrap: anywhere; }
 .bankAction > strong { font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; }
@@ -190,9 +189,7 @@
   .kpiAction > span { font-size: 13px; }
   .kpiCard small { font-size: 11px; }
   .bankStrip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .bankMetric { padding: 9px 12px; }
-  .bankMetric:nth-child(3) { border-left: 0; }
-  .bankMetric:nth-child(n+3) { border-top: 1px solid var(--tl-line); }
+  .bankMetric { padding: 12px; }
   .reviewGrid, .personalGrid, .analyticsGrid { grid-template-columns: minmax(0, 1fr); }
   .trendPanel, .stagePanel, .internalPanel { grid-column: auto; }
   .disclosure { padding: 14px; }
@@ -264,11 +261,11 @@
 .reviewPreview .kpiCard small { padding-right: 18px; font-size: 12px; color: #63526d; }
 .reviewPreview .kpiCard[data-selected="true"] small, .reviewPreview .kpiCard[data-selected="true"] .trendUnavailable { color: #f0d9f5; }
 .kpiArrow { position: absolute; right: 15px; bottom: 15px; width: 16px; height: 16px; opacity: .65; }
-.bankBand { display: flex; align-items: center; gap: 12px; padding: 6px 12px; border: 1px solid var(--tl-line); border-radius: 10px; background: #fff; }
-.bankCaption { display: inline-flex; align-items: center; gap: 7px; flex: 0 0 150px; font-size: 12px; color: var(--review-muted); }
+.bankBand { display: grid; gap: 6px; padding: 0; border: 0; border-radius: 0; background: transparent; }
+.bankCaption { display: inline-flex; align-items: center; gap: 7px; width: fit-content; font-size: 12px; color: var(--review-muted); }
 .bankCaption > svg { flex-shrink: 0; width: 17px; height: 17px; color: var(--amafh-primary); }
-.reviewPreview .bankStrip { flex: 1; min-width: 0; border: 0; border-radius: 0; background: transparent; }
-.reviewPreview .bankMetric { gap: 5px 10px; padding: 6px 14px; border-color: var(--tl-line); border-radius: 4px; background: #fff; }
+.reviewPreview .bankStrip { min-width: 0; }
+.reviewPreview .bankMetric { gap: 5px 10px; padding: 12px; border-color: var(--tl-line); border-radius: 8px; background: #fff; }
 .reviewPreview .bankAction > span { font-size: 12px; color: var(--review-muted); }
 .reviewPreview .bankAction > strong { font-size: 20px; color: var(--review-ink); }
 .reviewPreview .bankMetric:hover { background: #f3f4f6; }
@@ -316,8 +313,6 @@
 .reviewPreview .caseDetails[open] { grid-row: 3; grid-column: 1 / -1; }
 .reviewPreview .compactCases .caseActions { grid-row: auto; grid-column: 1 / -1; justify-content: start; }
 @media (max-width: 1100px) {
-  .bankBand { display: block; }
-  .bankCaption { margin-bottom: 5px; }
   .reviewPreview .reviewGrid { grid-template-columns: minmax(0, 1.65fr) minmax(260px, 1fr); }
   .queueLabels { display: none; }
   .reviewPreview .caseActions, .reviewPreview .caseDetails { grid-row: auto; grid-column: 1 / -1; justify-content: start; }
@@ -344,9 +339,8 @@
   .cards > .kpiCard:nth-child(odd) .sparkTooltip, .bankStrip > .bankMetric:nth-child(odd) .sparkTooltip { right: auto; left: 0; }
   .reviewPreview .kpiCard small { min-height: 30px; font-size: 11px; line-height: 1.4; padding-right: 0; }
   .kpiArrow { display: none; }
-  .bankBand { padding: 10px; }
   .bankCaption { font-size: 11px; }
-  .reviewPreview .bankMetric { padding: 7px 8px; }
+  .reviewPreview .bankMetric { padding: 12px; }
   .reviewPreview .bankAction > span { font-size: 11px; }
   .reviewPreview .bankAction > strong { font-size: 18px; }
   .reviewPreview .reviewGrid { grid-template-columns: minmax(0, 1fr); gap: 6px; }
