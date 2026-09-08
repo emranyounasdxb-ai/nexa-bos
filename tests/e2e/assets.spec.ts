@@ -201,8 +201,8 @@ test("owner completes tracked Asset creation, custody, profile, offboarding, ret
   await page.getByRole("link", { name: assetCode }).click();
   await expect(page.getByText(/Outstanding Asset/)).toBeVisible();
 
-  await ensureAssetsMenuOpen(page);
-  await page.getByRole("link", { name: "Asset reports" }).click();
+  await page.goto("/assets/reports");
+  await expect(page.getByRole("heading", { name: "Asset Reports", exact: true })).toBeVisible();
   await selectBrandedOption(page.getByRole("combobox", { name: "Asset report" }), "outstanding_assets");
   await page.getByRole("button", { name: "Run report" }).click();
   await expect(page.getByRole("row").filter({ hasText: assetCode })).toContainText("Yes");

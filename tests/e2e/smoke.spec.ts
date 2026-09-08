@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 
 test("web smoke page starts and reaches the API", async ({ page }) => {
   await page.goto("/status");
-  await expect(page.getByRole("heading", { name: "Foundation smoke page" })).toBeVisible();
+  await expect(page.getByTestId("page-purpose")).toContainText("verifies that the Next.js application starts");
   await expect(page.getByTestId("api-base-url")).toContainText(/http:\/\/(localhost|127\.0\.0\.1):/);
 
   const health = page.getByTestId("api-health-status");
