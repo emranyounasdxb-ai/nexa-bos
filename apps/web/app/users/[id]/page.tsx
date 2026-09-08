@@ -343,7 +343,7 @@ export default function UserProfilePage() {
       />
 
       <Card className="overflow-hidden !p-0">
-        <div className="flex min-w-0 flex-col gap-4 bg-gradient-to-br from-brand-soft via-surface to-surface px-4 py-4 sm:flex-row sm:items-center sm:px-5">
+        <div className="flex min-w-0 flex-col gap-4 bg-surface px-4 py-4 sm:flex-row sm:items-center sm:px-5">
           <div className="flex size-16 shrink-0 items-center justify-center rounded-full bg-brand-primary text-xl font-semibold text-white shadow-sm" aria-label={`${user.fullName} initials`}>
             {initials(user.fullName)}
           </div>

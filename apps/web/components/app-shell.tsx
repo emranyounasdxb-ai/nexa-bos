@@ -707,13 +707,13 @@ function Shell({ children }: { children: ReactNode }) {
         data-testid="authenticated-content"
         data-portal-role={isTlPortal ? "TL" : undefined}
         inert={!desktopSidebar && mobileNavOpen}
-        className={cx("min-w-0 flex-1", isTlPortal && styles.tlPortalContent)}
+        className="min-w-0 flex-1"
       >
         <header
           data-testid="page-header"
           className={cx(
             styles.pageHeader,
-            isTlDashboard ? styles.tlPageHeader : isTlPortal && styles.tlPortalPageHeader,
+            isTlDashboard && styles.tlPageHeader,
           )}
         >
           <div className="flex min-w-0 items-center gap-3">
@@ -741,12 +741,9 @@ function Shell({ children }: { children: ReactNode }) {
           </div>
         </header>
         <main
+          data-amafh-workspace=""
           data-testid="page-main"
-          className={cx(
-            styles.pageMain,
-            isTlPortal && styles.tlPortalMain,
-            isTlPortal && !isTlDashboard && styles.tlPortalWorkspace,
-          )}
+          className={styles.pageMain}
         >
           {children}
         </main>

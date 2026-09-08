@@ -2,6 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import type {
   ButtonHTMLAttributes,
+  HTMLAttributes,
   InputHTMLAttributes,
   ReactNode,
   TextareaHTMLAttributes,
@@ -19,8 +20,8 @@ export const focusRing =
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary";
 
 const controlSurfaceClass = cx(
-  "w-full rounded-md border border-brand-border bg-surface px-3 text-sm text-text-primary shadow-[0_1px_1px_rgba(30,30,30,0.03)] transition-colors placeholder:text-text-disabled",
-  "hover:border-brand-primary focus:border-brand-primary disabled:cursor-not-allowed disabled:bg-surface-subtle disabled:text-text-disabled",
+  "w-full rounded-md border border-brand-border bg-surface px-3 text-sm text-text-primary shadow-[0_1px_1px_rgba(31,41,55,0.035)] transition-colors placeholder:text-text-disabled",
+  "hover:border-text-disabled focus:border-brand-primary disabled:cursor-not-allowed disabled:bg-surface-subtle disabled:text-text-disabled",
   focusRing,
 );
 
@@ -127,7 +128,7 @@ export function Card({ children, className }: { children: ReactNode; className?:
     <div
       data-amafh-card=""
       className={cx(
-        "min-w-0 rounded-[10px] border border-brand-border bg-surface p-3 shadow-[0_1px_2px_rgba(30,30,30,0.035)] sm:p-4",
+        "min-w-0 rounded-lg border border-brand-border bg-surface p-3 shadow-[var(--amafh-shadow-surface)] sm:p-4",
         className,
       )}
     >
@@ -320,9 +321,10 @@ export function FilterBar({ children, className }: { children: ReactNode; classN
   return (
     <div
       className={cx(
-        "grid min-w-0 gap-3 rounded-[10px] border border-brand-border bg-surface p-3 shadow-[0_1px_2px_rgba(30,30,30,0.03)] sm:grid-cols-2 sm:p-4 lg:grid-cols-3",
+        "grid min-w-0 gap-3 rounded-lg border border-brand-border bg-surface p-3 shadow-[var(--amafh-shadow-surface)] sm:grid-cols-2 sm:p-4 lg:grid-cols-3",
         className,
       )}
+      data-amafh-filter-bar=""
     >
       {children}
     </div>
@@ -331,7 +333,7 @@ export function FilterBar({ children, className }: { children: ReactNode; classN
 
 export function LoadingState({ children = "Loading…" }: { children?: ReactNode }) {
   return (
-    <div role="status" className="flex min-h-20 items-center gap-3 rounded-[10px] border border-brand-border bg-surface px-4 py-4 text-sm text-text-secondary">
+    <div data-amafh-state-surface="" role="status" className="flex min-h-20 items-center gap-3 rounded-lg border border-brand-border bg-surface px-4 py-4 text-sm text-text-secondary">
       <span className="size-5 animate-spin rounded-full border-2 border-brand-border border-t-brand-primary" aria-hidden="true" />
       {children}
     </div>
@@ -347,15 +349,21 @@ export function EmptyState({ children }: { children: ReactNode }) {
   );
 }
 
-export function TableShell({ children, className }: { children: ReactNode; className?: string }) {
+export function TableShell({
+  children,
+  className,
+  ...props
+}: { children: ReactNode; className?: string } & HTMLAttributes<HTMLDivElement>) {
   return (
     <div
       className={cx(
-        "max-w-full overflow-x-auto overscroll-x-contain rounded-[10px] border border-brand-border bg-surface shadow-[0_1px_2px_rgba(30,30,30,0.03)]",
+        "max-w-full overflow-x-auto overscroll-x-contain rounded-lg border border-brand-border bg-surface shadow-[var(--amafh-shadow-surface)]",
         className,
       )}
+      data-amafh-table-shell=""
+      {...props}
     >
-      <table className="min-w-full text-left text-[13px] leading-5 [&_tbody_tr]:border-t [&_tbody_tr]:border-brand-border [&_tbody_tr]:transition-colors [&_tbody_tr:hover]:bg-brand-soft/60">
+      <table className="min-w-full text-left text-[13px] leading-5 [&_tbody_tr]:border-t [&_tbody_tr]:border-brand-border [&_tbody_tr]:transition-colors [&_tbody_tr:hover]:bg-surface-subtle">
         {children}
       </table>
     </div>
@@ -391,7 +399,7 @@ export function DialogPanel({
         role="dialog"
         aria-modal="true"
         aria-labelledby="bos-dialog-title"
-        className="max-h-[calc(100vh-2rem)] min-w-0 w-full overflow-y-auto rounded-t-[10px] border border-brand-border bg-surface p-4 shadow-[0_20px_40px_rgba(30,30,30,0.18)] sm:max-w-lg sm:rounded-[10px] sm:p-5"
+        className="max-h-[calc(100vh-2rem)] min-w-0 w-full overflow-y-auto rounded-t-lg border border-brand-border bg-surface p-4 shadow-[var(--amafh-shadow-elevated)] sm:max-w-lg sm:rounded-lg sm:p-5"
       >
         <div className="flex items-start justify-between gap-4">
           <div>
@@ -435,7 +443,7 @@ export function PublicScreen({
             unoptimized
           />
         </div>
-        <section className="rounded-[10px] border border-brand-border bg-surface p-5 shadow-[0_8px_24px_rgba(30,30,30,0.08)] sm:p-6">
+        <section data-amafh-public-surface="" className="rounded-lg border border-brand-border bg-surface p-5 shadow-[var(--amafh-shadow-elevated)] sm:p-6">
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">{title}</h1>
           {description ? <p className="mt-2 text-sm leading-6 text-slate-600">{description}</p> : null}
           {children}

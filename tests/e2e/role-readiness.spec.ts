@@ -762,6 +762,9 @@ test.describe("shared sidebar role regression matrix", () => {
       const errors: string[] = [];
       page.on("pageerror", (error) => errors.push(error.message));
 
+      await expect(page.locator("body")).toHaveCSS("background-color", "rgb(247, 248, 250)");
+      await expect(sidebar).toHaveCSS("background-color", "rgb(247, 248, 250)");
+
       const expectNoOverflow = async () => {
         expect(await page.evaluate(
           () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
@@ -951,6 +954,9 @@ test.describe("shared sidebar role regression matrix", () => {
 
       await page.setViewportSize({ width: 1440, height: 900 });
       await expect(sidebar).toHaveJSProperty("inert", false);
+      await expect(page.locator("body")).toHaveCSS("font-size", "14px");
+      await expect(page.getByTestId("page-header")).toHaveCSS("padding-top", "16px");
+      if (code === "TL") await expect(page.getByTestId("tl-dashboard")).toHaveCSS("padding-top", "16px");
       await expect(trigger).toBeHidden();
       await expect(close).toBeHidden();
       await dashboard.focus();

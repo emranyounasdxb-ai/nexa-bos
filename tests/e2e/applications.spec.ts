@@ -354,7 +354,7 @@ async function signIn(page: Page, email = "owner@example.com", password = "Owner
   await expect(page.getByRole("banner")).toBeVisible();
 }
 
-test("owner can create an application and filter the list", async ({ page, request }) => {
+test("owner can create an application and filter the list", async ({ page, request }, testInfo) => {
   test.setTimeout(120_000);
   const prerequisites = await prepareApplicationPrereqs(request);
   await signIn(page);
@@ -518,6 +518,41 @@ test("owner can create an application and filter the list", async ({ page, reque
   await expect(page.getByRole("heading", { name: "Applications" })).toBeVisible();
   await page.getByLabel("Search applications").fill(applicationId);
   await expect(page.getByRole("link", { name: applicationId })).toBeVisible();
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.getByRole("button", { name: "Open navigation" })).toBeVisible();
+  await expect.poll(() => page.locator("#application-sidebar").evaluate(
+    (element) => element.getBoundingClientRect().right,
+  )).toBeLessThanOrEqual(0);
+  await page.evaluate(() => window.scrollTo({ top: 0 }));
+  const tableScroller = page.getByTestId("applications-table-scroll-region");
+  await expect(page.getByText("Swipe horizontally or use the arrow keys to view every application column.")).toBeVisible();
+  await expect(tableScroller).toHaveAttribute("tabindex", "0");
+  const initialTableState = await tableScroller.evaluate((element) => ({
+    clientWidth: element.clientWidth,
+    overflowX: getComputedStyle(element).overflowX,
+    scrollLeft: element.scrollLeft,
+    scrollWidth: element.scrollWidth,
+    touchAction: getComputedStyle(element).touchAction,
+  }));
+  expect(initialTableState.overflowX).toBe("auto");
+  expect(initialTableState.scrollWidth).toBeGreaterThan(initialTableState.clientWidth);
+  expect(initialTableState.scrollLeft).toBe(0);
+  expect(initialTableState.touchAction).toContain("pan-x");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBeTruthy();
+  await page.screenshot({
+    path: testInfo.outputPath("applications-mobile-scroll-initial.png"),
+    fullPage: false,
+  });
+  await tableScroller.focus();
+  await expect(tableScroller).toBeFocused();
+  for (let index = 0; index < 8; index += 1) await page.keyboard.press("ArrowRight");
+  await expect.poll(() => tableScroller.evaluate((element) => element.scrollLeft)).toBeGreaterThan(0);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBeTruthy();
+  await page.screenshot({
+    path: testInfo.outputPath("applications-mobile-scroll-keyboard.png"),
+    fullPage: false,
+  });
 });
 
 test("application detail sections, confirmations, timeline filters, permissions, and responsive layout", async ({ page, request }) => {

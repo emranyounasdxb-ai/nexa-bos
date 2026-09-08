@@ -428,17 +428,17 @@ test("AMAFH CORE semantic colors drive primary actions, focus, navigation, and s
     "--amafh-primary-pressed": "#430750",
     "--amafh-link": "#4c56d7",
     "--amafh-brand-soft": "#f7ecf8",
-    "--amafh-background": "#f6f7fa",
+    "--amafh-background": "#f7f8fa",
     "--amafh-surface": "#fff",
-    "--amafh-border": "#ddd8e5",
-    "--amafh-text": "#1e1e1e",
-    "--amafh-text-secondary": "#5f5b6b",
+    "--amafh-border": "#e5e7eb",
+    "--amafh-text": "#1f2937",
+    "--amafh-text-secondary": "#5f6775",
     "--amafh-success": "#15805d",
     "--amafh-warning": "#9a5a00",
     "--amafh-danger": "#c93646",
     "--amafh-info": "#3d5bd9",
   });
-  await expect(page.locator("body")).toHaveCSS("background-color", "rgb(246, 247, 250)");
+  await expect(page.locator("body")).toHaveCSS("background-color", "rgb(247, 248, 250)");
   await expect(page.getByRole("button", { name: "Sign in", exact: true })).toHaveCSS(
     "background-color",
     "rgb(111, 13, 131)",

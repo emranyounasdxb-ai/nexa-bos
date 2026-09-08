@@ -9,11 +9,11 @@ export const chartPalette = {
   violet: "#e026aa",
   amber: "#9a5a00",
   red: "#c93646",
-  slate900: "#1e1e1e",
-  slate700: "#5f5b6b",
-  slate500: "#8b8495",
-  slate300: "#ddd8e5",
-  slate200: "#f9f7fa",
+  slate900: "#1f2937",
+  slate700: "#5f6775",
+  slate500: "#8a93a2",
+  slate300: "#e5e7eb",
+  slate200: "#f3f4f6",
   white: "#ffffff",
 } as const;
 

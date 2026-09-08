@@ -300,21 +300,30 @@ function ApplicationsPageInner() {
         </div>
       </form>
       <ErrorText>{error}</ErrorText>
-      <TableShell className={loading && items.length > 0 ? "opacity-70" : undefined}>
-        <TableHead>
-          <tr>
-            <Th>Application ID</Th>
-            <Th>Bank File / Case Number</Th>
-            <Th>Customer</Th>
-            <Th>Bank / Product Category / Variant</Th>
-            <Th>Case Owner</Th>
-            <Th>Stage</Th>
-            <Th>Outcome</Th>
-            <Th>TAT</Th>
-            <Th>Delay</Th>
-          </tr>
-        </TableHead>
-        <tbody>
+      <p className="applications-table-scroll-hint">
+        Swipe horizontally or use the arrow keys to view every application column.
+      </p>
+      <div className="applications-table-scroll-frame">
+        <TableShell
+          aria-label="Applications table. Scroll horizontally to view all columns."
+          className={loading && items.length > 0 ? "opacity-70" : undefined}
+          data-testid="applications-table-scroll-region"
+          tabIndex={0}
+        >
+          <TableHead>
+            <tr>
+              <Th>Application ID</Th>
+              <Th>Bank File / Case Number</Th>
+              <Th>Customer</Th>
+              <Th>Bank / Product Category / Variant</Th>
+              <Th>Case Owner</Th>
+              <Th>Stage</Th>
+              <Th>Outcome</Th>
+              <Th>TAT</Th>
+              <Th>Delay</Th>
+            </tr>
+          </TableHead>
+          <tbody>
           {loading && items.length === 0 ? (
             <tr>
               <td colSpan={9}>
@@ -368,8 +377,9 @@ function ApplicationsPageInner() {
               </tr>
             ))
           )}
-        </tbody>
-      </TableShell>
+          </tbody>
+        </TableShell>
+      </div>
       <Pagination
         page={page}
         pageSize={pageSize}
