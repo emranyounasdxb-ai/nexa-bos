@@ -43,10 +43,10 @@ test("page-purpose help and ambiguous field tooltips are accessible without chan
 
   const purposeByRoute = new Map([
     ["/reports", "Review application performance, pipeline movement, target progress, and items that may need attention."],
-    ["/customers", "Search the customer directory and open records available within your current access scope."],
+    ["/customers", "Find customer records within your assigned visibility scope and open their profile, applications, and preserved history."],
     ["/applications", "Search and filter applications in your current scope, then open permitted workflow records."],
-    ["/users", "Search the user directory and open profiles or administration actions allowed by your permissions."],
-    ["/assets", "Individually tracked company Assets and current Office or employee custody."],
+    ["/users", "Find employees by organization, employment state, account state, or User Type and open the profile actions allowed by your permissions."],
+    ["/assets", "Track company Assets, current Office custody, and employee assignments."],
     ["/targets", "Plan measurable employee, team, and office outcomes and review authoritative results."],
   ]);
 

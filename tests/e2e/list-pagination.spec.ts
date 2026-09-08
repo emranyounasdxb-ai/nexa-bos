@@ -206,7 +206,8 @@ test("large user directory requests only the selected server page", async ({ pag
 
   await page.getByLabel("Search users").fill(`${marker} 00`);
   await expect(pagination.getByText("Showing 1–10 of 10")).toBeVisible();
-  await expect(pagination.getByRole("button", { name: "Previous" })).toBeDisabled();
+  await expect(pagination.getByRole("button", { name: "Previous" })).toHaveCount(0);
+  await expect(pagination.getByRole("button", { name: "Next" })).toHaveCount(0);
 
   await page.getByLabel("Search users").fill(marker);
   await selectBrandedOption(pagination.getByLabel("Rows per page"), "25");

@@ -171,11 +171,15 @@ test("owner attendance bulk entry, calculations, correction, holiday, schedule, 
   expect(urgent.ok()).toBeTruthy();
 
   await signIn(page);
+  await page.getByRole("link", { name: /Notifications, \d+ unread/ }).click();
+  await expect(page.getByRole("heading", { name: "Notifications", exact: true })).toBeVisible();
+  await expect(page.getByText("Urgent holiday reminder", { exact: true }).first()).toBeVisible();
   await expect(
-    page.getByText(new RegExp(`Holiday reminder:.*Reminder Holiday ${tag}`, "i")).first(),
+    page.getByText(new RegExp(`Reminder Holiday ${tag} is on ${reminderDate}`, "i")).first(),
   ).toBeVisible({
     timeout: 20_000,
   });
+  await page.getByRole("button", { name: "People menu" }).click();
   await page.getByRole("navigation").getByRole("link", { name: "Attendance", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Attendance" })).toBeVisible();
   await page.getByLabel("Attendance date").fill("2026-08-03");
@@ -231,21 +235,22 @@ test("owner attendance bulk entry, calculations, correction, holiday, schedule, 
     timeout: 20_000,
   });
   await expect(page.getByRole("columnheader", { name: "Ramadan dates" })).toBeVisible();
-  await expect(page.getByLabel("Schedule kind")).toContainText("Ramadan");
+  const ramadanSchedule = page.getByRole("row").filter({ hasText: `Att ${tag}` }).filter({ hasText: "ramadan" });
+  await expect(ramadanSchedule).toContainText("2026-03-01 – 2026-03-30");
 
   await page.goto("/attendance/reports");
   await expect(page.getByRole("heading", { name: "Attendance reports" })).toBeVisible({
     timeout: 20_000,
   });
-  await page.getByLabel("Report from").fill("2026-08-01");
-  await page.getByLabel("Report to").fill("2026-08-31");
+  await page.getByLabel("Report date").fill("2026-08-01 – 2026-08-31");
+  await page.getByLabel("Report date").press("Enter");
   await page.getByRole("button", { name: "Run report" }).click();
   await expect(page.getByRole("cell", { name: new RegExp(user.fullName) })).toBeVisible({
     timeout: 20_000,
   });
 
   await page.goto(`/reports/employees/${user.id}`);
-  await expect(page.getByRole("heading", { name: user.fullName })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Employee report", exact: true })).toBeVisible();
   await expect(page.getByText("Attendance summary")).toBeVisible();
   await expect(page.getByText("Attendance score / impact")).toBeVisible();
 
@@ -334,6 +339,7 @@ test("scoped user cannot access unauthorized attendance or send urgent reminders
   });
 
   await signIn(page, scopedUser.email, "UserPass1!");
+  await page.getByRole("button", { name: "People menu" }).click();
   await page.getByRole("navigation").getByRole("link", { name: "Attendance", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Attendance" })).toBeVisible();
   await expect(page.getByText(hiddenUser.fullName)).toHaveCount(0);

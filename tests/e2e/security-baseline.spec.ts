@@ -62,8 +62,8 @@ test("stored XSS payload is rendered as text, not executed", async ({ page, requ
   await signIn(page);
   await page.getByRole("button", { name: "Operations menu" }).click();
   await page.getByRole("link", { name: "Customers", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Customers" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Customers", exact: true })).toBeVisible();
   await page.getByLabel("Search customers").fill(`XSS-${tag}`);
-  await expect(page.getByText(`XSS-${tag}`)).toBeVisible();
+  await expect(page.getByRole("table").getByText(`XSS-${tag}`)).toBeVisible();
   await expect(page.locator("img[onerror]")).toHaveCount(0);
 });

@@ -86,6 +86,7 @@ test("Targets workspace keeps URL tabs, compact filters, results, and drawer foc
 }) => {
   test.setTimeout(120_000);
   const month = "2042-04-01";
+  const emptyMonth = "2099-12-01";
   const seeded = await seedTarget(request, month);
   await page.setViewportSize({ width: 1440, height: 900 });
   await signIn(page);
@@ -110,7 +111,9 @@ test("Targets workspace keeps URL tabs, compact filters, results, and drawer foc
   const controlTops = await Promise.all([level, resultPeriod, targetMonth, refresh].map(async (control) => Math.round((await control.boundingBox())?.y ?? -1)));
   expect(new Set(controlTops).size).toBe(1);
 
-  await expect(page.getByText("No targets are in scope for the selected filters.")).toBeVisible();
+  await targetMonth.fill(emptyMonth);
+  await targetMonth.press("Enter");
+  await expect(page.getByText(/No targets are in scope for the selected filters\./)).toBeVisible();
   await targetMonth.fill(month);
   await targetMonth.press("Enter");
   await expect(page.getByRole("row").filter({ hasText: seeded.employee.fullName ?? "Platform Owner" })).toBeVisible();

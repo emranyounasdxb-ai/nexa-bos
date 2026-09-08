@@ -171,16 +171,34 @@ test("list search and page actions share compact desktop rows", async ({ page, r
   await page.setViewportSize({ width: 1440, height: 900 });
   await signIn(page, request);
 
+  await page.goto("/customers");
+  await expect(page.getByRole("heading", { name: "Customers", exact: true })).toBeVisible();
+  const customerSearch = page.getByLabel("Search customers", { exact: true });
+  const customerAction = page.getByRole("link", { name: "Create customer", exact: true });
+  await expect(customerSearch).toBeVisible();
+  await expect(customerAction).toBeVisible();
+  expect((await customerSearch.boundingBox())?.height).toBe(32);
+  expect((await customerAction.boundingBox())?.height).toBe(32);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBeTruthy();
+
+  await page.goto("/users");
+  await expect(page.getByRole("heading", { name: "Users", exact: true })).toBeVisible();
+  const userSearch = page.getByLabel("Search users", { exact: true });
+  const userAction = page.getByRole("link", { name: "Create user", exact: true });
+  await expect(userSearch).toBeVisible();
+  await expect(userAction).toBeVisible();
+  expect((await userSearch.boundingBox())?.height).toBe(32);
+  expect((await userAction.boundingBox())?.height).toBe(32);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBeTruthy();
+
   for (const item of [
-    { path: "/customers", heading: "Customers", search: "Search customers", action: "Create customer" },
-    { path: "/users", heading: "Users", search: "Search users", action: "Create user" },
-    { path: "/applications", heading: "Applications", search: "Search applications", action: "Create application" },
+    { path: "/applications", heading: "Applications", search: "Search applications", action: "Create application", actionRole: "button" },
   ]) {
     await page.goto(item.path);
     await expect(page.getByRole("heading", { name: item.heading, exact: true })).toBeVisible();
     const bar = page.getByTestId("search-action-bar");
     const search = bar.getByLabel(item.search, { exact: true });
-    const action = bar.getByRole("link", { name: item.action, exact: true });
+    const action = bar.getByRole(item.actionRole as "button" | "link", { name: item.action, exact: true });
     await expect(search).toBeVisible();
     await expect(action).toBeVisible();
     const searchBox = await search.boundingBox();
@@ -214,7 +232,7 @@ test("list search and page actions share compact desktop rows", async ({ page, r
 
   await page.goto("/finance");
   await expect(page.getByRole("heading", { name: "Finance", exact: true })).toBeVisible();
-  for (const label of ["Refresh", "Excel", "PDF", "Print"]) {
+  for (const label of ["Refresh", "Export"]) {
     const button = page.getByRole("button", { name: label, exact: true }).first();
     await expect(button).toBeVisible();
     expect((await button.boundingBox())?.height).toBe(32);
@@ -862,11 +880,7 @@ test("shared application layout stays compact, aligned, and overflow-free across
       await expect(page.getByTestId("page-header")).toHaveCSS("padding-top", viewport.expectedHeaderPaddingTop);
       await expect(page.getByTestId("page-main")).toHaveCSS("font-size", "14px");
 
-      const iconPresentation = await page.locator('[data-amafh-ui-icon]').evaluateAll((icons) => icons
-        .filter((icon) => {
-          const style = getComputedStyle(icon);
-          return style.display !== "none" && style.visibility !== "hidden";
-        })
+      const iconPresentation = await page.locator('[data-amafh-ui-icon]:visible').evaluateAll((icons) => icons
         .map((icon) => ({
           filter: getComputedStyle(icon).filter,
           disabled: Boolean(icon.closest('button:disabled, [aria-disabled="true"]')),

@@ -117,7 +117,7 @@ test("owner targets, KPI scorecards, profile section, and scoped isolation", asy
   browser,
 }) => {
   test.setTimeout(180_000);
-  const headers = await ownerHeaders(request);
+  let headers = await ownerHeaders(request);
   const offices = (
     (await (await request.get(`${apiOrigin}/api/v1/offices`)).json()) as {
       items: { id: string; code: string }[];
@@ -144,10 +144,25 @@ test("owner targets, KPI scorecards, profile section, and scoped isolation", asy
   });
   expect(team.ok()).toBeTruthy();
   const teamId = ((await team.json()) as { id: string; name: string }).id;
-  const types = (
-    (await (await request.get(`${apiOrigin}/api/v1/user-types`)).json()) as { items: { id: string; code: string }[] }
-  ).items;
-  const se = types.find((item) => item.code === "SE");
+  const applicationOwnerTypeResponse = await request.post(`${apiOrigin}/api/v1/user-types`, {
+    headers,
+    data: { name: `Target owner ${tag}`, code: `TO${tag.toUpperCase().slice(-8)}` },
+  });
+  expect(applicationOwnerTypeResponse.ok(), await applicationOwnerTypeResponse.text()).toBeTruthy();
+  const applicationOwnerType = (await applicationOwnerTypeResponse.json()) as { id: string };
+  await request.post(`${apiOrigin}/api/v1/user-types/${applicationOwnerType.id}/activate`, { headers });
+  await request.put(`${apiOrigin}/api/v1/user-types/${applicationOwnerType.id}/permissions`, {
+    headers,
+    data: { permissions: ["Applications.View", "Applications.Create", "Applications.Edit", "Applications.Submit"] },
+  });
+  await request.put(`${apiOrigin}/api/v1/user-types/${applicationOwnerType.id}/customer-scope`, {
+    headers,
+    data: { customer_visibility_scope: "own" },
+  });
+  await request.put(`${apiOrigin}/api/v1/user-types/${applicationOwnerType.id}/application-scope`, {
+    headers,
+    data: { application_visibility_scope: "own" },
+  });
   const designations = (
     (await (await request.get(`${apiOrigin}/api/v1/designations`)).json()) as { items: { id: string }[] }
   ).items;
@@ -167,13 +182,24 @@ test("owner targets, KPI scorecards, profile section, and scoped isolation", asy
     },
   });
   expect(createdUser.ok()).toBeTruthy();
-  const employee = (await createdUser.json()) as { id: string; fullName: string };
+  const employee = (await createdUser.json()) as { id: string; fullName: string; email: string };
   await request.post(`${apiOrigin}/api/v1/users/${employee.id}/assign-type`, {
     headers,
-    data: { user_type_id: se!.id },
+    data: { user_type_id: applicationOwnerType.id },
   });
   await request.post(`${apiOrigin}/api/v1/users/${employee.id}/activate`, { headers });
-  await request.put(`${apiOrigin}/api/v1/user-types/${se!.id}/case-owner`, {
+  const employeeSetup = await request.post(
+    `${apiOrigin}/api/v1/auth/users/${employee.id}/setup-link`,
+    { headers },
+  );
+  expect(employeeSetup.ok(), await employeeSetup.text()).toBeTruthy();
+  const employeeSetupToken = ((await employeeSetup.json()) as { token: string }).token;
+  const employeePassword = "TargetUserPass1!";
+  const employeePasswordSetup = await request.post(`${apiOrigin}/api/v1/auth/setup`, {
+    data: { token: employeeSetupToken, password: employeePassword },
+  });
+  expect(employeePasswordSetup.ok(), await employeePasswordSetup.text()).toBeTruthy();
+  await request.put(`${apiOrigin}/api/v1/user-types/${applicationOwnerType.id}/case-owner`, {
     headers,
     data: { can_be_case_owner: true },
   });
@@ -217,34 +243,36 @@ test("owner targets, KPI scorecards, profile section, and scoped isolation", asy
     expect(createdVariant.ok(), await createdVariant.text()).toBeTruthy();
     variant = (await createdVariant.json()) as { id: string };
   }
-  const customer = await request.post(`${apiOrigin}/api/v1/customers`, {
-    headers,
-    data: {
-      customer_type: "individual",
-      full_name: `Tgt Cust ${tag}`,
-      mobile: `+97150${tag.slice(-8)}`,
-    },
+  const employeeLogin = await request.post(`${apiOrigin}/api/v1/auth/login`, {
+    data: { email: employee.email, password: employeePassword },
   });
-  expect(customer.ok()).toBeTruthy();
-  const customerId = ((await customer.json()) as { id: string }).id;
+  expect(employeeLogin.ok(), await employeeLogin.text()).toBeTruthy();
+  const employeeHeaders = {
+    "X-CSRF-Token": ((await employeeLogin.json()) as { csrfToken: string }).csrfToken,
+  };
   const app = await request.post(`${apiOrigin}/api/v1/applications`, {
-    headers,
+    headers: employeeHeaders,
     data: {
-      customer_id: customerId,
+      customer: {
+        customer_type: "individual",
+        full_name: `Tgt Cust ${tag}`,
+        mobile: `+97150${tag.slice(-8)}`,
+      },
       bank_id: dib!.id,
       product_id: pf!.id,
       product_variant_id: variant.id,
-      case_owner_id: employee.id,
       requested_amount: "4000",
     },
   });
-  expect(app.ok()).toBeTruthy();
-  const application = (await app.json()) as { id: string };
+  expect(app.ok(), await app.text()).toBeTruthy();
+  const application = (await app.json()) as { id: string; caseOwnerId: string };
+  expect(application.caseOwnerId).toBe(employee.id);
   const submitted = await request.post(`${apiOrigin}/api/v1/applications/${application.id}/case-number`, {
-    headers,
+    headers: employeeHeaders,
     data: { bank_case_number: `TGT-${tag.slice(-8)}` },
   });
-  expect(submitted.ok()).toBeTruthy();
+  expect(submitted.ok(), await submitted.text()).toBeTruthy();
+  headers = await ownerHeaders(request);
   const now = new Date();
   const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
   const officeMonth = `${2031 + (Number.parseInt(tag.slice(-4), 36) % 40)}-${String((Number.parseInt(tag.slice(-2), 36) % 12) + 1).padStart(2, "0")}-01`;
@@ -325,6 +353,9 @@ test("owner targets, KPI scorecards, profile section, and scoped isolation", asy
   await expect(targetDrawer.getByLabel("Target summary")).toContainText("10000");
   await targetDrawer.getByRole("button", { name: "Save target" }).click();
   await expect(page.getByText("Target saved.")).toBeVisible();
+  await page.getByLabel("Target month filter").fill(month);
+  await page.getByLabel("Target month filter").press("Enter");
+  await selectBrandedOption(page.getByLabel("Rows per page"), "50");
   await expect(page.getByRole("row", { name: new RegExp(`Target User ${tag}`) })).toBeVisible();
   await expect(
     page.getByRole("row", { name: new RegExp(`Target User ${tag}`) }).getByText("AED 4000.00"),
