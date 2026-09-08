@@ -187,7 +187,7 @@ export function TlDashboard() {
   }
   function selectTab(next: TabKey, focus = false) { if (next === "review") setQueueOpen(true); navigate({ tab: next }); if (focus) requestAnimationFrame(() => tabRefs.current[TABS.findIndex(item => item.key === next)]?.focus()); }
   // Keep restored URL tabs visible too, without moving keyboard focus on back/refresh.
-  useEffect(() => { tabRefs.current[TABS.findIndex(item => item.key === tab)]?.scrollIntoView({ block: "nearest", inline: "nearest" }); }, [tab]);
+  useEffect(() => { tabRefs.current[TABS.findIndex(item => item.key === tab)]?.scrollIntoView({ block: "nearest", inline: "center" }); }, [tab]);
   function onTabKeyDown(event: KeyboardEvent<HTMLButtonElement>, index: number) { if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return; event.preventDefault(); const nextIndex = event.key === "Home" ? 0 : event.key === "End" ? TABS.length - 1 : (index + (event.key === "ArrowRight" ? 1 : -1) + TABS.length) % TABS.length; selectTab(TABS[nextIndex].key, true); }
   function chooseQueue(key: string) { setQueueOpen(true); setQueueFocusRequest(value => value + 1); navigate({ queue: key }); }
   useEffect(() => { if (queueFocusRequest && queueOpen && !loading && queueHeading.current) { queueHeading.current.focus(); setQueueFocusRequest(0); } }, [queueFocusRequest, queueOpen, loading]);

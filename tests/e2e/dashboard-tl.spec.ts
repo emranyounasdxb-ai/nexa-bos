@@ -153,8 +153,32 @@ async function capturePreview(page: Page, testInfo: TestInfo, name: string) {
   await page.screenshot({ path: testInfo.outputPath(`${name}.png`), fullPage: true, animations: "disabled" });
 }
 
+async function expectTabVisibleInStrip(tab: Locator, tabs: Locator) {
+  await expect(tab).toBeInViewport({ ratio: 0.999 });
+  const [tabBox, stripBox] = await Promise.all([tab.boundingBox(), tabs.boundingBox()]);
+  expect(tabBox).not.toBeNull();
+  expect(stripBox).not.toBeNull();
+  expect(tabBox!.x).toBeGreaterThanOrEqual(stripBox!.x - 1);
+  expect(tabBox!.x + tabBox!.width).toBeLessThanOrEqual(stripBox!.x + stripBox!.width + 1);
+  const visibility = await tab.evaluate(element => {
+    const label = element.querySelector("span")!;
+    const labelBox = label.getBoundingClientRect();
+    const strip = element.parentElement!.getBoundingClientRect();
+    const target = document.elementFromPoint(labelBox.x + labelBox.width / 2, labelBox.y + labelBox.height / 2);
+    return {
+      labelInside: labelBox.left >= strip.left - 1 && labelBox.right <= strip.right + 1,
+      hitTarget: element.contains(target),
+    };
+  });
+  expect(visibility).toEqual({ labelInside: true, hitTarget: true });
+}
+
 async function expectTabFrame(page: Page, tabKey: "review" | "team" | "analytics" | "personal", viewportWidth: number) {
   await expect(page.getByTestId("tl-dashboard")).toHaveAttribute("aria-busy", "false");
+  // Keep the pointer outside the folded sidebar's hover-expand zone, then let
+  // its existing 200ms width transition settle before measuring stability.
+  await page.mouse.move(viewportWidth - 2, 2);
+  await page.waitForTimeout(250);
   const dashboard = page.getByTestId("tl-dashboard");
   const workspaceBar = page.getByTestId("tl-workspace-bar");
   const workspace = page.getByRole("tabpanel");
@@ -169,8 +193,14 @@ async function expectTabFrame(page: Page, tabKey: "review" | "team" | "analytics
   for (const tab of await tabs.getByRole("tab").all()) {
     expect((await tab.boundingBox())!.height).toBe(32);
     await expect(tab.locator('svg[aria-hidden="true"]')).toHaveCount(1);
+    await expect(tab).toHaveCSS("font-size", "14px");
+    await expect(tab).toHaveCSS("box-shadow", "none");
+    await expect(tab).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+    await expect(tab).toHaveCSS("border-bottom-width", "2px");
   }
   await expect(tabs).toHaveCSS("gap", "0px");
+  await expect(tabs).toHaveCSS("border-bottom-width", "1px");
+  await expect(tabs).toHaveCSS("border-bottom-color", "rgb(209, 213, 219)");
   const geometry = await tabs.getByRole("tab").evaluateAll(elements => elements.map(element => {
     const rect = element.getBoundingClientRect(); const style = getComputedStyle(element);
     const label = element.querySelector("span")!; const icon = element.querySelector("svg")!;
@@ -189,12 +219,27 @@ async function expectTabFrame(page: Page, tabKey: "review" | "team" | "analytics
     expect(item.unobstructed).toBe(true);
     if (index > 0) expect(Math.abs(item.left - geometry[index - 1].right)).toBeLessThanOrEqual(1);
   }
-  await expect(selected).toHaveCSS("z-index", "10");
+  await expect(selected).toHaveCSS("font-weight", "600");
+  await expect(selected).toHaveCSS("border-bottom-color", "rgb(111, 13, 131)");
   await expect(selected).toHaveCSS("box-shadow", "none");
-  expect(await selected.evaluate(e => getComputedStyle(e).backgroundColor)).toBe(await workspace.evaluate(e => getComputedStyle(e).backgroundColor));
+  await expect(selected).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
   const beforeHover = await selected.boundingBox();
+  const beforeHoverToolbar = await workspaceBar.boundingBox();
+  const beforeHoverContent = await workspace.boundingBox();
   await selected.hover();
-  expect(await selected.boundingBox()).toEqual(beforeHover);
+  await expect(selected).toHaveCSS("background-color", "rgb(243, 244, 246)");
+  const afterHover = await selected.boundingBox();
+  expect(afterHover?.width).toBe(beforeHover?.width);
+  expect(afterHover?.height).toBe(beforeHover?.height);
+  expect(await workspaceBar.boundingBox()).toEqual(beforeHoverToolbar);
+  expect(await workspace.boundingBox()).toEqual(beforeHoverContent);
+  await expect(selected).toHaveAttribute("aria-selected", "true");
+  await selected.focus();
+  await page.keyboard.press("Shift+Tab");
+  await page.keyboard.press("Tab");
+  await expect(selected).toBeFocused();
+  await expect(selected).toHaveCSS("outline-style", "solid");
+  await expect(selected).toHaveCSS("outline-width", "2px");
   await expect(selected).toHaveAttribute("aria-selected", "true");
   const activeTabBox = (await selected.boundingBox())!;
   const workspaceBox = (await workspace.boundingBox())!;
@@ -451,13 +496,13 @@ test("DXB and AUH TL review: scope, tabs, charts, breadcrumbs and responsive que
         for (const label of ["Team Performance", "Analytics", "My Performance & Attendance"]) {
           await nextTab.click();
           await expect(page.getByRole("tab", { name: label, exact: true })).toHaveAttribute("aria-selected", "true");
-          await expect(page.getByRole("tab", { name: label, exact: true })).toBeInViewport({ ratio: 1 });
+          await expectTabVisibleInStrip(page.getByRole("tab", { name: label, exact: true }), page.getByRole("tablist", { name: "Team Leader dashboard workspaces" }));
         }
         await expect(nextTab).toBeDisabled();
         await page.getByRole("tab", { name: "My Performance & Attendance", exact: true }).focus();
         await page.keyboard.press("Home");
         await expect(page.getByRole("tab", { name: "Review", exact: true })).toBeFocused();
-        await expect(page.getByRole("tab", { name: "Review", exact: true })).toBeInViewport({ ratio: 1 });
+        await expectTabVisibleInStrip(page.getByRole("tab", { name: "Review", exact: true }), page.getByRole("tablist", { name: "Team Leader dashboard workspaces" }));
         await expect(previousTab).toBeDisabled();
       }
       await page.getByRole("tab", { name: "Team Performance", exact: true }).click();
