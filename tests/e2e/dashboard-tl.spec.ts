@@ -199,8 +199,8 @@ async function expectTabFrame(page: Page, tabKey: "review" | "team" | "analytics
     await expect(tab).toHaveCSS("border-bottom-width", "2px");
   }
   await expect(tabs).toHaveCSS("gap", "0px");
-  await expect(tabs).toHaveCSS("border-bottom-width", "1px");
-  await expect(tabs).toHaveCSS("border-bottom-color", "rgb(209, 213, 219)");
+  await expect(tabs).toHaveCSS("border-bottom-width", "0px");
+  await expect(tabs).toHaveCSS("box-shadow", "rgb(209, 213, 219) 0px -1px 0px 0px inset");
   const geometry = await tabs.getByRole("tab").evaluateAll(elements => elements.map(element => {
     const rect = element.getBoundingClientRect(); const style = getComputedStyle(element);
     const label = element.querySelector("span")!; const icon = element.querySelector("svg")!;
@@ -1155,7 +1155,7 @@ test("TL portal surfaces share compact spacing, connected tabs, embossed cards a
 
       const firstCard = page.locator("[data-amafh-card]").first();
       if (await firstCard.count()) {
-        await expect(firstCard).toHaveCSS("border-color", "rgb(223, 212, 230)");
+        await expect(firstCard).toHaveCSS("border-color", "rgb(229, 231, 235)");
         expect(await firstCard.evaluate(element => getComputedStyle(element).boxShadow)).not.toBe("none");
       }
 

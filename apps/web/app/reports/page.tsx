@@ -100,7 +100,7 @@ function DashboardSkeleton() {
       className="space-y-4"
     >
       <span className="sr-only">Loading dashboard metrics…</span>
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
         {Array.from({ length: 4 }, (_, index) => (
           <div key={index} className="h-32 animate-pulse rounded-[10px] border border-slate-200 bg-white p-4">
             <div className="h-3 w-20 rounded bg-slate-200" />
@@ -630,7 +630,7 @@ export function DashboardInner() {
       {data ? (
         <div data-testid="dashboard-overview" className="space-y-4">
           <div data-testid="dashboard-kpi-charts" className="space-y-4">
-            <div data-testid="dashboard-kpi-grid" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div data-testid="dashboard-kpi-grid" className="grid grid-cols-2 gap-3 xl:grid-cols-4">
               <KpiCard label="Submitted" count={data.kpis.submitted.count} value={data.kpis.submitted.value} href={drill("submitted")} tone="blue" icon={IconInbox} context={<DirectionIndicator direction={submittedDirection} comparisonLabel={comparisonLabel} />} />
               <KpiCard label="Approved" count={data.kpis.approved.count} value={data.kpis.approved.value} href={drill("approved")} tone="violet" icon={IconCircleCheck} context={<span className="text-xs font-medium text-slate-500">Approval conversion {formatPct(data.conversions.submittedToApproved)}</span>} />
               <KpiCard label="Funded" count={data.kpis.funded.count} value={data.kpis.funded.value} href={drill("funded")} tone="green" icon={IconCashBanknote} context={<DirectionIndicator direction={fundedDirection} comparisonLabel={comparisonLabel} />} />

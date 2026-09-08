@@ -9,13 +9,14 @@
   --amafh-pink: #f450b2;
   --amafh-link: #4c56d7;
   --amafh-brand-soft: #f7ecf8;
-  --amafh-background: #f6f7fa;
+  --amafh-background: #f7f8fa;
   --amafh-surface: #ffffff;
-  --amafh-subtle: #f9f7fa;
-  --amafh-border: #ddd8e5;
-  --amafh-text: #1e1e1e;
-  --amafh-text-secondary: #5f5b6b;
-  --amafh-text-disabled: #8b8495;
+  --amafh-subtle: #f3f4f6;
+  --amafh-border: #e5e7eb;
+  --amafh-border-strong: #d1d5db;
+  --amafh-text: #1f2937;
+  --amafh-text-secondary: #5f6775;
+  --amafh-text-disabled: #8a93a2;
   --amafh-success: #15805d;
   --amafh-success-soft: #e9f8f1;
   --amafh-warning: #9a5a00;
@@ -35,7 +36,11 @@
   --bos-line: var(--amafh-border);
   --bos-subtle: var(--amafh-subtle);
   --bos-error: var(--amafh-danger);
-  --bos-radius: 0.375rem;
+  --bos-radius: 0.5rem;
+  --amafh-radius-card: 0.5rem;
+  --amafh-control-height: 2rem;
+  --amafh-shadow-surface: 0 1px 2px rgba(31, 41, 55, 0.045);
+  --amafh-shadow-elevated: 0 10px 24px rgba(31, 41, 55, 0.12);
   --bos-sidebar: 18rem;
 }
 
@@ -137,6 +142,8 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
 }
 
 ::selection {
@@ -169,15 +176,163 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 }
 
 [data-amafh-icon-tile] {
-  background-image: linear-gradient(135deg, rgba(255, 255, 255, 0.62), rgba(49, 17, 65, 0.055)) !important;
+  background-image: linear-gradient(135deg, rgba(255, 255, 255, 0.72), rgba(31, 41, 55, 0.035)) !important;
   box-shadow:
-    0 3px 7px -4px rgba(49, 17, 65, 0.32),
-    0 1px 2px rgba(49, 17, 65, 0.08),
+    0 3px 7px -4px rgba(31, 41, 55, 0.24),
+    0 1px 2px rgba(31, 41, 55, 0.07),
     inset 1px 1px 1px rgba(255, 255, 255, 0.78),
-    inset -1px -1px 1px rgba(49, 17, 65, 0.08);
+    inset -1px -1px 1px rgba(31, 41, 55, 0.06);
 }
 
 :is(button, [role="button"], a):disabled [data-amafh-ui-icon],
 [aria-disabled="true"] [data-amafh-ui-icon] {
   filter: none;
+}
+
+/* App-wide workspace presentation. These rules intentionally target existing
+   semantic tabs only; navigation, actions, state and DOM order remain intact. */
+[data-amafh-workspace] {
+  min-width: 0;
+  color: var(--amafh-text);
+  font-size: 14px;
+}
+
+[data-amafh-workspace] [data-amafh-card],
+[data-amafh-workspace] [data-amafh-filter-bar],
+[data-amafh-workspace] [data-amafh-table-shell],
+[data-amafh-workspace] [data-amafh-state-surface] {
+  border-color: var(--amafh-border);
+  border-radius: var(--amafh-radius-card);
+  background-color: var(--amafh-surface);
+  box-shadow: var(--amafh-shadow-surface);
+}
+
+[data-amafh-public-surface] {
+  border-color: var(--amafh-border);
+  border-radius: var(--amafh-radius-card);
+  background-color: var(--amafh-surface);
+  box-shadow: var(--amafh-shadow-elevated);
+}
+
+[data-amafh-workspace] [class~="rounded-[10px]"][class*="border"],
+[data-amafh-workspace] [class~="rounded-xl"][class*="border"] {
+  border-radius: var(--amafh-radius-card);
+}
+
+[data-amafh-workspace] :is([role="dialog"], [role="alertdialog"]) {
+  border-color: var(--amafh-border);
+  box-shadow: var(--amafh-shadow-elevated);
+}
+
+[data-amafh-workspace] [role="tablist"] {
+  display: flex !important;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  height: 32px;
+  gap: 0 !important;
+  padding: 0 !important;
+  overflow-x: auto;
+  overflow-y: hidden;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: inset 0 -1px var(--amafh-border-strong) !important;
+  scrollbar-width: thin;
+}
+
+[data-amafh-workspace] [role="tablist"] > div {
+  gap: 0 !important;
+}
+
+[data-amafh-workspace] [role="tab"] {
+  position: relative;
+  box-sizing: border-box;
+  display: inline-flex;
+  flex: 0 0 auto;
+  min-width: max-content;
+  height: 32px !important;
+  min-height: 32px !important;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 12px !important;
+  border: 0 !important;
+  border-bottom: 2px solid transparent !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: #4b5563 !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  line-height: 30px !important;
+  white-space: nowrap;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+[data-amafh-workspace] [role="tab"]:hover {
+  background: var(--amafh-subtle) !important;
+  color: var(--amafh-text) !important;
+}
+
+[data-amafh-workspace] [role="tab"][aria-selected="true"] {
+  border-bottom-color: var(--amafh-primary) !important;
+  background: transparent !important;
+  color: var(--amafh-primary) !important;
+  font-weight: 600 !important;
+}
+
+[data-amafh-workspace] [role="tab"][aria-selected="true"]:hover {
+  background: var(--amafh-subtle) !important;
+  color: var(--amafh-primary) !important;
+}
+
+[data-amafh-workspace] [role="tab"]:focus-visible {
+  z-index: 2;
+  outline: 2px solid var(--amafh-primary) !important;
+  outline-offset: -3px !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-amafh-workspace] *,
+  [data-amafh-workspace] *::before,
+  [data-amafh-workspace] *::after {
+    scroll-behavior: auto !important;
+  }
+}
+
+.applications-table-scroll-hint {
+  display: none;
+}
+
+.applications-table-scroll-frame {
+  min-width: 0;
+}
+
+@media (max-width: 639px) {
+  .applications-table-scroll-hint {
+    display: block;
+    margin: 0 0 0.375rem;
+    color: var(--color-text-secondary);
+    font-size: 0.75rem;
+    line-height: 1rem;
+  }
+
+  .applications-table-scroll-frame {
+    position: relative;
+  }
+
+  .applications-table-scroll-frame::after {
+    position: absolute;
+    inset: 1px 1px 1px auto;
+    width: 1.75rem;
+    border-radius: 0 0.5rem 0.5rem 0;
+    background: linear-gradient(90deg, rgb(255 255 255 / 0%), rgb(247 248 250 / 92%));
+    content: "";
+    pointer-events: none;
+  }
+
+  [data-testid="applications-table-scroll-region"] {
+    touch-action: pan-x pan-y;
+  }
 }

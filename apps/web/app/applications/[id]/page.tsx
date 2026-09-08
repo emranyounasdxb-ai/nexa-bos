@@ -529,7 +529,7 @@ export default function ApplicationDetailPage() {
 
       {review && <ApplicationInternalReview applicationId={item.id} state={review} requestedAmount={item.requestedAmount} onSaved={async text => { setMessage(text); await refresh(); }} />}
 
-      <Card className="border-brand-primary/30 bg-brand-soft/30">
+      <Card>
         <div className="flex min-w-0 flex-wrap items-start justify-between gap-2">
           <div className="min-w-0">
             <h3 className="font-semibold text-text-primary">Workflow timeline</h3>

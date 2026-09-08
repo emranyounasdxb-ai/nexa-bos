@@ -56,7 +56,7 @@ export function ApplicationInternalReview({ applicationId, state, requestedAmoun
   }
   if (state.status === "legacy") return null;
   return <section ref={panel} tabIndex={-1} data-testid="internal-review" className="min-w-0">
-    <Card className="min-w-0 border-brand-primary/30 bg-brand-soft/30 p-4">
+    <Card className="min-w-0 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="font-semibold">Internal Review tracker</h2><Badge>{state.label}</Badge></div>
       <p className="mt-1 text-xs text-text-secondary">SE → TL → office COD. Bank workflow and original Case Owner / commission remain separate and unchanged.</p>
       {!state.tlId && state.status === "pending_review" && <p className="mt-2 text-sm text-danger">No valid TL assignment. Contact your administrator; COD processing is blocked.</p>}

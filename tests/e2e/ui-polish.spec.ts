@@ -133,7 +133,7 @@ test("dashboard presents a compact executive summary with bounded detail", async
   ).toBeTruthy();
   await page.screenshot({
     path: testInfo.outputPath("task16-2-tabler-dashboard-desktop.png"),
-    fullPage: true,
+    fullPage: false,
   });
   await shellHeader.evaluate((element) => {
     element.style.visibility = "hidden";
@@ -148,8 +148,22 @@ test("dashboard presents a compact executive summary with bounded detail", async
   await expect(page.getByRole("complementary", { name: "Application sidebar" })).toHaveCSS("width", "80px");
   await page.screenshot({
     path: testInfo.outputPath("task16-2-tabler-sidebar-collapsed.png"),
-    fullPage: true,
+    fullPage: false,
   });
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  const mobileCards = await kpiGrid.getByRole("link").evaluateAll((cards) => cards.map((card) => {
+    const box = card.getBoundingClientRect();
+    return { x: box.x, y: box.y, width: box.width, height: box.height };
+  }));
+  expect(mobileCards).toHaveLength(4);
+  expect(Math.abs(mobileCards[0].y - mobileCards[1].y)).toBeLessThanOrEqual(1);
+  expect(Math.abs(mobileCards[2].y - mobileCards[3].y)).toBeLessThanOrEqual(1);
+  expect(mobileCards[2].y).toBeGreaterThan(mobileCards[0].y + mobileCards[0].height);
+  expect(Math.abs(mobileCards[0].x - mobileCards[2].x)).toBeLessThanOrEqual(1);
+  expect(Math.abs(mobileCards[1].x - mobileCards[3].x)).toBeLessThanOrEqual(1);
+  expect(Math.max(...mobileCards.map((card) => card.width)) - Math.min(...mobileCards.map((card) => card.width))).toBeLessThanOrEqual(1);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
 });
 
 test("list search and page actions share compact desktop rows", async ({ page, request }) => {
@@ -781,7 +795,7 @@ test("shared shell supports breadcrumbs, auto expansion, user menu, and mobile n
   await expect(page.getByRole("link", { name: "Organization", exact: true })).toBeVisible();
   await page.screenshot({
     path: testInfo.outputPath("task16-organization-mobile.png"),
-    fullPage: true,
+    fullPage: false,
   });
   await page.getByRole("button", { name: "Close navigation" }).last().click();
   await expect(page.getByRole("button", { name: "Open navigation" })).toBeVisible();
@@ -790,34 +804,63 @@ test("shared shell supports breadcrumbs, auto expansion, user menu, and mobile n
 test("shared application layout stays compact, aligned, and overflow-free across core routes", async ({
   page,
   request,
-}) => {
-  test.setTimeout(180_000);
+}, testInfo) => {
+  test.setTimeout(360_000);
   await signIn(page, request);
 
   const routes = [
     "/reports",
     "/customers",
+    "/customers/new",
     "/applications",
+    "/applications/new",
     "/attendance",
+    "/attendance/holidays",
+    "/attendance/reports",
+    "/attendance/schedules",
     "/users",
+    "/users/new",
+    "/organization",
+    "/organization/hierarchy",
     "/targets",
     "/targets/kpi",
+    "/reports/compare",
+    "/reports/drill-down",
     "/finance",
     "/assets",
+    "/assets/categories",
+    "/assets/reports",
     "/catalog",
     "/user-types",
     "/notifications",
+    "/notifications/manage",
+    "/workflows",
+    "/security",
+    "/account",
   ];
 
+  const screenshotRoutes = new Set([
+    "/reports",
+    "/applications",
+    "/users",
+    "/organization",
+    "/finance",
+    "/assets",
+    "/workflows",
+  ]);
+
   for (const viewport of [
-    { width: 1440, height: 900, expectedMainPaddingTop: "0px" },
-    { width: 390, height: 844, expectedMainPaddingTop: "0px" },
+    { width: 1440, height: 900, expectedHeaderPaddingTop: "16px", label: "desktop" },
+    { width: 390, height: 844, expectedHeaderPaddingTop: "12px", label: "mobile" },
   ]) {
     await page.setViewportSize(viewport);
     for (const route of routes) {
       await page.goto(route);
       await expect(page.getByTestId("authenticated-content")).toBeVisible();
       await expect(page.locator("header h1")).toHaveCount(1);
+      await expect(page.locator("body")).toHaveCSS("background-color", "rgb(247, 248, 250)");
+      await expect(page.getByTestId("page-header")).toHaveCSS("padding-top", viewport.expectedHeaderPaddingTop);
+      await expect(page.getByTestId("page-main")).toHaveCSS("font-size", "14px");
 
       const iconPresentation = await page.locator('[data-amafh-ui-icon]').evaluateAll((icons) => icons
         .filter((icon) => {
@@ -827,9 +870,11 @@ test("shared application layout stays compact, aligned, and overflow-free across
         .map((icon) => ({
           filter: getComputedStyle(icon).filter,
           disabled: Boolean(icon.closest('button:disabled, [aria-disabled="true"]')),
+          label: icon.closest("button, a, [role=button]")?.getAttribute("aria-label") ?? icon.parentElement?.textContent?.trim().slice(0, 48) ?? icon.tagName,
         })));
       expect(iconPresentation.length, `${route} should expose shared UI icons`).toBeGreaterThan(0);
-      expect(iconPresentation.every((icon) => icon.disabled ? icon.filter === "none" : icon.filter.includes("drop-shadow"))).toBe(true);
+      const incorrectIcons = iconPresentation.filter((icon) => icon.disabled ? icon.filter !== "none" : !icon.filter.includes("drop-shadow"));
+      expect(incorrectIcons, `${route} should keep enabled icons embossed and disabled icons neutral`).toEqual([]);
       await expect(page.locator('img[src*="/brand/"][data-amafh-ui-icon]')).toHaveCount(0);
 
       const layout = await page.evaluate(() => {
@@ -837,21 +882,72 @@ test("shared application layout stays compact, aligned, and overflow-free across
         return {
           documentOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
           mainOverflow: main ? main.scrollWidth - main.clientWidth : null,
-          mainPaddingTop: main ? window.getComputedStyle(main).paddingTop : null,
         };
       });
       expect(layout.documentOverflow, `${route} should not overflow the viewport`).toBeLessThanOrEqual(1);
       expect(layout.mainOverflow, `${route} main content should not overflow`).toBeLessThanOrEqual(1);
-      expect(layout.mainPaddingTop).toBe(viewport.expectedMainPaddingTop);
+
+      if (route === "/reports") {
+        await expect(page.getByLabel("Loading dashboard metrics")).toHaveCount(0, { timeout: 10_000 });
+      }
+      if (route === "/organization") {
+        await expect(page.getByText("Loading organization masters…")).toHaveCount(0, { timeout: 10_000 });
+      }
+
+      const card = page.locator("main [data-amafh-card]:visible").first();
+      if (await card.count()) {
+        await expect(card).toHaveCSS("background-color", "rgb(255, 255, 255)");
+        await expect(card).toHaveCSS("border-color", "rgb(229, 231, 235)");
+        await expect(card).toHaveCSS("border-radius", "8px");
+      }
+
+      const tablist = page.locator('main [role="tablist"]:visible').first();
+      if (await tablist.count()) {
+        const tabs = tablist.getByRole("tab");
+        const selected = tablist.locator('[role="tab"][aria-selected="true"]');
+        const geometry = await tablist.evaluate((element) => {
+          const style = getComputedStyle(element);
+          return {
+            gap: style.gap,
+            height: element.getBoundingClientRect().height,
+            overflowX: style.overflowX,
+          };
+        });
+        expect(geometry.gap).toBe("0px");
+        expect(geometry.height).toBe(32);
+        expect(geometry.overflowX).toBe("auto");
+        for (const tab of await tabs.all()) {
+          expect((await tab.boundingBox())?.height).toBe(32);
+        }
+        if (await selected.count()) {
+          await expect(selected.first()).toHaveCSS("color", "rgb(111, 13, 131)");
+          await expect(selected.first()).toHaveCSS("border-bottom-width", "2px");
+        }
+      }
 
       const controls = page.locator(
-        'main input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]), main [role="combobox"]',
+        'main input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="file"]), main [role="combobox"]',
       );
       for (const control of await controls.all()) {
         if (!(await control.isVisible())) continue;
         const box = await control.boundingBox();
         expect(box?.height, `${route} single-line controls should remain 32px`).toBe(32);
       }
+
+      if (screenshotRoutes.has(route)) {
+        await page.screenshot({
+          path: testInfo.outputPath(`app-wide-${viewport.label}-${route.slice(1).replaceAll("/", "-")}.png`),
+          fullPage: false,
+        });
+      }
     }
+
+    await page.goto("/status");
+    await expect(page.locator("body")).toHaveCSS("background-color", "rgb(247, 248, 250)");
+    const publicSurface = page.locator("[data-amafh-card]").first();
+    await expect(publicSurface).toHaveCSS("background-color", "rgb(255, 255, 255)");
+    await expect(publicSurface).toHaveCSS("border-color", "rgb(229, 231, 235)");
+    await expect(publicSurface).toHaveCSS("border-radius", "8px");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
   }
 });
