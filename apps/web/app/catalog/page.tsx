@@ -1079,7 +1079,7 @@ function CatalogInner() {
           description={`${imageDialog.item.name} (${imageDialog.item.code})`}
           onClose={() => !dialogSaving && setImageDialog(null)}
         >
-          <div className="flex min-h-40 items-center justify-center rounded-lg border border-brand-border bg-surface-subtle p-3">
+          <div className="flex min-h-40 items-center justify-center p-3">
             <CatalogueImage item={imageDialog.item} api={api} size="preview" />
           </div>
           <label className="mt-4 block text-sm font-medium text-text-primary">
@@ -1659,12 +1659,22 @@ function MappingTab({
               return (
                 <tr key={item.id}>
                   <Td>
-                    <span className="block font-medium text-slate-900">{item.bank?.name ?? "Unavailable bank"}</span>
-                    <code className="text-xs text-slate-500">{item.bank?.code ?? "—"}</code>
+                    <div className="flex items-center gap-2.5">
+                      {item.bank ? <CatalogueImage item={item.bank} api={getBrowserApiUrl()} /> : null}
+                      <span>
+                        <span className="block font-medium text-slate-900">{item.bank?.name ?? "Unavailable bank"}</span>
+                        <code className="text-xs text-slate-500">{item.bank?.code ?? "—"}</code>
+                      </span>
+                    </div>
                   </Td>
                   <Td>
-                    <span className="block font-medium text-slate-900">{item.product?.name ?? "Unavailable product"}</span>
-                    <code className="text-xs text-slate-500">{item.product?.code ?? "—"}</code>
+                    <div className="flex items-center gap-2.5">
+                      {item.product ? <CatalogueImage item={item.product} api={getBrowserApiUrl()} /> : null}
+                      <span>
+                        <span className="block font-medium text-slate-900">{item.product?.name ?? "Unavailable product"}</span>
+                        <code className="text-xs text-slate-500">{item.product?.code ?? "—"}</code>
+                      </span>
+                    </div>
                   </Td>
                   <Td><StatusBadge value={item.status} /></Td>
                   <Td>
