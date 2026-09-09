@@ -139,6 +139,9 @@ function friendlyError(error: unknown, fallback: string): string {
     if (error.body?.error?.code === "BANK_PRODUCT_DUPLICATE") {
       return "This bank and product are already mapped. Choose a different combination.";
     }
+    if (error.body?.error?.code === "BANK_PRODUCT_PARENT_INACTIVE") {
+      return "Only active banks and products can be mapped or reactivated.";
+    }
     if (error.body?.error?.code === "BANK_CODE_DUPLICATE") {
       return "That bank code already exists. Bank codes must be unique and cannot be changed later.";
     }
@@ -218,15 +221,7 @@ function CatalogInner() {
     setProducts(productData.items);
     setMappings(mappingData.items);
     setVariants(variantData.items);
-    setMappingBankId((current) => current || bankData.items[0]?.id || "");
-    setMappingProductId((current) => current || productData.items[0]?.id || "");
     setRuleProductId((current) => current || productData.items[0]?.id || "");
-    const firstActiveMapping = mappingData.items.find(
-      (item) =>
-        item.status === "active" && item.bank?.status === "active" && item.product?.status === "active",
-    ) ?? mappingData.items[0];
-    setVariantBankId((current) => current || firstActiveMapping?.bankId || "");
-    setVariantProductId((current) => current || firstActiveMapping?.productId || "");
   }, [api, canSeeInactive, canSeeInactiveVariants]);
 
   useEffect(() => {
@@ -269,6 +264,14 @@ function CatalogInner() {
     () => filterMasters(products, productSearch, productStatus),
     [products, productSearch, productStatus],
   );
+  const activeBanks = useMemo(
+    () => banks.filter((bank) => bank.status.toLowerCase() === "active"),
+    [banks],
+  );
+  const activeProducts = useMemo(
+    () => products.filter((product) => product.status.toLowerCase() === "active"),
+    [products],
+  );
   const filteredMappings = useMemo(() => {
     const query = mappingSearch.trim().toLowerCase();
     return mappings.filter((mapping) => {
@@ -278,7 +281,13 @@ function CatalogInner() {
     });
   }, [mappingSearch, mappingStatus, mappings]);
   const variantMappings = useMemo(
-    () => mappings.filter((mapping) => mapping.bank && mapping.product),
+    () =>
+      mappings.filter(
+        (mapping) =>
+          mapping.status === "active" &&
+          mapping.bank?.status === "active" &&
+          mapping.product?.status === "active",
+      ),
     [mappings],
   );
   const variantProductMappings = useMemo(
@@ -290,6 +299,35 @@ function CatalogInner() {
       variantProductMappings.find((mapping) => mapping.productId === variantProductId) ?? null,
     [variantProductId, variantProductMappings],
   );
+
+  useEffect(() => {
+    setMappingBankId((current) =>
+      activeBanks.some((bank) => bank.id === current) ? current : activeBanks[0]?.id ?? "",
+    );
+    setMappingProductId((current) =>
+      activeProducts.some((product) => product.id === current)
+        ? current
+        : activeProducts[0]?.id ?? "",
+    );
+  }, [activeBanks, activeProducts]);
+
+  useEffect(() => {
+    const firstMapping = variantMappings[0];
+    if (!firstMapping) {
+      setVariantBankId("");
+      setVariantProductId("");
+      return;
+    }
+    const bankMappings = variantMappings.filter((mapping) => mapping.bankId === variantBankId);
+    if (!bankMappings.length) {
+      setVariantBankId(firstMapping.bankId);
+      setVariantProductId(firstMapping.productId);
+      return;
+    }
+    if (!bankMappings.some((mapping) => mapping.productId === variantProductId)) {
+      setVariantProductId(bankMappings[0].productId);
+    }
+  }, [variantBankId, variantMappings, variantProductId]);
   const filteredVariants = useMemo(() => {
     const query = variantSearch.trim().toLowerCase();
     return variants.filter((variant) => {
@@ -390,18 +428,23 @@ function CatalogInner() {
     setDialogError("");
     const plural = masterDialog.kind === "bank" ? "banks" : "products";
     try {
+      let saved: CatalogItem;
       if (masterDialog.mode === "create") {
-        await apiRequest(`/api/v1/${plural}`, api, {
+        saved = await apiRequest<CatalogItem>(`/api/v1/${plural}`, api, {
           method: "POST",
           body: JSON.stringify({ name: masterName, code: masterCode }),
         });
       } else {
-        await apiRequest(`/api/v1/${plural}/${masterDialog.item?.id}`, api, {
+        saved = await apiRequest<CatalogItem>(`/api/v1/${plural}/${masterDialog.item?.id}`, api, {
           method: "PATCH",
           body: JSON.stringify({ name: masterName }),
         });
       }
       await refresh();
+      if (masterDialog.mode === "create") {
+        if (masterDialog.kind === "bank") setMappingBankId(saved.id);
+        else setMappingProductId(saved.id);
+      }
       const noun = masterDialog.kind === "bank" ? "Bank" : "Product";
       setFeedback({
         tone: "success",
@@ -517,11 +560,13 @@ function CatalogInner() {
     setMappingError("");
     setFeedback(null);
     try {
-      await apiRequest("/api/v1/bank-products", api, {
+      const saved = await apiRequest<BankProductRecord>("/api/v1/bank-products", api, {
         method: "POST",
         body: JSON.stringify({ bank_id: mappingBankId, product_id: mappingProductId }),
       });
       await refresh();
+      setVariantBankId(saved.bankId);
+      setVariantProductId(saved.productId);
       setFeedback({ tone: "success", text: "Bank–product mapping added successfully." });
     } catch (error) {
       setMappingError(friendlyError(error, "Mapping could not be added."));
@@ -846,8 +891,8 @@ function CatalogInner() {
       {activeTab === "mappings" ? (
         <MappingTab
           panelId="catalog-panel-mappings"
-          banks={banks}
-          products={products}
+          banks={activeBanks}
+          products={activeProducts}
           items={filteredMappings}
           totalItems={mappings.length}
           search={mappingSearch}

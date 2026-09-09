@@ -179,6 +179,112 @@ async def _type_with(client: AsyncClient, permissions: list[str]) -> str:
 
 
 @pytest.mark.asyncio
+async def test_new_global_products_require_active_bank_mapping_before_variant_use(
+    client: AsyncClient,
+) -> None:
+    owner, _ = await owner_client(client)
+    tag = unique_tag().upper()
+
+    banks: list[dict] = []
+    for index in range(2):
+        response = await owner.post(
+            "/api/v1/banks",
+            json={"name": f"Mapping Bank {index} {tag}", "code": f"MB{index}{tag}"},
+        )
+        assert response.status_code == 200, response.text
+        banks.append(response.json())
+
+    products: list[dict] = []
+    for index in range(2):
+        response = await owner.post(
+            "/api/v1/products",
+            json={"name": f"Mapping Product {index} {tag}", "code": f"MP{index}{tag}"},
+        )
+        assert response.status_code == 200, response.text
+        products.append(response.json())
+
+    listed_products = (await owner.get("/api/v1/products")).json()["items"]
+    assert {product["id"] for product in products} <= {product["id"] for product in listed_products}
+    assert not (await owner.get("/api/v1/bank-products", params={"bankId": banks[0]["id"]})).json()[
+        "items"
+    ]
+
+    first_mapping_response = await owner.post(
+        "/api/v1/bank-products",
+        json={"bank_id": banks[0]["id"], "product_id": products[0]["id"]},
+    )
+    assert first_mapping_response.status_code == 200, first_mapping_response.text
+    first_mapping = first_mapping_response.json()
+    first_variant = await _variant(owner, first_mapping["id"], code=f"MV0{tag}")
+
+    first_bank_variants = (
+        await owner.get("/api/v1/product-variants", params={"bankId": banks[0]["id"]})
+    ).json()["items"]
+    second_bank_variants = (
+        await owner.get("/api/v1/product-variants", params={"bankId": banks[1]["id"]})
+    ).json()["items"]
+    assert first_variant["id"] in {variant["id"] for variant in first_bank_variants}
+    assert first_variant["id"] not in {variant["id"] for variant in second_bank_variants}
+
+    second_mapping_response = await owner.post(
+        "/api/v1/bank-products",
+        json={"bank_id": banks[1]["id"], "product_id": products[0]["id"]},
+    )
+    assert second_mapping_response.status_code == 200, second_mapping_response.text
+    second_variant = await _variant(owner, second_mapping_response.json()["id"], code=f"MV1{tag}")
+    second_bank_variants = (
+        await owner.get("/api/v1/product-variants", params={"bankId": banks[1]["id"]})
+    ).json()["items"]
+    assert second_variant["id"] in {variant["id"] for variant in second_bank_variants}
+    assert first_variant["id"] not in {variant["id"] for variant in second_bank_variants}
+
+    unmapped_product_id = products[1]["id"]
+    assert not (
+        await owner.get(
+            "/api/v1/bank-products",
+            params={"bankId": banks[0]["id"], "productId": unmapped_product_id},
+        )
+    ).json()["items"]
+
+    deactivated_product = await owner.post(f"/api/v1/products/{unmapped_product_id}/deactivate")
+    assert deactivated_product.status_code == 200, deactivated_product.text
+    rejected_mapping = await owner.post(
+        "/api/v1/bank-products",
+        json={"bank_id": banks[0]["id"], "product_id": unmapped_product_id},
+    )
+    assert rejected_mapping.status_code == 422
+    assert rejected_mapping.json()["error"]["code"] == "BANK_PRODUCT_PARENT_INACTIVE"
+
+    assert (await owner.post(f"/api/v1/products/{unmapped_product_id}/activate")).status_code == 200
+    mapped_second_product = await owner.post(
+        "/api/v1/bank-products",
+        json={"bank_id": banks[0]["id"], "product_id": unmapped_product_id},
+    )
+    assert mapped_second_product.status_code == 200, mapped_second_product.text
+    mapping_id = mapped_second_product.json()["id"]
+    assert (
+        await owner.post(f"/api/v1/products/{unmapped_product_id}/deactivate")
+    ).status_code == 200
+
+    active_mappings = (
+        await owner.get("/api/v1/bank-products", params={"bankId": banks[0]["id"]})
+    ).json()["items"]
+    all_mappings = (
+        await owner.get(
+            "/api/v1/bank-products",
+            params={"bankId": banks[0]["id"], "includeInactive": True},
+        )
+    ).json()["items"]
+    assert mapping_id not in {mapping["id"] for mapping in active_mappings}
+    assert mapping_id in {mapping["id"] for mapping in all_mappings}
+
+    assert (await owner.post(f"/api/v1/bank-products/{mapping_id}/deactivate")).status_code == 200
+    rejected_reactivation = await owner.post(f"/api/v1/bank-products/{mapping_id}/activate")
+    assert rejected_reactivation.status_code == 422
+    assert rejected_reactivation.json()["error"]["code"] == "BANK_PRODUCT_PARENT_INACTIVE"
+
+
+@pytest.mark.asyncio
 async def test_product_variant_crud_scope_status_application_and_legacy_compatibility(
     client: AsyncClient,
 ) -> None:
