@@ -17,6 +17,7 @@ import {
   IconEdit,
   IconPackages,
 } from "@/components/icons";
+import { CatalogueImage } from "@/components/catalogue-image";
 import { Pagination, useClientPagination } from "@/components/pagination";
 import { Tooltip as InfoTooltip } from "@/components/tooltip";
 import {
@@ -52,6 +53,8 @@ type MasterKind = "bank" | "product";
 type Feedback = { tone: "success" | "error"; text: string };
 type MasterDialogState = { kind: MasterKind; mode: "create" | "edit"; item?: CatalogItem };
 type VariantDialogState = { mode: "create" | "edit"; item?: ProductVariantRecord };
+type ImageEntity = CatalogItem | ProductVariantRecord;
+type ImageDialogState = { kind: "bank" | "product" | "variant"; item: ImageEntity };
 type StatusDialogState = {
   kind: MasterKind | "mapping" | "variant";
   id: string;
@@ -167,6 +170,8 @@ function CatalogInner() {
   const [masterDialog, setMasterDialog] = useState<MasterDialogState | null>(null);
   const [variantDialog, setVariantDialog] = useState<VariantDialogState | null>(null);
   const [statusDialog, setStatusDialog] = useState<StatusDialogState | null>(null);
+  const [imageDialog, setImageDialog] = useState<ImageDialogState | null>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
   const [masterName, setMasterName] = useState("");
   const [masterCode, setMasterCode] = useState("");
   const [dialogError, setDialogError] = useState("");
@@ -250,13 +255,14 @@ function CatalogInner() {
   useEffect(() => {
     function closeOnEscape(event: globalThis.KeyboardEvent) {
       if (event.key !== "Escape") return;
-      if (statusDialog) setStatusDialog(null);
+      if (imageDialog) setImageDialog(null);
+      else if (statusDialog) setStatusDialog(null);
       else if (variantDialog) setVariantDialog(null);
       else if (masterDialog) setMasterDialog(null);
     }
     document.addEventListener("keydown", closeOnEscape);
     return () => document.removeEventListener("keydown", closeOnEscape);
-  }, [masterDialog, statusDialog, variantDialog]);
+  }, [imageDialog, masterDialog, statusDialog, variantDialog]);
 
   const filteredBanks = useMemo(() => filterMasters(banks, bankSearch, bankStatus), [banks, bankSearch, bankStatus]);
   const filteredProducts = useMemo(
@@ -331,6 +337,51 @@ function CatalogInner() {
     setVariantCode(item?.code ?? "");
     setVariantDescription(item?.description ?? "");
     setDialogError("");
+  }
+
+  function openImageDialog(kind: ImageDialogState["kind"], item: ImageEntity) {
+    setImageDialog({ kind, item });
+    setImageFile(null);
+    setDialogError("");
+  }
+
+  function imageEndpoint(dialog: ImageDialogState): string {
+    const base = dialog.kind === "bank" ? "banks" : dialog.kind === "product" ? "products" : "product-variants";
+    return `/api/v1/${base}/${dialog.item.id}/image`;
+  }
+
+  async function saveImage() {
+    if (!imageDialog || !imageFile) return;
+    setDialogSaving(true);
+    setDialogError("");
+    const formData = new FormData();
+    formData.append("file", imageFile);
+    try {
+      await apiRequest(imageEndpoint(imageDialog), api, { method: "POST", body: formData });
+      await refresh();
+      setFeedback({ tone: "success", text: `${imageDialog.item.name} image saved successfully.` });
+      setImageDialog(null);
+    } catch (error) {
+      setDialogError(friendlyError(error, "Image could not be saved."));
+    } finally {
+      setDialogSaving(false);
+    }
+  }
+
+  async function deleteImage() {
+    if (!imageDialog) return;
+    setDialogSaving(true);
+    setDialogError("");
+    try {
+      await apiRequest(imageEndpoint(imageDialog), api, { method: "DELETE" });
+      await refresh();
+      setFeedback({ tone: "success", text: `${imageDialog.item.name} image removed successfully.` });
+      setImageDialog(null);
+    } catch (error) {
+      setDialogError(friendlyError(error, "Image could not be removed."));
+    } finally {
+      setDialogSaving(false);
+    }
   }
 
   async function saveMaster() {
@@ -552,6 +603,7 @@ function CatalogInner() {
           onStatus={setBankStatus}
           onCreate={() => openMasterDialog("bank")}
           onEdit={(item) => openMasterDialog("bank", item)}
+          onImage={(item) => openImageDialog("bank", item)}
           onStatusChange={(item) =>
             setStatusDialog({
               kind: "bank",
@@ -582,6 +634,7 @@ function CatalogInner() {
           onStatus={setProductStatus}
           onCreate={() => openMasterDialog("product")}
           onEdit={(item) => openMasterDialog("product", item)}
+          onImage={(item) => openImageDialog("product", item)}
           onStatusChange={(item) =>
             setStatusDialog({
               kind: "product",
@@ -625,6 +678,7 @@ function CatalogInner() {
           onStatus={setVariantStatus}
           onCreate={() => openVariantDialog()}
           onEdit={openVariantDialog}
+          onImage={(item) => openImageDialog("variant", item)}
           onStatusChange={(item) =>
             setStatusDialog({
               kind: "variant",
@@ -973,6 +1027,45 @@ function CatalogInner() {
           </div>
         </DialogPanel>
       ) : null}
+
+      {imageDialog ? (
+        <DialogPanel
+          title={`${imageDialog.item.hasImage ? "Replace" : "Add"} image`}
+          description={`${imageDialog.item.name} (${imageDialog.item.code})`}
+          onClose={() => !dialogSaving && setImageDialog(null)}
+        >
+          <div className="flex min-h-40 items-center justify-center rounded-lg border border-brand-border bg-surface-subtle p-3">
+            <CatalogueImage item={imageDialog.item} api={api} size="preview" />
+          </div>
+          <label className="mt-4 block text-sm font-medium text-text-primary">
+            PNG, JPEG, or WebP image
+            <input
+              className={cx("mt-1 block w-full rounded-lg border border-brand-border bg-white px-3 py-2 text-sm", focusRing)}
+              type="file"
+              accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"
+              disabled={dialogSaving}
+              onChange={(event) => setImageFile(event.target.files?.[0] ?? null)}
+            />
+          </label>
+          <p className="mt-1.5 text-xs leading-5 text-text-secondary">Maximum 2 MB and 4096 × 4096 pixels. The image is validated and stored with a generated name.</p>
+          <div className="mt-4"><ErrorText>{dialogError}</ErrorText></div>
+          <div className="mt-5 flex flex-wrap items-center justify-between gap-2">
+            <div>
+              {imageDialog.item.hasImage ? (
+                <Button type="button" variant="danger" disabled={dialogSaving} onClick={() => void deleteImage()}>
+                  Remove image
+                </Button>
+              ) : null}
+            </div>
+            <div className="flex items-center gap-2">
+              <Button type="button" variant="secondary" disabled={dialogSaving} onClick={() => setImageDialog(null)}>Cancel</Button>
+              <Button type="button" disabled={dialogSaving || !imageFile} onClick={() => void saveImage()}>
+                {dialogSaving ? "Saving…" : imageDialog.item.hasImage ? "Replace image" : "Upload image"}
+              </Button>
+            </div>
+          </div>
+        </DialogPanel>
+      ) : null}
     </section>
   );
 }
@@ -984,6 +1077,7 @@ function filterMasters(items: CatalogItem[], search: string, status: StatusFilte
     return matchesStatus && (!query || `${item.name} ${item.code}`.toLowerCase().includes(query));
   });
 }
+
 
 function MasterCatalogTab({
   panelId,
@@ -1002,6 +1096,7 @@ function MasterCatalogTab({
   onStatus,
   onCreate,
   onEdit,
+  onImage,
   onStatusChange,
 }: {
   panelId: string;
@@ -1020,6 +1115,7 @@ function MasterCatalogTab({
   onStatus: (value: StatusFilter) => void;
   onCreate: () => void;
   onEdit: (item: CatalogItem) => void;
+  onImage: (item: CatalogItem) => void;
   onStatusChange: (item: CatalogItem) => void;
 }) {
   const pagination = useClientPagination(items, `${search}:${status}`);
@@ -1090,16 +1186,26 @@ function MasterCatalogTab({
               const canChangeStatus = isActive ? canDeactivate : canActivate;
               return (
                 <tr key={item.id}>
-                  <Td className="font-medium text-slate-900">{item.name}</Td>
+                  <Td>
+                    <div className="flex items-center gap-2.5">
+                      <CatalogueImage item={item} api={getBrowserApiUrl()} />
+                      <span className="font-medium text-slate-900">{item.name}</span>
+                    </div>
+                  </Td>
                   <Td><code className="text-xs text-slate-600">{item.code}</code></Td>
                   <Td><StatusBadge value={item.status} /></Td>
                   <Td>
                     <div className="flex flex-wrap items-center justify-end gap-1">
                       {canEdit ? (
-                        <Button type="button" variant="ghost" size="compact" aria-label={`Edit ${item.name}`} onClick={() => onEdit(item)}>
-                          <IconEdit className="size-4" />
-                          Edit
-                        </Button>
+                        <>
+                          <Button type="button" variant="ghost" size="compact" aria-label={`Manage image for ${item.name}`} onClick={() => onImage(item)}>
+                            Image
+                          </Button>
+                          <Button type="button" variant="ghost" size="compact" aria-label={`Edit ${item.name}`} onClick={() => onEdit(item)}>
+                            <IconEdit className="size-4" />
+                            Edit
+                          </Button>
+                        </>
                       ) : null}
                       {canChangeStatus ? (
                         <Button
@@ -1165,6 +1271,7 @@ function ProductVariantsTab({
   onStatus,
   onCreate,
   onEdit,
+  onImage,
   onStatusChange,
 }: {
   panelId: string;
@@ -1187,6 +1294,7 @@ function ProductVariantsTab({
   onStatus: (value: StatusFilter) => void;
   onCreate: () => void;
   onEdit: (item: ProductVariantRecord) => void;
+  onImage: (item: ProductVariantRecord) => void;
   onStatusChange: (item: ProductVariantRecord) => void;
 }) {
   const pagination = useClientPagination(items, `${bankId}:${productId}:${search}:${status}`);
@@ -1300,9 +1408,14 @@ function ProductVariantsTab({
               return (
                 <tr key={item.id}>
                   <Td>
-                    <span className="block font-medium text-slate-900">{item.name}</span>
-                    <code className="text-xs text-slate-500">{item.code}</code>
-                    {item.description ? <span className="mt-1 block text-xs text-slate-500">{item.description}</span> : null}
+                    <div className="flex items-center gap-2.5">
+                      <CatalogueImage item={item} api={getBrowserApiUrl()} />
+                      <span>
+                        <span className="block font-medium text-slate-900">{item.name}</span>
+                        <code className="text-xs text-slate-500">{item.code}</code>
+                        {item.description ? <span className="mt-1 block text-xs text-slate-500">{item.description}</span> : null}
+                      </span>
+                    </div>
                   </Td>
                   <Td>
                     <span className="block text-slate-900">{item.bank?.name ?? "Unavailable bank"}</span>
@@ -1316,10 +1429,15 @@ function ProductVariantsTab({
                   <Td>
                     <div className="flex flex-wrap items-center justify-end gap-1">
                       {canEdit ? (
-                        <Button type="button" variant="ghost" size="compact" aria-label={`Edit ${item.name}`} onClick={() => onEdit(item)}>
-                          <IconEdit className="size-4" />
-                          Edit
-                        </Button>
+                        <>
+                          <Button type="button" variant="ghost" size="compact" aria-label={`Manage image for ${item.name}`} onClick={() => onImage(item)}>
+                            Image
+                          </Button>
+                          <Button type="button" variant="ghost" size="compact" aria-label={`Edit ${item.name}`} onClick={() => onEdit(item)}>
+                            <IconEdit className="size-4" />
+                            Edit
+                          </Button>
+                        </>
                       ) : null}
                       {canChangeStatus ? (
                         <Button

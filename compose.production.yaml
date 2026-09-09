@@ -29,6 +29,9 @@ services:
       DATABASE_URL: "postgresql+asyncpg://${AMAFH_POSTGRES_USER:?AMAFH_POSTGRES_USER is required}:${AMAFH_POSTGRES_PASSWORD:?AMAFH_POSTGRES_PASSWORD is required}@postgres:5432/${AMAFH_POSTGRES_DB:?AMAFH_POSTGRES_DB is required}"
       WEB_ORIGIN: ${WEB_ORIGIN:?WEB_ORIGIN is required}
       BOOTSTRAP_SECRET: ${BOOTSTRAP_SECRET:-}
+      FILE_STORAGE_DIR: /app/var/uploads
+    volumes:
+      - amafh_core_uploads:/app/var/uploads
     depends_on:
       postgres:
         condition: service_healthy
@@ -56,3 +59,5 @@ services:
 volumes:
   amafh_core_pgdata:
     name: amafh-core-pgdata
+  amafh_core_uploads:
+    name: amafh-core-uploads

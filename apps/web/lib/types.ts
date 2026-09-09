@@ -99,6 +99,13 @@ export type CatalogItem = {
   bookedAmountRequired?: boolean;
   fundedAmountRequired?: boolean;
   targetMeasurement?: string;
+  hasImage?: boolean;
+  imageUrl?: string | null;
+  imageContentType?: string | null;
+  imageWidth?: number | null;
+  imageHeight?: number | null;
+  imageSizeBytes?: number | null;
+  imageUpdatedAt?: string | null;
 };
 
 export type BankProductRecord = {
@@ -124,6 +131,13 @@ export type ProductVariantRecord = {
   product: CatalogItem | null;
   createdAt: string;
   updatedAt: string;
+  hasImage?: boolean;
+  imageUrl?: string | null;
+  imageContentType?: string | null;
+  imageWidth?: number | null;
+  imageHeight?: number | null;
+  imageSizeBytes?: number | null;
+  imageUpdatedAt?: string | null;
 };
 
 export type ApplicationRecord = {
