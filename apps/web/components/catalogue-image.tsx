@@ -12,12 +12,12 @@ export function CatalogueImage({
   api: string;
   size?: "thumbnail" | "preview";
 }) {
-  const dimensions = size === "preview" ? "h-28 w-full" : "size-10 shrink-0";
+  const placeholderDimensions = size === "preview" ? "h-28 w-full" : "h-10 w-16 shrink-0";
   if (!item.hasImage || !item.imageUrl) {
     return (
       <span
         className={cx(
-          dimensions,
+          placeholderDimensions,
           "flex items-center justify-center rounded-lg border border-dashed border-brand-border bg-white text-xs font-medium text-text-secondary",
         )}
         aria-label={`No image for ${item.name}`}
@@ -27,6 +27,12 @@ export function CatalogueImage({
     );
   }
   const version = item.imageUpdatedAt ? `?v=${encodeURIComponent(item.imageUpdatedAt)}` : "";
+  const sourceWidth = item.imageWidth && item.imageWidth > 0 ? item.imageWidth : 1;
+  const sourceHeight = item.imageHeight && item.imageHeight > 0 ? item.imageHeight : 1;
+  const maxWidth = size === "preview" ? 240 : 64;
+  const maxHeight = size === "preview" ? 112 : 40;
+  const scale = Math.min(maxWidth / sourceWidth, maxHeight / sourceHeight);
+  const renderedWidth = Math.max(1, Math.round(sourceWidth * scale));
   return (
     // Authenticated catalogue images are API resources, so native loading preserves credentials.
     // eslint-disable-next-line @next/next/no-img-element
@@ -36,10 +42,8 @@ export function CatalogueImage({
       width={item.imageWidth ?? (size === "preview" ? 240 : 40)}
       height={item.imageHeight ?? (size === "preview" ? 112 : 40)}
       loading="lazy"
-      className={cx(
-        dimensions,
-        "rounded-lg border border-brand-border bg-white object-contain p-1",
-      )}
+      className="block h-auto max-h-28 max-w-full shrink-0 object-contain"
+      style={{ width: renderedWidth }}
     />
   );
 }

@@ -682,9 +682,17 @@ export function ApplicationCreateDialog({
                     { label: "Product", item: selectedProduct },
                     { label: "Variant", item: selectedVariant },
                   ].map(({ label, item }) => (
-                    <div key={label} className="min-w-0 rounded-lg border border-brand-border bg-surface-subtle p-2">
+                    <div key={label} className="min-w-0">
                       <p className="mb-1 truncate text-xs font-medium text-text-secondary">{label}</p>
-                      {item ? <CatalogueImage item={item} api={api} size="preview" /> : <div className="flex h-28 items-center justify-center text-xs text-text-secondary">Not selected</div>}
+                      <div className="flex h-28 items-center justify-center">
+                        {item ? (
+                          <CatalogueImage item={item} api={api} size="preview" />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center rounded-lg border border-dashed border-brand-border text-xs text-text-secondary">
+                            Not selected
+                          </div>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>

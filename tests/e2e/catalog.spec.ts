@@ -3,23 +3,65 @@ import { selectBrandedOption } from "./helpers/select";
 
 const apiOrigin = `http://127.0.0.1:${process.env.PLAYWRIGHT_API_PORT ?? "8010"}`;
 const secret = process.env.BOOTSTRAP_SECRET ?? "nexa-test-bootstrap-secret";
-const cataloguePng = Buffer.from(
-  "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAEklEQVR4nGPMlGlgYGBgYgADAAxPAQk/0RnlAAAAAElFTkSuQmCC",
+const transparentPng = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAwAAAAGCAYAAAD37n+BAAAAG0lEQVR4nGOcIbdnAQN2kIBNkAmHYpxgOGgAAMcMAn4PomjxAAAAAElFTkSuQmCC",
+  "base64",
+);
+const transparentWebp = Buffer.from(
+  "UklGRiYAAABXRUJQVlA4TBoAAAAvCIADEA8wHoM5vAMa8BAIJBnsj7xBRP8jDw==",
   "base64",
 );
 
-async function uploadCatalogueImage(page: Page, row: Locator, name: string) {
+async function expectUnframedCatalogueImage(image: Locator, expectedRatio: number) {
+  await expect(image).toBeVisible();
+  await expect.poll(() => image.evaluate((element) => (element as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+  const presentation = await image.evaluate((element) => {
+    const style = getComputedStyle(element);
+    const bounds = element.getBoundingClientRect();
+    const imageElement = element as HTMLImageElement;
+    return {
+      backgroundColor: style.backgroundColor,
+      borderTopWidth: style.borderTopWidth,
+      borderRadius: style.borderRadius,
+      boxShadow: style.boxShadow,
+      objectFit: style.objectFit,
+      naturalRatio: imageElement.naturalWidth / imageElement.naturalHeight,
+      renderedRatio: bounds.width / bounds.height,
+    };
+  });
+  expect(presentation).toMatchObject({
+    backgroundColor: "rgba(0, 0, 0, 0)",
+    borderTopWidth: "0px",
+    borderRadius: "0px",
+    boxShadow: "none",
+    objectFit: "contain",
+  });
+  expect(presentation.naturalRatio).toBeCloseTo(expectedRatio, 2);
+  expect(presentation.renderedRatio).toBeCloseTo(expectedRatio, 1);
+}
+
+async function uploadCatalogueImage(
+  page: Page,
+  row: Locator,
+  name: string,
+  file: { buffer: Buffer; extension: "png" | "webp"; mimeType: "image/png" | "image/webp"; ratio: number },
+) {
   await row.getByRole("button", { name: `Manage image for ${name}` }).click();
   const dialog = page.getByRole("dialog", { name: "Add image" });
   await expect(dialog.getByLabel(`No image for ${name}`)).toBeVisible();
   await dialog.getByLabel("PNG, JPEG, or WebP image").setInputFiles({
-    name: "catalogue.png",
-    mimeType: "image/png",
-    buffer: cataloguePng,
+    name: `transparent-catalogue.${file.extension}`,
+    mimeType: file.mimeType,
+    buffer: file.buffer,
   });
   await dialog.getByRole("button", { name: "Upload image" }).click();
   await expect(dialog).toHaveCount(0);
-  await expect(row.getByRole("img", { name: `${name} image` })).toBeVisible();
+  await expectUnframedCatalogueImage(row.getByRole("img", { name: `${name} image` }), file.ratio);
+
+  await row.getByRole("button", { name: `Manage image for ${name}` }).click();
+  const replaceDialog = page.getByRole("dialog", { name: "Replace image" });
+  await expectUnframedCatalogueImage(replaceDialog.getByRole("img", { name: `${name} image` }), file.ratio);
+  await replaceDialog.getByRole("button", { name: "Cancel" }).click();
 }
 
 async function ensureOwner(request: APIRequestContext) {
@@ -91,7 +133,12 @@ test("catalog uses task tabs, modal editing, explicit rule saves, and mapping va
   await editBankDialog.getByLabel("Bank name").fill(renamedBank);
   await editBankDialog.getByRole("button", { name: "Save changes" }).click();
   await expect(bankRow).toContainText(renamedBank);
-  await uploadCatalogueImage(page, bankRow, renamedBank);
+  await uploadCatalogueImage(page, bankRow, renamedBank, {
+    buffer: transparentPng,
+    extension: "png",
+    mimeType: "image/png",
+    ratio: 2,
+  });
 
   await bankRow.getByRole("button", { name: `Deactivate ${renamedBank}` }).click();
   const deactivateDialog = page.getByRole("dialog", { name: "Confirm deactivation" });
@@ -116,7 +163,12 @@ test("catalog uses task tabs, modal editing, explicit rule saves, and mapping va
   await page.getByLabel("Search products").fill(productCode);
   const productRow = page.getByRole("row").filter({ hasText: productCode });
   await expect(productRow).toContainText(productName);
-  await uploadCatalogueImage(page, productRow, productName);
+  await uploadCatalogueImage(page, productRow, productName, {
+    buffer: transparentPng,
+    extension: "png",
+    mimeType: "image/png",
+    ratio: 2,
+  });
 
   await tabs.getByRole("tab", { name: "Product Variants", exact: true }).click();
   await page.getByLabel("Variant bank").click();
@@ -207,7 +259,12 @@ test("catalog uses task tabs, modal editing, explicit rule saves, and mapping va
   await editVariantDialog.getByLabel("Variant name").fill(renamedVariant);
   await editVariantDialog.getByRole("button", { name: "Save changes" }).click();
   await expect(variantRow).toContainText(renamedVariant);
-  await uploadCatalogueImage(page, variantRow, renamedVariant);
+  await uploadCatalogueImage(page, variantRow, renamedVariant, {
+    buffer: transparentWebp,
+    extension: "webp",
+    mimeType: "image/webp",
+    ratio: 0.6,
+  });
 
   await page.goto("/applications");
   await page.getByRole("button", { name: "Create application" }).click();
@@ -215,10 +272,55 @@ test("catalog uses task tabs, modal editing, explicit rule saves, and mapping va
   await selectBrandedOption(applicationDialog.getByLabel("Bank", { exact: true }), { label: `${renamedBank} (${bankCode})` });
   await selectBrandedOption(applicationDialog.getByLabel("Product", { exact: true }), { label: `${productName} (${productCode})` });
   await selectBrandedOption(applicationDialog.getByLabel("Product Variant", { exact: true }), { label: `${renamedVariant} (${variantCode})` });
-  await expect(applicationDialog.getByRole("img", { name: `${renamedBank} image` })).toBeVisible();
-  await expect(applicationDialog.getByRole("img", { name: `${productName} image` })).toBeVisible();
-  await expect(applicationDialog.getByRole("img", { name: `${renamedVariant} image` })).toBeVisible();
+  await expectUnframedCatalogueImage(applicationDialog.getByRole("img", { name: `${renamedBank} image` }), 2);
+  await expectUnframedCatalogueImage(applicationDialog.getByRole("img", { name: `${productName} image` }), 2);
+  await expectUnframedCatalogueImage(applicationDialog.getByRole("img", { name: `${renamedVariant} image` }), 0.6);
   await applicationDialog.getByRole("button", { name: "Cancel" }).click();
+
+  for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
+    await page.setViewportSize(viewport);
+
+    await page.goto("/catalog?tab=banks");
+    await page.getByLabel("Search banks").fill(bankCode);
+    await expectUnframedCatalogueImage(
+      page.getByRole("row").filter({ hasText: bankCode }).getByRole("img", { name: `${renamedBank} image` }),
+      2,
+    );
+
+    await page.goto("/catalog?tab=products");
+    await page.getByLabel("Search products").fill(productCode);
+    await expectUnframedCatalogueImage(
+      page.getByRole("row").filter({ hasText: productCode }).getByRole("img", { name: `${productName} image` }),
+      2,
+    );
+
+    await page.goto("/catalog?tab=mappings");
+    await page.getByLabel("Search mappings").fill(bankCode);
+    const responsiveMappingRow = page.getByRole("row").filter({ hasText: bankCode }).filter({ hasText: productCode });
+    await expectUnframedCatalogueImage(responsiveMappingRow.getByRole("img", { name: `${renamedBank} image` }), 2);
+    await expectUnframedCatalogueImage(responsiveMappingRow.getByRole("img", { name: `${productName} image` }), 2);
+
+    await page.goto("/catalog?tab=variants");
+    await selectBrandedOption(page.getByLabel("Variant bank"), { label: `${renamedBank} (${bankCode})` });
+    await selectBrandedOption(page.getByLabel("Variant product category"), { label: `${productName} (${productCode})` });
+    await page.getByLabel("Search Product Variants").fill(variantCode);
+    await expectUnframedCatalogueImage(
+      page.getByRole("row").filter({ hasText: variantCode }).getByRole("img", { name: `${renamedVariant} image` }),
+      0.6,
+    );
+
+    await page.goto("/applications");
+    await page.getByRole("button", { name: "Create application" }).click();
+    const responsiveApplicationDialog = page.getByRole("dialog", { name: "Create application" });
+    await selectBrandedOption(responsiveApplicationDialog.getByLabel("Bank", { exact: true }), { label: `${renamedBank} (${bankCode})` });
+    await selectBrandedOption(responsiveApplicationDialog.getByLabel("Product", { exact: true }), { label: `${productName} (${productCode})` });
+    await selectBrandedOption(responsiveApplicationDialog.getByLabel("Product Variant", { exact: true }), { label: `${renamedVariant} (${variantCode})` });
+    await expectUnframedCatalogueImage(responsiveApplicationDialog.getByRole("img", { name: `${renamedBank} image` }), 2);
+    await expectUnframedCatalogueImage(responsiveApplicationDialog.getByRole("img", { name: `${productName} image` }), 2);
+    await expectUnframedCatalogueImage(responsiveApplicationDialog.getByRole("img", { name: `${renamedVariant} image` }), 0.6);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBeTruthy();
+    await responsiveApplicationDialog.getByRole("button", { name: "Cancel" }).click();
+  }
 
   await page.goto("/catalog?tab=variants");
   await selectBrandedOption(page.getByLabel("Variant bank"), { label: `${renamedBank} (${bankCode})` });
