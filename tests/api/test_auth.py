@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from uuid import uuid4
 
 import pytest
 from helpers import (
@@ -91,6 +92,29 @@ async def test_password_policy(client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("action", ["setup-link", "reset-link"])
+async def test_one_time_link_paths_reject_malformed_user_ids(
+    client: AsyncClient, action: str
+) -> None:
+    authed, _owner = await owner_client(client)
+    response = await authed.post(f"/api/v1/auth/users/not-a-uuid/{action}")
+    assert response.status_code == 422, response.text
+    error = response.json()["error"]
+    assert error["code"] == "VALIDATION_ERROR"
+    assert any(detail["loc"][-1] == "user_id" for detail in error["details"])
+
+
+@pytest.mark.asyncio
+async def test_one_time_link_well_formed_missing_user_remains_not_found(
+    client: AsyncClient,
+) -> None:
+    authed, _owner = await owner_client(client)
+    response = await authed.post(f"/api/v1/auth/users/{uuid4()}/reset-link")
+    assert response.status_code == 404, response.text
+    assert response.json()["error"]["code"] == "USER_NOT_FOUND"
+
+
+@pytest.mark.asyncio
 async def test_mfa_not_required_for_login(client: AsyncClient) -> None:
     authed, owner = await owner_client(client)
     setup = await authed.post("/api/v1/auth/mfa/setup")
@@ -161,7 +185,9 @@ async def test_concurrent_session_replacement_fails_closed(
 
         transport = ASGITransport(app=app, raise_app_exceptions=False)
         async with (
-            AsyncClient(transport=transport, base_url="http://testserver") as old_client,
+            AsyncClient(
+                transport=transport, base_url="http://testserver"
+            ) as old_client,
             AsyncClient(
                 transport=ASGITransport(app=app, raise_app_exceptions=False),
                 base_url="http://testserver",

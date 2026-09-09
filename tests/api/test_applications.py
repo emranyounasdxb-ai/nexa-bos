@@ -726,6 +726,62 @@ async def test_search_respects_application_scope(client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
+async def test_application_list_rejects_malformed_typed_filters(
+    client: AsyncClient,
+) -> None:
+    authed, _owner = await owner_client(client)
+    dib, _eib, _pf, _cc = await _catalog(authed)
+
+    for params in (
+        {
+            "bank_id": dib["id"],
+            "created_from": "2026-01-01",
+            "created_to": "2026-12-31",
+            "bank_stage_from": "2026-01-01",
+            "requested_min": "0",
+        },
+        {
+            "created_from": "2026-01-01T00:00:00+00:00",
+            "created_to": "2026-12-31T23:59:59+00:00",
+        },
+    ):
+        valid = await authed.get("/api/v1/applications", params=params)
+        assert valid.status_code == 200, valid.text
+
+    malformed = {
+        "bank_id": "not-a-uuid",
+        "product_id": "not-a-uuid",
+        "product_variant_id": "not-a-uuid",
+        "case_owner_id": "not-a-uuid",
+        "office_id": "not-a-uuid",
+        "department_id": "not-a-uuid",
+        "team_id": "not-a-uuid",
+        "current_stage_id": "not-a-uuid",
+        "submission_from": "not-a-date",
+        "submission_to": "not-a-date",
+        "created_from": "not-a-date",
+        "created_to": "not-a-date",
+        "bank_stage_date": "not-a-date",
+        "bank_stage_from": "not-a-date",
+        "bank_stage_to": "not-a-date",
+        "requested_min": "not-a-number",
+        "requested_max": "not-a-number",
+        "approved_min": "not-a-number",
+        "approved_max": "not-a-number",
+        "booked_min": "not-a-number",
+        "booked_max": "not-a-number",
+        "funded_min": "not-a-number",
+        "funded_max": "not-a-number",
+    }
+    for name, value in malformed.items():
+        response = await authed.get("/api/v1/applications", params={name: value})
+        assert response.status_code == 422, (name, response.text)
+        error = response.json()["error"]
+        assert error["code"] == "VALIDATION_ERROR", name
+        assert any(detail["loc"][-1] == name for detail in error["details"]), name
+
+
+@pytest.mark.asyncio
 async def test_application_list_query_count_does_not_grow_per_row(client: AsyncClient) -> None:
     authed, owner = await owner_client(client)
     dib, _eib, pf, _cc = await _catalog(authed)

@@ -110,11 +110,11 @@ async def reset_password(payload: PasswordSetRequest, session: SessionDep) -> di
 
 @router.post("/users/{user_id}/setup-link")
 async def setup_link(
-    user_id: str,
+    user_id: UUID,
     session: SessionDep,
     actor: Annotated[CurrentUser, Depends(require_permission(USERS_GENERATE_SETUP_LINK))],
 ) -> dict[str, str]:
-    target = await get_visible_user(session, actor, UUID(user_id))
+    target = await get_visible_user(session, actor, user_id)
     if target.account_status != AccountStatus.ACTIVE:
         raise AppError(
             status_code=422,
@@ -132,11 +132,11 @@ async def setup_link(
 
 @router.post("/users/{user_id}/reset-link")
 async def reset_link(
-    user_id: str,
+    user_id: UUID,
     session: SessionDep,
     actor: Annotated[CurrentUser, Depends(require_permission(USERS_GENERATE_RESET_LINK))],
 ) -> dict[str, str]:
-    target = await get_visible_user(session, actor, UUID(user_id))
+    target = await get_visible_user(session, actor, user_id)
     return await issue_one_time_link(
         session,
         actor=actor,
