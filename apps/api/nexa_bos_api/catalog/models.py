@@ -9,6 +9,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Index,
+    Integer,
     String,
     UniqueConstraint,
     Uuid,
@@ -27,6 +28,12 @@ class Bank(Base):
     code: Mapped[str] = mapped_column(String(32), unique=True, nullable=False)
     name: Mapped[str] = mapped_column(String(120), nullable=False)
     status: Mapped[str] = mapped_column(String(20), nullable=False)
+    image_key: Mapped[str | None] = mapped_column(String(255))
+    image_content_type: Mapped[str | None] = mapped_column(String(80))
+    image_width: Mapped[int | None] = mapped_column(Integer)
+    image_height: Mapped[int | None] = mapped_column(Integer)
+    image_size_bytes: Mapped[int | None] = mapped_column(Integer)
+    image_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
@@ -60,6 +67,12 @@ class Product(Base):
     booked_amount_required: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     funded_amount_required: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     target_measurement: Mapped[str] = mapped_column(String(20), nullable=False, default="count")
+    image_key: Mapped[str | None] = mapped_column(String(255))
+    image_content_type: Mapped[str | None] = mapped_column(String(80))
+    image_width: Mapped[int | None] = mapped_column(Integer)
+    image_height: Mapped[int | None] = mapped_column(Integer)
+    image_size_bytes: Mapped[int | None] = mapped_column(Integer)
+    image_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
@@ -120,6 +133,12 @@ class ProductVariant(Base):
     name: Mapped[str] = mapped_column(String(120), nullable=False)
     description: Mapped[str | None] = mapped_column(String(500))
     status: Mapped[str] = mapped_column(String(20), nullable=False)
+    image_key: Mapped[str | None] = mapped_column(String(255))
+    image_content_type: Mapped[str | None] = mapped_column(String(80))
+    image_width: Mapped[int | None] = mapped_column(Integer)
+    image_height: Mapped[int | None] = mapped_column(Integer)
+    image_size_bytes: Mapped[int | None] = mapped_column(Integer)
+    image_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 

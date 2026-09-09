@@ -1,9 +1,12 @@
 from __future__ import annotations
 
-from typing import Annotated
+import logging
+from datetime import UTC, datetime
+from typing import Annotated, Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, File, Query, UploadFile
+from fastapi.responses import FileResponse
 
 from nexa_bos_api.api.v1.deps import CurrentUser, require_permission
 from nexa_bos_api.catalog.models import Bank, BankProduct, Product
@@ -42,8 +45,15 @@ from nexa_bos_api.catalog.service import (
     update_product_variant,
 )
 from nexa_bos_api.core.exceptions import AppError
+from nexa_bos_api.core.image_storage import (
+    image_path,
+    remove_image,
+    store_image,
+    validate_image_upload,
+)
 from nexa_bos_api.db.session import SessionDep
 from nexa_bos_api.identity.access import has_permission
+from nexa_bos_api.identity.audit import record_audit
 from nexa_bos_api.identity.enums import MasterStatus
 from nexa_bos_api.identity.permissions import (
     BANK_PRODUCTS_ACTIVATE,
@@ -64,6 +74,109 @@ from nexa_bos_api.identity.permissions import (
 )
 
 router = APIRouter(tags=["catalog"])
+logger = logging.getLogger(__name__)
+ImageFile = Annotated[UploadFile, File()]
+
+
+async def _replace_image(
+    session: SessionDep,
+    actor: CurrentUser,
+    row: Any,
+    *,
+    entity_type: str,
+    category: str,
+    file: UploadFile,
+) -> None:
+    image = await validate_image_upload(file)
+    await session.refresh(row, with_for_update=True)
+    new_key = store_image(image, category)
+    old_key = row.image_key
+    row.image_key = new_key
+    row.image_content_type = image.content_type
+    row.image_width = image.width
+    row.image_height = image.height
+    row.image_size_bytes = len(image.data)
+    row.image_updated_at = datetime.now(UTC)
+    try:
+        await record_audit(
+            session,
+            action=(f"{entity_type}.image.replace" if old_key else f"{entity_type}.image.upload"),
+            entity_type=entity_type,
+            entity_id=str(row.id),
+            actor_id=actor.id,
+            old_values={"hasImage": bool(old_key)},
+            new_values={
+                "hasImage": True,
+                "contentType": image.content_type,
+                "width": image.width,
+                "height": image.height,
+                "sizeBytes": len(image.data),
+            },
+        )
+        await session.commit()
+    except Exception:
+        await session.rollback()
+        remove_image(new_key)
+        raise
+    if old_key:
+        try:
+            remove_image(old_key)
+        except OSError:
+            logger.warning("Could not remove replaced %s image", entity_type, exc_info=True)
+    await session.refresh(row)
+
+
+async def _remove_entity_image(
+    session: SessionDep,
+    actor: CurrentUser,
+    row: Any,
+    *,
+    entity_type: str,
+) -> None:
+    await session.refresh(row, with_for_update=True)
+    old_key = row.image_key
+    if not old_key:
+        return
+    row.image_key = None
+    row.image_content_type = None
+    row.image_width = None
+    row.image_height = None
+    row.image_size_bytes = None
+    row.image_updated_at = None
+    try:
+        await record_audit(
+            session,
+            action=f"{entity_type}.image.remove",
+            entity_type=entity_type,
+            entity_id=str(row.id),
+            actor_id=actor.id,
+            old_values={"hasImage": True},
+            new_values={"hasImage": False},
+        )
+        await session.commit()
+    except Exception:
+        await session.rollback()
+        raise
+    try:
+        remove_image(old_key)
+    except OSError:
+        logger.warning("Could not remove deleted %s image", entity_type, exc_info=True)
+    await session.refresh(row)
+
+
+def _image_response(row: Any) -> FileResponse:
+    if not row.image_key:
+        raise AppError(status_code=404, code="IMAGE_NOT_FOUND", message="Image not found")
+    path = image_path(row.image_key)
+    if not path.is_file():
+        raise AppError(status_code=404, code="IMAGE_NOT_FOUND", message="Image not found")
+    return FileResponse(
+        path,
+        media_type=row.image_content_type or "application/octet-stream",
+        filename=path.name,
+        content_disposition_type="inline",
+        headers={"Cache-Control": "private, no-cache", "X-Content-Type-Options": "nosniff"},
+    )
 
 
 def _include_inactive(actor, permission: str | tuple[str, ...], requested: bool) -> bool:
@@ -115,6 +228,43 @@ async def banks_deactivate(
     if bank is None:
         raise AppError(status_code=404, code="BANK_NOT_FOUND", message="Bank not found")
     return serialize_bank(await set_bank_status(session, actor, bank, MasterStatus.INACTIVE))
+
+
+@router.post("/banks/{bank_id}/image")
+async def banks_image_upload(
+    bank_id: UUID,
+    session: SessionDep,
+    actor: Annotated[CurrentUser, Depends(require_permission(BANKS_EDIT))],
+    file: ImageFile,
+) -> dict[str, object]:
+    bank = await session.get(Bank, bank_id)
+    if bank is None:
+        raise AppError(status_code=404, code="BANK_NOT_FOUND", message="Bank not found")
+    await _replace_image(
+        session, actor, bank, entity_type="bank", category="catalogue/banks", file=file
+    )
+    return serialize_bank(bank)
+
+
+@router.get("/banks/{bank_id}/image")
+async def banks_image(bank_id: UUID, session: SessionDep, actor: CurrentUser) -> FileResponse:
+    bank = await session.get(Bank, bank_id)
+    if bank is None:
+        raise AppError(status_code=404, code="BANK_NOT_FOUND", message="Bank not found")
+    return _image_response(bank)
+
+
+@router.delete("/banks/{bank_id}/image")
+async def banks_image_remove(
+    bank_id: UUID,
+    session: SessionDep,
+    actor: Annotated[CurrentUser, Depends(require_permission(BANKS_EDIT))],
+) -> dict[str, object]:
+    bank = await session.get(Bank, bank_id)
+    if bank is None:
+        raise AppError(status_code=404, code="BANK_NOT_FOUND", message="Bank not found")
+    await _remove_entity_image(session, actor, bank, entity_type="bank")
+    return serialize_bank(bank)
 
 
 @router.post("/banks/{bank_id}/activate")
@@ -204,6 +354,48 @@ async def products_deactivate(
     return serialize_product(
         await set_product_status(session, actor, product, MasterStatus.INACTIVE)
     )
+
+
+@router.post("/products/{product_id}/image")
+async def products_image_upload(
+    product_id: UUID,
+    session: SessionDep,
+    actor: Annotated[CurrentUser, Depends(require_permission(PRODUCTS_EDIT))],
+    file: ImageFile,
+) -> dict[str, object]:
+    product = await session.get(Product, product_id)
+    if product is None:
+        raise AppError(status_code=404, code="PRODUCT_NOT_FOUND", message="Product not found")
+    await _replace_image(
+        session,
+        actor,
+        product,
+        entity_type="product",
+        category="catalogue/products",
+        file=file,
+    )
+    return serialize_product(product)
+
+
+@router.get("/products/{product_id}/image")
+async def products_image(product_id: UUID, session: SessionDep, actor: CurrentUser) -> FileResponse:
+    product = await session.get(Product, product_id)
+    if product is None:
+        raise AppError(status_code=404, code="PRODUCT_NOT_FOUND", message="Product not found")
+    return _image_response(product)
+
+
+@router.delete("/products/{product_id}/image")
+async def products_image_remove(
+    product_id: UUID,
+    session: SessionDep,
+    actor: Annotated[CurrentUser, Depends(require_permission(PRODUCTS_EDIT))],
+) -> dict[str, object]:
+    product = await session.get(Product, product_id)
+    if product is None:
+        raise AppError(status_code=404, code="PRODUCT_NOT_FOUND", message="Product not found")
+    await _remove_entity_image(session, actor, product, entity_type="product")
+    return serialize_product(product)
 
 
 @router.post("/products/{product_id}/activate")
@@ -350,6 +542,44 @@ async def product_variants_update(
             description=payload.description,
         )
     )
+
+
+@router.post("/product-variants/{variant_id}/image")
+async def product_variants_image_upload(
+    variant_id: UUID,
+    session: SessionDep,
+    actor: Annotated[CurrentUser, Depends(require_permission(PRODUCT_VARIANTS_EDIT))],
+    file: ImageFile,
+) -> dict[str, object]:
+    row = await get_product_variant(session, variant_id)
+    await _replace_image(
+        session,
+        actor,
+        row,
+        entity_type="product_variant",
+        category="catalogue/product-variants",
+        file=file,
+    )
+    return serialize_product_variant(row)
+
+
+@router.get("/product-variants/{variant_id}/image")
+async def product_variants_image(
+    variant_id: UUID, session: SessionDep, actor: CurrentUser
+) -> FileResponse:
+    row = await get_product_variant(session, variant_id)
+    return _image_response(row)
+
+
+@router.delete("/product-variants/{variant_id}/image")
+async def product_variants_image_remove(
+    variant_id: UUID,
+    session: SessionDep,
+    actor: Annotated[CurrentUser, Depends(require_permission(PRODUCT_VARIANTS_EDIT))],
+) -> dict[str, object]:
+    row = await get_product_variant(session, variant_id)
+    await _remove_entity_image(session, actor, row, entity_type="product_variant")
+    return serialize_product_variant(row)
 
 
 @router.post("/product-variants/{variant_id}/deactivate")

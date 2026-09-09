@@ -11,6 +11,7 @@ import {
   TextInput,
   secondaryButtonClass,
 } from "@/components/ui";
+import { CatalogueImage } from "@/components/catalogue-image";
 import { apiGet, apiRequest, ApiClientError } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { getBrowserApiUrl } from "@/lib/env";
@@ -223,6 +224,8 @@ export function ApplicationCreateDialog({
   const selectedMapping = productMappings.find((item) => item.productId === form.product_id);
   const variantOptions = variants.filter((item) => item.bankProductId === selectedMapping?.id);
   const selectedProduct = products.find((item) => item.id === form.product_id);
+  const selectedBank = bankOptions.find(([id]) => id === form.bank_id)?.[1];
+  const selectedVariant = variants.find((item) => item.id === form.product_variant_id);
   const requestedRequired = Boolean(selectedProduct?.requestedAmountRequired);
   const identityLocked = Boolean(match?.matched);
 
@@ -672,6 +675,20 @@ export function ApplicationCreateDialog({
                   />
                 </Field>
               </div>
+              {selectedBank || selectedProduct || selectedVariant ? (
+                <div className="mt-3 grid min-w-0 grid-cols-3 gap-2" aria-label="Selected catalogue images">
+                  {[
+                    { label: "Bank", item: selectedBank },
+                    { label: "Product", item: selectedProduct },
+                    { label: "Variant", item: selectedVariant },
+                  ].map(({ label, item }) => (
+                    <div key={label} className="min-w-0 rounded-lg border border-brand-border bg-surface-subtle p-2">
+                      <p className="mb-1 truncate text-xs font-medium text-text-secondary">{label}</p>
+                      {item ? <CatalogueImage item={item} api={api} size="preview" /> : <div className="flex h-28 items-center justify-center text-xs text-text-secondary">Not selected</div>}
+                    </div>
+                  ))}
+                </div>
+              ) : null}
               <p className="mt-3 rounded-[10px] border border-brand-border bg-brand-soft px-3 py-2 text-sm text-text-primary">
                 Initial Case Owner: {user?.fullName ?? "Current user"}. Ownership and commission attribution begin with the creator.
               </p>

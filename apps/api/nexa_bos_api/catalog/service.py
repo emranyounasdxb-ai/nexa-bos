@@ -38,6 +38,7 @@ def serialize_bank(bank: Bank) -> dict[str, object]:
         "code": bank.code,
         "name": bank.name,
         "status": bank.status,
+        **_image_metadata(bank, f"/api/v1/banks/{bank.id}/image"),
         "createdAt": bank.created_at.isoformat(),
         "updatedAt": bank.updated_at.isoformat(),
     }
@@ -54,6 +55,7 @@ def serialize_product(product: Product) -> dict[str, object]:
         "bookedAmountRequired": product.booked_amount_required,
         "fundedAmountRequired": product.funded_amount_required,
         "targetMeasurement": product.target_measurement,
+        **_image_metadata(product, f"/api/v1/products/{product.id}/image"),
         "createdAt": product.created_at.isoformat(),
         "updatedAt": product.updated_at.isoformat(),
     }
@@ -83,11 +85,24 @@ def serialize_product_variant(row: ProductVariant) -> dict[str, object]:
         "name": row.name,
         "description": row.description,
         "status": row.status,
+        **_image_metadata(row, f"/api/v1/product-variants/{row.id}/image"),
         "bank": serialize_bank(mapping.bank) if mapping.bank else None,
         "product": serialize_product(mapping.product) if mapping.product else None,
         "mappingStatus": mapping.status,
         "createdAt": row.created_at.isoformat(),
         "updatedAt": row.updated_at.isoformat(),
+    }
+
+
+def _image_metadata(row: Bank | Product | ProductVariant, image_url: str) -> dict[str, object]:
+    return {
+        "hasImage": bool(row.image_key),
+        "imageUrl": image_url if row.image_key else None,
+        "imageContentType": row.image_content_type,
+        "imageWidth": row.image_width,
+        "imageHeight": row.image_height,
+        "imageSizeBytes": row.image_size_bytes,
+        "imageUpdatedAt": row.image_updated_at.isoformat() if row.image_updated_at else None,
     }
 
 
