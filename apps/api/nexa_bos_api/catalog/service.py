@@ -459,7 +459,11 @@ async def list_bank_products(
     if product_id:
         stmt = stmt.where(BankProduct.product_id == product_id)
     if not include_inactive:
-        stmt = stmt.where(BankProduct.status == MasterStatus.ACTIVE)
+        stmt = stmt.where(
+            BankProduct.status == MasterStatus.ACTIVE,
+            BankProduct.bank.has(Bank.status == MasterStatus.ACTIVE),
+            BankProduct.product.has(Product.status == MasterStatus.ACTIVE),
+        )
     return list((await session.execute(stmt)).scalars().unique().all())
 
 
@@ -472,6 +476,12 @@ async def create_bank_product(
     product = await session.get(Product, product_id)
     if product is None:
         raise AppError(status_code=404, code="PRODUCT_NOT_FOUND", message="Product not found")
+    if bank.status != MasterStatus.ACTIVE or product.status != MasterStatus.ACTIVE:
+        raise AppError(
+            status_code=422,
+            code="BANK_PRODUCT_PARENT_INACTIVE",
+            message="Only active Banks and Products can be mapped",
+        )
     existing = (
         await session.execute(
             select(BankProduct).where(
@@ -516,6 +526,20 @@ async def create_bank_product(
 async def set_bank_product_status(
     session: AsyncSession, actor: User, row: BankProduct, status: MasterStatus
 ) -> BankProduct:
+    if status == MasterStatus.ACTIVE:
+        bank = await session.get(Bank, row.bank_id)
+        product = await session.get(Product, row.product_id)
+        if (
+            bank is None
+            or product is None
+            or bank.status != MasterStatus.ACTIVE
+            or product.status != MasterStatus.ACTIVE
+        ):
+            raise AppError(
+                status_code=422,
+                code="BANK_PRODUCT_PARENT_INACTIVE",
+                message="Only mappings with an active Bank and Product can be activated",
+            )
     row.status = status
     row.updated_at = utcnow()
     await record_audit(
