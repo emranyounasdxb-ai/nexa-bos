@@ -113,6 +113,12 @@ const PERMISSION_MODULES = [
     prefixes: ["Leave."],
   },
   {
+    key: "contracts",
+    label: "Contracts",
+    description: "Own contract access, contract register operations, approval, history, and settings.",
+    prefixes: ["Contracts."],
+  },
+  {
     key: "notifications",
     label: "Notifications",
     description: "In-app notifications, rule management, urgent sends, and audit visibility.",

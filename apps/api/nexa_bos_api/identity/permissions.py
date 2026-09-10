@@ -34,6 +34,15 @@ LEAVE_CANCEL = "Leave.Cancel"
 LEAVE_HISTORY = "Leave.History"
 LEAVE_SETTINGS = "Leave.Settings"
 LEAVE_OVERRIDE = "Leave.Override"
+CONTRACTS_VIEW_OWN = "Contracts.ViewOwn"
+CONTRACTS_VIEW = "Contracts.View"
+CONTRACTS_CREATE = "Contracts.Create"
+CONTRACTS_EDIT = "Contracts.Edit"
+CONTRACTS_APPROVE = "Contracts.Approve"
+CONTRACTS_RETURN_REJECT = "Contracts.ReturnReject"
+CONTRACTS_CANCEL = "Contracts.Cancel"
+CONTRACTS_HISTORY = "Contracts.History"
+CONTRACTS_SETTINGS = "Contracts.Settings"
 USER_TYPES_VIEW = "UserTypes.View"
 USER_TYPES_CREATE = "UserTypes.Create"
 USER_TYPES_EDIT = "UserTypes.Edit"
@@ -157,6 +166,15 @@ PERMISSION_CATALOG: tuple[tuple[str, str], ...] = (
     (LEAVE_HISTORY, "View immutable leave history within approved scope"),
     (LEAVE_SETTINGS, "Configure leave types, entitlements, and balance adjustments"),
     (LEAVE_OVERRIDE, "Override leave controls with an audited mandatory reason"),
+    (CONTRACTS_VIEW_OWN, "View and download the authenticated employee's active contract"),
+    (CONTRACTS_VIEW, "View the company employment-contract register"),
+    (CONTRACTS_CREATE, "Prepare employment contracts and renewals"),
+    (CONTRACTS_EDIT, "Edit draft employment contracts"),
+    (CONTRACTS_APPROVE, "Approve and activate employment contracts"),
+    (CONTRACTS_RETURN_REJECT, "Return or reject pending employment contracts with a comment"),
+    (CONTRACTS_CANCEL, "Cancel draft or pending employment contracts with a reason"),
+    (CONTRACTS_HISTORY, "View immutable employment-contract history"),
+    (CONTRACTS_SETTINGS, "Configure employment contract types"),
     (USER_TYPES_VIEW, "View user types and their permissions"),
     (USER_TYPES_CREATE, "Create custom user types"),
     (USER_TYPES_EDIT, "Edit custom user type name and description"),
@@ -312,5 +330,28 @@ SYSTEM_LEAVE_PERMISSION_DEFAULTS: dict[str, tuple[str, ...]] = {
         LEAVE_CANCEL,
         LEAVE_HISTORY,
         LEAVE_SETTINGS,
+    ),
+}
+
+_CONTRACT_EMPLOYEE_DEFAULTS = (CONTRACTS_VIEW_OWN,)
+SYSTEM_CONTRACT_PERMISSION_DEFAULTS: dict[str, tuple[str, ...]] = {
+    "GM": _CONTRACT_EMPLOYEE_DEFAULTS,
+    "BDM": _CONTRACT_EMPLOYEE_DEFAULTS,
+    "SM": _CONTRACT_EMPLOYEE_DEFAULTS,
+    "COD": _CONTRACT_EMPLOYEE_DEFAULTS,
+    "TL": _CONTRACT_EMPLOYEE_DEFAULTS,
+    "SE": _CONTRACT_EMPLOYEE_DEFAULTS,
+    "OM": _CONTRACT_EMPLOYEE_DEFAULTS,
+    "ITM": _CONTRACT_EMPLOYEE_DEFAULTS,
+    "AUDITOR": _CONTRACT_EMPLOYEE_DEFAULTS,
+    "HR": (
+        CONTRACTS_VIEW_OWN,
+        CONTRACTS_VIEW,
+        CONTRACTS_CREATE,
+        CONTRACTS_EDIT,
+        CONTRACTS_RETURN_REJECT,
+        CONTRACTS_CANCEL,
+        CONTRACTS_HISTORY,
+        CONTRACTS_SETTINGS,
     ),
 }

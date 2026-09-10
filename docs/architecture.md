@@ -87,6 +87,14 @@ Leave management is single-company and uses the existing User Type permissions, 
 relationships, company working week, official holidays and private file storage. Entitlements are
 configuration data, never statutory constants. Employee details remain private while the team
 calendar exposes only name, dates and workflow status. See `docs/leave-management.md`.
+
+## Employment contract register
+
+The contract register is a lightweight, single-company record of signed employment-contract
+evidence. HR prepares versioned drafts and OWNER approves activation with separation of duties.
+Employees may read only their own current active contract when explicitly permitted; reporting
+relationships never grant salary or document access. See `docs/contracts.md`.
+
 - External notifications (email/SMS/WhatsApp)
 - Redis / workers
 - Multi-tenancy
