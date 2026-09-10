@@ -5,8 +5,8 @@ from datetime import UTC, datetime
 from typing import Annotated, Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, Query, UploadFile
-from fastapi.responses import FileResponse
+from fastapi import APIRouter, Depends, File, Query, Request, UploadFile
+from fastapi.responses import FileResponse, Response
 
 from nexa_bos_api.api.v1.deps import CurrentUser, require_permission
 from nexa_bos_api.catalog.models import Bank, BankProduct, Product
@@ -76,6 +76,7 @@ from nexa_bos_api.identity.permissions import (
 router = APIRouter(tags=["catalog"])
 logger = logging.getLogger(__name__)
 ImageFile = Annotated[UploadFile, File()]
+CATALOGUE_IMAGE_CACHE_CONTROL = "private, max-age=300, must-revalidate"
 
 
 async def _replace_image(
@@ -164,18 +165,45 @@ async def _remove_entity_image(
     await session.refresh(row)
 
 
-def _image_response(row: Any) -> FileResponse:
+def _if_none_match_matches(value: str | None, etag: str) -> bool:
+    if value is None:
+        return False
+    current = etag.removeprefix("W/")
+    return any(
+        candidate == "*" or candidate.removeprefix("W/") == current
+        for candidate in (part.strip() for part in value.split(","))
+    )
+
+
+def _image_response(row: Any, request: Request) -> Response:
     if not row.image_key:
         raise AppError(status_code=404, code="IMAGE_NOT_FOUND", message="Image not found")
     path = image_path(row.image_key)
     if not path.is_file():
         raise AppError(status_code=404, code="IMAGE_NOT_FOUND", message="Image not found")
-    return FileResponse(
+    response = FileResponse(
         path,
         media_type=row.image_content_type or "application/octet-stream",
         filename=path.name,
         content_disposition_type="inline",
-        headers={"Cache-Control": "private, no-cache", "X-Content-Type-Options": "nosniff"},
+        stat_result=path.stat(),
+        headers={
+            "Cache-Control": CATALOGUE_IMAGE_CACHE_CONTROL,
+            "Vary": "Cookie",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
+    if not _if_none_match_matches(request.headers.get("if-none-match"), response.headers["etag"]):
+        return response
+    return Response(
+        status_code=304,
+        headers={
+            "Cache-Control": CATALOGUE_IMAGE_CACHE_CONTROL,
+            "ETag": response.headers["etag"],
+            "Last-Modified": response.headers["last-modified"],
+            "Vary": "Cookie",
+            "X-Content-Type-Options": "nosniff",
+        },
     )
 
 
@@ -247,11 +275,13 @@ async def banks_image_upload(
 
 
 @router.get("/banks/{bank_id}/image")
-async def banks_image(bank_id: UUID, session: SessionDep, actor: CurrentUser) -> FileResponse:
+async def banks_image(
+    bank_id: UUID, request: Request, session: SessionDep, actor: CurrentUser
+) -> Response:
     bank = await session.get(Bank, bank_id)
     if bank is None:
         raise AppError(status_code=404, code="BANK_NOT_FOUND", message="Bank not found")
-    return _image_response(bank)
+    return _image_response(bank, request)
 
 
 @router.delete("/banks/{bank_id}/image")
@@ -378,11 +408,13 @@ async def products_image_upload(
 
 
 @router.get("/products/{product_id}/image")
-async def products_image(product_id: UUID, session: SessionDep, actor: CurrentUser) -> FileResponse:
+async def products_image(
+    product_id: UUID, request: Request, session: SessionDep, actor: CurrentUser
+) -> Response:
     product = await session.get(Product, product_id)
     if product is None:
         raise AppError(status_code=404, code="PRODUCT_NOT_FOUND", message="Product not found")
-    return _image_response(product)
+    return _image_response(product, request)
 
 
 @router.delete("/products/{product_id}/image")
@@ -565,10 +597,10 @@ async def product_variants_image_upload(
 
 @router.get("/product-variants/{variant_id}/image")
 async def product_variants_image(
-    variant_id: UUID, session: SessionDep, actor: CurrentUser
-) -> FileResponse:
+    variant_id: UUID, request: Request, session: SessionDep, actor: CurrentUser
+) -> Response:
     row = await get_product_variant(session, variant_id)
-    return _image_response(row)
+    return _image_response(row, request)
 
 
 @router.delete("/product-variants/{variant_id}/image")
