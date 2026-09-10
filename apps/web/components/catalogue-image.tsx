@@ -41,7 +41,7 @@ export function CatalogueImage({
       alt={`${item.name} image`}
       width={item.imageWidth ?? (size === "preview" ? 240 : 40)}
       height={item.imageHeight ?? (size === "preview" ? 112 : 40)}
-      loading="lazy"
+      loading="eager"
       className="block h-auto max-h-28 max-w-full shrink-0 object-contain"
       style={{ width: renderedWidth }}
     />

@@ -79,8 +79,31 @@ async def test_catalogue_image_upload_view_replace_remove(
         assert viewed.status_code == 200
         assert viewed.headers["content-type"].startswith("image/png")
         assert viewed.headers["x-content-type-options"] == "nosniff"
+        assert viewed.headers["cache-control"] == "private, max-age=300, must-revalidate"
+        assert viewed.headers["vary"] == "Cookie"
+        assert viewed.headers["etag"]
+        assert viewed.headers["last-modified"]
         with Image.open(BytesIO(viewed.content)) as decoded:
             assert decoded.size == (64, 40)
+
+        not_modified = await owner.get(
+            endpoint,
+            headers={"If-None-Match": f'"stale", W/{viewed.headers["etag"]}'},
+        )
+        assert not_modified.status_code == 304
+        assert not not_modified.content
+        assert not_modified.headers["etag"] == viewed.headers["etag"]
+        assert not_modified.headers["cache-control"] == viewed.headers["cache-control"]
+        assert not_modified.headers["vary"] == "Cookie"
+
+        anonymous = await spawned_client()
+        try:
+            unauthorized_revalidation = await anonymous.get(
+                endpoint, headers={"If-None-Match": viewed.headers["etag"]}
+            )
+            assert unauthorized_revalidation.status_code == 401
+        finally:
+            await anonymous.aclose()
 
         replaced = await owner.post(
             endpoint,
@@ -92,6 +115,12 @@ async def test_catalogue_image_upload_view_replace_remove(
         assert second_files[0].name != first_files[0].name
         assert not first_files[0].exists()
         assert replaced.json()["imageWidth"] == 80
+
+        refreshed = await owner.get(endpoint, headers={"If-None-Match": viewed.headers["etag"]})
+        assert refreshed.status_code == 200
+        assert refreshed.headers["etag"] != viewed.headers["etag"]
+        with Image.open(BytesIO(refreshed.content)) as decoded:
+            assert decoded.size == (80, 48)
 
         removed = await owner.delete(endpoint)
         assert removed.status_code == 200

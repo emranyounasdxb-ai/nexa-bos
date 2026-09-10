@@ -1,4 +1,11 @@
-import { expect, test, type APIRequestContext, type Locator, type Page } from "@playwright/test";
+import {
+  expect,
+  test,
+  type APIRequestContext,
+  type CDPSession,
+  type Locator,
+  type Page,
+} from "@playwright/test";
 import { selectBrandedOption } from "./helpers/select";
 
 const apiOrigin = `http://127.0.0.1:${process.env.PLAYWRIGHT_API_PORT ?? "8010"}`;
@@ -15,6 +22,7 @@ const transparentWebp = Buffer.from(
 async function expectUnframedCatalogueImage(image: Locator, expectedRatio: number) {
   await expect(image).toBeVisible();
   await expect.poll(() => image.evaluate((element) => (element as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+  await expect(image).toHaveAttribute("loading", "eager");
   const presentation = await image.evaluate((element) => {
     const style = getComputedStyle(element);
     const bounds = element.getBoundingClientRect();
@@ -38,6 +46,49 @@ async function expectUnframedCatalogueImage(image: Locator, expectedRatio: numbe
   });
   expect(presentation.naturalRatio).toBeCloseTo(expectedRatio, 2);
   expect(presentation.renderedRatio).toBeCloseTo(expectedRatio, 1);
+}
+
+type ImageTraffic = {
+  cached: boolean;
+  status?: number;
+  url: string;
+};
+
+async function observeCatalogueImageTraffic(page: Page) {
+  const session: CDPSession = await page.context().newCDPSession(page);
+  const traffic = new Map<string, ImageTraffic>();
+  await session.send("Network.enable");
+  await session.send("Network.setCacheDisabled", { cacheDisabled: false });
+  session.on(
+    "Network.requestWillBeSent",
+    (event: { requestId: string; request: { url: string } }) => {
+      if (/\/api\/v1\/(?:banks|products|product-variants)\/[^/]+\/image\?v=/.test(event.request.url)) {
+        traffic.set(event.requestId, { cached: false, url: event.request.url });
+      }
+    },
+  );
+  session.on("Network.requestServedFromCache", (event: { requestId: string }) => {
+    const request = traffic.get(event.requestId);
+    if (request) request.cached = true;
+  });
+  session.on(
+    "Network.responseReceived",
+    (event: {
+      requestId: string;
+      response: { fromDiskCache?: boolean; fromPrefetchCache?: boolean; status: number };
+    }) => {
+      const request = traffic.get(event.requestId);
+      if (!request) return;
+      request.status = event.response.status;
+      request.cached ||= Boolean(event.response.fromDiskCache || event.response.fromPrefetchCache);
+    },
+  );
+  return {
+    clear: () => traffic.clear(),
+    clearBrowserCache: () => session.send("Network.clearBrowserCache"),
+    close: () => session.detach(),
+    records: () => [...traffic.values()],
+  };
 }
 
 async function uploadCatalogueImage(
@@ -265,6 +316,58 @@ test("catalog uses task tabs, modal editing, explicit rule saves, and mapping va
     mimeType: "image/webp",
     ratio: 0.6,
   });
+
+  const imageTraffic = await observeCatalogueImageTraffic(page);
+  await imageTraffic.clearBrowserCache();
+  imageTraffic.clear();
+  await page.goto("/catalog?tab=mappings");
+  await page.getByLabel("Search mappings").fill(bankCode);
+  const coldMappingRow = page.getByRole("row").filter({ hasText: bankCode }).filter({ hasText: productCode });
+  await expectUnframedCatalogueImage(coldMappingRow.getByRole("img", { name: `${renamedBank} image` }), 2);
+  await expectUnframedCatalogueImage(coldMappingRow.getByRole("img", { name: `${productName} image` }), 2);
+  const coldImages = imageTraffic.records();
+  const currentImageUrls = [
+    `/api/v1/banks/${mappedBank!.id}/image`,
+    `/api/v1/products/${mappedProduct!.id}/image`,
+  ];
+  expect(coldImages.filter((record) => currentImageUrls.some((url) => record.url.includes(url)))).toHaveLength(2);
+  expect(coldImages.every((record) => record.status === 200 && !record.cached)).toBeTruthy();
+
+  imageTraffic.clear();
+  await page.reload();
+  await page.getByLabel("Search mappings").fill(bankCode);
+  const warmMappingRow = page.getByRole("row").filter({ hasText: bankCode }).filter({ hasText: productCode });
+  await expectUnframedCatalogueImage(warmMappingRow.getByRole("img", { name: `${renamedBank} image` }), 2);
+  await expectUnframedCatalogueImage(warmMappingRow.getByRole("img", { name: `${productName} image` }), 2);
+  const warmImages = imageTraffic.records();
+  expect(warmImages.filter((record) => currentImageUrls.some((url) => record.url.includes(url)))).toHaveLength(2);
+  expect(warmImages.every((record) => record.cached)).toBeTruthy();
+
+  await page.goto("/catalog?tab=banks");
+  await page.getByLabel("Search banks").fill(bankCode);
+  const replacementBankRow = page.getByRole("row").filter({ hasText: bankCode });
+  const replacementBankImage = replacementBankRow.getByRole("img", { name: `${renamedBank} image` });
+  await expectUnframedCatalogueImage(replacementBankImage, 2);
+  const previousImageSource = await replacementBankImage.getAttribute("src");
+  await replacementBankRow.getByRole("button", { name: `Manage image for ${renamedBank}` }).click();
+  const replacementDialog = page.getByRole("dialog", { name: "Replace image" });
+  await expectUnframedCatalogueImage(replacementDialog.getByRole("img", { name: `${renamedBank} image` }), 2);
+  imageTraffic.clear();
+  await replacementDialog.getByLabel("PNG, JPEG, or WebP image").setInputFiles({
+    name: "replacement-transparent.png",
+    mimeType: "image/png",
+    buffer: transparentPng,
+  });
+  await replacementDialog.getByRole("button", { name: "Replace image" }).click();
+  await expect(replacementDialog).toHaveCount(0);
+  await expectUnframedCatalogueImage(replacementBankImage, 2);
+  await expect.poll(() => replacementBankImage.getAttribute("src")).not.toBe(previousImageSource);
+  const replacementImages = imageTraffic
+    .records()
+    .filter((record) => record.url.includes(`/api/v1/banks/${mappedBank!.id}/image`));
+  expect(replacementImages).toHaveLength(1);
+  expect(replacementImages[0]).toMatchObject({ cached: false, status: 200 });
+  await imageTraffic.close();
 
   await page.goto("/applications");
   await page.getByRole("button", { name: "Create application" }).click();
