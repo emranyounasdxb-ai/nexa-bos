@@ -13,7 +13,6 @@ import {
 import {
   Badge,
   Button,
-  ButtonLink,
   Card,
   EmptyState,
   ErrorText,
@@ -21,6 +20,7 @@ import {
   FilterBar,
   LoadingState,
   PageHeader,
+  primaryButtonClass,
   Select,
   StatusBadge,
   TableHead,
@@ -200,7 +200,15 @@ function UsersDirectory() {
       <PageHeader
         title="Users"
         description="Find employees by organization, employment state, account state, or User Type and open the profile actions allowed by your permissions."
-        actions={can("Users.Create") ? <ButtonLink href="/users/new">Create user</ButtonLink> : null}
+        actions={can("Users.Create") ? (
+          <Link
+            href="/users/new"
+            className={primaryButtonClass}
+            onClick={() => window.dispatchEvent(new Event("nexa:create-user-modal"))}
+          >
+            Create user
+          </Link>
+        ) : null}
       />
 
       <FilterBar className="sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">

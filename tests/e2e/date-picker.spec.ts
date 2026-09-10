@@ -48,7 +48,7 @@ function todayIso(): string {
 test("create user form uses the NEXA BOS date picker", async ({ page, request }) => {
   await signIn(page, request);
   await page.goto("/users/new");
-  await expect(page.getByRole("heading", { name: "Create user" })).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Create User" })).toBeVisible();
   await expect(page.locator('input[type="date"]')).toHaveCount(0);
 
   const joining = page.getByLabel("Joining date");
@@ -80,7 +80,7 @@ test("invalid typed dates block submit and month navigation keeps a focused day"
 }) => {
   await signIn(page, request);
   await page.goto("/users/new");
-  await expect(page.getByRole("heading", { name: "Create user" })).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Create User" })).toBeVisible();
 
   const joining = page.getByLabel("Joining date");
   await joining.fill("2026-02-31");

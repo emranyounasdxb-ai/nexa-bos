@@ -82,9 +82,56 @@ test("OWNER creates Basic user details from the compact responsive form", async 
   const fixture = await seedOrganization(request);
   await page.setViewportSize({ width: 1440, height: 900 });
   await signIn(page);
-  await page.goto("/users/new");
+  await page.goto("/users");
 
-  await expect(page.getByRole("heading", { name: "Create user", exact: true })).toBeVisible();
+  const createUserTrigger = page.getByRole("link", { name: "Create user", exact: true });
+  await createUserTrigger.click();
+  await expect(page).toHaveURL(/\/users\/new$/);
+  const dialog = page.getByRole("dialog", { name: "Create User" });
+  await expect(dialog).toBeVisible();
+  const desktopDialogBox = await dialog.boundingBox();
+  expect(desktopDialogBox).toBeTruthy();
+  expect(desktopDialogBox!.width).toBeGreaterThanOrEqual(900);
+  expect(desktopDialogBox!.width).toBeLessThanOrEqual(1000);
+  expect(desktopDialogBox!.height).toBeLessThanOrEqual(811);
+  await expect(page.getByRole("button", { name: "Close Create User" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Create User", exact: true })).toBeVisible();
+  expect(await page.getByTestId("create-user-form-body").evaluate((element) => element.scrollHeight > element.clientHeight)).toBeTruthy();
+  await expect(page.getByText("Users in scope", { exact: true })).toBeVisible();
+  await expect(page.getByLabel(/^First Name/)).toBeFocused();
+
+  await page.goBack();
+  await expect(page).toHaveURL(/\/users$/);
+  await expect(dialog).toHaveCount(0);
+  await page.goForward();
+  await expect(page).toHaveURL(/\/users\/new$/);
+  await expect(dialog).toBeVisible();
+
+  await page.getByRole("button", { name: "Close Create User" }).click();
+  await expect(page).toHaveURL(/\/users$/);
+  await expect(dialog).toHaveCount(0);
+  await expect(createUserTrigger).toBeFocused();
+
+  await createUserTrigger.click();
+  await page.keyboard.press("Escape");
+  await expect(page).toHaveURL(/\/users$/);
+  await expect(dialog).toHaveCount(0);
+  await expect(createUserTrigger).toBeFocused();
+
+  await createUserTrigger.click();
+  await page.getByTestId("create-user-modal-backdrop").click({ position: { x: 4, y: 4 } });
+  await expect(page).toHaveURL(/\/users$/);
+
+  await createUserTrigger.click();
+  await page.getByRole("button", { name: "Cancel" }).click();
+  await expect(page).toHaveURL(/\/users$/);
+
+  await page.goto("/users/new");
+  await expect(dialog).toBeVisible();
+  await page.reload();
+  await expect(dialog).toBeVisible();
+
+  await expect(page.getByRole("heading", { name: "Create User", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "HR Profile" })).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "PRO & Documents" })).toHaveCount(0);
   for (const section of ["Personal & Contact Information", "Employment & Organization", "Account Access"]) {
@@ -93,6 +140,14 @@ test("OWNER creates Basic user details from the compact responsive form", async 
 
   const firstName = page.getByLabel(/^First Name/);
   const middleName = page.getByLabel("Middle Name", { exact: true });
+  await expect(firstName).toBeFocused();
+  await page.keyboard.press("Shift+Tab");
+  await expect(page.getByRole("button", { name: "Close Create User" })).toBeFocused();
+  await page.keyboard.press("Shift+Tab");
+  await expect(page.getByRole("button", { name: "Create User", exact: true })).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(page.getByRole("button", { name: "Close Create User" })).toBeFocused();
+  await firstName.focus();
   const firstBox = await firstName.boundingBox();
   const middleBox = await middleName.boundingBox();
   expect(firstBox && middleBox).toBeTruthy();
@@ -133,11 +188,17 @@ test("OWNER creates Basic user details from the compact responsive form", async 
   await page.getByLabel("Joining Date").fill("2026-09-10");
   const manager = page.getByRole("combobox", { name: "Reporting Manager" });
   expect((await brandedOptionValues(manager)).length).toBeGreaterThan(1);
+  await expect(dialog).toBeVisible();
   await expectNoPageOverflow(page);
-  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.getByTestId("create-user-form-body").evaluate((element) => { element.scrollTop = 0; });
   await page.screenshot({ path: testInfo.outputPath("create-user-desktop.png"), fullPage: false });
 
   await page.setViewportSize({ width: 390, height: 844 });
+  await expect(dialog).toBeVisible();
+  const mobileDialogBox = await dialog.boundingBox();
+  expect(mobileDialogBox).toBeTruthy();
+  expect(mobileDialogBox!.width).toBe(390);
+  expect(mobileDialogBox!.height).toBe(844);
   await expect(page.getByLabel("Application sidebar")).toHaveClass(/-translate-x-full/);
   await expect(page.getByLabel("Close navigation")).not.toBeInViewport();
   const firstMobile = await firstName.boundingBox();
@@ -146,7 +207,9 @@ test("OWNER creates Basic user details from the compact responsive form", async 
   expect(Math.abs(firstMobile!.x - middleMobile!.x)).toBeLessThan(2);
   expect(middleMobile!.y).toBeGreaterThan(firstMobile!.y + firstMobile!.height);
   await expectNoPageOverflow(page);
-  await page.evaluate(() => window.scrollTo(0, 0));
+  await expect(page.getByRole("button", { name: "Close Create User" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Create User", exact: true })).toBeVisible();
+  await page.getByTestId("create-user-form-body").evaluate((element) => { element.scrollTop = 0; });
   await page.screenshot({ path: testInfo.outputPath("create-user-mobile.png"), fullPage: false });
 
   await page.getByRole("button", { name: "Create User", exact: true }).click();
