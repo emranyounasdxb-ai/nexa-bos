@@ -71,8 +71,14 @@ export default function EditUserPage() {
         return;
       }
       userHydrated.current = true;
+      const legacyName = user.fullName.trim().split(/\s+/);
       setForm({
+        first_name: user.firstName ?? legacyName[0] ?? "",
+        middle_name: user.middleName ?? (legacyName.length > 2 ? legacyName.slice(1, -1).join(" ") : ""),
+        last_name: user.lastName ?? legacyName.at(-1) ?? "",
         full_name: user.fullName,
+        personal_email: user.personalEmail ?? "",
+        personal_mobile: user.personalMobile ?? "",
         employee_code: user.employeeCode,
         email: user.email,
         mobile: user.mobile,
@@ -153,6 +159,9 @@ export default function EditUserPage() {
         method: "PATCH",
         body: JSON.stringify({
           ...form,
+          middle_name: form.middle_name || null,
+          personal_email: form.personal_email || null,
+          personal_mobile: form.personal_mobile || null,
           last_working_date: form.last_working_date || null,
           office_id: form.office_id || null,
           department_id: form.department_id || null,
@@ -174,7 +183,16 @@ export default function EditUserPage() {
     <section className="max-w-2xl space-y-4">
       <PageHeader title="Edit user" />
       <form onSubmit={(event) => void onSubmit(event)} className="grid gap-3">
-        {["full_name", "employee_code", "email", "mobile"].map((name) => (
+        <div className="grid gap-3 sm:grid-cols-3">
+        {["first_name", "middle_name", "last_name"].map((name) => (
+          <label key={name} className="block text-sm">
+            {name.replace("_", " ")}
+            <TextInput value={form[name] ?? ""} onChange={(event) => setForm({ ...form, [name]: event.target.value })} required={name !== "middle_name"} />
+          </label>
+        ))}
+        </div>
+        <p className="text-xs text-text-secondary">Full name is derived and synchronized from these fields.</p>
+        {["employee_code", "email", "mobile", "personal_email", "personal_mobile"].map((name) => (
           <label key={name} className="block text-sm">
             {name.replace("_", " ")}
             <TextInput

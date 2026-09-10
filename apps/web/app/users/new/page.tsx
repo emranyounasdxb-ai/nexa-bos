@@ -23,7 +23,12 @@ export default function CreateUserPage() {
   const [managers, setManagers] = useState<ManagerOption[]>([]);
   const [error, setError] = useState("");
   const [form, setForm] = useState({
+    first_name: "",
+    middle_name: "",
+    last_name: "",
     full_name: "",
+    personal_email: "",
+    personal_mobile: "",
     employee_code: "",
     email: "",
     mobile: "",
@@ -85,6 +90,10 @@ export default function CreateUserPage() {
         method: "POST",
         body: JSON.stringify({
           ...form,
+          full_name: [form.first_name, form.middle_name, form.last_name].filter(Boolean).join(" "),
+          middle_name: form.middle_name || null,
+          personal_email: form.personal_email || null,
+          personal_mobile: form.personal_mobile || null,
           last_working_date: form.last_working_date || null,
           office_id: form.office_id || null,
           department_id: form.department_id || null,
@@ -103,19 +112,33 @@ export default function CreateUserPage() {
     <section className="max-w-2xl space-y-4">
       <PageHeader title="Create user" />
       <form onSubmit={(event) => void onSubmit(event)} className="grid gap-3">
+        <div className="grid gap-3 sm:grid-cols-3">
         {[
-          ["full_name", "Full name"],
+          ["first_name", "First name"],
+          ["middle_name", "Middle name"],
+          ["last_name", "Last name"],
+        ].map(([name, label]) => (
+          <label key={name} className="block text-sm">
+            {label}
+            <TextInput value={form[name as keyof typeof form]} onChange={(event) => setForm({ ...form, [name]: event.target.value })} required={name !== "middle_name"} />
+          </label>
+        ))}
+        </div>
+        <p className="text-xs text-text-secondary">Full name is derived from the name fields and kept synchronized.</p>
+        {[
           ["employee_code", "Employee code"],
-          ["email", "Email"],
-          ["mobile", "Mobile number"],
+          ["email", "Work email"],
+          ["mobile", "Work mobile"],
+          ["personal_email", "Personal email"],
+          ["personal_mobile", "Personal mobile"],
         ].map(([name, label]) => (
           <label key={name} className="block text-sm">
             {label}
             <TextInput
-              type={name === "email" ? "email" : "text"}
+              type={name.includes("email") ? "email" : "text"}
               value={form[name as keyof typeof form]}
               onChange={(event) => setForm({ ...form, [name]: event.target.value })}
-              required
+              required={["employee_code", "email", "mobile"].includes(name)}
             />
           </label>
         ))}

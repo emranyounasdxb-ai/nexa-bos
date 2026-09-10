@@ -17,6 +17,7 @@ from nexa_bos_api.identity.enums import AccountStatus
 from nexa_bos_api.identity.permissions import (
     APPLICATIONS_CREATE,
     APPLICATIONS_REASSIGN_CASE_OWNER,
+    USER_PROFILES_HR_UPDATE,
     USERS_ACTIVATE,
     USERS_ASSIGN_USER_TYPE,
     USERS_CREATE,
@@ -96,7 +97,11 @@ async def reporting_managers(
     actor: CurrentUser,
     exclude_user_id: Annotated[UUID | None, Query(alias="excludeUserId")] = None,
 ) -> dict[str, object]:
-    if not (has_permission(actor, USERS_CREATE) or has_permission(actor, USERS_EDIT)):
+    if not (
+        has_permission(actor, USERS_CREATE)
+        or has_permission(actor, USERS_EDIT)
+        or has_permission(actor, USER_PROFILES_HR_UPDATE)
+    ):
         raise AppError(
             status_code=403,
             code="FORBIDDEN",

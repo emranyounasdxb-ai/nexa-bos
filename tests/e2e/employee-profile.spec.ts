@@ -8,12 +8,15 @@ const secret = process.env.BOOTSTRAP_SECRET ?? "nexa-test-bootstrap-secret";
 type Ref = { id: string; code: string; name: string };
 type SeededProfile = {
   assetCode: string;
+  email: string;
   fullName: string;
+  password: string;
   returnedAssetCode: string;
   userCode: string;
   userId: string;
   userType: Ref;
 };
+type Operator = { email: string; password: string };
 
 async function ensureOwner(request: APIRequestContext) {
   const status = await request.get(`${apiOrigin}/api/v1/auth/bootstrap-status`);
@@ -76,12 +79,14 @@ async function seedProfile(request: APIRequestContext): Promise<SeededProfile> {
   await expectOk(await request.post(`${apiOrigin}/api/v1/user-types/${userType.id}/activate`, { headers }));
 
   const fullName = `Profile Employee ${tag}`;
+  const email = `profile-${tag.toLowerCase()}@example.com`;
+  const password = "ProfileEmployee1!";
   const createdUser = await expectOk(await request.post(`${apiOrigin}/api/v1/users`, {
     headers,
     data: {
       full_name: fullName,
       employee_code: `EMP-${tag}`,
-      email: `profile-${tag.toLowerCase()}@example.com`,
+      email,
       mobile: `+9715${Date.now().toString().slice(-8)}`,
       designation_id: designation.id,
       employment_status: "Active",
@@ -95,6 +100,11 @@ async function seedProfile(request: APIRequestContext): Promise<SeededProfile> {
     data: { user_type_id: userType.id },
   }));
   await expectOk(await request.post(`${apiOrigin}/api/v1/users/${user.id}/activate`, { headers }));
+  const setup = await expectOk(await request.post(`${apiOrigin}/api/v1/auth/users/${user.id}/setup-link`, { headers }));
+  const setupToken = ((await setup.json()) as { token: string }).token;
+  await expectOk(await request.post(`${apiOrigin}/api/v1/auth/setup`, {
+    data: { token: setupToken, password },
+  }));
 
   const categories = (await (await request.get(`${apiOrigin}/api/v1/assets/categories`)).json()) as {
     items: Ref[];
@@ -137,12 +147,41 @@ async function seedProfile(request: APIRequestContext): Promise<SeededProfile> {
 
   return {
     assetCode: currentAsset.assetCode,
+    email,
     fullName,
+    password,
     returnedAssetCode: returnedAsset.assetCode,
     userCode: user.userCode,
     userId: user.id,
     userType,
   };
+}
+
+async function seedProfileOperator(request: APIRequestContext, roleCode: "HR" | "PRO"): Promise<Operator> {
+  const headers = await ownerHeaders(request);
+  const tag = Date.now().toString(16).slice(-7).toUpperCase();
+  const types = (await (await request.get(`${apiOrigin}/api/v1/user-types`)).json()) as { items: (Ref & { permissions: string[] })[] };
+  const role = types.items.find((item) => item.code === roleCode);
+  if (!role) throw new Error(`${roleCode} User Type was not available.`);
+  await expectOk(await request.put(`${apiOrigin}/api/v1/user-types/${role.id}/scope`, { headers, data: { visibility_scope: "company" } }));
+  const designations = (await (await request.get(`${apiOrigin}/api/v1/designations`)).json()) as { items: Ref[] };
+  const designation = designations.items[0];
+  if (!designation) throw new Error("Disposable designation was not available.");
+  const email = `${roleCode.toLowerCase()}-${tag.toLowerCase()}@example.test`;
+  const password = `${roleCode}Profile1!`;
+  const created = await expectOk(await request.post(`${apiOrigin}/api/v1/users`, { headers, data: {
+    full_name: `${roleCode} Profile Operator ${tag}`, employee_code: `${roleCode}-${tag}`,
+    email, mobile: "+971500003333", designation_id: designation.id,
+    employment_status: "Active", joining_date: "2026-01-01", user_type_id: role.id,
+  } }));
+  const user = (await created.json()) as { id: string };
+  await expectOk(await request.post(`${apiOrigin}/api/v1/users/${user.id}/activate`, { headers }));
+  const setup = await expectOk(await request.post(`${apiOrigin}/api/v1/auth/users/${user.id}/setup-link`, { headers }));
+  const setupToken = ((await setup.json()) as { token: string }).token;
+  await expectOk(await request.post(`${apiOrigin}/api/v1/auth/setup`, {
+    data: { token: setupToken, password },
+  }));
+  return { email, password };
 }
 
 async function expectNoHorizontalOverflow(page: Page) {
@@ -152,11 +191,14 @@ async function expectNoHorizontalOverflow(page: Page) {
 }
 
 test("employee profile organizes identity, access, assets, and filtered audit history", async ({
+  browser,
   page,
   request,
 }) => {
   test.setTimeout(120_000);
   const seeded = await seedProfile(request);
+  const hrOperator = await seedProfileOperator(request, "HR");
+  const proOperator = await seedProfileOperator(request, "PRO");
   await page.setViewportSize({ width: 1440, height: 900 });
   await signIn(page);
   await page.goto(`/users/${seeded.userId}`);
@@ -170,9 +212,34 @@ test("employee profile organizes identity, access, assets, and filtered audit hi
   await expect(page.getByRole("heading", { name: "Organization assignment" })).toHaveCount(0);
 
   const tabs = page.getByRole("tablist", { name: "Employee profile" });
+  const hrLogin = await request.post(`${apiOrigin}/api/v1/auth/login`, { data: hrOperator });
+  expect(hrLogin.ok(), await hrLogin.text()).toBeTruthy();
+  const hrCsrf = ((await hrLogin.json()) as { csrfToken: string }).csrfToken;
+  const hrUpdate = await request.put(`${apiOrigin}/api/v1/employee-profiles/${seeded.userId}/hr`, {
+    headers: { "X-CSRF-Token": hrCsrf },
+    data: { job_title: "Review Employee", business_unit: "Operations", location: "Dubai" },
+  });
+  expect(hrUpdate.ok(), await hrUpdate.text()).toBeTruthy();
   const overviewTab = tabs.getByRole("tab", { name: "Overview" });
   await overviewTab.focus();
   await page.keyboard.press("ArrowRight");
+  await expect(tabs.getByRole("tab", { name: "HR Profile" })).toBeFocused();
+  await expect(page).toHaveURL(/tab=hr$/);
+  await expect(page.getByRole("heading", { name: "HR profile" })).toBeVisible();
+  await expect(page.getByLabel("Job title")).toHaveValue("Review Employee");
+  await tabs.getByRole("tab", { name: "PRO & Documents" }).click();
+  await expect(page).toHaveURL(/tab=pro$/);
+  await expect(page.getByRole("heading", { name: "PRO & Documents" })).toBeVisible();
+  const proLogin = await request.post(`${apiOrigin}/api/v1/auth/login`, { data: proOperator });
+  expect(proLogin.ok(), await proLogin.text()).toBeTruthy();
+  const proCsrf = ((await proLogin.json()) as { csrfToken: string }).csrfToken;
+  const document = await request.post(`${apiOrigin}/api/v1/employee-profiles/${seeded.userId}/documents`, {
+    headers: { "X-CSRF-Token": proCsrf },
+    data: { kind: "passport", document_number: `PASS-${Date.now()}`, expiry_date: "2027-12-31" },
+  });
+  expect(document.ok(), await document.text()).toBeTruthy();
+  await expect(page.getByRole("heading", { name: "Passport" })).toBeVisible({ timeout: 20_000 });
+  await tabs.getByRole("tab", { name: "Organization & Access" }).click();
   await expect(tabs.getByRole("tab", { name: "Organization & Access" })).toBeFocused();
   await expect(page).toHaveURL(/tab=organization$/);
   await expect(page.getByRole("heading", { name: "Account & Security" })).toBeVisible();
@@ -221,6 +288,28 @@ test("employee profile organizes identity, access, assets, and filtered audit hi
   await expect(page).toHaveURL(/tab=assets$/);
   await expect(page.getByRole("heading", { name: "Current Assets" })).toBeVisible();
   await expectNoHorizontalOverflow(page);
+
+  const employeeContext = await browser.newContext({ baseURL: new URL(page.url()).origin });
+  const employeePage = await employeeContext.newPage();
+  try {
+    await employeePage.goto("/login");
+    await employeePage.getByLabel("Email").fill(seeded.email);
+    await employeePage.getByLabel("Password").fill(seeded.password);
+    await employeePage.getByRole("button", { name: "Sign in" }).click();
+    await expect(employeePage).toHaveURL(/\/(users|account)$/, { timeout: 30_000 });
+    await employeePage.goto(`/users/${seeded.userId}?tab=hr`);
+    await expect(employeePage.getByRole("heading", { name: "HR profile" })).toBeVisible();
+    await expect(employeePage.getByLabel("Job title")).toHaveValue("Review Employee");
+    await expect(employeePage.getByLabel("Job title")).toHaveAttribute("readonly", "");
+    await employeePage.getByRole("tab", { name: "PRO & Documents" }).click();
+    await expect(employeePage.getByRole("heading", { name: "Passport" })).toBeVisible();
+    await expect(
+      employeePage.getByRole("button", { name: /upload|replace|remove|purge/i }),
+    ).toHaveCount(0);
+    await expectNoHorizontalOverflow(employeePage);
+  } finally {
+    await employeeContext.close();
+  }
 });
 
 test("employee profile uses compact mobile cards without overflow", async ({ page, request }) => {
@@ -247,4 +336,38 @@ test("employee profile uses compact mobile cards without overflow", async ({ pag
   await expect(page.getByTestId("audit-event-cards")).toBeVisible();
   await expect(page.locator("table:visible")).toHaveCount(0);
   await expectNoHorizontalOverflow(page);
+});
+
+test("HR and PRO dashboards expose only implemented profile work", async ({ browser, page, request }) => {
+  test.setTimeout(120_000);
+  const hrOperator = await seedProfileOperator(request, "HR");
+  const proOperator = await seedProfileOperator(request, "PRO");
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/login");
+  await page.getByLabel("Email").fill(hrOperator.email);
+  await page.getByLabel("Password").fill(hrOperator.password);
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await expect(page).not.toHaveURL(/\/login$/, { timeout: 30_000 });
+  await page.goto("/hr");
+  await expect(page.getByRole("heading", { name: "HR Dashboard" })).toBeVisible();
+  await expect(page.getByText(/leave/i)).toHaveCount(0);
+  await expectNoHorizontalOverflow(page);
+
+  const proContext = await browser.newContext({ baseURL: new URL(page.url()).origin });
+  const proPage = await proContext.newPage();
+  try {
+    await proPage.setViewportSize({ width: 390, height: 844 });
+    await proPage.goto("/login");
+    await proPage.getByLabel("Email").fill(proOperator.email);
+    await proPage.getByLabel("Password").fill(proOperator.password);
+    await proPage.getByRole("button", { name: "Sign in" }).click();
+    await expect(proPage).not.toHaveURL(/\/login$/, { timeout: 30_000 });
+    await proPage.goto("/pro");
+    await expect(proPage.getByRole("heading", { name: "PRO Dashboard" })).toBeVisible();
+    await expect(proPage.getByText("Pending Documents")).toBeVisible();
+    await expectNoHorizontalOverflow(proPage);
+  } finally {
+    await proContext.close();
+  }
 });

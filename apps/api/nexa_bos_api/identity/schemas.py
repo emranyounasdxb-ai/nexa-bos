@@ -66,9 +66,14 @@ class SecuritySettingsUpdate(BaseModel):
 
 class UserCreateRequest(BaseModel):
     full_name: str = Field(min_length=1, max_length=200)
+    first_name: str | None = Field(default=None, max_length=100)
+    middle_name: str | None = Field(default=None, max_length=100)
+    last_name: str | None = Field(default=None, max_length=100)
     employee_code: str = Field(min_length=1, max_length=64)
     email: AccountEmail
     mobile: str = Field(min_length=5, max_length=32)
+    personal_email: AccountEmail | None = None
+    personal_mobile: str | None = Field(default=None, min_length=5, max_length=32)
     designation_id: UUID
     employment_status: EmploymentStatus
     joining_date: date
@@ -82,9 +87,14 @@ class UserCreateRequest(BaseModel):
 
 class UserUpdateRequest(BaseModel):
     full_name: str | None = Field(default=None, min_length=1, max_length=200)
+    first_name: str | None = Field(default=None, max_length=100)
+    middle_name: str | None = Field(default=None, max_length=100)
+    last_name: str | None = Field(default=None, max_length=100)
     employee_code: str | None = Field(default=None, min_length=1, max_length=64)
     email: AccountEmail | None = None
     mobile: str | None = Field(default=None, min_length=5, max_length=32)
+    personal_email: AccountEmail | None = None
+    personal_mobile: str | None = Field(default=None, min_length=5, max_length=32)
     designation_id: UUID | None = None
     employment_status: EmploymentStatus | None = None
     joining_date: date | None = None

@@ -225,6 +225,9 @@ async def test_alembic_0011_deactivates_active_scorecard_missing_required_baseli
         assert after[4] == Decimal("100.00")
         assert after[5] == DIRECTION_LOWER
 
+        # Service-level verification uses the current ORM model, so bring the isolated
+        # migration fixture from the historical 0011 assertion point to the current head.
+        _run_alembic(isolated_url, "head")
         service_engine = create_async_engine(isolated_url)
         factory = async_sessionmaker(service_engine, expire_on_commit=False)
         try:

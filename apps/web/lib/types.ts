@@ -39,6 +39,11 @@ export type UserRecord = {
   userCode: string;
   employeeCode: string;
   fullName: string;
+  firstName?: string | null;
+  middleName?: string | null;
+  lastName?: string | null;
+  personalEmail?: string | null;
+  personalMobile?: string | null;
   email: string;
   mobile: string;
   designation: OrgRef | null;

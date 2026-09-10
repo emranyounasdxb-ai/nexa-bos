@@ -10,6 +10,19 @@ USERS_ASSIGN_USER_TYPE = "Users.AssignUserType"
 USERS_GENERATE_SETUP_LINK = "Users.GenerateSetupLink"
 USERS_GENERATE_RESET_LINK = "Users.GenerateResetLink"
 USERS_VIEW_AUDIT = "Users.ViewAudit"
+USER_PROFILES_BASIC_VIEW = "UserProfiles.Basic.View"
+USER_PROFILES_BASIC_UPDATE = "UserProfiles.Basic.Update"
+USER_PROFILES_HR_VIEW = "UserProfiles.HR.View"
+USER_PROFILES_HR_UPDATE = "UserProfiles.HR.Update"
+USER_PROFILES_PRO_VIEW = "UserProfiles.PRO.View"
+USER_PROFILES_PRO_UPDATE = "UserProfiles.PRO.Update"
+USER_DOCUMENTS_UPLOAD = "UserDocuments.Upload"
+USER_DOCUMENTS_REPLACE = "UserDocuments.Replace"
+USER_DOCUMENTS_VIEW = "UserDocuments.View"
+USER_DOCUMENTS_DOWNLOAD = "UserDocuments.Download"
+USER_DOCUMENTS_DELETE = "UserDocuments.Delete"
+USER_DOCUMENTS_HISTORY = "UserDocuments.History"
+USER_DOCUMENTS_PURGE = "UserDocuments.Purge"
 USER_TYPES_VIEW = "UserTypes.View"
 USER_TYPES_CREATE = "UserTypes.Create"
 USER_TYPES_EDIT = "UserTypes.Edit"
@@ -109,6 +122,19 @@ PERMISSION_CATALOG: tuple[tuple[str, str], ...] = (
     (USERS_GENERATE_SETUP_LINK, "Generate one-time password setup links"),
     (USERS_GENERATE_RESET_LINK, "Generate one-time password reset links"),
     (USERS_VIEW_AUDIT, "View user-management audit history"),
+    (USER_PROFILES_BASIC_VIEW, "View employee Basic profile data within User scope"),
+    (USER_PROFILES_BASIC_UPDATE, "Update employee Basic profile data within User scope"),
+    (USER_PROFILES_HR_VIEW, "View sensitive HR profile data within User scope"),
+    (USER_PROFILES_HR_UPDATE, "Update sensitive HR profile data within User scope"),
+    (USER_PROFILES_PRO_VIEW, "View PRO and document metadata within User scope"),
+    (USER_PROFILES_PRO_UPDATE, "Update PRO and document metadata within User scope"),
+    (USER_DOCUMENTS_UPLOAD, "Upload private employee documents within User scope"),
+    (USER_DOCUMENTS_REPLACE, "Replace private employee documents with version history"),
+    (USER_DOCUMENTS_VIEW, "View private employee document attachments"),
+    (USER_DOCUMENTS_DOWNLOAD, "Download private employee document attachments"),
+    (USER_DOCUMENTS_DELETE, "Inactivate current employee document records"),
+    (USER_DOCUMENTS_HISTORY, "View immutable employee document version history"),
+    (USER_DOCUMENTS_PURGE, "Permanently purge employee document versions and files"),
     (USER_TYPES_VIEW, "View user types and their permissions"),
     (USER_TYPES_CREATE, "Create custom user types"),
     (USER_TYPES_EDIT, "Edit custom user type name and description"),
@@ -220,3 +246,22 @@ PERMISSION_CATALOG: tuple[tuple[str, str], ...] = (
 )
 
 ALL_PERMISSION_CODES: tuple[str, ...] = tuple(code for code, _ in PERMISSION_CATALOG)
+
+SYSTEM_PROFILE_PERMISSION_DEFAULTS: dict[str, tuple[str, ...]] = {
+    "HR": (
+        USER_PROFILES_BASIC_VIEW,
+        USER_PROFILES_HR_VIEW,
+        USER_PROFILES_HR_UPDATE,
+    ),
+    "PRO": (
+        USER_PROFILES_BASIC_VIEW,
+        USER_PROFILES_PRO_VIEW,
+        USER_PROFILES_PRO_UPDATE,
+        USER_DOCUMENTS_UPLOAD,
+        USER_DOCUMENTS_REPLACE,
+        USER_DOCUMENTS_VIEW,
+        USER_DOCUMENTS_DOWNLOAD,
+        USER_DOCUMENTS_DELETE,
+        USER_DOCUMENTS_HISTORY,
+    ),
+}
