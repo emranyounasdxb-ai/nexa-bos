@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { Button, Card, PageHeader, TextInput, focusRing } from "@/components/ui";
+import { Button, ButtonLink, Card, PageHeader, TextInput, focusRing } from "@/components/ui";
 import { apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { getBrowserApiUrl } from "@/lib/env";
@@ -47,6 +47,7 @@ export default function AccountPage() {
       <PageHeader
         title="My profile"
         description="You can change only your mobile number and profile photo. Other fields require Users.Edit."
+        actions={<ButtonLink href={`/users/${user.id}`}>View employee profile</ButtonLink>}
       />
       <Card className="text-sm">
         <p>

@@ -4,7 +4,7 @@
 
 This is the locked development-phase Security Engineering Standard for NEXA BOS. It preserves the security and conformance protections established through Tasks 1–10 while the remaining business modules are under active development.
 
-This standard does not authorize Task 11, new business functionality, deployment work, new authentication mechanisms, new export formats, deletion capabilities, Document Management, or integration of additional security scanners. The stricter GitHub security-gate and external-scanner phase is deferred until the remaining NEXA BOS business modules are feature-complete.
+This standard does not authorize Task 11, unrelated new business functionality, deployment work, new authentication mechanisms, new export formats, general-purpose Document Management, or integration of additional security scanners. The explicitly approved employee Basic/HR/PRO foundation is the sole bounded private-document exception described below. The stricter GitHub security-gate and external-scanner phase is deferred until the remaining NEXA BOS business modules are feature-complete.
 
 ## Authoritative enforcement boundary
 
@@ -69,7 +69,11 @@ These invariants apply to read, create, update, action, report, export, and file
 
 - Approved report exports are Excel, PDF, and Print only. CSV must not be silently introduced.
 - Unsupported `DELETE` operations remain rejected. Deletion functionality must not be added for the purpose of satisfying or expanding security tests.
-- File-upload security applies only to upload surfaces that already exist. This standard does not authorize Document Management.
+- File-upload security applies only to approved upload surfaces. Employee PRO attachments are a
+  bounded exception, not a general Document Management module: authenticated private storage,
+  allowlisted and content-verified PDF/JPEG/PNG/WebP files up to 10 MB, server-generated keys,
+  containment checks, immutable replacement versions, soft deletion, separately permissioned
+  purge, and an audit event for upload/replace/view/download/delete/purge are mandatory.
 - Migrations are forward-only from the current point onward. Already-applied migrations must never be edited; corrections require a new forward migration.
 - `.env` files, passwords, secrets, API keys, tokens, production credentials, runtime databases, and sensitive generated files must not be committed.
 - Generated runtime artifacts, including changes generated in `next-env.d.ts`, must not be included in commits unless a separately approved framework change explicitly requires them.
@@ -135,4 +139,4 @@ This standard does not authorize or introduce:
 - new authentication mechanisms;
 - new export formats;
 - deletion capabilities; or
-- Document Management.
+- General-purpose Document Management beyond the bounded employee PRO records.

@@ -102,6 +102,8 @@ const routeContext = (pathname: string): RouteContext => {
     { prefix: "/workflows", group: "Operations", title: "Workflow Designer" },
     { prefix: "/users/new", group: "People", title: "Create user", parent: { href: "/users", label: "Users" } },
     { prefix: "/users", group: "People", title: "Users" },
+    { prefix: "/hr", group: "People", title: "HR Dashboard" },
+    { prefix: "/pro", group: "People", title: "PRO Dashboard" },
     { prefix: "/organization/hierarchy", group: "People", title: "Organization hierarchy", parent: { href: "/organization", label: "Organization" } },
     { prefix: "/organization", group: "People", title: "Organization masters" },
     { prefix: "/attendance/reports", group: "People", title: "Attendance reports", parent: { href: "/attendance", label: "Attendance" } },
@@ -154,8 +156,12 @@ function SidebarIcon({ icon: IconComponent, item = false }: { icon: IconComponen
   );
 }
 
-const landingFor = (user: UserRecord) =>
-  user.permissions.includes("Dashboard.View") ? "/reports" : "/users";
+const landingFor = (user: UserRecord) => {
+  if (user.permissions.includes("Dashboard.View")) return "/reports";
+  if (user.permissions.includes("UserProfiles.HR.View")) return "/hr";
+  if (user.permissions.includes("UserProfiles.PRO.View")) return "/pro";
+  return user.permissions.includes("Users.View") ? "/users" : "/account";
+};
 
 function NotificationBell({ onNavigate }: { onNavigate: () => void }) {
   const [unreadCount, setUnreadCount] = useState(0);
@@ -356,6 +362,8 @@ function Shell({ children }: { children: ReactNode }) {
       icon: IconUsersGroup,
       items: [
         { href: "/users", label: "Users", icon: IconUsers, show: can("Users.View") },
+        { href: "/hr", label: "HR Dashboard", icon: IconUsersGroup, show: can("UserProfiles.HR.View") },
+        { href: "/pro", label: "PRO Dashboard", icon: IconFileDescription, show: can("UserProfiles.PRO.View") },
         { href: "/organization", label: "Organization", icon: IconBuildingCommunity, show: canReadOrganization(user) },
         { href: "/organization/hierarchy", label: "Hierarchy", icon: IconHierarchy3, show: can("Users.View") },
         { href: "/attendance", label: "Attendance", icon: IconCalendarCheck, show: can("Attendance.View") },
@@ -479,7 +487,7 @@ function Shell({ children }: { children: ReactNode }) {
       >
         <div className="flex h-14 shrink-0 items-center justify-between px-5">
           <Link
-            href={can("Dashboard.View") ? "/reports" : "/users"}
+            href={user ? landingFor(user) : "/login"}
             onClick={closeNavigationAfterRouteClick}
             aria-label="AMAFH CORE home"
             className={cx(focusRing, "flex min-w-0 items-center gap-3 rounded-md")}

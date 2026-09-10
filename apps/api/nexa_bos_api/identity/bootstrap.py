@@ -28,7 +28,11 @@ from nexa_bos_api.identity.models import (
     UserTypePermission,
     new_uuid,
 )
-from nexa_bos_api.identity.permissions import ALL_PERMISSION_CODES, PERMISSION_CATALOG
+from nexa_bos_api.identity.permissions import (
+    ALL_PERMISSION_CODES,
+    PERMISSION_CATALOG,
+    SYSTEM_PROFILE_PERMISSION_DEFAULTS,
+)
 
 
 async def bootstrap_identity(session: AsyncSession) -> None:
@@ -111,6 +115,25 @@ async def _seed_user_types(session: AsyncSession) -> None:
         for permission in ALL_PERMISSION_CODES:
             if permission not in existing_perms:
                 session.add(UserTypePermission(user_type_id=owner.id, permission_code=permission))
+    for code, permissions in SYSTEM_PROFILE_PERMISSION_DEFAULTS.items():
+        user_type = by_code.get(code)
+        if user_type is None:
+            continue
+        existing_perms = {
+            row[0]
+            for row in (
+                await session.execute(
+                    select(UserTypePermission.permission_code).where(
+                        UserTypePermission.user_type_id == user_type.id
+                    )
+                )
+            ).all()
+        }
+        for permission in permissions:
+            if permission not in existing_perms:
+                session.add(
+                    UserTypePermission(user_type_id=user_type.id, permission_code=permission)
+                )
 
 
 async def _seed_settings(session: AsyncSession) -> None:

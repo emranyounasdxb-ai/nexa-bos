@@ -233,9 +233,14 @@ class User(Base):
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_uuid)
     user_code: Mapped[str] = mapped_column(String(16), unique=True, nullable=False)
     employee_code: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    first_name: Mapped[str | None] = mapped_column(String(100))
+    middle_name: Mapped[str | None] = mapped_column(String(100))
+    last_name: Mapped[str | None] = mapped_column(String(100))
     full_name: Mapped[str] = mapped_column(String(200), nullable=False)
     email: Mapped[str] = mapped_column(String(320), unique=True, nullable=False)
     mobile: Mapped[str] = mapped_column(String(32), nullable=False)
+    personal_email: Mapped[str | None] = mapped_column(String(320))
+    personal_mobile: Mapped[str | None] = mapped_column(String(32))
     designation_id: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey("designations.id"), nullable=False
     )
@@ -269,6 +274,19 @@ class User(Base):
     reporting_manager: Mapped[User | None] = relationship(
         remote_side="User.id",
         foreign_keys=[reporting_manager_id],
+    )
+    hr_profile: Mapped[object | None] = relationship(
+        "HRProfile",
+        back_populates="user",
+        uselist=False,
+        cascade="all, delete-orphan",
+        foreign_keys="HRProfile.user_id",
+    )
+    employee_documents: Mapped[list[object]] = relationship(
+        "EmployeeDocument",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        foreign_keys="EmployeeDocument.user_id",
     )
 
 

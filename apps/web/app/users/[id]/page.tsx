@@ -4,6 +4,7 @@ import { useParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { IconRefresh, IconX } from "@/components/icons";
+import { EmployeeLifecycleProfile } from "@/components/employee-lifecycle-profile";
 import { Pagination, useClientPagination } from "@/components/pagination";
 import {
   Button,
@@ -30,7 +31,7 @@ import { useAuth } from "@/lib/auth-context";
 import { getBrowserApiUrl } from "@/lib/env";
 import type { AssetAllocationRecord, AssetRecord, UserRecord, UserTypeSummary } from "@/lib/types";
 
-type ProfileTab = "overview" | "organization" | "assets" | "history";
+type ProfileTab = "overview" | "hr" | "pro" | "organization" | "assets" | "history";
 type HistoryAssignment = {
   field: string;
   valueId: string | null;
@@ -76,6 +77,8 @@ type Confirmation = {
 
 const PROFILE_TABS: { id: ProfileTab; label: string }[] = [
   { id: "overview", label: "Overview" },
+  { id: "hr", label: "HR Profile" },
+  { id: "pro", label: "PRO & Documents" },
   { id: "organization", label: "Organization & Access" },
   { id: "assets", label: "Assets" },
   { id: "history", label: "History & Audit" },
@@ -365,7 +368,7 @@ export default function UserProfilePage() {
         </div>
       </Card>
 
-      <div role="tablist" aria-label="Employee profile" className="grid min-w-0 grid-cols-2 gap-1 rounded-[10px] border border-brand-border bg-surface p-1 lg:grid-cols-4">
+      <div role="tablist" aria-label="Employee profile" className="grid min-w-0 grid-cols-2 gap-1 rounded-[10px] border border-brand-border bg-surface p-1 md:grid-cols-3 xl:grid-cols-6">
         {PROFILE_TABS.map((tab, index) => (
           <button
             key={tab.id}
@@ -394,6 +397,8 @@ export default function UserProfilePage() {
 
       <section id={`profile-panel-${activeTab}`} role="tabpanel" aria-labelledby={`profile-tab-${activeTab}`} className="min-w-0 space-y-4">
         {activeTab === "overview" ? <Overview user={user} /> : null}
+        {activeTab === "hr" ? <EmployeeLifecycleProfile userId={user.id} section="hr" /> : null}
+        {activeTab === "pro" ? <EmployeeLifecycleProfile userId={user.id} section="pro" /> : null}
         {activeTab === "organization" ? (
           <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)]">
             <Card>
@@ -539,7 +544,7 @@ export default function UserProfilePage() {
 function Overview({ user }: { user: UserRecord }) {
   return (
     <div className="grid min-w-0 gap-4 xl:grid-cols-2">
-      <Card><SectionHeader title="Contact details" description="Primary contact information on the employee record." /><dl className="mt-4 grid min-w-0 gap-4 sm:grid-cols-2"><Definition label="Email">{user.email}</Definition><Definition label="Mobile">{user.mobile}</Definition><Definition label="Employee code">{user.employeeCode}</Definition><Definition label="User code">{user.userCode}</Definition></dl></Card>
+      <Card><SectionHeader title="Contact details" description="Work and personal contact information on the employee record." /><dl className="mt-4 grid min-w-0 gap-4 sm:grid-cols-2"><Definition label="Work email">{user.email}</Definition><Definition label="Work mobile">{user.mobile}</Definition><Definition label="Personal email">{user.personalEmail ?? "Not recorded"}</Definition><Definition label="Personal mobile">{user.personalMobile ?? "Not recorded"}</Definition><Definition label="Employee code">{user.employeeCode}</Definition><Definition label="User code">{user.userCode}</Definition></dl></Card>
       <Card><SectionHeader title="Employment" description="Current employment dates and lifecycle status." /><dl className="mt-4 grid min-w-0 gap-4 sm:grid-cols-2"><Definition label="Joining date">{user.joiningDate}</Definition><Definition label="Last working date">{user.lastWorkingDate ?? "—"}</Definition><Definition label="Employment status"><StatusBadge value={user.employmentStatus} /></Definition><Definition label="Account status"><StatusBadge value={user.accountStatus} /></Definition></dl></Card>
     </div>
   );

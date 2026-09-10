@@ -53,6 +53,24 @@ type BulkConfirmation = { label: string; permissions: Permission[] };
 
 const PERMISSION_MODULES = [
   {
+    key: "profile-basic",
+    label: "Employee Profile — Basic",
+    description: "Basic employee identity metadata within the configured User scope.",
+    prefixes: ["UserProfiles.Basic."],
+  },
+  {
+    key: "profile-hr",
+    label: "Employee Profile — HR",
+    description: "Sensitive HR profile metadata and the HR operational dashboard.",
+    prefixes: ["UserProfiles.HR."],
+  },
+  {
+    key: "profile-pro-documents",
+    label: "Employee Profile — PRO & Documents",
+    description: "PRO compliance metadata and separately permissioned private attachments.",
+    prefixes: ["UserProfiles.PRO.", "UserDocuments."],
+  },
+  {
     key: "users",
     label: "Users",
     description: "User administration, User Types, security settings, and organization masters.",

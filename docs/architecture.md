@@ -65,7 +65,20 @@ Case Owner eligibility is a user-type flag that defaults to No. OWNER enables it
 
 ## Explicitly not in this foundation
 
-- HRMS integration
+- External HRMS integration beyond the bounded employee Basic/HR/PRO profile foundation
+
+## Bounded employee profile foundation
+
+Nexa BOS owns a deliberately limited three-stage employee record: Basic identity and account
+control, sensitive HR metadata, and PRO compliance-document metadata. It does not include Leave,
+Contracts, Transfers, Exit/Offboarding, or HR approval workflows. Authorization is permission- and
+scope-driven; labels such as HR and PRO never grant access by themselves.
+
+Private employee attachments use `FILE_STORAGE_DIR/employee-documents`. PostgreSQL stores only
+metadata and collision-resistant storage keys. Replacement creates an immutable prior version,
+normal removal is a soft delete, and permanent file/database purge requires its own high-risk
+permission. Other sessions observe profile revisions through authenticated polling/revalidation;
+there is no new message broker or realtime infrastructure.
 - External notifications (email/SMS/WhatsApp)
 - Redis / workers
 - Multi-tenancy

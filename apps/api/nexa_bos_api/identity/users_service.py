@@ -542,13 +542,20 @@ async def create_user(session: AsyncSession, actor: User, payload: UserCreateReq
     account_status = AccountStatus.PENDING
     if payload.employment_status in AUTO_DEACTIVATE_EMPLOYMENT:
         account_status = AccountStatus.DEACTIVATED
+    name_parts = [payload.first_name, payload.middle_name, payload.last_name]
+    derived_name = " ".join(part.strip() for part in name_parts if part and part.strip())
     user = User(
         id=new_uuid(),
         user_code=await next_user_code(session),
         employee_code=payload.employee_code.strip(),
-        full_name=payload.full_name.strip(),
+        first_name=payload.first_name.strip() if payload.first_name else None,
+        middle_name=payload.middle_name.strip() if payload.middle_name else None,
+        last_name=payload.last_name.strip() if payload.last_name else None,
+        full_name=derived_name or payload.full_name.strip(),
         email=str(payload.email).lower(),
         mobile=payload.mobile.strip(),
+        personal_email=str(payload.personal_email).lower() if payload.personal_email else None,
+        personal_mobile=payload.personal_mobile.strip() if payload.personal_mobile else None,
         designation_id=designation.id,
         employment_status=payload.employment_status,
         joining_date=payload.joining_date,
@@ -749,7 +756,12 @@ async def _current_period(session: AsyncSession, user_id: UUID) -> EmploymentPer
 
 
 async def update_user(
-    session: AsyncSession, actor: User, target: User, payload: UserUpdateRequest
+    session: AsyncSession,
+    actor: User,
+    target: User,
+    payload: UserUpdateRequest,
+    *,
+    commit: bool = True,
 ) -> User:
     manager_touched = "reporting_manager_id" in payload.model_fields_set
     validated_manager = None
@@ -765,6 +777,38 @@ async def update_user(
 
     old = public_user(target)
     now = utcnow()
+    name_fields_touched = any(
+        field in payload.model_fields_set for field in ("first_name", "middle_name", "last_name")
+    )
+    if name_fields_touched:
+        first = (
+            payload.first_name if "first_name" in payload.model_fields_set else target.first_name
+        )
+        middle = (
+            payload.middle_name if "middle_name" in payload.model_fields_set else target.middle_name
+        )
+        last = payload.last_name if "last_name" in payload.model_fields_set else target.last_name
+        derived = " ".join(part.strip() for part in (first, middle, last) if part and part.strip())
+        if not first or not first.strip() or not last or not last.strip():
+            raise AppError(
+                status_code=422,
+                code="PROFILE_NAME_REQUIRED",
+                message="First and last name are required when using structured names",
+            )
+        target.first_name = first.strip()
+        target.middle_name = middle.strip() if middle and middle.strip() else None
+        target.last_name = last.strip()
+        target.full_name = derived
+    elif payload.full_name:
+        target.full_name = payload.full_name.strip()
+    if "personal_email" in payload.model_fields_set:
+        target.personal_email = (
+            str(payload.personal_email).lower() if payload.personal_email else None
+        )
+    if "personal_mobile" in payload.model_fields_set:
+        target.personal_mobile = (
+            payload.personal_mobile.strip() if payload.personal_mobile else None
+        )
     if payload.email and payload.email.lower() != target.email:
         await assert_unique_email(session, payload.email, ignore_user_id=target.id)
         session.add(UserEmailHistory(user_id=target.id, email=target.email, changed_at=now))
@@ -843,7 +887,7 @@ async def update_user(
                 at=now,
             )
         target.reporting_manager_id = payload.reporting_manager_id
-    if payload.full_name is not None:
+    if payload.full_name is not None and not name_fields_touched:
         target.full_name = payload.full_name.strip()
     if payload.mobile is not None:
         target.mobile = payload.mobile.strip()
@@ -896,11 +940,14 @@ async def update_user(
         new_values=public_user(target),
     )
     try:
-        await session.commit()
+        if commit:
+            await session.commit()
+        else:
+            await session.flush()
     except IntegrityError as exc:
         await session.rollback()
         raise identity_unique_conflict(exc) from exc
-    return await reload_user(session, target.id)
+    return await reload_user(session, target.id) if commit else target
 
 
 async def _maybe_clear_tl(session: AsyncSession, user: User) -> None:
