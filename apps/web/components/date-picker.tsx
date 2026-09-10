@@ -127,6 +127,7 @@ export type DatePickerProps = {
   optional?: boolean;
   error?: boolean;
   "aria-label"?: string;
+  "aria-describedby"?: string;
 };
 
 export function DatePicker({
@@ -139,6 +140,7 @@ export function DatePicker({
   optional = false,
   error = false,
   "aria-label": ariaLabel,
+  "aria-describedby": ariaDescribedBy,
 }: DatePickerProps) {
   const generatedId = useId();
   const inputId = id ?? generatedId;
@@ -255,6 +257,7 @@ export function DatePicker({
         required={required}
         aria-invalid={error || Boolean(dateError) || undefined}
         aria-label={ariaLabel}
+        aria-describedby={ariaDescribedBy}
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls={dialogId}
