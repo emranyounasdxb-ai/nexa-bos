@@ -7,6 +7,7 @@ Create Date: 2026-09-10
 
 from __future__ import annotations
 
+import uuid
 from collections.abc import Sequence
 
 import sqlalchemy as sa
@@ -167,10 +168,14 @@ def upgrade() -> None:
         for permission_code in codes:
             op.execute(
                 sa.text(
-                    "INSERT INTO user_type_permissions (user_type_id, permission_code) "
-                    "SELECT id, :permission_code FROM user_types WHERE code = :role_code "
+                    "INSERT INTO user_type_permissions (id, user_type_id, permission_code) "
+                    "SELECT :id, id, :permission_code FROM user_types WHERE code = :role_code "
                     "ON CONFLICT DO NOTHING"
-                ).bindparams(role_code=role_code, permission_code=permission_code)
+                ).bindparams(
+                    id=uuid.uuid4(),
+                    role_code=role_code,
+                    permission_code=permission_code,
+                )
             )
 
 
