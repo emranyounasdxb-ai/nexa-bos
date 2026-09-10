@@ -241,10 +241,10 @@ test("list search and page actions share compact desktop rows", async ({ page, r
   await page.goto("/users/new");
   await expect(page.getByRole("heading", { name: "Create user", exact: true })).toBeVisible();
   for (const control of [
-    page.getByLabel("Full name", { exact: true }),
+    page.getByLabel("Full Name", { exact: true }),
     page.getByRole("combobox", { name: "Designation" }),
-    page.getByLabel("Joining date", { exact: true }),
-    page.getByRole("button", { name: "Create", exact: true }),
+    page.getByLabel("Joining Date", { exact: true }),
+    page.getByRole("button", { name: "Create User", exact: true }),
   ]) {
     await expect(control).toBeVisible();
     expect((await control.boundingBox())?.height).toBe(32);
