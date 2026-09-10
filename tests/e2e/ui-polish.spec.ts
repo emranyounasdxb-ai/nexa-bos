@@ -790,7 +790,8 @@ test("shared shell supports breadcrumbs, auto expansion, user menu, and mobile n
   await expect(breadcrumb.getByRole("link", { name: "Dashboard", exact: true })).toHaveAttribute("href", "/reports");
   await expect(breadcrumb.getByRole("link", { name: "Users", exact: true })).toHaveAttribute("href", "/users");
   await expect(breadcrumb.getByRole("heading", { name: "Create user", exact: true })).toHaveAttribute("aria-current", "page");
-  await breadcrumb.getByRole("link", { name: "Users", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Create User" })).toBeVisible();
+  await page.getByRole("button", { name: "Close Create User" }).click();
   await expect(page).toHaveURL(/\/users(?:\?|$)/);
   await expect(breadcrumb.getByRole("heading", { name: "Users", exact: true })).toBeVisible();
 

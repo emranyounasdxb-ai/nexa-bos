@@ -10,11 +10,14 @@ export const metadata: Metadata = {
   description: "AMAFH CORE business operations workspace",
 };
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default function RootLayout({ children, modal }: { children: ReactNode; modal: ReactNode }) {
   return (
     <html lang="en">
       <body className="min-h-screen antialiased">
-        <AppShell>{children}</AppShell>
+        <AppShell>
+          {children}
+          {modal}
+        </AppShell>
       </body>
     </html>
   );
