@@ -44,7 +44,9 @@ Official Holiday Present (worked on holiday) does not apply normal late/absence 
 
 ## Leave types
 
-Leave types may be company-custom (`isSystem=false`) or system-defined (`isSystem=true`). System types cannot be deactivated or deleted. Task 9 does not ship a statutory leave-name catalog; an approved legal list is required before any system types are seeded. Leave is marked manually; there is no leave-request workflow or NexaHR integration.
+Attendance continues to reference the shared leave-type master when recording a Leave day. Phase 2
+adds the separate leave-request workflow documented in `leave-management.md`. Entitlements remain
+explicit configuration; the system type names do not hard-code statutory day allowances.
 
 ## Official Holidays
 

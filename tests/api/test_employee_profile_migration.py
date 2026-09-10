@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import create_async_engine
 
 _REV_0018 = "0018_catalogue_images"
 _REV_0019 = "0019_employee_profiles"
+_HEAD_REVISION = "0020_leave_management"
 _PROFILE_GRANTS = {
     "OWNER": {
         "UserProfiles.Basic.View",
@@ -57,7 +58,9 @@ def _render_url(url: URL) -> str:
     return url.render_as_string(hide_password=False)
 
 
-def _run_alembic(database_url: str, *arguments: str, expect_success: bool = True) -> str:
+def _run_alembic(
+    database_url: str, *arguments: str, expect_success: bool = True
+) -> str:
     env = os.environ.copy()
     env["DATABASE_URL"] = database_url
     env["APP_ENV"] = "test"
@@ -78,7 +81,9 @@ def _run_alembic(database_url: str, *arguments: str, expect_success: bool = True
 
 
 async def _admin_execute(statement: str) -> None:
-    engine = create_async_engine(make_url(_app_database_url()), isolation_level="AUTOCOMMIT")
+    engine = create_async_engine(
+        make_url(_app_database_url()), isolation_level="AUTOCOMMIT"
+    )
     try:
         async with engine.connect() as connection:
             await connection.execute(text(statement))
@@ -162,7 +167,9 @@ async def _seed_historical_identity(
 
 
 @pytest.mark.asyncio
-async def test_0019_assigns_production_shaped_profile_permissions_with_explicit_ids() -> None:
+async def test_0019_assigns_production_shaped_profile_permissions_with_explicit_ids() -> (
+    None
+):
     database, database_url = await _create_database("m19_existing_roles")
     try:
         _run_alembic(database_url, "upgrade", _REV_0018)
@@ -175,7 +182,9 @@ async def test_0019_assigns_production_shaped_profile_permissions_with_explicit_
         engine = create_async_engine(database_url)
         try:
             async with engine.connect() as connection:
-                revision = await connection.scalar(text("SELECT version_num FROM alembic_version"))
+                revision = await connection.scalar(
+                    text("SELECT version_num FROM alembic_version")
+                )
                 assert revision == _REV_0019
                 rows = (
                     await connection.execute(
@@ -200,17 +209,27 @@ async def test_0019_assigns_production_shaped_profile_permissions_with_explicit_
         }
         for code, expected in _PROFILE_GRANTS.items():
             actual = [
-                row.permission_code for row in by_role[code] if row.permission_code in expected
+                row.permission_code
+                for row in by_role[code]
+                if row.permission_code in expected
             ]
             assert set(actual) == expected
             assert len(actual) == len(expected)
         owner_rows = by_role["OWNER"]
         assert (
-            next(row.id for row in owner_rows if row.permission_code == "UserProfiles.Basic.View")
+            next(
+                row.id
+                for row in owner_rows
+                if row.permission_code == "UserProfiles.Basic.View"
+            )
             == overlap_id
         )
         assert (
-            next(row.id for row in owner_rows if row.permission_code == "Legacy.Profile.Permission")
+            next(
+                row.id
+                for row in owner_rows
+                if row.permission_code == "Legacy.Profile.Permission"
+            )
             == legacy_id
         )
     finally:
@@ -219,7 +238,9 @@ async def test_0019_assigns_production_shaped_profile_permissions_with_explicit_
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("role_codes", [(), ("OWNER",)])
-async def test_0019_handles_missing_hr_and_pro_user_types(role_codes: tuple[str, ...]) -> None:
+async def test_0019_handles_missing_hr_and_pro_user_types(
+    role_codes: tuple[str, ...],
+) -> None:
     database, database_url = await _create_database("m19_missing_roles")
     try:
         _run_alembic(database_url, "upgrade", _REV_0018)
@@ -229,8 +250,12 @@ async def test_0019_handles_missing_hr_and_pro_user_types(role_codes: tuple[str,
         engine = create_async_engine(database_url)
         try:
             async with engine.connect() as connection:
-                count = await connection.scalar(text("SELECT count(*) FROM user_type_permissions"))
-                revision = await connection.scalar(text("SELECT version_num FROM alembic_version"))
+                count = await connection.scalar(
+                    text("SELECT count(*) FROM user_type_permissions")
+                )
+                revision = await connection.scalar(
+                    text("SELECT version_num FROM alembic_version")
+                )
         finally:
             await engine.dispose()
         assert revision == _REV_0019
@@ -245,7 +270,7 @@ async def test_fresh_database_upgrades_to_head_and_schema_is_current() -> None:
     try:
         _run_alembic(database_url, "upgrade", "head")
         current = _run_alembic(database_url, "current")
-        assert f"{_REV_0019} (head)" in current
+        assert f"{_HEAD_REVISION} (head)" in current
         check = _run_alembic(database_url, "check")
         assert "No new upgrade operations detected" in check
     finally:

@@ -63,15 +63,16 @@ Customer deactivation is blocked while active applications exist. Customer merge
 
 Case Owner eligibility is a user-type flag that defaults to No. OWNER enables it per user type. Workflows are versioned per Bank and Product. Application Created is the only globally fixed entry stage; remaining stages and transitions are configured by authorized users and are not seeded.
 
-## Explicitly not in this foundation
+## Explicitly not in the employee-profile foundation
 
 - External HRMS integration beyond the bounded employee Basic/HR/PRO profile foundation
 
 ## Bounded employee profile foundation
 
 Nexa BOS owns a deliberately limited three-stage employee record: Basic identity and account
-control, sensitive HR metadata, and PRO compliance-document metadata. It does not include Leave,
-Contracts, Transfers, Exit/Offboarding, or HR approval workflows. Authorization is permission- and
+control, sensitive HR metadata, and PRO compliance-document metadata. Phase 2 adds Leave as a
+separate permission-gated module; Contracts, Transfers, Exit/Offboarding, and the combined HR
+approval centre remain separate delivery boundaries. Authorization is permission- and
 scope-driven; labels such as HR and PRO never grant access by themselves.
 
 Private employee attachments use `FILE_STORAGE_DIR/employee-documents`. PostgreSQL stores only
@@ -79,6 +80,13 @@ metadata and collision-resistant storage keys. Replacement creates an immutable 
 normal removal is a soft delete, and permanent file/database purge requires its own high-risk
 permission. Other sessions observe profile revisions through authenticated polling/revalidation;
 there is no new message broker or realtime infrastructure.
+
+## Leave management
+
+Leave management is single-company and uses the existing User Type permissions, reporting-manager
+relationships, company working week, official holidays and private file storage. Entitlements are
+configuration data, never statutory constants. Employee details remain private while the team
+calendar exposes only name, dates and workflow status. See `docs/leave-management.md`.
 - External notifications (email/SMS/WhatsApp)
 - Redis / workers
 - Multi-tenancy

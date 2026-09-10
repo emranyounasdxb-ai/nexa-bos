@@ -5,6 +5,7 @@ from datetime import date, datetime, time
 
 from sqlalchemy import (
     Boolean,
+    CheckConstraint,
     Date,
     DateTime,
     ForeignKey,
@@ -35,12 +36,39 @@ class CompanyWorkingDay(Base):
 
 class LeaveType(Base):
     __tablename__ = "leave_types"
+    __table_args__ = (
+        CheckConstraint(
+            "accrual_method IN ('none', 'monthly')",
+            name="ck_leave_types_accrual_method",
+        ),
+        CheckConstraint(
+            "yearly_entitlement >= 0",
+            name="ck_leave_types_entitlement_nonnegative",
+        ),
+        CheckConstraint(
+            "monthly_accrual >= 0",
+            name="ck_leave_types_accrual_nonnegative",
+        ),
+        CheckConstraint(
+            "carry_forward_limit >= 0",
+            name="ck_leave_types_carry_nonnegative",
+        ),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_uuid)
     code: Mapped[str] = mapped_column(String(32), unique=True, nullable=False)
     name: Mapped[str] = mapped_column(String(120), nullable=False)
     is_system: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     status: Mapped[str] = mapped_column(String(20), nullable=False)
+    is_paid: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    eligibility: Mapped[str | None] = mapped_column(Text)
+    yearly_entitlement: Mapped[float] = mapped_column(Numeric(8, 2), nullable=False, default=0)
+    accrual_method: Mapped[str] = mapped_column(String(20), nullable=False, default="none")
+    monthly_accrual: Mapped[float] = mapped_column(Numeric(8, 2), nullable=False, default=0)
+    carry_forward_limit: Mapped[float] = mapped_column(Numeric(8, 2), nullable=False, default=0)
+    carry_forward_expiry_months: Mapped[int | None] = mapped_column(Integer)
+    half_day_allowed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    attachment_required: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 

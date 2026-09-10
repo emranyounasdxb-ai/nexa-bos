@@ -31,6 +31,7 @@ from nexa_bos_api.identity.models import (
 from nexa_bos_api.identity.permissions import (
     ALL_PERMISSION_CODES,
     PERMISSION_CATALOG,
+    SYSTEM_LEAVE_PERMISSION_DEFAULTS,
     SYSTEM_PROFILE_PERMISSION_DEFAULTS,
 )
 
@@ -115,7 +116,17 @@ async def _seed_user_types(session: AsyncSession) -> None:
         for permission in ALL_PERMISSION_CODES:
             if permission not in existing_perms:
                 session.add(UserTypePermission(user_type_id=owner.id, permission_code=permission))
-    for code, permissions in SYSTEM_PROFILE_PERMISSION_DEFAULTS.items():
+    system_defaults = {
+        code: tuple(
+            dict.fromkeys(
+                SYSTEM_PROFILE_PERMISSION_DEFAULTS.get(code, ())
+                + SYSTEM_LEAVE_PERMISSION_DEFAULTS.get(code, ())
+            )
+        )
+        for code in SYSTEM_PROFILE_PERMISSION_DEFAULTS.keys()
+        | SYSTEM_LEAVE_PERMISSION_DEFAULTS.keys()
+    }
+    for code, permissions in system_defaults.items():
         user_type = by_code.get(code)
         if user_type is None:
             continue
