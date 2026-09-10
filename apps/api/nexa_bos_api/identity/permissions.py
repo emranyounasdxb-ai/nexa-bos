@@ -23,6 +23,17 @@ USER_DOCUMENTS_DOWNLOAD = "UserDocuments.Download"
 USER_DOCUMENTS_DELETE = "UserDocuments.Delete"
 USER_DOCUMENTS_HISTORY = "UserDocuments.History"
 USER_DOCUMENTS_PURGE = "UserDocuments.Purge"
+LEAVE_VIEW = "Leave.View"
+LEAVE_REQUEST = "Leave.Request"
+LEAVE_CREATE_FOR_EMPLOYEE = "Leave.CreateForEmployee"
+LEAVE_EDIT = "Leave.Edit"
+LEAVE_APPROVE_MANAGER = "Leave.ApproveManager"
+LEAVE_APPROVE_HR = "Leave.ApproveHR"
+LEAVE_RETURN_REJECT = "Leave.ReturnReject"
+LEAVE_CANCEL = "Leave.Cancel"
+LEAVE_HISTORY = "Leave.History"
+LEAVE_SETTINGS = "Leave.Settings"
+LEAVE_OVERRIDE = "Leave.Override"
 USER_TYPES_VIEW = "UserTypes.View"
 USER_TYPES_CREATE = "UserTypes.Create"
 USER_TYPES_EDIT = "UserTypes.Edit"
@@ -135,6 +146,17 @@ PERMISSION_CATALOG: tuple[tuple[str, str], ...] = (
     (USER_DOCUMENTS_DELETE, "Inactivate current employee document records"),
     (USER_DOCUMENTS_HISTORY, "View immutable employee document version history"),
     (USER_DOCUMENTS_PURGE, "Permanently purge employee document versions and files"),
+    (LEAVE_VIEW, "View leave records within approved own or reporting-manager scope"),
+    (LEAVE_REQUEST, "Create and edit own draft or returned leave requests"),
+    (LEAVE_CREATE_FOR_EMPLOYEE, "Create leave requests for an employee in User scope"),
+    (LEAVE_EDIT, "Edit employee draft or returned leave requests in User scope"),
+    (LEAVE_APPROVE_MANAGER, "Approve assigned direct-report leave as reporting manager"),
+    (LEAVE_APPROVE_HR, "Complete HR approval for leave requests"),
+    (LEAVE_RETURN_REJECT, "Return or reject leave requests with a reason"),
+    (LEAVE_CANCEL, "Request or approve leave cancellation"),
+    (LEAVE_HISTORY, "View immutable leave history within approved scope"),
+    (LEAVE_SETTINGS, "Configure leave types, entitlements, and balance adjustments"),
+    (LEAVE_OVERRIDE, "Override leave controls with an audited mandatory reason"),
     (USER_TYPES_VIEW, "View user types and their permissions"),
     (USER_TYPES_CREATE, "Create custom user types"),
     (USER_TYPES_EDIT, "Edit custom user type name and description"),
@@ -263,5 +285,32 @@ SYSTEM_PROFILE_PERMISSION_DEFAULTS: dict[str, tuple[str, ...]] = {
         USER_DOCUMENTS_DOWNLOAD,
         USER_DOCUMENTS_DELETE,
         USER_DOCUMENTS_HISTORY,
+    ),
+}
+
+_LEAVE_EMPLOYEE_DEFAULTS = (LEAVE_VIEW, LEAVE_REQUEST, LEAVE_CANCEL, LEAVE_HISTORY)
+_LEAVE_MANAGER_DEFAULTS = _LEAVE_EMPLOYEE_DEFAULTS + (
+    LEAVE_APPROVE_MANAGER,
+    LEAVE_RETURN_REJECT,
+)
+SYSTEM_LEAVE_PERMISSION_DEFAULTS: dict[str, tuple[str, ...]] = {
+    "GM": _LEAVE_MANAGER_DEFAULTS,
+    "BDM": _LEAVE_MANAGER_DEFAULTS,
+    "SM": _LEAVE_MANAGER_DEFAULTS,
+    "COD": _LEAVE_MANAGER_DEFAULTS,
+    "TL": _LEAVE_MANAGER_DEFAULTS,
+    "SE": _LEAVE_EMPLOYEE_DEFAULTS,
+    "OM": _LEAVE_EMPLOYEE_DEFAULTS,
+    "ITM": _LEAVE_EMPLOYEE_DEFAULTS,
+    "AUDITOR": _LEAVE_EMPLOYEE_DEFAULTS,
+    "HR": (
+        LEAVE_VIEW,
+        LEAVE_CREATE_FOR_EMPLOYEE,
+        LEAVE_EDIT,
+        LEAVE_APPROVE_HR,
+        LEAVE_RETURN_REJECT,
+        LEAVE_CANCEL,
+        LEAVE_HISTORY,
+        LEAVE_SETTINGS,
     ),
 }

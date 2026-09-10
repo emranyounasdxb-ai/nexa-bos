@@ -107,6 +107,12 @@ const PERMISSION_MODULES = [
     prefixes: ["Attendance."],
   },
   {
+    key: "leave",
+    label: "Leave",
+    description: "Leave requests, approvals, balances, team calendar, history, and settings.",
+    prefixes: ["Leave."],
+  },
+  {
     key: "notifications",
     label: "Notifications",
     description: "In-app notifications, rule management, urgent sends, and audit visibility.",
