@@ -5,6 +5,7 @@ export type OrgRef = {
   status?: string;
   officeId?: string;
   departmentId?: string;
+  businessUnitId?: string | null;
   teamLeaderId?: string | null;
 };
 
@@ -54,6 +55,7 @@ export type UserRecord = {
   lastWorkingDate: string | null;
   office: OrgRef | null;
   department: OrgRef | null;
+  businessUnit?: OrgRef | null;
   team: OrgRef | null;
   reportingManagerId: string | null;
   hasPhoto: boolean;
@@ -290,6 +292,7 @@ export type AssetCategoryRecord = {
 };
 
 export type HierarchyNode = {
+  businessUnit: OrgRef | null;
   id: string;
   employeeCode: string;
   fullName: string;
@@ -308,6 +311,7 @@ export type HierarchyPayload = {
   scope: "company" | "office" | "team" | "own";
   includeInactive: boolean;
   filters: {
+    businessUnits: OrgRef[];
     offices: OrgRef[];
     departments: OrgRef[];
     teams: OrgRef[];

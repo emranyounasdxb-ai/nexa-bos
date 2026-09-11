@@ -367,7 +367,8 @@ async def test_mass_assignment_xss_injection_and_deletes_rejected(client: AsyncC
     assert deleted_customer.status_code == 405
     offices = (await authed.get("/api/v1/offices")).json()["items"]
     deleted_office = await authed.delete(f"/api/v1/offices/{offices[0]['id']}")
-    assert deleted_office.status_code == 405
+    assert deleted_office.status_code == 422  # Explicit confirmation and reason are mandatory.
+    assert (await authed.get("/api/v1/offices")).json()["items"] == offices
     audit_delete = await authed.delete(f"/api/v1/users/{owner['id']}/history")
     assert audit_delete.status_code in {404, 405}
     history = await authed.get(f"/api/v1/users/{owner['id']}/history")

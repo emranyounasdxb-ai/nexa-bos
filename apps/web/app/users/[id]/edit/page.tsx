@@ -58,6 +58,7 @@ export default function EditUserPage() {
   const [offices, setOffices] = useState<OrgRef[]>([]);
   const [departments, setDepartments] = useState<OrgRef[]>([]);
   const [teams, setTeams] = useState<OrgRef[]>([]);
+  const [businessUnits, setBusinessUnits] = useState<OrgRef[]>([]);
   const [managers, setManagers] = useState<ManagerOption[]>([]);
   const [isOwner, setIsOwner] = useState(false);
   const [error, setError] = useState("");
@@ -81,6 +82,7 @@ export default function EditUserPage() {
         last_working_date: user.lastWorkingDate ?? "",
         office_id: user.office?.id ?? "",
         department_id: user.department?.id ?? "",
+        business_unit_id: user.businessUnit?.id ?? "",
         team_id: user.team?.id ?? "",
         reporting_manager_id: user.reportingManagerId ?? "",
       });
@@ -97,6 +99,9 @@ export default function EditUserPage() {
     });
     void apiGet<{ items: OrgRef[] }>("/api/v1/teams", api).then((data) => {
       if (!cancelled) setTeams(data.items);
+    });
+    void apiGet<{ items: OrgRef[] }>("/api/v1/business-units?includeInactive=true", api).then((data) => {
+      if (!cancelled) setBusinessUnits(data.items);
     });
     void apiGet<{ items: ManagerOption[] }>(
       `/api/v1/users/managers?excludeUserId=${params.id}`,
@@ -127,16 +132,16 @@ export default function EditUserPage() {
   const teamOptions = useMemo(
     () =>
       withCurrent(
-        form.office_id && departmentValid
+        form.office_id && departmentValid && form.business_unit_id
           ? teams.filter(
               (item) =>
-                item.officeId === form.office_id && item.departmentId === form.department_id,
+                item.officeId === form.office_id && item.departmentId === form.department_id && item.businessUnitId === form.business_unit_id,
             )
           : [],
         form.team_id ?? "",
         teams,
       ),
-    [departmentValid, form.department_id, form.office_id, form.team_id, teams],
+    [departmentValid, form.department_id, form.office_id, form.business_unit_id, form.team_id, teams],
   );
   const assignmentIssues = orgAssignmentIssues(form, departments, teams);
 
@@ -159,6 +164,7 @@ export default function EditUserPage() {
           last_working_date: form.last_working_date || null,
           office_id: form.office_id || null,
           department_id: form.department_id || null,
+          business_unit_id: form.business_unit_id || null,
           team_id: form.team_id || null,
           reporting_manager_id: isOwner ? null : form.reporting_manager_id || null,
         }),
@@ -217,7 +223,7 @@ export default function EditUserPage() {
           value={form.office_id}
           onChange={(event) => {
             orgDirty.current = true;
-            setForm((current) => ({ ...current, office_id: event.target.value }));
+            setForm((current) => ({ ...current, office_id: event.target.value, business_unit_id: "" }));
           }}
         >
           <option value="">None</option>
@@ -234,9 +240,10 @@ export default function EditUserPage() {
           id="edit-department"
           className={`${controlClass} mt-1`}
           value={form.department_id ?? ""}
+          disabled={!form.office_id}
           onChange={(event) => {
             orgDirty.current = true;
-            setForm((current) => ({ ...current, department_id: event.target.value }));
+            setForm((current) => ({ ...current, department_id: event.target.value, business_unit_id: "" }));
           }}
         >
           <option value="">None</option>
@@ -247,6 +254,11 @@ export default function EditUserPage() {
             </option>
           ))}
         </Select>
+        <label className="block text-sm" htmlFor="edit-business-unit">Business Unit</label>
+        <Select id="edit-business-unit" value={form.business_unit_id ?? ""} disabled={!departmentValid} onChange={(event) => { orgDirty.current = true; setForm((current) => ({ ...current, business_unit_id: event.target.value, team_id: "" })); }}>
+          <option value="">Select Business Unit</option>
+          {businessUnits.filter((unit) => unit.officeId === form.office_id && unit.departmentId === form.department_id).map((unit) => <option key={unit.id} value={unit.id}>{unit.code} — {unit.name}</option>)}
+        </Select>
         <label className="block text-sm" htmlFor="edit-team">
           Team
         </label>
@@ -254,6 +266,7 @@ export default function EditUserPage() {
           id="edit-team"
           className={`${controlClass} mt-1`}
           value={form.team_id ?? ""}
+          disabled={!form.business_unit_id && !form.team_id}
           onChange={(event) => {
             orgDirty.current = true;
             setForm((current) => ({ ...current, team_id: event.target.value }));

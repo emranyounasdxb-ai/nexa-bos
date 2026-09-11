@@ -44,6 +44,7 @@ class TokenPurpose(StrEnum):
 class AssignmentField(StrEnum):
     OFFICE = "office"
     DEPARTMENT = "department"
+    BUSINESS_UNIT = "business_unit"
     TEAM = "team"
     DESIGNATION = "designation"
     REPORTING_MANAGER = "reporting_manager"

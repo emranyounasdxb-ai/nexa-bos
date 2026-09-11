@@ -17,6 +17,7 @@ def user_load_options():
         selectinload(User.office),
         selectinload(User.department),
         selectinload(User.team),
+        selectinload(User.business_unit),
         selectinload(User.designation),
     )
 

@@ -132,11 +132,17 @@ test("company hierarchy filters, locates, expands, inspects, and refreshes repor
   });
   expect(departmentResponse.ok()).toBeTruthy();
   const department = (await departmentResponse.json()) as Ref;
+  const unitResponse = await request.post(`${apiOrigin}/api/v1/business-units`, {
+    headers, data: { office_id: dxb.id, department_id: department.id, name: `Hierarchy Unit ${tag}`, code: `HBU${tag}` },
+  });
+  expect(unitResponse.ok(), await unitResponse.text()).toBeTruthy();
+  const unit = await unitResponse.json() as Ref;
   const teamResponse = await request.post(`${apiOrigin}/api/v1/teams`, {
     headers,
     data: {
       office_id: dxb.id,
       department_id: department.id,
+      business_unit_id: unit.id,
       name: `Hierarchy E2E Team ${tag}`,
       code: `HET${tag}`,
     },

@@ -1,7 +1,14 @@
 from __future__ import annotations
 
 import pytest
-from helpers import create_activated_user, designation_id, office_id, owner_client, unique_tag
+from helpers import (
+    create_activated_user,
+    create_team_fixture,
+    designation_id,
+    office_id,
+    owner_client,
+    unique_tag,
+)
 from httpx import AsyncClient
 
 
@@ -202,8 +209,8 @@ async def test_edit_user_office_department_team_consistency(client: AsyncClient)
     )
     assert dxb_dept.status_code == 200, dxb_dept.text
     assert auh_dept.status_code == 200, auh_dept.text
-    dxb_team = await authed.post(
-        "/api/v1/teams",
+    dxb_team = await create_team_fixture(
+        authed,
         json={
             "office_id": dubai,
             "department_id": dxb_dept.json()["id"],
@@ -211,8 +218,8 @@ async def test_edit_user_office_department_team_consistency(client: AsyncClient)
             "code": f"DT{tag[:6]}",
         },
     )
-    auh_team = await authed.post(
-        "/api/v1/teams",
+    auh_team = await create_team_fixture(
+        authed,
         json={
             "office_id": abu_dhabi,
             "department_id": auh_dept.json()["id"],
@@ -288,8 +295,8 @@ async def test_edit_user_does_not_silently_clear_department_or_team(client: Asyn
         json={"office_id": dubai, "name": f"Keep {tag}", "code": f"KP{tag[:6]}"},
     )
     assert dept.status_code == 200, dept.text
-    team = await authed.post(
-        "/api/v1/teams",
+    team = await create_team_fixture(
+        authed,
         json={
             "office_id": dubai,
             "department_id": dept.json()["id"],

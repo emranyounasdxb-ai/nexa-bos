@@ -10,11 +10,12 @@ from helpers import (
     business_today,
     create_activated_user,
     create_product_variant,
+    create_team_fixture,
     office_id,
     owner_client,
     spawned_client,
-    utc_today,
     unique_tag,
+    utc_today,
 )
 from httpx import AsyncClient
 from nexa_bos_api.identity.models import AuditEvent
@@ -390,8 +391,8 @@ async def test_cod_dashboard_is_office_scoped_operational_and_personal(
             },
         )
         assert department.status_code == 200, department.text
-        team = await authed.post(
-            "/api/v1/teams",
+        team = await create_team_fixture(
+            authed,
             json={
                 "office_id": office,
                 "department_id": department.json()["id"],

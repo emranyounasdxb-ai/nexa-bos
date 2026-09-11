@@ -5,7 +5,7 @@ import { brandedOptionValues, selectBrandedOption } from "./helpers/select";
 const apiOrigin = `http://127.0.0.1:${process.env.PLAYWRIGHT_API_PORT ?? "8010"}`;
 const secret = process.env.BOOTSTRAP_SECRET ?? "nexa-test-bootstrap-secret";
 
-type Ref = { id: string; code: string; name: string; status?: string; officeId?: string };
+type Ref = { id: string; code: string; name: string; status?: string; officeId?: string; businessUnitId?: string };
 type SeededMasters = {
   officeA: Ref;
   officeB: Ref;
@@ -62,6 +62,13 @@ async function createRef(
   path: string,
   data: Record<string, string>,
 ) {
+  if (path === "/api/v1/teams") {
+    const unit = await createRef(request, headers, "/api/v1/business-units", {
+      office_id: data.office_id, department_id: data.department_id,
+      name: `${data.name} Business Unit`, code: `BU${data.code}`,
+    });
+    data = { ...data, business_unit_id: unit.id };
+  }
   const response = await request.post(`${apiOrigin}${path}`, { headers, data });
   expect(response.ok(), await response.text()).toBeTruthy();
   return (await response.json()) as Ref;
@@ -250,4 +257,141 @@ test("Organization masters use readable mobile cards and a full-screen drawer wi
   await expect(drawer).toHaveCount(0);
   await expect(addTeam).toBeFocused();
   await expectNoPageOverflow(page);
+});
+
+for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
+  test(`Business Unit creation and history-preserving OWNER deletion ${viewport.width}`, async ({ page, request }, testInfo) => {
+    test.setTimeout(120_000);
+    const seeded = await seedMasters(request);
+    await page.setViewportSize(viewport);
+    await signIn(page);
+    await page.goto("/organization?tab=business-units");
+    const tabs = page.getByRole("tablist", { name: "Organization masters" });
+    await expect(tabs.getByRole("tab")).toHaveText(["Offices", "Departments", "Business Units", "Teams", "Designations"]);
+    const add = page.getByRole("button", { name: "Add business unit", exact: true });
+    await add.click();
+    const drawer = page.getByRole("dialog", { name: "Add business unit", exact: true });
+    const department = drawer.getByRole("combobox", { name: "Department", exact: true });
+    await expect(department).toBeDisabled();
+    await selectBrandedOption(drawer.getByRole("combobox", { name: "Office", exact: true }), seeded.officeA.id);
+    expect(await brandedOptionValues(department)).not.toContain(seeded.departmentB.id);
+    await selectBrandedOption(department, seeded.departmentA.id);
+    const code = `DELBU${Date.now().toString(16)}`.toUpperCase();
+    await drawer.getByRole("textbox", { name: "Business Unit name" }).fill("Disposable unused Business Unit");
+    await drawer.getByRole("textbox", { name: /Immutable code/ }).fill(code);
+    await drawer.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(drawer).toHaveCount(0);
+    await page.getByLabel("Search business units").fill(code);
+    const region = viewport.width === 390 ? page.getByTestId("organization-mobile-list") : page.locator("tbody");
+    const remove = region.getByRole("button", { name: /Delete/ });
+    await remove.click();
+    let dialog = page.getByRole("dialog", { name: "Delete organization master" });
+    await expect(dialog).toContainText(code);
+    await expect(dialog).toContainText("No usage dependencies found");
+    await page.keyboard.press("Escape");
+    await expect(dialog).toHaveCount(0);
+    await expect(remove).toBeFocused();
+    await remove.click();
+    dialog = page.getByRole("dialog", { name: "Delete organization master" });
+    await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+    await expect(remove).toBeFocused();
+    await remove.click();
+    dialog = page.getByRole("dialog", { name: "Delete organization master" });
+    await expect(dialog.getByRole("button", { name: "Delete", exact: true })).toBeDisabled();
+    await dialog.getByLabel("Deletion reason").fill("Unused disposable fixture");
+    await dialog.getByLabel("Type DELETE to confirm").fill("delete");
+    await expect(dialog.getByRole("button", { name: "Delete", exact: true })).toBeDisabled();
+    await dialog.getByLabel("Type DELETE to confirm").fill("DELETE");
+    await expect(dialog.getByRole("button", { name: "Delete", exact: true })).toBeEnabled();
+    await dialog.getByRole("button", { name: "Delete", exact: true }).focus();
+    await page.keyboard.press("Tab");
+    await expect(dialog.getByRole("button", { name: "Close delete dialog" })).toBeFocused();
+    await page.keyboard.press("Shift+Tab");
+    await expect(dialog.getByRole("button", { name: "Delete", exact: true })).toBeFocused();
+    await expectNoPageOverflow(page);
+    await page.screenshot({ path: testInfo.outputPath(`org-delete-${viewport.width}.png`), fullPage: false });
+    await dialog.getByRole("button", { name: "Delete", exact: true }).click();
+    await expect(dialog).toHaveCount(0);
+    await expect(region.getByRole("button", { name: /Delete/ })).toHaveCount(0);
+    await expect(tabs.getByRole("tab", { name: "Business Units" })).toBeFocused();
+    await page.getByLabel("Search business units").fill("");
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.screenshot({ path: testInfo.outputPath(`org-business-units-${viewport.width}.png`), fullPage: false });
+    await expectNoPageOverflow(page);
+    await page.getByLabel("Search business units").fill(`BU${seeded.teamA.code}`);
+    const usedRemove = region.getByRole("button", { name: /Delete/ });
+    await usedRemove.click();
+    dialog = page.getByRole("dialog", { name: "Delete organization master" });
+    await expect(dialog).toContainText("Deletion is blocked by:");
+    await expect(dialog).toContainText("teams:");
+    await expect(dialog.getByRole("button", { name: "Delete", exact: true })).toBeDisabled();
+    await dialog.getByRole("button", { name: "Close delete dialog" }).click();
+    await expect(usedRemove).toBeFocused();
+
+    await tabs.getByRole("tab", { name: "Teams", exact: true }).click();
+    await page.getByRole("button", { name: "Add team", exact: true }).click();
+    const teamDrawer = page.getByRole("dialog", { name: "Add team", exact: true });
+    const unitSelect = teamDrawer.getByRole("combobox", { name: "Business Unit", exact: true });
+    await expect(unitSelect).toBeDisabled();
+    await selectBrandedOption(teamDrawer.getByRole("combobox", { name: "Office", exact: true }), seeded.officeA.id);
+    await selectBrandedOption(teamDrawer.getByRole("combobox", { name: "Department", exact: true }), seeded.departmentA.id);
+    expect(seeded.teamA.businessUnitId).toBeTruthy();
+    expect(await brandedOptionValues(unitSelect)).toEqual(["", seeded.teamA.businessUnitId]);
+    await selectBrandedOption(unitSelect, seeded.teamA.businessUnitId!);
+    await teamDrawer.getByRole("textbox", { name: "Team name" }).fill("Explicit Business Unit team");
+    const teamCode = `TEAM${Date.now().toString(16)}`.toUpperCase();
+    await teamDrawer.getByRole("textbox", { name: /Immutable code/ }).fill(teamCode);
+    const createdTeam = page.waitForResponse((response) => response.url().endsWith("/api/v1/teams") && response.request().method() === "POST");
+    await teamDrawer.getByRole("button", { name: "Save", exact: true }).click();
+    const teamResponse = await createdTeam;
+    expect(teamResponse.status()).toBe(200);
+    expect((await teamResponse.json()).businessUnitId).toBe(seeded.teamA.businessUnitId);
+    await expect(teamDrawer).toHaveCount(0);
+    await page.getByLabel("Search teams").fill(teamCode);
+    await expect(region).toContainText("Explicit Business Unit team");
+    await expectNoPageOverflow(page);
+  });
+}
+
+test("GM cannot see or call OWNER-only organization deletion", async ({ page, request }) => {
+  const headers = await ownerHeaders(request);
+  const tag = Date.now().toString(16);
+  const types = (await (await request.get(`${apiOrigin}/api/v1/user-types`)).json()).items as Ref[];
+  // Give this disposable GM actual master-management permissions: hiding Delete
+  // must be an OWNER identity boundary, not merely a missing edit permission.
+  const gm = types.find((row) => row.code === "GM")!;
+  const configured = await request.put(`${apiOrigin}/api/v1/user-types/${gm.id}/permissions`, {
+    headers, data: { permissions: ["Dashboard.View", "Offices.Manage", "Departments.Manage", "Teams.Manage", "Designations.Manage"] },
+  });
+  expect(configured.ok(), await configured.text()).toBeTruthy();
+  const designations = (await (await request.get(`${apiOrigin}/api/v1/designations`)).json()).items as Ref[];
+  const response = await request.post(`${apiOrigin}/api/v1/users`, { headers, data: {
+    full_name: `Deletion GM ${tag}`, employee_code: `DGM${tag}`, email: `delete-gm-${tag}@example.com`,
+    mobile: "+971500000039", designation_id: designations[0].id,
+    employment_status: "Active", joining_date: "2026-01-01",
+  } });
+  expect(response.ok(), await response.text()).toBeTruthy();
+  const actor = await response.json() as { id: string; email: string };
+  expect((await request.post(`${apiOrigin}/api/v1/users/${actor.id}/assign-type`, { headers, data: { user_type_id: types.find((row) => row.code === "GM")!.id } })).ok()).toBeTruthy();
+  expect((await request.post(`${apiOrigin}/api/v1/users/${actor.id}/activate`, { headers })).ok()).toBeTruthy();
+  const setup = await request.post(`${apiOrigin}/api/v1/auth/users/${actor.id}/setup-link`, { headers });
+  expect(setup.ok()).toBeTruthy();
+  const installed = await request.post(`${apiOrigin}/api/v1/auth/setup`, { data: { token: (await setup.json()).token, password: "DisposableTestPass1!" } });
+  expect(installed.ok()).toBeTruthy();
+  await page.goto("/login");
+  await page.getByLabel("Email").fill(actor.email);
+  await page.getByLabel("Password").fill("DisposableTestPass1!");
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await expect(page.getByRole("heading", { name: "Dashboard", exact: true })).toBeVisible();
+  const offices = (await (await page.request.get(`${apiOrigin}/api/v1/offices`)).json()).items as Ref[];
+  const forbidden = await page.request.get(`${apiOrigin}/api/v1/offices/${offices[0].id}/deletion-preview`);
+  expect(forbidden.status()).toBe(403);
+  expect((await forbidden.json()).error.code).toBe("OWNER_REQUIRED");
+  for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
+    await page.setViewportSize(viewport);
+    await page.goto("/organization");
+    await expect(page.getByRole("heading", { name: "Organization masters", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: /^Delete/ })).toHaveCount(0);
+    await expectNoPageOverflow(page);
+  }
 });

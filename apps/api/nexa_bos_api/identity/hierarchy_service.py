@@ -11,7 +11,7 @@ from sqlalchemy.orm import selectinload
 from nexa_bos_api.core.exceptions import AppError
 from nexa_bos_api.identity.access import visibility_scope, visible_user_ids
 from nexa_bos_api.identity.enums import EmploymentStatus, MasterStatus, VisibilityScope
-from nexa_bos_api.identity.models import Department, Office, Team, User
+from nexa_bos_api.identity.models import BusinessUnit, Department, Office, Team, User
 
 CURRENT_EMPLOYMENT_STATUSES = {
     EmploymentStatus.ACTIVE.value,
@@ -20,19 +20,21 @@ CURRENT_EMPLOYMENT_STATUSES = {
 }
 
 
-def _ref(row: Office | Department | Team | None) -> dict[str, str] | None:
+def _ref(row: Office | Department | BusinessUnit | Team | None) -> dict[str, str] | None:
     if row is None:
         return None
     return {"id": str(row.id), "code": row.code, "name": row.name}
 
 
-def _master_ref(row: Office | Department | Team) -> dict[str, str]:
-    result = {"id": str(row.id), "code": row.code, "name": row.name}
+def _master_ref(row: Office | Department | BusinessUnit | Team) -> dict[str, str | None]:
+    result: dict[str, str | None] = {"id": str(row.id), "code": row.code, "name": row.name}
     if isinstance(row, Department):
         result["officeId"] = str(row.office_id)
-    if isinstance(row, Team):
+    if isinstance(row, (Team, BusinessUnit)):
         result["officeId"] = str(row.office_id)
         result["departmentId"] = str(row.department_id)
+    if isinstance(row, Team):
+        result["businessUnitId"] = str(row.business_unit_id) if row.business_unit_id else None
     return result
 
 
@@ -147,6 +149,7 @@ def _node_payload(
         "userType": user_type,
         "office": _ref(user.office),
         "department": _ref(user.department),
+        "businessUnit": _ref(user.business_unit),
         "team": _ref(user.team),
         "reportingManagerId": str(parent_id) if parent_id else None,
         "employmentStatus": user.employment_status,
@@ -165,11 +168,13 @@ async def organization_hierarchy(
     include_inactive: bool,
     query: str | None,
     selected_user_id: UUID | None,
+    business_unit_id: UUID | None = None,
 ) -> dict[str, Any]:
     stmt = select(User).options(
         selectinload(User.user_type),
         selectinload(User.office),
         selectinload(User.department),
+        selectinload(User.business_unit),
         selectinload(User.team),
         selectinload(User.designation),
     )
@@ -186,6 +191,26 @@ async def organization_hierarchy(
         office_id=office_id,
         department_id=department_id,
     )
+    unit_query = (
+        select(BusinessUnit)
+        .where(BusinessUnit.status == MasterStatus.ACTIVE)
+        .order_by(BusinessUnit.name)
+    )
+    if visibility_scope(actor) is not VisibilityScope.COMPANY:
+        unit_query = unit_query.where(
+            BusinessUnit.id.in_(
+                {user.business_unit_id for user in visible_users if user.business_unit_id}
+            )
+        )
+    if office_id:
+        unit_query = unit_query.where(BusinessUnit.office_id == office_id)
+    if department_id:
+        unit_query = unit_query.where(BusinessUnit.department_id == department_id)
+    units = list(await session.scalars(unit_query))
+    if business_unit_id is not None:
+        if business_unit_id not in {unit.id for unit in units}:
+            raise _filter_not_found()
+        teams = [team for team in teams if team.business_unit_id == business_unit_id]
     team_options = {row.id for row in teams}
     if team_id is not None and team_id not in team_options:
         raise _filter_not_found()
@@ -196,6 +221,7 @@ async def organization_hierarchy(
         if (include_inactive or user.employment_status in CURRENT_EMPLOYMENT_STATUSES)
         and (office_id is None or user.office_id == office_id)
         and (department_id is None or user.department_id == department_id)
+        and (business_unit_id is None or user.business_unit_id == business_unit_id)
         and (team_id is None or user.team_id == team_id)
     ]
     base_ids = {user.id for user in candidates}
@@ -271,6 +297,7 @@ async def organization_hierarchy(
         "filters": {
             "offices": [_master_ref(row) for row in offices],
             "departments": [_master_ref(row) for row in departments],
+            "businessUnits": [_master_ref(row) for row in units],
             "teams": [_master_ref(row) for row in teams],
         },
         "nodes": nodes,

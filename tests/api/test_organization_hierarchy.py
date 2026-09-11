@@ -5,6 +5,7 @@ from uuid import UUID
 import pytest
 from helpers import (
     create_activated_user,
+    create_team_fixture,
     office_id,
     owner_client,
     unique_tag,
@@ -30,8 +31,8 @@ async def _department_team(
         },
     )
     assert department.status_code == 200, department.text
-    team = await client.post(
-        "/api/v1/teams",
+    team = await create_team_fixture(
+        client,
         json={
             "office_id": office,
             "department_id": department.json()["id"],

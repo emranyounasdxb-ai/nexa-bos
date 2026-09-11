@@ -5,7 +5,6 @@ from datetime import UTC, date, datetime
 from uuid import uuid4
 
 from httpx import ASGITransport, AsyncClient
-
 from nexa_bos_api.attendance.enums import BUSINESS_TZ
 from nexa_bos_api.main import app
 
@@ -22,6 +21,25 @@ def utc_today() -> date:
 def business_today() -> date:
     """Return the UAE business date used by attendance and target snapshots."""
     return datetime.now(BUSINESS_TZ).date()
+
+
+async def create_team_fixture(client: AsyncClient, *, json: dict):
+    """Create the explicit Business Unit now required for a synthetic Team.
+
+    Tests of invalid/missing Business Unit input call the Team endpoint directly.
+    Existing team/user/workflow assertions are preserved.
+    """
+    unit = await client.post(
+        "/api/v1/business-units",
+        json={
+            "office_id": json["office_id"],
+            "department_id": json["department_id"],
+            "name": "Synthetic Business Unit",
+            "code": f"BU{unique_tag()}",
+        },
+    )
+    assert unit.status_code == 200, unit.text
+    return await client.post("/api/v1/teams", json={**json, "business_unit_id": unit.json()["id"]})
 
 
 async def ensure_owner(client: AsyncClient) -> None:

@@ -101,7 +101,7 @@ async def test_approval_migration_preserves_existing_permissions_and_records(cod
                 table: await connection.scalar(text(f"SELECT count(*) FROM {table}"))
                 for table in before
             }
-        assert "0026_terminate_sessions (head)" in _alembic(url, "current")
+        assert "0027_org_business_units (head)" in _alembic(url, "current")
         assert "No new upgrade operations detected" in _alembic(url, "check")
     finally:
         await engine.dispose()

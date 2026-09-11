@@ -10,11 +10,12 @@ from helpers import (
     business_today,
     create_activated_user,
     create_product_variant,
+    create_team_fixture,
     office_id,
     owner_client,
     spawned_client,
-    utc_today,
     unique_tag,
+    utc_today,
 )
 from httpx import AsyncClient
 from nexa_bos_api.identity.models import AuditEvent
@@ -222,8 +223,8 @@ async def _team(authed: AsyncClient, office: str) -> dict:
         json={"name": f"Dept {tag}", "code": f"D{tag}", "office_id": office},
     )
     assert dept.status_code == 200, dept.text
-    team = await authed.post(
-        "/api/v1/teams",
+    team = await create_team_fixture(
+        authed,
         json={
             "office_id": office,
             "department_id": dept.json()["id"],
