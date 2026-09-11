@@ -19,6 +19,7 @@ from nexa_bos_api.finance import models as _finance_models  # noqa: F401
 from nexa_bos_api.identity import models as _identity_models  # noqa: F401
 from nexa_bos_api.leave import models as _leave_models  # noqa: F401
 from nexa_bos_api.notifications import models as _notification_models  # noqa: F401
+from nexa_bos_api.offboarding import models as _exit_models  # noqa: F401
 from nexa_bos_api.targets import models as _target_models  # noqa: F401
 from nexa_bos_api.transfers import models as _transfer_models  # noqa: F401
 from sqlalchemy import pool

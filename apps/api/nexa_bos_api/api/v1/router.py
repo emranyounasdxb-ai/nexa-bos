@@ -17,6 +17,7 @@ from nexa_bos_api.employee_profiles.api import router as employee_profiles_route
 from nexa_bos_api.finance.api import router as finance_router
 from nexa_bos_api.leave.api import router as leave_router
 from nexa_bos_api.notifications.api import router as notifications_router
+from nexa_bos_api.offboarding.api import router as exits_router
 from nexa_bos_api.reporting.api import router as reports_router
 from nexa_bos_api.targets.api import router as targets_router
 from nexa_bos_api.transfers.api import router as transfers_router
@@ -40,5 +41,6 @@ api_v1_router.include_router(finance_router)
 api_v1_router.include_router(leave_router)
 api_v1_router.include_router(contracts_router)
 api_v1_router.include_router(transfers_router)
+api_v1_router.include_router(exits_router)
 api_v1_router.include_router(notifications_router)
 api_v1_router.include_router(assets_router)

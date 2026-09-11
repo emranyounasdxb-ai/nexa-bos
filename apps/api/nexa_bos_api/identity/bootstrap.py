@@ -32,6 +32,7 @@ from nexa_bos_api.identity.permissions import (
     ALL_PERMISSION_CODES,
     PERMISSION_CATALOG,
     SYSTEM_CONTRACT_PERMISSION_DEFAULTS,
+    SYSTEM_EXIT_PERMISSION_DEFAULTS,
     SYSTEM_LEAVE_PERMISSION_DEFAULTS,
     SYSTEM_PROFILE_PERMISSION_DEFAULTS,
     SYSTEM_TRANSFER_PERMISSION_DEFAULTS,
@@ -125,12 +126,14 @@ async def _seed_user_types(session: AsyncSession) -> None:
                 + SYSTEM_LEAVE_PERMISSION_DEFAULTS.get(code, ())
                 + SYSTEM_CONTRACT_PERMISSION_DEFAULTS.get(code, ())
                 + SYSTEM_TRANSFER_PERMISSION_DEFAULTS.get(code, ())
+                + SYSTEM_EXIT_PERMISSION_DEFAULTS.get(code, ())
             )
         )
         for code in SYSTEM_PROFILE_PERMISSION_DEFAULTS.keys()
         | SYSTEM_LEAVE_PERMISSION_DEFAULTS.keys()
         | SYSTEM_CONTRACT_PERMISSION_DEFAULTS.keys()
         | SYSTEM_TRANSFER_PERMISSION_DEFAULTS.keys()
+        | SYSTEM_EXIT_PERMISSION_DEFAULTS.keys()
     }
     for code, permissions in system_defaults.items():
         user_type = by_code.get(code)

@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from datetime import UTC, datetime
 from uuid import uuid4
 
@@ -10,16 +8,18 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from test_contract_migration import _alembic, _drop_database, _new_database
 
 PERMISSIONS = {
-    "Transfers.ViewOwn",
-    "Transfers.View",
-    "Transfers.Create",
-    "Transfers.Recommend",
-    "Transfers.Edit",
-    "Transfers.Review",
-    "Transfers.Approve",
-    "Transfers.ReturnReject",
-    "Transfers.Cancel",
-    "Transfers.History",
+    "Exits.ViewOwn",
+    "Exits.View",
+    "Exits.Request",
+    "Exits.Create",
+    "Exits.Edit",
+    "Exits.Progress",
+    "Exits.Assign",
+    "Exits.Clearance",
+    "Exits.Approve",
+    "Exits.ReturnReject",
+    "Exits.Cancel",
+    "Exits.History",
 }
 
 
@@ -27,11 +27,11 @@ PERMISSIONS = {
 @pytest.mark.parametrize(
     "codes", [("OWNER", "HR", "PRO", "TL", "SE", "UX00000001"), ("OWNER",), ("HR", "PRO"), ()]
 )
-async def test_transfer_production_shaped_upgrade_preserves_grants(codes):
-    database, url = await _new_database("transfer")
+async def test_exit_production_shaped_upgrade_preserves_grants(codes):
+    database, url = await _new_database("exit")
     engine = create_async_engine(url)
     try:
-        guard = validate_test_database_url(url)
+        target = validate_test_database_url(url)
         async with engine.connect() as connection:
             identity = (
                 await connection.execute(
@@ -42,10 +42,13 @@ async def test_transfer_production_shaped_upgrade_preserves_grants(codes):
                 )
             ).one()
             assert (
-                identity[0] == database and identity[2] == 5432 and identity[3].startswith("18.6")
+                identity[0] == database
+                and identity[1] == target.host
+                and identity[2] == target.port
+                and identity[3].startswith("18.6")
             )
-            print(f"Guard PASS: host={guard.host} port={guard.port} database={guard.database}")
-        _alembic(url, "upgrade", "0021_contract_register")
+            print(f"Guard PASS: host={target.host} port={target.port} database={target.database}")
+        _alembic(url, "upgrade", "0022_employee_transfers")
         ids = {code: uuid4() for code in codes}
         overlap = uuid4()
         async with engine.begin() as connection:
@@ -62,54 +65,54 @@ async def test_transfer_production_shaped_upgrade_preserves_grants(codes):
                 await connection.execute(
                     text(
                         "INSERT INTO permissions (code, description) "
-                        "VALUES ('Transfers.ViewOwn', 'Overlap')"
+                        "VALUES ('Exits.ViewOwn','Overlap')"
                     )
                 )
                 await connection.execute(
                     text(
-                        "INSERT INTO user_type_permissions (id, user_type_id, permission_code) "
-                        "VALUES (:id, :role, 'Transfers.ViewOwn')"
+                        "INSERT INTO user_type_permissions (id,user_type_id,permission_code) "
+                        "VALUES (:id,:role,'Exits.ViewOwn')"
                     ),
                     {"id": overlap, "role": ids["OWNER"]},
                 )
-        _alembic(url, "upgrade", "0022_employee_transfers")
+        _alembic(url, "upgrade", "head")
         _alembic(url, "upgrade", "head")
         async with engine.connect() as connection:
             rows = (
                 await connection.execute(
                     text(
-                        "SELECT id, user_type_id, permission_code FROM user_type_permissions "
-                        "WHERE permission_code LIKE 'Transfers.%'"
+                        "SELECT id,user_type_id,permission_code FROM user_type_permissions "
+                        "WHERE permission_code LIKE 'Exits.%'"
                     )
                 )
             ).all()
-            assert len({r.id for r in rows}) == len(rows)
-            assert len({(r.user_type_id, r.permission_code) for r in rows}) == len(rows)
-            assert all(r.id is not None for r in rows)
+            assert all(row.id is not None for row in rows)
+            assert len({row.id for row in rows}) == len(rows)
+            assert len({(row.user_type_id, row.permission_code) for row in rows}) == len(rows)
             for code, role_id in ids.items():
                 expected = (
                     PERMISSIONS
                     if code == "OWNER"
-                    else PERMISSIONS - {"Transfers.Approve", "Transfers.Recommend"}
+                    else PERMISSIONS - {"Exits.Approve"}
                     if code == "HR"
-                    else {"Transfers.ViewOwn", "Transfers.Recommend", "Transfers.History"}
-                    if code == "TL"
-                    else {"Transfers.ViewOwn"}
-                    if code == "SE"
+                    else {"Exits.ViewOwn", "Exits.Request", "Exits.Clearance"}
+                    if code in {"TL", "SE"}
                     else set()
                 )
-                assert {r.permission_code for r in rows if r.user_type_id == role_id} == expected
+                assert {
+                    row.permission_code for row in rows if row.user_type_id == role_id
+                } == expected
             if "OWNER" in ids:
                 assert (
                     next(
-                        r.id
-                        for r in rows
-                        if r.user_type_id == ids["OWNER"]
-                        and r.permission_code == "Transfers.ViewOwn"
+                        row.id
+                        for row in rows
+                        if row.user_type_id == ids["OWNER"]
+                        and row.permission_code == "Exits.ViewOwn"
                     )
                     == overlap
                 )
-            assert await connection.scalar(text("SELECT count(*) FROM employee_transfers")) == 0
+            assert await connection.scalar(text("SELECT count(*) FROM employee_exits")) == 0
         assert "0023_exit_offboarding (head)" in _alembic(url, "current")
         assert "No new upgrade operations detected" in _alembic(url, "check")
     finally:
