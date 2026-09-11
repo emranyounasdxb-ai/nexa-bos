@@ -1,4 +1,6 @@
+import os
 from datetime import UTC, datetime
+from ipaddress import ip_address
 from uuid import uuid4
 
 import pytest
@@ -23,6 +25,28 @@ PERMISSIONS = {
 }
 
 
+def assert_server_identity(identity, database, expected_server):
+    # DATABASE_URL describes the client endpoint, which may be a forwarded port.
+    # Compare server identity to the independently inspected disposable container.
+    ip_address(expected_server)
+    assert identity[:3] == (database, expected_server, 5432)
+    assert identity[3].startswith("18.6")
+
+
+@pytest.mark.parametrize(
+    "identity",
+    [
+        ("wrong_test_database", "172.17.0.2", 5432, "18.6"),
+        ("nexa_bos_test_identity", "172.17.0.3", 5432, "18.6"),
+        ("nexa_bos_test_identity", "172.17.0.2", 15432, "18.6"),
+        ("nexa_bos_test_identity", "172.17.0.2", 5432, "18.5"),
+    ],
+)
+def test_exit_migration_rejects_incorrect_server_identity(identity):
+    with pytest.raises(AssertionError):
+        assert_server_identity(identity, "nexa_bos_test_identity", "172.17.0.2")
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "codes", [("OWNER", "HR", "PRO", "TL", "SE", "UX00000001"), ("OWNER",), ("HR", "PRO"), ()]
@@ -41,12 +65,7 @@ async def test_exit_production_shaped_upgrade_preserves_grants(codes):
                     )
                 )
             ).one()
-            assert (
-                identity[0] == database
-                and identity[1] == target.host
-                and identity[2] == target.port
-                and identity[3].startswith("18.6")
-            )
+            assert_server_identity(identity, database, os.environ["VERIFIED_TEST_SERVER"])
             print(f"Guard PASS: host={target.host} port={target.port} database={target.database}")
         _alembic(url, "upgrade", "0022_employee_transfers")
         ids = {code: uuid4() for code in codes}
