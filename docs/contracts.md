@@ -17,6 +17,13 @@ the Asia/Dubai business calendar. The stored lifecycle remains Active until a la
 workflow changes it. The reminder API returns active contracts at the 90, 60, 30, and 7-day
 milestones.
 
+Renewal activation flushes the previous contract's Superseded transition before marking the
+replacement Active, within one transaction. PostgreSQL's partial unique index is checked per
+statement: relying on ORM update ordering made activation intermittently fail when the replacement
+UUID sorted before the previous contract. A later failure rolls back both records and their events.
+The regression exercises both UUID orders, concurrent submissions, stale-version rejection, and
+a real database constraint failure after the first flush to verify rollback.
+
 ## Authorization and evidence
 
 `Contracts.ViewOwn` permits an employee to view and download only their own unexpired active

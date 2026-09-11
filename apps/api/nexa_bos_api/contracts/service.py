@@ -497,6 +497,16 @@ async def activate_contract(
         session.add(
             _event(previous, actor, "supersede", ContractStatus.SUPERSEDED, comment=payload.comment)
         )
+        try:
+            # Satisfy the partial one-active-contract index before the replacement
+            # is marked Active. Both writes remain in this transaction and roll back
+            # together if activation cannot complete.
+            await session.flush()
+        except (StaleDataError, IntegrityError) as exc:
+            await session.rollback()
+            raise AppError(
+                status_code=409, code="CONTRACT_CONFLICT", message="Reload latest contract"
+            ) from exc
     row.activated_at = _now()
     session.add(_event(row, actor, "activate", ContractStatus.ACTIVE, comment=payload.comment))
     await record_audit(

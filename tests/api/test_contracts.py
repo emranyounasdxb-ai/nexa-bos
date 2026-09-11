@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from datetime import timedelta
+from uuid import UUID, uuid4
 
 import pytest
 from helpers import (
@@ -13,6 +14,9 @@ from helpers import (
     unique_tag,
 )
 from httpx import AsyncClient
+from nexa_bos_api.contracts import service as contract_service
+from nexa_bos_api.main import app
+from sqlalchemy import text
 
 
 async def _contract_type(client: AsyncClient) -> dict:
@@ -95,13 +99,9 @@ async def test_contract_permissions_activation_private_access_and_history(
         assert created["history"][-1]["action"] == "create"
 
         assert (await employee_client.get("/api/v1/contracts")).status_code == 403
-        assert (
-            await outsider_client.get(f"/api/v1/contracts/{created['id']}")
-        ).status_code == 404
+        assert (await outsider_client.get(f"/api/v1/contracts/{created['id']}")).status_code == 404
         assert (await pro_client.get("/api/v1/contracts/types")).status_code == 403
-        assert (
-            await pro_client.get(f"/api/v1/contracts/{created['id']}")
-        ).status_code == 403
+        assert (await pro_client.get(f"/api/v1/contracts/{created['id']}")).status_code == 403
 
         invalid = await hr_client.post(
             f"/api/v1/contracts/{created['id']}/attachment",
@@ -177,8 +177,11 @@ async def test_contract_permissions_activation_private_access_and_history(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("renewal_sorts_first", [True, False])
 async def test_contract_renewal_supersedes_once_and_concurrency_is_fail_closed(
     client: AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+    renewal_sorts_first: bool,
 ) -> None:
     owner, _ = await owner_client(client)
     contract_type = await _contract_type(owner)
@@ -187,15 +190,23 @@ async def test_contract_renewal_supersedes_once_and_concurrency_is_fail_closed(
     other_hr = await create_activated_user(owner, user_type_code="HR")
     hr_client = await spawned_client()
     other_hr_client = await spawned_client()
+    # Exercise both unit-of-work UPDATE orders with real PostgreSQL transactions.
+    suffix = uuid4().hex[1:]
+    lower_id = UUID("1" + suffix)
+    higher_id = UUID("e" + suffix)
+    first_id, renewal_id = (higher_id, lower_id) if renewal_sorts_first else (lower_id, higher_id)
     try:
         await authenticate(hr_client, hr["email"], "UserPass1!")
         await authenticate(other_hr_client, other_hr["email"], "UserPass1!")
-        first = await _create_contract(
-            hr_client,
-            employee_id=employee["id"],
-            type_id=contract_type["id"],
-            number=f"CON-{unique_tag().upper()}",
-        )
+        with monkeypatch.context() as ids:
+            generated_ids = iter((first_id, uuid4()))
+            ids.setattr(contract_service, "new_uuid", lambda: next(generated_ids))
+            first = await _create_contract(
+                hr_client,
+                employee_id=employee["id"],
+                type_id=contract_type["id"],
+                number=f"CON-{unique_tag().upper()}",
+            )
         submitted_first = (
             await hr_client.post(
                 f"/api/v1/contracts/{first['id']}/submit",
@@ -210,13 +221,16 @@ async def test_contract_renewal_supersedes_once_and_concurrency_is_fail_closed(
             )
         ).json()
 
-        renewal = await _create_contract(
-            hr_client,
-            employee_id=employee["id"],
-            type_id=contract_type["id"],
-            number=f"CON-{unique_tag().upper()}",
-            parent_id=active_first["id"],
-        )
+        with monkeypatch.context() as ids:
+            generated_ids = iter((renewal_id, uuid4()))
+            ids.setattr(contract_service, "new_uuid", lambda: next(generated_ids))
+            renewal = await _create_contract(
+                hr_client,
+                employee_id=employee["id"],
+                type_id=contract_type["id"],
+                number=f"CON-{unique_tag().upper()}",
+                parent_id=active_first["id"],
+            )
         concurrent = await asyncio.gather(
             hr_client.post(
                 f"/api/v1/contracts/{renewal['id']}/submit",
@@ -228,17 +242,45 @@ async def test_contract_renewal_supersedes_once_and_concurrency_is_fail_closed(
             ),
         )
         assert sorted(response.status_code for response in concurrent) == [200, 409]
-        pending = next(
-            response.json() for response in concurrent if response.status_code == 200
-        )
+        pending = next(response.json() for response in concurrent if response.status_code == 200)
         await _signed_attachment(hr_client, renewal["id"])
         current = (await owner.get(f"/api/v1/contracts/{renewal['id']}")).json()
-        if current["lockVersion"] != pending["lockVersion"]:
-            stale = await owner.post(
-                f"/api/v1/contracts/{renewal['id']}/activate",
-                json={"lock_version": pending["lockVersion"]},
+        assert current["lockVersion"] == pending["lockVersion"]
+        assert current["storedStatus"] == "Pending Approval"
+        stale = await owner.post(
+            f"/api/v1/contracts/{renewal['id']}/activate",
+            json={"lock_version": renewal["lockVersion"]},
+        )
+        assert stale.status_code == 409
+        # A real database rejection after superseding must roll back the old row
+        # and its event together with the attempted replacement activation.
+        constraint = f"test_contract_activation_{uuid4().hex}"
+        async with app.state.engine.begin() as connection:
+            await connection.execute(
+                text(
+                    f'ALTER TABLE employment_contracts ADD CONSTRAINT "{constraint}" '
+                    f"CHECK (id <> '{renewal_id}' OR status <> 'Active') NOT VALID"
+                )
             )
-            assert stale.status_code == 409
+        try:
+            rejected = await owner.post(
+                f"/api/v1/contracts/{renewal['id']}/activate",
+                json={"lock_version": current["lockVersion"]},
+            )
+            assert rejected.status_code == 409, rejected.text
+            retained = (await owner.get(f"/api/v1/contracts/{first['id']}")).json()
+            assert retained["storedStatus"] == "Active"
+            assert retained["lockVersion"] == active_first["lockVersion"]
+            assert not any(event["action"] == "supersede" for event in retained["history"])
+            unchanged = (await owner.get(f"/api/v1/contracts/{renewal['id']}")).json()
+            assert unchanged["storedStatus"] == "Pending Approval"
+            assert unchanged["lockVersion"] == current["lockVersion"]
+            assert not any(event["action"] == "activate" for event in unchanged["history"])
+        finally:
+            async with app.state.engine.begin() as connection:
+                await connection.execute(
+                    text(f'ALTER TABLE employment_contracts DROP CONSTRAINT "{constraint}"')
+                )
         activated = await owner.post(
             f"/api/v1/contracts/{renewal['id']}/activate",
             json={"lock_version": current["lockVersion"]},
@@ -249,6 +291,8 @@ async def test_contract_renewal_supersedes_once_and_concurrency_is_fail_closed(
         assert previous.status_code == 200
         assert previous.json()["storedStatus"] == "Superseded"
         assert previous.json()["contractNumber"] == active_first["contractNumber"]
+        assert sum(event["action"] == "supersede" for event in previous.json()["history"]) == 1
+        assert sum(event["action"] == "activate" for event in activated.json()["history"]) == 1
 
         register = (await owner.get("/api/v1/contracts")).json()["items"]
         active_rows = [
