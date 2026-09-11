@@ -12,22 +12,20 @@ from sqlalchemy import text
 from sqlalchemy.engine import URL, make_url
 from sqlalchemy.ext.asyncio import create_async_engine
 
-_REV_0019 = "0019_employee_profiles"
 _REV_0020 = "0020_leave_management"
-_HEAD_REVISION = "0021_contract_register"
-_LEAVE_PERMISSIONS = {
-    "Leave.View",
-    "Leave.Request",
-    "Leave.CreateForEmployee",
-    "Leave.Edit",
-    "Leave.ApproveManager",
-    "Leave.ApproveHR",
-    "Leave.ReturnReject",
-    "Leave.Cancel",
-    "Leave.History",
-    "Leave.Settings",
-    "Leave.Override",
+_REV_0021 = "0021_contract_register"
+_CONTRACT_PERMISSIONS = {
+    "Contracts.ViewOwn",
+    "Contracts.View",
+    "Contracts.Create",
+    "Contracts.Edit",
+    "Contracts.Approve",
+    "Contracts.ReturnReject",
+    "Contracts.Cancel",
+    "Contracts.History",
+    "Contracts.Settings",
 }
+_HR_PERMISSIONS = _CONTRACT_PERMISSIONS - {"Contracts.Approve"}
 
 
 def _database_url() -> str:
@@ -67,7 +65,7 @@ async def _admin(statement: str) -> None:
 
 
 async def _new_database(prefix: str) -> tuple[str, str]:
-    database = f"nexa_bos_test_leave_{prefix}_{uuid4().hex[:10]}"
+    database = f"nexa_bos_test_contract_{prefix}_{uuid4().hex[:10]}"
     await _admin(f'CREATE DATABASE "{database}"')
     return database, _render_url(make_url(_database_url()).set(database=database))
 
@@ -97,8 +95,7 @@ async def _seed_roles(
                             created_at, updated_at
                         ) VALUES (
                             :id, :code, :name, NULL, true, 'active',
-                            'own', 'own', 'own', 'own',
-                            false, false, false, :now, :now
+                            'own', 'own', 'own', 'own', false, false, false, :now, :now
                         )
                         """
                     ),
@@ -108,14 +105,14 @@ async def _seed_roles(
                 await connection.execute(
                     text(
                         "INSERT INTO permissions (code, description) "
-                        "VALUES ('Leave.View', 'Existing overlap')"
+                        "VALUES ('Contracts.ViewOwn', 'Existing overlap')"
                     )
                 )
                 await connection.execute(
                     text(
                         "INSERT INTO user_type_permissions "
                         "(id, user_type_id, permission_code) "
-                        "VALUES (:id, :role_id, 'Leave.View')"
+                        "VALUES (:id, :role_id, 'Contracts.ViewOwn')"
                     ),
                     {"id": overlap_id, "role_id": role_ids["OWNER"]},
                 )
@@ -125,12 +122,10 @@ async def _seed_roles(
 
 
 @pytest.mark.asyncio
-async def test_0020_production_shaped_upgrade_is_idempotent_and_preserves_assignments() -> (
-    None
-):
+async def test_0021_production_shaped_upgrade_preserves_existing_assignments() -> None:
     database, url = await _new_database("roles")
     try:
-        _alembic(url, "upgrade", _REV_0019)
+        _alembic(url, "upgrade", _REV_0020)
         roles, overlap_id = await _seed_roles(
             url,
             (
@@ -148,70 +143,60 @@ async def test_0020_production_shaped_upgrade_is_idempotent_and_preserves_assign
                 "AUDITOR",
             ),
         )
-        _alembic(url, "upgrade", _REV_0020)
+        _alembic(url, "upgrade", _REV_0021)
         engine = create_async_engine(url)
         try:
             async with engine.connect() as connection:
                 revision = await connection.scalar(
                     text("SELECT version_num FROM alembic_version")
                 )
-                assignments = (
+                rows = (
                     await connection.execute(
                         text(
-                            "SELECT id, user_type_id, permission_code "
-                            "FROM user_type_permissions "
-                            "WHERE permission_code LIKE 'Leave.%'"
+                            "SELECT id, user_type_id, permission_code FROM user_type_permissions "
+                            "WHERE permission_code LIKE 'Contracts.%'"
                         )
-                    )
-                ).all()
-                leave_types = (
-                    await connection.execute(
-                        text(
-                            "SELECT code, yearly_entitlement, accrual_method "
-                            "FROM leave_types WHERE code = ANY(:codes)"
-                        ),
-                        {
-                            "codes": [
-                                "ANNUAL",
-                                "SICK",
-                                "UNPAID",
-                                "MATERNITY",
-                                "PARENTAL",
-                                "BEREAVEMENT",
-                                "STUDY",
-                                "OTHER",
-                            ]
-                        },
                     )
                 ).all()
         finally:
             await engine.dispose()
 
-        assert revision == _REV_0020
-        assert all(row.id is not None for row in assignments)
-        assert len({row.id for row in assignments}) == len(assignments)
-        owner = [row for row in assignments if row.user_type_id == roles["OWNER"]]
-        assert {row.permission_code for row in owner} == _LEAVE_PERMISSIONS
+        assert revision == _REV_0021
+        assert all(row.id is not None for row in rows)
+        assert len({row.id for row in rows}) == len(rows)
+        assert len({(row.user_type_id, row.permission_code) for row in rows}) == len(
+            rows
+        )
+        owner_rows = [row for row in rows if row.user_type_id == roles["OWNER"]]
+        assert {row.permission_code for row in owner_rows} == _CONTRACT_PERMISSIONS
         assert (
-            next(row.id for row in owner if row.permission_code == "Leave.View")
+            next(
+                row.id
+                for row in owner_rows
+                if row.permission_code == "Contracts.ViewOwn"
+            )
             == overlap_id
         )
-        assert not [row for row in assignments if row.user_type_id == roles["PRO"]]
-        assert len(leave_types) == 8
-        assert all(row.yearly_entitlement == 0 for row in leave_types)
-        assert all(row.accrual_method == "none" for row in leave_types)
+        assert {
+            row.permission_code for row in rows if row.user_type_id == roles["HR"]
+        } == _HR_PERMISSIONS
+        assert not [row for row in rows if row.user_type_id == roles["PRO"]]
+        for code in ("GM", "BDM", "SM", "COD", "TL", "SE", "OM", "ITM", "AUDITOR"):
+            assert {
+                row.permission_code for row in rows if row.user_type_id == roles[code]
+            } == {"Contracts.ViewOwn"}
     finally:
         await _drop_database(database)
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("roles", [(), ("OWNER",), ("HR", "PRO")])
-async def test_0020_handles_absent_system_user_types(roles: tuple[str, ...]) -> None:
+async def test_0021_handles_absent_system_user_types(roles: tuple[str, ...]) -> None:
     database, url = await _new_database("missing")
     try:
-        _alembic(url, "upgrade", _REV_0019)
-        await _seed_roles(url, roles)
         _alembic(url, "upgrade", _REV_0020)
+        await _seed_roles(url, roles)
+        _alembic(url, "upgrade", _REV_0021)
         engine = create_async_engine(url)
         try:
             async with engine.connect() as connection:
@@ -219,11 +204,11 @@ async def test_0020_handles_absent_system_user_types(roles: tuple[str, ...]) -> 
                     await connection.scalar(
                         text("SELECT version_num FROM alembic_version")
                     )
-                    == _REV_0020
+                    == _REV_0021
                 )
                 assert (
-                    await connection.scalar(text("SELECT count(*) FROM leave_types"))
-                    == 8
+                    await connection.scalar(text("SELECT count(*) FROM contract_types"))
+                    == 0
                 )
         finally:
             await engine.dispose()
@@ -232,11 +217,11 @@ async def test_0020_handles_absent_system_user_types(roles: tuple[str, ...]) -> 
 
 
 @pytest.mark.asyncio
-async def test_0020_fresh_database_reaches_head_and_matches_models() -> None:
+async def test_0021_fresh_database_reaches_head_and_matches_models() -> None:
     database, url = await _new_database("fresh")
     try:
         _alembic(url, "upgrade", "head")
-        assert f"{_HEAD_REVISION} (head)" in _alembic(url, "current")
+        assert f"{_REV_0021} (head)" in _alembic(url, "current")
         assert "No new upgrade operations detected" in _alembic(url, "check")
     finally:
         await _drop_database(database)
