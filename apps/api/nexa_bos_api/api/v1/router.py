@@ -19,6 +19,7 @@ from nexa_bos_api.leave.api import router as leave_router
 from nexa_bos_api.notifications.api import router as notifications_router
 from nexa_bos_api.reporting.api import router as reports_router
 from nexa_bos_api.targets.api import router as targets_router
+from nexa_bos_api.transfers.api import router as transfers_router
 
 api_v1_router = APIRouter(prefix="/api/v1")
 api_v1_router.include_router(health_router)
@@ -38,5 +39,6 @@ api_v1_router.include_router(targets_router)
 api_v1_router.include_router(finance_router)
 api_v1_router.include_router(leave_router)
 api_v1_router.include_router(contracts_router)
+api_v1_router.include_router(transfers_router)
 api_v1_router.include_router(notifications_router)
 api_v1_router.include_router(assets_router)

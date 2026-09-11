@@ -119,6 +119,12 @@ const PERMISSION_MODULES = [
     prefixes: ["Contracts."],
   },
   {
+    key: "transfers",
+    label: "Transfers",
+    description: "Scoped transfers, recommendations, review, approval and immutable history.",
+    prefixes: ["Transfers."],
+  },
+  {
     key: "notifications",
     label: "Notifications",
     description: "In-app notifications, rule management, urgent sends, and audit visibility.",
