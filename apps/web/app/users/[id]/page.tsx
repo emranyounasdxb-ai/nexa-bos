@@ -65,6 +65,7 @@ type EmployeeAssets = {
   history: { asset: AssetRecord; allocation: AssetAllocationRecord }[];
 };
 type Confirmation = {
+  requiresReason?: boolean;
   body?: unknown;
   captureLink?: boolean;
   confirmLabel: string;
@@ -136,6 +137,9 @@ export default function UserProfilePage() {
   const [actionMessage, setActionMessage] = useState("");
   const [generatedLink, setGeneratedLink] = useState("");
   const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
+  const [confirmationReason, setConfirmationReason] = useState("");
+  const [reasonError, setReasonError] = useState("");
+  const actionPendingRef = useRef(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [auditSearch, setAuditSearch] = useState("");
   const [auditAction, setAuditAction] = useState("all");
@@ -254,6 +258,8 @@ export default function UserProfilePage() {
     setActionError("");
     setActionMessage("");
     setGeneratedLink("");
+    setConfirmationReason("");
+    setReasonError("");
     setConfirmation(next);
   }
 
@@ -277,14 +283,22 @@ export default function UserProfilePage() {
   }
 
   async function runConfirmedAction() {
-    if (!confirmation) return;
+    if (!confirmation || actionPendingRef.current) return;
+    if (confirmation.requiresReason && !confirmationReason.trim()) {
+      setReasonError("Enter a reason for terminating sessions.");
+      document.getElementById("session-termination-reason")?.focus();
+      return;
+    }
+    actionPendingRef.current = true;
     setActionLoading(true);
     setActionError("");
     setGeneratedLink("");
     try {
       const result = await apiRequest<{ url?: string }>(confirmation.path, api, {
         method: "POST",
-        body: confirmation.body ? JSON.stringify(confirmation.body) : undefined,
+        body: confirmation.requiresReason
+          ? JSON.stringify({ reason: confirmationReason.trim() })
+          : confirmation.body ? JSON.stringify(confirmation.body) : undefined,
       });
       const success = confirmation.success;
       const link = confirmation.captureLink ? result.url ?? "" : "";
@@ -302,6 +316,7 @@ export default function UserProfilePage() {
         if (confirmationTriggerRef.current?.isConnected) confirmationTriggerRef.current.focus();
       }, 0);
     } finally {
+      actionPendingRef.current = false;
       setActionLoading(false);
     }
   }
@@ -325,6 +340,7 @@ export default function UserProfilePage() {
     "Users.AssignUserType",
     "Users.Activate",
     "Users.Deactivate",
+    "Users.TerminateSessions",
     "Users.Unlock",
     "Users.GenerateSetupLink",
     "Users.GenerateResetLink",
@@ -417,14 +433,15 @@ export default function UserProfilePage() {
                 <SectionHeader title="Account & Security" description="Permission-gated identity and account lifecycle controls." actions={refreshing ? <span role="status" className="text-xs text-text-secondary">Refreshing…</span> : null} />
                 <div className="mt-4 space-y-4">
                   <dl className="grid min-w-0 gap-4 sm:grid-cols-3">
+                    <Definition label="Login email">{user.email}</Definition>
                     <Definition label="Account"><StatusBadge value={user.accountStatus} /></Definition>
                     <Definition label="MFA enabled">{user.mfaEnabled ? "Yes" : "No"}</Definition>
                     <Definition label="Lock state">{locked ? `Locked until ${formatDateTime(user.lockedUntil!)}` : "Not locked"}</Definition>
                   </dl>
                   <div className="grid min-w-0 gap-3 border-t border-brand-border pt-4 sm:grid-cols-2">
-                    {can("Users.AssignUserType") ? (
+                    {user.userType?.code === "OWNER" ? <Definition label="User type">OWNER — Owner</Definition> : can("Users.AssignUserType") ? (
                       <Field label="Assign user type" help="OWNER cannot be assigned from this control.">
-                        <Select id="profile-user-type" aria-label="Assign user type" value="" onChange={(event) => {
+                        <Select id="profile-user-type" aria-label="Assign user type" value={user.userType?.id ?? ""} onChange={(event) => {
                           const selected = types.find((item) => item.id === event.target.value);
                           const trigger = document.getElementById("profile-user-type");
                           if (!selected || !trigger) return;
@@ -438,12 +455,13 @@ export default function UserProfilePage() {
                           });
                         }}>
                           <option value="">Choose a user type</option>
+                          {user.userType && !types.some(type => type.id === user.userType?.id) ? <option value={user.userType.id}>{user.userType.code} — {user.userType.name}</option> : null}
                           {types.map((item) => <option key={item.id} value={item.id}>{item.code} — {item.name}</option>)}
                         </Select>
                       </Field>
                     ) : null}
                     <div className="flex min-w-0 flex-wrap items-end gap-2 sm:justify-end">
-                      {accountStatus === "active" && can("Users.Deactivate") ? (
+                      {accountStatus === "active" && !locked && user.userType?.code !== "OWNER" && can("Users.Deactivate") ? (
                         <Button type="button" variant="danger" onClick={(event) => requestConfirmation(event.currentTarget, {
                           title: "Deactivate account?",
                           description: `Deactivate ${user.fullName}. Existing sessions will be invalidated according to the current security policy.`,
@@ -453,7 +471,7 @@ export default function UserProfilePage() {
                           success: "Account deactivated.",
                         })}>Deactivate</Button>
                       ) : null}
-                      {accountStatus !== "active" && can("Users.Activate") ? (
+                      {accountStatus === "deactivated" && user.userType?.code !== "OWNER" && can("Users.Activate") ? (
                         <Button type="button" onClick={(event) => requestConfirmation(event.currentTarget, {
                           title: "Activate account?",
                           description: `Activate ${user.fullName} using the existing account policy.`,
@@ -484,7 +502,16 @@ export default function UserProfilePage() {
                     </div>
                   </div>
                   <div className="flex min-w-0 flex-wrap gap-2 border-t border-brand-border pt-4">
-                    {can("Users.GenerateSetupLink") ? <Button type="button" variant="secondary" onClick={(event) => requestConfirmation(event.currentTarget, {
+                    {accountStatus === "active" && !locked && can("Users.TerminateSessions") ? <Button type="button" variant="secondary" onClick={(event) => requestConfirmation(event.currentTarget, {
+                      title: "Terminate sessions?",
+                      description: `Sign ${user.fullName} out of all current sessions. Account status, login email, password and profile remain unchanged. The user can sign in again normally. If this is your account, you will also be signed out.`,
+                      confirmLabel: "Terminate sessions",
+                      path: `/api/v1/users/${user.id}/terminate-sessions`,
+                      success: "All existing sessions terminated. Account details are unchanged.",
+                      requiresReason: true,
+                      danger: true,
+                    })}>Terminate sessions</Button> : null}
+                    {!user.hasPassword && accountStatus !== "deactivated" && can("Users.GenerateSetupLink") ? <Button type="button" variant="secondary" disabled={!user.userType || user.userType.code === "PENDING"} onClick={(event) => requestConfirmation(event.currentTarget, {
                       title: "Generate setup link?",
                       description: `Create a one-time password setup link for ${user.fullName}. Existing expiry and token rules remain in force.`,
                       confirmLabel: "Generate setup link",
@@ -492,7 +519,7 @@ export default function UserProfilePage() {
                       success: "Setup link generated.",
                       captureLink: true,
                     })}>Generate setup link</Button> : null}
-                    {can("Users.GenerateResetLink") ? <Button type="button" variant="secondary" onClick={(event) => requestConfirmation(event.currentTarget, {
+                    {user.hasPassword && accountStatus === "active" && can("Users.GenerateResetLink") ? <Button type="button" variant="secondary" onClick={(event) => requestConfirmation(event.currentTarget, {
                       title: "Generate reset link?",
                       description: `Create a one-time password reset link for ${user.fullName}. Existing expiry and token rules remain in force.`,
                       confirmLabel: "Generate reset link",
@@ -530,6 +557,11 @@ export default function UserProfilePage() {
               <div className="min-w-0"><h2 id="profile-confirm-title" className="text-base font-semibold text-text-primary">{confirmation.title}</h2><p id="profile-confirm-description" className="mt-2 text-sm text-text-secondary">{confirmation.description}</p></div>
               <Button type="button" variant="ghost" size="icon" aria-label="Close confirmation" disabled={actionLoading} onClick={closeConfirmation}><IconX className="size-4" /></Button>
             </div>
+            {confirmation.requiresReason ? <div className="mt-3">
+              <label htmlFor="session-termination-reason" className="text-sm font-medium">Reason <span aria-hidden="true">*</span></label>
+              <TextInput id="session-termination-reason" required maxLength={1000} value={confirmationReason} disabled={actionLoading} aria-invalid={Boolean(reasonError)} aria-describedby={reasonError ? "session-termination-reason-error" : undefined} onChange={(event) => { setConfirmationReason(event.target.value); setReasonError(""); }} />
+              {reasonError ? <p id="session-termination-reason-error" role="alert" className="mt-1 text-sm text-danger">{reasonError}</p> : null}
+            </div> : null}
             <div className="mt-4 flex flex-wrap justify-end gap-2">
               <Button type="button" variant="secondary" autoFocus disabled={actionLoading} onClick={closeConfirmation}>Cancel</Button>
               <Button type="button" variant={confirmation.danger ? "danger" : "primary"} disabled={actionLoading} onClick={() => void runConfirmedAction()}>{actionLoading ? "Working…" : confirmation.confirmLabel}</Button>
@@ -544,7 +576,7 @@ export default function UserProfilePage() {
 function Overview({ user }: { user: UserRecord }) {
   return (
     <div className="grid min-w-0 gap-4 xl:grid-cols-2">
-      <Card><SectionHeader title="Contact details" description="Work and personal contact information on the employee record." /><dl className="mt-4 grid min-w-0 gap-4 sm:grid-cols-2"><Definition label="Work email">{user.email}</Definition><Definition label="Work mobile">{user.mobile}</Definition><Definition label="Personal email">{user.personalEmail ?? "Not recorded"}</Definition><Definition label="Personal mobile">{user.personalMobile ?? "Not recorded"}</Definition><Definition label="Employee code">{user.employeeCode}</Definition><Definition label="User code">{user.userCode}</Definition></dl></Card>
+      <Card><SectionHeader title="Contact details" description="Work and personal contact information on the employee record." /><dl className="mt-4 grid min-w-0 gap-4 sm:grid-cols-2"><Definition label="Work email">{user.workEmail ?? "Not recorded"}</Definition><Definition label="Work mobile">{user.workMobile ?? "Not recorded"}</Definition><Definition label="Personal email">{user.personalEmail ?? "Not recorded"}</Definition><Definition label="Personal mobile">{user.personalMobile ?? "Not recorded"}</Definition><Definition label="Employee code">{user.employeeCode ?? "Not assigned"}</Definition><Definition label="User code">{user.userCode}</Definition></dl></Card>
       <Card><SectionHeader title="Employment" description="Current employment dates and lifecycle status." /><dl className="mt-4 grid min-w-0 gap-4 sm:grid-cols-2"><Definition label="Joining date">{user.joiningDate}</Definition><Definition label="Last working date">{user.lastWorkingDate ?? "—"}</Definition><Definition label="Employment status"><StatusBadge value={user.employmentStatus} /></Definition><Definition label="Account status"><StatusBadge value={user.accountStatus} /></Definition></dl></Card>
     </div>
   );

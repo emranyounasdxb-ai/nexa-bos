@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import create_async_engine
 
 _REV_0019 = "0019_employee_profiles"
 _REV_0020 = "0020_leave_management"
-_HEAD_REVISION = "0024_approval_centre"
+_HEAD_REVISION = "0026_terminate_sessions"
 _LEAVE_PERMISSIONS = {
     "Leave.View",
     "Leave.Request",

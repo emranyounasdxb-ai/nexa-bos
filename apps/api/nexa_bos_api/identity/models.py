@@ -8,6 +8,7 @@ from sqlalchemy import (
     Date,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     SmallInteger,
     String,
@@ -15,6 +16,7 @@ from sqlalchemy import (
     UniqueConstraint,
     Uuid,
     event,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, Mapper, mapped_column, relationship
@@ -90,6 +92,15 @@ class UserCodeCounter(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     last_value: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+
+class UserCodeReservation(Base):
+    __tablename__ = "user_code_reservations"
+
+    user_code: Mapped[str] = mapped_column(String(16), primary_key=True)
+    issued_by_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("users.id"), nullable=False)
+    issued_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    user_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"), unique=True)
 
 
 class Office(Base):
@@ -229,10 +240,14 @@ class TeamLeaderHistory(Base):
 
 class User(Base):
     __tablename__ = "users"
+    __table_args__ = (
+        Index("uq_users_employee_code_ci", text("lower(employee_code)"), unique=True),
+        Index("uq_users_login_email_ci", text("lower(email)"), unique=True),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_uuid)
     user_code: Mapped[str] = mapped_column(String(16), unique=True, nullable=False)
-    employee_code: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    employee_code: Mapped[str | None] = mapped_column(String(64), unique=True)
     first_name: Mapped[str | None] = mapped_column(String(100))
     middle_name: Mapped[str | None] = mapped_column(String(100))
     last_name: Mapped[str | None] = mapped_column(String(100))
@@ -241,11 +256,11 @@ class User(Base):
     mobile: Mapped[str] = mapped_column(String(32), nullable=False)
     personal_email: Mapped[str | None] = mapped_column(String(320))
     personal_mobile: Mapped[str | None] = mapped_column(String(32))
-    designation_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid, ForeignKey("designations.id"), nullable=False
-    )
+    work_email: Mapped[str | None] = mapped_column(String(320))
+    work_mobile: Mapped[str | None] = mapped_column(String(32))
+    designation_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("designations.id"))
     employment_status: Mapped[str] = mapped_column(String(32), nullable=False)
-    joining_date: Mapped[date] = mapped_column(Date, nullable=False)
+    joining_date: Mapped[date | None] = mapped_column(Date)
     last_working_date: Mapped[date | None] = mapped_column(Date)
     office_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("offices.id"))
     department_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("departments.id"))
@@ -267,7 +282,7 @@ class User(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
     user_type: Mapped[UserType | None] = relationship(back_populates="users")
-    designation: Mapped[Designation] = relationship()
+    designation: Mapped[Designation | None] = relationship()
     office: Mapped[Office | None] = relationship()
     department: Mapped[Department | None] = relationship()
     team: Mapped[Team | None] = relationship(foreign_keys=[team_id])

@@ -132,7 +132,7 @@ async def test_exit_production_shaped_upgrade_preserves_grants(codes):
                     == overlap
                 )
             assert await connection.scalar(text("SELECT count(*) FROM employee_exits")) == 0
-        assert "0024_approval_centre (head)" in _alembic(url, "current")
+        assert "0026_terminate_sessions (head)" in _alembic(url, "current")
         assert "No new upgrade operations detected" in _alembic(url, "check")
     finally:
         await engine.dispose()

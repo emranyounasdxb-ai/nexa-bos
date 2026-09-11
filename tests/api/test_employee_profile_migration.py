@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import create_async_engine
 
 _REV_0018 = "0018_catalogue_images"
 _REV_0019 = "0019_employee_profiles"
-_HEAD_REVISION = "0024_approval_centre"
+_HEAD_REVISION = "0026_terminate_sessions"
 _PROFILE_GRANTS = {
     "OWNER": {
         "UserProfiles.Basic.View",

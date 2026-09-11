@@ -82,7 +82,7 @@ type Profile = {
   canViewAttachments: boolean;
   documentPermissions: { upload: boolean; replace: boolean; view: boolean; download: boolean; delete: boolean; history: boolean; purge: boolean };
   basic: { completion: Completion } | null;
-  hr: { data: HrData | null; completion: Completion } | null;
+  hr: { data: HrData | null; completion: Completion; employeeCode: string | null; workEmail: string | null; workMobile: string | null } | null;
   pro: { documents: DocumentRecord[]; completion: Completion } | null;
 };
 
@@ -185,8 +185,8 @@ export function EmployeeLifecycleProfile({ userId, section }: { userId: string; 
   }, [api, profile?.canUpdateHr, userId]);
 
   useEffect(() => {
-    const data = profile?.hr?.data;
-    if (!data) return;
+    const data = profile?.hr?.data ?? null;
+    if (!profile?.hr) return;
     setHrDraft({
       date_of_birth: value(data, "dateOfBirth"), gender: value(data, "gender"),
       nationality: value(data, "nationality"), marital_status: value(data, "maritalStatus"),
@@ -195,10 +195,11 @@ export function EmployeeLifecycleProfile({ userId, section }: { userId: string; 
       emergency_contact_mobile: value(data, "emergencyContactMobile"), employee_status: value(data, "employeeStatus"),
       employee_type: value(data, "employeeType"), employment_type: value(data, "employmentType"),
       joining_date: value(data, "joiningDate"), probation_end_date: value(data, "probationEndDate"),
-      job_title: value(data, "jobTitle"), department_id: data.department?.id ?? "",
+      job_title: value(data, "jobTitle"), department_id: data?.department?.id ?? "",
       business_unit: value(data, "businessUnit"), location: value(data, "location"),
       reporting_manager_id: value(data, "reportingManagerId"),
-      work_email: value(data, "workEmail"), work_mobile: value(data, "workMobile"),
+      employee_code: profile.hr.employeeCode ?? "",
+      work_email: profile.hr.workEmail ?? "", work_mobile: profile.hr.workMobile ?? "",
       employee_grade: value(data, "employeeGrade"), basic_salary: value(data, "basicSalary"),
       housing_allowance: value(data, "housingAllowance"), transport_allowance: value(data, "transportAllowance"),
       other_allowances: value(data, "otherAllowances"), payment_method: value(data, "paymentMethod"),
@@ -206,7 +207,7 @@ export function EmployeeLifecycleProfile({ userId, section }: { userId: string; 
       iban: value(data, "iban"), bank_account_number: value(data, "bankAccountNumber"),
       hr_notes: value(data, "hrNotes"),
     });
-  }, [profile?.hr?.data]);
+  }, [profile?.hr]);
 
   useEffect(() => {
     if (section !== "pro" || !profile?.pro) return;
@@ -218,6 +219,7 @@ export function EmployeeLifecycleProfile({ userId, section }: { userId: string; 
   }, [profile?.pro, section]);
 
   const hrGroups = useMemo(() => [
+    { title: "Employee identification", fields: [["employee_code", "Employee Code"]] },
     { title: "Personal", fields: [["date_of_birth", "Date of birth", "date"], ["gender", "Gender"], ["nationality", "Nationality"], ["marital_status", "Marital status"]] },
     { title: "Emergency contact", fields: [["emergency_contact_name", "Name"], ["emergency_contact_relationship", "Relationship"], ["emergency_contact_mobile", "Mobile"]] },
     { title: "Employment", fields: [["employee_status", "Employee status", "status"], ["employee_type", "Employee type"], ["employment_type", "Employment type"], ["joining_date", "Joining date", "date"], ["probation_end_date", "Probation end", "date"], ["job_title", "Job title"], ["department_id", "Department", "department"], ["business_unit", "Business unit"], ["location", "Location"], ["reporting_manager_id", "Reporting manager", "manager"], ["work_email", "Work email", "email"], ["work_mobile", "Work mobile"], ["employee_grade", "Grade"]] },
@@ -378,7 +380,7 @@ export function EmployeeLifecycleProfile({ userId, section }: { userId: string; 
                           {managers.map((manager) => <option key={manager.id} value={manager.id}>{manager.fullName}</option>)}
                         </Select>
                       ) : (
-                        <TextInput id={`hr-${key}`} type={type ?? "text"} step={type === "number" ? "0.01" : undefined} value={hrDraft[key] ?? ""} readOnly={!profile.canUpdateHr} onChange={(event) => setHrDraft((current) => ({ ...current, [key]: event.target.value }))} />
+                        <TextInput id={`hr-${key}`} type={type ?? "text"} step={type === "number" ? "0.01" : undefined} value={hrDraft[key] ?? ""} readOnly={!profile.canUpdateHr || (key === "employee_code" && Boolean(profile.hr?.employeeCode))} onChange={(event) => setHrDraft((current) => ({ ...current, [key]: event.target.value }))} />
                       )}
                     </Field>
                   ))}

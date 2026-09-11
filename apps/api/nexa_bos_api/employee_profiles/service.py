@@ -46,7 +46,6 @@ from nexa_bos_api.identity.permissions import (
     USERS_VIEW,
 )
 from nexa_bos_api.identity.users_service import (
-    assert_unique_email,
     get_visible_user,
     update_user,
 )
@@ -113,15 +112,10 @@ def _derived_document_status(row: EmployeeDocument, *, today: date | None = None
 def _basic_completion(user: User) -> dict[str, object]:
     return _completion(
         {
-            "First name": user.first_name,
-            "Last name": user.last_name,
-            "Employee ID": user.employee_code,
             "Full name": user.full_name,
-            "Work email": user.email,
-            "Work mobile": user.mobile,
-            "Designation": user.designation_id,
-            "Employee status": user.employment_status,
-            "Joining date": user.joining_date,
+            "Personal email": user.personal_email,
+            "Personal mobile": user.personal_mobile,
+            "User code": user.user_code,
         }
     )
 
@@ -145,8 +139,8 @@ def _hr_completion(user: User, row: HRProfile | None) -> dict[str, object]:
             "Job title": row.job_title,
             "Business unit": row.business_unit,
             "Location": row.location,
-            "Work email": user.email,
-            "Work mobile": user.mobile,
+            "Work email": user.work_email,
+            "Work mobile": user.work_mobile,
             "Employee grade": row.employee_grade,
             "Basic salary": row.basic_salary,
             "Payment method": row.payment_method,
@@ -235,7 +229,8 @@ def _hr_payload(
         "employeeStatus": user.employment_status,
         "employeeType": row.employee_type,
         "employmentType": row.employment_type,
-        "joiningDate": user.joining_date.isoformat(),
+        "joiningDate": user.joining_date.isoformat() if user.joining_date else None,
+        "employeeCode": user.employee_code,
         "probationEndDate": row.probation_end_date.isoformat() if row.probation_end_date else None,
         "jobTitle": row.job_title,
         "department": (
@@ -251,8 +246,8 @@ def _hr_payload(
         "location": row.location,
         "reportingManagerId": str(user.reporting_manager_id) if user.reporting_manager_id else None,
         "reportingManager": _actor_payload(reporting_manager),
-        "workEmail": user.email,
-        "workMobile": user.mobile,
+        "workEmail": user.work_email,
+        "workMobile": user.work_mobile,
         "employeeGrade": row.employee_grade,
         "basicSalary": _money(row.basic_salary) if include_sensitive else None,
         "housingAllowance": _money(row.housing_allowance) if include_sensitive else None,
@@ -382,6 +377,9 @@ async def get_profile(session: AsyncSession, actor: User, user_id: uuid.UUID) ->
         ),
         "hr": (
             {
+                "employeeCode": target.employee_code,
+                "workEmail": target.work_email,
+                "workMobile": target.work_mobile,
                 "data": _hr_payload(
                     target,
                     hr,
@@ -425,10 +423,13 @@ async def update_basic_profile(
     derived = " ".join(
         value for value in (payload.first_name, payload.middle_name, payload.last_name) if value
     )
-    target.first_name = payload.first_name
-    target.middle_name = payload.middle_name
-    target.last_name = payload.last_name
-    target.full_name = derived
+    if payload.full_name:
+        target.full_name = payload.full_name
+    else:
+        target.first_name = payload.first_name
+        target.middle_name = payload.middle_name
+        target.last_name = payload.last_name
+        target.full_name = derived
     target.personal_email = str(payload.personal_email).lower() if payload.personal_email else None
     target.personal_mobile = payload.personal_mobile
     target.updated_at = _now()
@@ -454,6 +455,7 @@ async def update_hr_profile(
             status_code=403, code="FORBIDDEN", message="HR profile update is not permitted"
         )
     target = await get_visible_user(session, actor, user_id)
+    await session.refresh(target, with_for_update=True)
     row = await session.scalar(
         select(HRProfile).where(HRProfile.user_id == target.id).with_for_update()
     )
@@ -478,6 +480,8 @@ async def update_hr_profile(
         session.add(row)
     changed_fields = [name for name in payload.model_fields_set if name not in {"lock_version"}]
     canonical_update: dict[str, object] = {}
+    if payload.employee_code:
+        canonical_update["employee_code"] = payload.employee_code.strip()
     if "employee_status" in payload.model_fields_set and payload.employee_status is not None:
         canonical_update["employment_status"] = payload.employee_status
     if "joining_date" in payload.model_fields_set and payload.joining_date is not None:
@@ -489,11 +493,10 @@ async def update_hr_profile(
             canonical_update["team_id"] = None
     if "reporting_manager_id" in payload.model_fields_set:
         canonical_update["reporting_manager_id"] = payload.reporting_manager_id
-    if "work_email" in payload.model_fields_set and payload.work_email is not None:
-        await assert_unique_email(session, payload.work_email, ignore_user_id=target.id)
-        canonical_update["email"] = payload.work_email
-    if "work_mobile" in payload.model_fields_set and payload.work_mobile is not None:
-        canonical_update["mobile"] = payload.work_mobile
+    if "work_email" in payload.model_fields_set:
+        target.work_email = str(payload.work_email).lower() if payload.work_email else None
+    if "work_mobile" in payload.model_fields_set:
+        target.work_mobile = payload.work_mobile
     if canonical_update:
         from nexa_bos_api.identity.schemas import UserUpdateRequest
 
@@ -504,6 +507,22 @@ async def update_hr_profile(
             UserUpdateRequest(**canonical_update),
             commit=False,
         )
+    if target.employee_code and target.joining_date:
+        from nexa_bos_api.identity.models import EmploymentPeriod
+
+        period = await session.scalar(
+            select(EmploymentPeriod).where(EmploymentPeriod.user_id == target.id).limit(1)
+        )
+        if period is None:
+            session.add(
+                EmploymentPeriod(
+                    user_id=target.id,
+                    employee_code=target.employee_code,
+                    joining_date=target.joining_date,
+                    is_current=True,
+                    created_at=now,
+                )
+            )
     profile_fields = {
         "date_of_birth",
         "gender",
@@ -1029,7 +1048,7 @@ async def hr_dashboard(session: AsyncSession, actor: User) -> dict[str, object]:
     new_cutoff = today - timedelta(days=30)
     active = [user for user in users if user.employment_status.lower() == "active"]
     probation = [user for user in users if user.employment_status.lower() == "probation"]
-    new_joiners = [user for user in users if user.joining_date >= new_cutoff]
+    new_joiners = [user for user in users if user.joining_date and user.joining_date >= new_cutoff]
     pending = [
         user for user in users if _hr_completion(user, user.hr_profile)["state"] != "Complete"
     ]

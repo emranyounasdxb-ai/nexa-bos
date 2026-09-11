@@ -115,11 +115,27 @@ async def setup_link(
     actor: Annotated[CurrentUser, Depends(require_permission(USERS_GENERATE_SETUP_LINK))],
 ) -> dict[str, str]:
     target = await get_visible_user(session, actor, user_id)
-    if target.account_status != AccountStatus.ACTIVE:
+    if target.account_status not in {AccountStatus.PENDING, AccountStatus.ACTIVE}:
         raise AppError(
             status_code=422,
             code="USER_NOT_ACTIVE",
-            message="Activate the user before generating a setup link",
+            message="A deactivated account cannot receive a setup link",
+        )
+    if target.password_hash:
+        raise AppError(
+            status_code=409,
+            code="SETUP_ALREADY_COMPLETE",
+            message="Use a reset link for a configured account",
+        )
+    if (
+        not target.user_type
+        or target.user_type.code == "PENDING"
+        or target.user_type.status != "active"
+    ):
+        raise AppError(
+            status_code=422,
+            code="USER_TYPE_REQUIRED",
+            message="Assign an active User Type before generating a setup link",
         )
     return await issue_one_time_link(
         session,

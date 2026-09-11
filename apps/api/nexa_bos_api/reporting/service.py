@@ -1915,7 +1915,7 @@ async def employee_profile_payload(
             "department": employee.department.name if employee.department else None,
             "team": employee.team.name if employee.team else None,
             "reportingManager": manager.full_name if manager else None,
-            "joiningDate": employee.joining_date.isoformat(),
+            "joiningDate": employee.joining_date.isoformat() if employee.joining_date else None,
             "employmentStatus": employee.employment_status,
         },
         "kpis": engine.kpis(),

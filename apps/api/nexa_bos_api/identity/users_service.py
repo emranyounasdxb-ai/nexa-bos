@@ -48,7 +48,7 @@ from nexa_bos_api.identity.models import (
     new_uuid,
 )
 from nexa_bos_api.identity.org_service import clear_team_leadership_for_user
-from nexa_bos_api.identity.permissions import USERS_ASSIGN_USER_TYPE
+from nexa_bos_api.identity.permissions import USER_PROFILES_HR_UPDATE, USERS_ASSIGN_USER_TYPE
 from nexa_bos_api.identity.schemas import RehireRequest, UserCreateRequest, UserUpdateRequest
 
 REPORTING_HIERARCHY_LOCK_KEY = 0x4E45584148494552  # ASCII: NEXAHIER
@@ -98,7 +98,7 @@ def identity_unique_conflict(exc: IntegrityError) -> AppError:
         return AppError(
             status_code=409,
             code="EMPLOYEE_CODE_DUPLICATE",
-            message="Employee code is already used, including historical values",
+            message="Employee Code has already been issued",
         )
     return AppError(
         status_code=409,
@@ -142,7 +142,7 @@ async def find_email_owner(
 async def find_employee_code_owner(
     session: AsyncSession, employee_code: str, *, ignore_user_id: UUID | None = None
 ) -> User | None:
-    stmt = select(User).where(User.employee_code == employee_code)
+    stmt = select(User).where(func.lower(User.employee_code) == employee_code.lower())
     if ignore_user_id:
         stmt = stmt.where(User.id != ignore_user_id)
     current = (await session.execute(stmt)).scalar_one_or_none()
@@ -153,7 +153,7 @@ async def find_employee_code_owner(
         .join(UserAssignmentHistory, UserAssignmentHistory.user_id == User.id)
         .where(
             UserAssignmentHistory.field == AssignmentField.EMPLOYEE_CODE,
-            UserAssignmentHistory.value_label == employee_code,
+            func.lower(UserAssignmentHistory.value_label) == employee_code.lower(),
         )
     )
     if ignore_user_id:
@@ -197,23 +197,27 @@ async def assert_unique_employee_code(
         raise AppError(
             status_code=409,
             code="EMPLOYEE_CODE_DUPLICATE",
-            message="Employee code is already used, including historical values",
+            message="Employee Code has already been issued",
             details=_conflict_details(owner),
         )
-    reserved = await session.get(ReservedEmployeeCode, employee_code)
+    reserved = await session.scalar(
+        select(ReservedEmployeeCode).where(
+            func.lower(ReservedEmployeeCode.employee_code) == employee_code.lower()
+        )
+    )
     if reserved is not None and reserved.user_id != ignore_user_id:
         holder = await session.get(User, reserved.user_id)
         if holder:
             raise AppError(
                 status_code=409,
                 code="EMPLOYEE_CODE_DUPLICATE",
-                message="Employee code is already used, including historical values",
+                message="Employee Code has already been issued",
                 details=_conflict_details(holder),
             )
         raise AppError(
             status_code=409,
             code="EMPLOYEE_CODE_DUPLICATE",
-            message="Employee code is already used, including historical values",
+            message="Employee Code has already been issued",
         )
 
 
@@ -243,7 +247,7 @@ async def reserve_employee_code(session: AsyncSession, employee_code: str, user_
             raise AppError(
                 status_code=409,
                 code="EMPLOYEE_CODE_DUPLICATE",
-                message="Employee code is already used, including historical values",
+                message="Employee Code has already been issued",
             )
         return
     session.add(ReservedEmployeeCode(employee_code=employee_code, user_id=user_id))
@@ -554,6 +558,8 @@ async def create_user(session: AsyncSession, actor: User, payload: UserCreateReq
         full_name=derived_name or payload.full_name.strip(),
         email=str(payload.email).lower(),
         mobile=payload.mobile.strip(),
+        work_email=str(payload.email).lower(),
+        work_mobile=payload.mobile.strip(),
         personal_email=str(payload.personal_email).lower() if payload.personal_email else None,
         personal_mobile=payload.personal_mobile.strip() if payload.personal_mobile else None,
         designation_id=designation.id,
@@ -810,12 +816,31 @@ async def update_user(
             payload.personal_mobile.strip() if payload.personal_mobile else None
         )
     if payload.email and payload.email.lower() != target.email:
+        if not has_permission(actor, USERS_ASSIGN_USER_TYPE):
+            raise AppError(
+                status_code=403,
+                code="FORBIDDEN",
+                message="Login identity changes require account access permission",
+            )
         await assert_unique_email(session, payload.email, ignore_user_id=target.id)
         session.add(UserEmailHistory(user_id=target.id, email=target.email, changed_at=now))
         target.email = payload.email.lower()
         await reserve_email(session, target.email, target.id)
         await terminate_sessions(session, target.id)
     if payload.employee_code and payload.employee_code != target.employee_code:
+        if not has_permission(actor, USER_PROFILES_HR_UPDATE):
+            raise AppError(
+                status_code=403,
+                code="FORBIDDEN",
+                message="Employee Code requires HR profile permission",
+            )
+        await session.refresh(target, attribute_names=["employee_code"], with_for_update=True)
+        if target.employee_code:
+            raise AppError(
+                status_code=409,
+                code="EMPLOYEE_CODE_IMMUTABLE",
+                message="Employee Code has already been issued",
+            )
         await assert_unique_employee_code(session, payload.employee_code, ignore_user_id=target.id)
         await record_assignment(
             session,
@@ -1108,6 +1133,12 @@ async def rehire_user(
             current.last_working_date = target.last_working_date
     employee_code = payload.employee_code.strip() if payload.employee_code else target.employee_code
     if employee_code != target.employee_code:
+        if target.employee_code:
+            raise AppError(
+                status_code=409,
+                code="EMPLOYEE_CODE_IMMUTABLE",
+                message="Employee Code has already been issued",
+            )
         await assert_unique_employee_code(session, employee_code, ignore_user_id=target.id)
         await record_assignment(
             session,

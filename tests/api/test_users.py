@@ -92,17 +92,18 @@ async def test_employee_code_history(client: AsyncClient) -> None:
     authed, _owner = await owner_client(client)
     user = await create_activated_user(authed)
     old_code = user["employeeCode"]
+    before = (await authed.get(f"/api/v1/users/{user['id']}/history")).json()
     new_code = f"EMP-{unique_tag()}"
     updated = await authed.patch(
         f"/api/v1/users/{user['id']}",
         json={"employee_code": new_code},
     )
-    assert updated.status_code == 200
+    assert updated.status_code == 409
+    assert updated.json()["error"]["code"] == "EMPLOYEE_CODE_IMMUTABLE"
     history = await authed.get(f"/api/v1/users/{user['id']}/history")
     assert history.status_code == 200
-    codes = [row["employeeCode"] for row in history.json()["employeeCodes"]]
-    assert old_code in codes
-    assert updated.json()["employeeCode"] == new_code
+    assert history.json() == before
+    assert (await authed.get(f"/api/v1/users/{user['id']}")).json()["employeeCode"] == old_code
 
 
 @pytest.mark.asyncio
@@ -177,7 +178,7 @@ async def test_resigned_requires_last_working_date_and_deactivates(client: Async
         json={
             "joining_date": "2026-09-01",
             "employment_status": "Probation",
-            "employee_code": f"EMP-{unique_tag()}",
+            "employee_code": user["employeeCode"],
         },
     )
     assert rehire.status_code == 200, rehire.text
