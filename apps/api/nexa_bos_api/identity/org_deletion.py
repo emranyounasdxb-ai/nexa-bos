@@ -148,6 +148,11 @@ async def lock_master_references(session: AsyncSession, kind: str, record_id: UU
     preparer = session.bind.dialect.identifier_preparer
     names = ", ".join(preparer.quote(name) for name in sorted(tables))
     await session.execute(text(f"LOCK TABLE {names} IN SHARE ROW EXCLUSIVE MODE NOWAIT"))
+    # A snapshot-only writer may have read the master without acquiring any write
+    # lock yet. Refuse those readers too; later readers see the committed deletion
+    # rather than validating a record that is about to disappear.
+    master_name = preparer.quote(model.__tablename__)
+    await session.execute(text(f"LOCK TABLE {master_name} IN ACCESS EXCLUSIVE MODE NOWAIT"))
 
 
 async def delete_unused_master(

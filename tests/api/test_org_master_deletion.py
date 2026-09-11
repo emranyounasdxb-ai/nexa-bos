@@ -317,3 +317,25 @@ async def test_employee_assignment_and_past_assignment_both_block_team_deletion(
         item["type"] == "user_assignment_history" for item in historical.json()["error"]["details"]
     )
     assert (await owner.get(f"{path}/deletion-preview")).status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_concurrent_master_reader_cannot_race_a_snapshot_only_reference(client):
+    from nexa_bos_api.identity.models import Office
+    from nexa_bos_api.main import app
+
+    owner, _ = await owner_client(client)
+    item = await master_fixture(owner, "offices")
+    path = f"/api/v1/offices/{item['id']}"
+    payload = {"confirmation": "DELETE", "reason": "Unused after concurrent reader finishes"}
+    async with app.state.session_factory() as reader:
+        # A reference-producing request validates a master before writing its JSON
+        # snapshot. Its PostgreSQL read lock must make concurrent deletion refuse.
+        assert await reader.scalar(select(Office).where(Office.id == UUID(item["id"])))
+        denied = await owner.request("DELETE", path, json=payload)
+        assert denied.status_code == 409, denied.text
+        assert denied.json()["error"]["code"] == "MASTER_DELETE_CONFLICT"
+        await reader.rollback()
+    assert (await owner.get(f"{path}/deletion-preview")).status_code == 200
+    deleted = await owner.request("DELETE", path, json=payload)
+    assert deleted.status_code == 200, deleted.text

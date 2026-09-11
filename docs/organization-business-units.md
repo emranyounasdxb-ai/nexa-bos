@@ -17,8 +17,14 @@ Initial creation/rename audit and a master's own name history are evidence, not 
 Every other current or historical reference blocks deletion, including foreign keys,
 assignment history, leader history, case/operational references and exact IDs inside JSON
 snapshots. Dependencies are checked again during the deleting transaction. NOWAIT writer
-locks protect snapshot-only references as well as relational references; concurrent
-activity refuses deletion instead of retrying or ignoring dependencies.
+locks protect snapshot-only references as well as relational references. An exclusive
+master-table lock also refuses transactions that have read a master but have not yet
+written their reference. Concurrent activity refuses deletion instead of retrying or
+ignoring dependencies.
+
+This follows PostgreSQL's [table-lock compatibility rules](https://www.postgresql.org/docs/18/explicit-locking.html):
+plain SELECT retains ACCESS SHARE until transaction end, which conflicts only with
+ACCESS EXCLUSIVE. NOWAIT keeps this rare destructive action fail-fast under contention.
 
 Migration `0027_org_business_units` replaces name-history cascade foreign keys with
 nullable RESTRICT live links and permanent non-null original IDs. A successful deletion
