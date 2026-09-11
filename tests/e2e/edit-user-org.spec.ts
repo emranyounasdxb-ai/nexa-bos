@@ -71,11 +71,17 @@ test("edit user office department team selectors do not silently clear invalid v
   const dxbDeptId = ((await dxbDept.json()) as NamedRef).id;
   const otherDxbDeptId = ((await otherDxbDept.json()) as NamedRef).id;
   const auhDeptId = ((await auhDept.json()) as NamedRef).id;
+  const unitResponse = await request.post(`${apiOrigin}/api/v1/business-units`, {
+    headers, data: { office_id: dxb!.id, department_id: dxbDeptId, name: `Edit Unit ${tag}`, code: `BU${tag}` },
+  });
+  expect(unitResponse.ok(), await unitResponse.text()).toBeTruthy();
+  const unit = await unitResponse.json() as NamedRef;
   const dxbTeam = await request.post(`${apiOrigin}/api/v1/teams`, {
     headers,
     data: {
       office_id: dxb!.id,
       department_id: dxbDeptId,
+      business_unit_id: unit.id,
       name: `Edit Team ${tag}`,
       code: `ET${tag.slice(0, 6)}`,
     },

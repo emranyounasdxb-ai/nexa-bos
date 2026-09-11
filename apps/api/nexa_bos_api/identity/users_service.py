@@ -33,6 +33,7 @@ from nexa_bos_api.identity.enums import (
 )
 from nexa_bos_api.identity.models import (
     AuditEvent,
+    BusinessUnit,
     Department,
     Designation,
     EmploymentPeriod,
@@ -356,6 +357,7 @@ async def resolve_org(
     office_id: UUID | None,
     department_id: UUID | None,
     team_id: UUID | None,
+    business_unit_id: UUID | None = None,
 ) -> tuple[Office | None, Department | None, Team | None]:
     if department_id and not office_id:
         raise AppError(
@@ -390,6 +392,16 @@ async def resolve_org(
             code="TEAM_ORG_MISMATCH",
             message="Team must match the selected office and department",
         )
+    if business_unit_id is not None:
+        from nexa_bos_api.identity.business_units import validate_business_unit
+
+        await validate_business_unit(session, business_unit_id, office_id, department_id)
+        if team and team.business_unit_id != business_unit_id:
+            raise AppError(
+                status_code=422,
+                code="TEAM_BUSINESS_UNIT_MISMATCH",
+                message="Team must belong to the selected Business Unit",
+            )
     return office, department, team
 
 
@@ -478,6 +490,15 @@ async def _initial_assignments(
         value_label=team.name if team else None,
         at=now,
     )
+    unit = await session.get(BusinessUnit, user.business_unit_id) if user.business_unit_id else None
+    await record_assignment(
+        session,
+        user_id=user.id,
+        field=AssignmentField.BUSINESS_UNIT,
+        value_id=str(unit.id) if unit else None,
+        value_label=unit.name if unit else None,
+        at=now,
+    )
     manager_label = None
     if user.reporting_manager_id:
         manager = await session.get(User, user.reporting_manager_id)
@@ -512,6 +533,7 @@ async def create_user(session: AsyncSession, actor: User, payload: UserCreateReq
         office_id=payload.office_id,
         department_id=payload.department_id,
         team_id=payload.team_id,
+        business_unit_id=payload.business_unit_id,
     )
     user_type = None
     if payload.user_type_id:
@@ -569,6 +591,7 @@ async def create_user(session: AsyncSession, actor: User, payload: UserCreateReq
         office_id=office.id if office else None,
         department_id=department.id if department else None,
         team_id=team.id if team else None,
+        business_unit_id=payload.business_unit_id or (team.business_unit_id if team else None),
         reporting_manager_id=payload.reporting_manager_id,
         user_type_id=user_type.id if user_type else None,
         account_status=account_status,
@@ -853,7 +876,8 @@ async def update_user(
         target.employee_code = payload.employee_code.strip()
         await reserve_employee_code(session, target.employee_code, target.id)
     org_touched = any(
-        name in payload.model_fields_set for name in ("office_id", "department_id", "team_id")
+        name in payload.model_fields_set
+        for name in ("office_id", "department_id", "business_unit_id", "team_id")
     )
     if org_touched:
         office_id = (
@@ -865,9 +889,34 @@ async def update_user(
             else target.department_id
         )
         team_id = payload.team_id if "team_id" in payload.model_fields_set else target.team_id
-        office, department, team = await resolve_org(
-            session, office_id=office_id, department_id=department_id, team_id=team_id
+        business_unit_id = (
+            payload.business_unit_id
+            if "business_unit_id" in payload.model_fields_set
+            else target.business_unit_id
         )
+        if "business_unit_id" not in payload.model_fields_set and team_id != target.team_id:
+            selected_team = await session.get(Team, team_id) if team_id else None
+            business_unit_id = selected_team.business_unit_id if selected_team else None
+        office, department, team = await resolve_org(
+            session,
+            office_id=office_id,
+            department_id=department_id,
+            team_id=team_id,
+            business_unit_id=business_unit_id,
+        )
+        if business_unit_id is None and team is not None and team.id != target.team_id:
+            business_unit_id = team.business_unit_id
+        if target.business_unit_id != business_unit_id:
+            unit = await session.get(BusinessUnit, business_unit_id) if business_unit_id else None
+            await record_assignment(
+                session,
+                user_id=target.id,
+                field=AssignmentField.BUSINESS_UNIT,
+                value_id=str(unit.id) if unit else None,
+                value_label=unit.name if unit else None,
+                at=now,
+            )
+            target.business_unit_id = business_unit_id
         if target.office_id != (office.id if office else None):
             await record_assignment(
                 session,
@@ -1156,15 +1205,22 @@ async def rehire_user(
         if payload.department_id is not None
         else target.department_id,
         team_id=payload.team_id if payload.team_id is not None else target.team_id,
+        business_unit_id=payload.business_unit_id
+        if payload.business_unit_id is not None
+        else target.business_unit_id,
     )
     if (
         payload.office_id is not None
         or payload.department_id is not None
         or payload.team_id is not None
+        or payload.business_unit_id is not None
     ):
         target.office_id = office.id if office else None
         target.department_id = department.id if department else None
         target.team_id = team.id if team else None
+        target.business_unit_id = payload.business_unit_id or (
+            team.business_unit_id if team else None
+        )
     if payload.designation_id:
         designation = await session.get(Designation, payload.designation_id)
         if designation is None:

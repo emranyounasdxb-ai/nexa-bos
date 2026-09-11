@@ -12,6 +12,7 @@ from nexa_bos_api.identity.access import is_owner, load_user_with_type, user_loa
 from nexa_bos_api.identity.audit import record_audit
 from nexa_bos_api.identity.enums import AccountStatus, MasterStatus
 from nexa_bos_api.identity.models import (
+    BusinessUnit,
     Department,
     DepartmentNameHistory,
     Designation,
@@ -74,6 +75,7 @@ def serialize_team(team: Team) -> dict[str, object]:
         "status": team.status,
         "officeId": str(team.office_id),
         "departmentId": str(team.department_id),
+        "businessUnitId": str(team.business_unit_id) if team.business_unit_id else None,
         "office": serialize_office(team.office) if team.office else None,
         "department": serialize_department(team.department) if team.department else None,
         "teamLeaderId": str(team.team_leader_id) if team.team_leader_id else None,
@@ -347,6 +349,7 @@ async def list_teams(
     office_id: UUID | None,
     department_id: UUID | None,
     include_inactive: bool,
+    business_unit_id: UUID | None = None,
 ) -> list[Team]:
     stmt = (
         select(Team)
@@ -360,6 +363,8 @@ async def list_teams(
         stmt = stmt.where(Team.office_id == office_id)
     if department_id:
         stmt = stmt.where(Team.department_id == department_id)
+    if business_unit_id:
+        stmt = stmt.where(Team.business_unit_id == business_unit_id)
     if not include_inactive:
         stmt = stmt.where(Team.status == MasterStatus.ACTIVE)
     return list((await session.execute(stmt)).scalars().unique().all())
@@ -382,8 +387,17 @@ async def load_team(session: AsyncSession, team_id: UUID) -> Team:
 
 
 async def create_team(
-    session: AsyncSession, actor: User, office_id: UUID, department_id: UUID, name: str, code: str
+    session: AsyncSession,
+    actor: User,
+    office_id: UUID,
+    department_id: UUID,
+    name: str,
+    code: str,
+    business_unit_id: UUID,
 ) -> Team:
+    from nexa_bos_api.identity.business_units import validate_business_unit
+
+    await validate_business_unit(session, business_unit_id, office_id, department_id)
     office = await session.get(Office, office_id)
     department = await session.get(Department, department_id)
     if office is None:
@@ -401,6 +415,7 @@ async def create_team(
         id=new_uuid(),
         office_id=office.id,
         department_id=department.id,
+        business_unit_id=business_unit_id,
         code=await _unique_code(session, Team, code, "team"),
         name=name.strip(),
         status=MasterStatus.ACTIVE,
@@ -593,12 +608,18 @@ async def set_office_status(
                 )
             ).scalar_one()
         )
-        if users or departments or teams:
+        units = await session.scalar(
+            select(func.count())
+            .select_from(BusinessUnit)
+            .where(BusinessUnit.office_id == office.id, BusinessUnit.status == MasterStatus.ACTIVE)
+        )
+        if users or departments or teams or units:
             raise AppError(
                 status_code=422,
                 code="MASTER_IN_USE",
                 message=(
-                    "Office cannot be deactivated while active departments, teams, or users exist"
+                    "Office cannot be deactivated while active departments, Business Units, "
+                    "teams, or users exist"
                 ),
             )
     office.status = status
@@ -632,11 +653,22 @@ async def set_department_status(
                 )
             ).scalar_one()
         )
-        if users or teams:
+        units = await session.scalar(
+            select(func.count())
+            .select_from(BusinessUnit)
+            .where(
+                BusinessUnit.department_id == department.id,
+                BusinessUnit.status == MasterStatus.ACTIVE,
+            )
+        )
+        if users or teams or units:
             raise AppError(
                 status_code=422,
                 code="MASTER_IN_USE",
-                message="Department cannot be deactivated while active users or teams exist",
+                message=(
+                    "Department cannot be deactivated while active users, "
+                    "Business Units, or teams exist"
+                ),
             )
     department.status = status
     department.updated_at = utcnow()
@@ -708,14 +740,6 @@ async def set_team_status(
     )
     await session.commit()
     return await load_team(session, team.id)
-
-
-def delete_master_forbidden() -> None:
-    raise AppError(
-        status_code=405,
-        code="MASTER_DELETE_FORBIDDEN",
-        message="Organization masters cannot be deleted",
-    )
 
 
 async def require_not_owner_manager(user: User) -> None:

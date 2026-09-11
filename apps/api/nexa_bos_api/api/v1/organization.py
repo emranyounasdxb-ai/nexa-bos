@@ -4,20 +4,33 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
+from sqlalchemy import select
+from sqlalchemy.exc import DBAPIError
 
 from nexa_bos_api.api.v1.deps import CurrentUser, require_permission
 from nexa_bos_api.core.exceptions import AppError
 from nexa_bos_api.db.session import SessionDep
 from nexa_bos_api.identity.access import has_permission
+from nexa_bos_api.identity.business_units import (
+    business_unit_status,
+    save_business_unit,
+    serialize_business_unit,
+    validate_business_unit,
+)
 from nexa_bos_api.identity.enums import MasterStatus
 from nexa_bos_api.identity.hierarchy_service import organization_hierarchy
-from nexa_bos_api.identity.models import Department, Designation, Office
+from nexa_bos_api.identity.models import BusinessUnit, Department, Designation, Office
+from nexa_bos_api.identity.org_deletion import (
+    _reference_queries,
+    delete_unused_master,
+    deletion_preview,
+    lock_master_references,
+)
 from nexa_bos_api.identity.org_service import (
     create_department,
     create_designation,
     create_office,
     create_team,
-    delete_master_forbidden,
     list_departments,
     list_designations,
     list_eligible_team_leaders,
@@ -46,11 +59,15 @@ from nexa_bos_api.identity.permissions import (
     USERS_VIEW,
 )
 from nexa_bos_api.identity.schemas import (
+    BusinessUnitCreateRequest,
+    BusinessUnitUpdateRequest,
     DepartmentCreateRequest,
     MasterCreateRequest,
+    MasterDeleteRequest,
     MasterNameUpdateRequest,
     TeamCreateRequest,
     TeamLeaderRequest,
+    TeamUpdateRequest,
 )
 
 router = APIRouter(tags=["organization"])
@@ -66,6 +83,7 @@ async def hierarchy(
     actor: Annotated[CurrentUser, Depends(require_permission(USERS_VIEW))],
     office_id: Annotated[UUID | None, Query(alias="officeId")] = None,
     department_id: Annotated[UUID | None, Query(alias="departmentId")] = None,
+    business_unit_id: Annotated[UUID | None, Query(alias="businessUnitId")] = None,
     team_id: Annotated[UUID | None, Query(alias="teamId")] = None,
     include_inactive: Annotated[bool, Query(alias="includeInactive")] = False,
     q: Annotated[str | None, Query(max_length=100)] = None,
@@ -76,6 +94,7 @@ async def hierarchy(
         actor,
         office_id=office_id,
         department_id=department_id,
+        business_unit_id=business_unit_id,
         team_id=team_id,
         include_inactive=include_inactive,
         query=q,
@@ -144,8 +163,17 @@ async def offices_activate(
 
 
 @router.delete("/offices/{office_id}")
-async def offices_delete(office_id: UUID) -> None:
-    delete_master_forbidden()
+async def offices_delete(
+    office_id: UUID, payload: MasterDeleteRequest, session: SessionDep, actor: CurrentUser
+):
+    return await delete_unused_master(
+        session, actor, "office", office_id, payload.reason, payload.confirmation
+    )
+
+
+@router.get("/offices/{office_id}/deletion-preview")
+async def offices_delete_preview(office_id: UUID, session: SessionDep, actor: CurrentUser):
+    return await deletion_preview(session, actor, "office", office_id)
 
 
 @router.get("/departments")
@@ -215,8 +243,17 @@ async def departments_activate(
 
 
 @router.delete("/departments/{department_id}")
-async def departments_delete(department_id: UUID) -> None:
-    delete_master_forbidden()
+async def departments_delete(
+    department_id: UUID, payload: MasterDeleteRequest, session: SessionDep, actor: CurrentUser
+):
+    return await delete_unused_master(
+        session, actor, "department", department_id, payload.reason, payload.confirmation
+    )
+
+
+@router.get("/departments/{department_id}/deletion-preview")
+async def departments_delete_preview(department_id: UUID, session: SessionDep, actor: CurrentUser):
+    return await deletion_preview(session, actor, "department", department_id)
 
 
 @router.get("/designations")
@@ -291,8 +328,19 @@ async def designations_activate(
 
 
 @router.delete("/designations/{designation_id}")
-async def designations_delete(designation_id: UUID) -> None:
-    delete_master_forbidden()
+async def designations_delete(
+    designation_id: UUID, payload: MasterDeleteRequest, session: SessionDep, actor: CurrentUser
+):
+    return await delete_unused_master(
+        session, actor, "designation", designation_id, payload.reason, payload.confirmation
+    )
+
+
+@router.get("/designations/{designation_id}/deletion-preview")
+async def designations_delete_preview(
+    designation_id: UUID, session: SessionDep, actor: CurrentUser
+):
+    return await deletion_preview(session, actor, "designation", designation_id)
 
 
 @router.get("/teams")
@@ -301,12 +349,14 @@ async def teams_list(
     actor: CurrentUser,
     office_id: Annotated[UUID | None, Query(alias="officeId")] = None,
     department_id: Annotated[UUID | None, Query(alias="departmentId")] = None,
+    business_unit_id: Annotated[UUID | None, Query(alias="businessUnitId")] = None,
     include_inactive: Annotated[bool, Query(alias="includeInactive")] = False,
 ) -> dict[str, object]:
     rows = await list_teams(
         session,
         office_id=office_id,
         department_id=department_id,
+        business_unit_id=business_unit_id,
         include_inactive=_include_inactive(actor, TEAMS_MANAGE, include_inactive),
     )
     return {"items": [serialize_team(row) for row in rows]}
@@ -319,7 +369,13 @@ async def teams_create(
     actor: Annotated[CurrentUser, Depends(require_permission(TEAMS_MANAGE))],
 ) -> dict[str, object]:
     row = await create_team(
-        session, actor, payload.office_id, payload.department_id, payload.name, payload.code
+        session,
+        actor,
+        payload.office_id,
+        payload.department_id,
+        payload.name,
+        payload.code,
+        payload.business_unit_id,
     )
     return serialize_team(row)
 
@@ -327,12 +383,55 @@ async def teams_create(
 @router.patch("/teams/{team_id}")
 async def teams_rename(
     team_id: UUID,
-    payload: MasterNameUpdateRequest,
+    payload: TeamUpdateRequest,
     session: SessionDep,
     actor: Annotated[CurrentUser, Depends(require_permission(TEAMS_MANAGE))],
 ) -> dict[str, object]:
     team = await load_team(session, team_id)
-    return serialize_team(await rename_team(session, actor, team, payload.name))
+    if (
+        "business_unit_id" in payload.model_fields_set
+        and payload.business_unit_id != team.business_unit_id
+    ):
+        if payload.business_unit_id is None:
+            raise AppError(
+                status_code=422, code="BUSINESS_UNIT_REQUIRED", message="Select a Business Unit"
+            )
+        await validate_business_unit(
+            session, payload.business_unit_id, team.office_id, team.department_id
+        )
+        if team.business_unit_id is not None:
+            try:
+                await lock_master_references(session, "team", team.id)
+            except DBAPIError as exc:
+                await session.rollback()
+                raise AppError(
+                    status_code=409,
+                    code="MASTER_CHANGE_CONFLICT",
+                    message="Concurrent activity prevented this change",
+                ) from exc
+            used = team.team_leader_id is not None
+            for _, query in _reference_queries("team", team.id):
+                used = bool(await session.scalar(query)) or used
+            if used:
+                raise AppError(
+                    status_code=409,
+                    code="TEAM_BUSINESS_UNIT_LOCKED",
+                    message="A used Team cannot be moved to another Business Unit",
+                )
+        from nexa_bos_api.identity.audit import record_audit
+
+        await record_audit(
+            session,
+            action="team.business_unit",
+            entity_type="team",
+            entity_id=str(team.id),
+            actor_id=actor.id,
+            new_values={"businessUnitId": str(payload.business_unit_id)},
+        )
+        team.business_unit_id = payload.business_unit_id
+    updated = await rename_team(session, actor, team, payload.name)
+    await session.commit()
+    return serialize_team(updated)
 
 
 @router.get("/teams/{team_id}/eligible-leaders")
@@ -387,5 +486,83 @@ async def teams_activate(
 
 
 @router.delete("/teams/{team_id}")
-async def teams_delete(team_id: UUID) -> None:
-    delete_master_forbidden()
+async def teams_delete(
+    team_id: UUID, payload: MasterDeleteRequest, session: SessionDep, actor: CurrentUser
+):
+    return await delete_unused_master(
+        session, actor, "team", team_id, payload.reason, payload.confirmation
+    )
+
+
+@router.get("/teams/{team_id}/deletion-preview")
+async def teams_delete_preview(team_id: UUID, session: SessionDep, actor: CurrentUser):
+    return await deletion_preview(session, actor, "team", team_id)
+
+
+@router.get("/business-units")
+async def business_units_list(
+    session: SessionDep,
+    actor: CurrentUser,
+    office_id: Annotated[UUID | None, Query(alias="officeId")] = None,
+    department_id: Annotated[UUID | None, Query(alias="departmentId")] = None,
+    include_inactive: Annotated[bool, Query(alias="includeInactive")] = False,
+):
+    query = select(BusinessUnit).order_by(BusinessUnit.code)
+    if office_id:
+        query = query.where(BusinessUnit.office_id == office_id)
+    if department_id:
+        query = query.where(BusinessUnit.department_id == department_id)
+    if not _include_inactive(actor, DEPARTMENTS_MANAGE, include_inactive):
+        query = query.where(BusinessUnit.status == MasterStatus.ACTIVE)
+    return {"items": [serialize_business_unit(row) for row in await session.scalars(query)]}
+
+
+@router.post("/business-units")
+async def business_units_create(
+    payload: BusinessUnitCreateRequest,
+    session: SessionDep,
+    actor: Annotated[CurrentUser, Depends(require_permission(DEPARTMENTS_MANAGE))],
+):
+    return await save_business_unit(session, actor, **payload.model_dump())
+
+
+@router.patch("/business-units/{unit_id}")
+async def business_units_update(
+    unit_id: UUID,
+    payload: BusinessUnitUpdateRequest,
+    session: SessionDep,
+    actor: Annotated[CurrentUser, Depends(require_permission(DEPARTMENTS_MANAGE))],
+):
+    return await save_business_unit(session, actor, unit_id=unit_id, **payload.model_dump())
+
+
+@router.post("/business-units/{unit_id}/activate")
+async def business_units_activate(
+    unit_id: UUID,
+    session: SessionDep,
+    actor: Annotated[CurrentUser, Depends(require_permission(DEPARTMENTS_MANAGE))],
+):
+    return await business_unit_status(session, actor, unit_id, MasterStatus.ACTIVE)
+
+
+@router.post("/business-units/{unit_id}/deactivate")
+async def business_units_deactivate(
+    unit_id: UUID,
+    session: SessionDep,
+    actor: Annotated[CurrentUser, Depends(require_permission(DEPARTMENTS_MANAGE))],
+):
+    return await business_unit_status(session, actor, unit_id, MasterStatus.INACTIVE)
+
+
+@router.get("/business-units/{unit_id}/deletion-preview")
+async def business_units_delete_preview(unit_id: UUID, session: SessionDep, actor: CurrentUser):
+    return await deletion_preview(session, actor, "business_unit", unit_id)
+
+
+@router.delete("/business-units/{unit_id}")
+async def business_units_delete(
+    unit_id: UUID, payload: MasterDeleteRequest, session: SessionDep, actor: CurrentUser
+):
+    return await delete_unused_master(
+        session, actor, "business_unit", unit_id, payload.reason, payload.confirmation
+    )

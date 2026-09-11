@@ -221,7 +221,7 @@ async def test_0021_fresh_database_reaches_head_and_matches_models() -> None:
     database, url = await _new_database("fresh")
     try:
         _alembic(url, "upgrade", "head")
-        assert "0026_terminate_sessions (head)" in _alembic(url, "current")
+        assert "0027_org_business_units (head)" in _alembic(url, "current")
         assert "No new upgrade operations detected" in _alembic(url, "check")
     finally:
         await _drop_database(database)

@@ -423,6 +423,7 @@ export default function UserProfilePage() {
                 <Definition label="Designation">{user.designation ? `${user.designation.code} — ${user.designation.name}` : "Unassigned"}</Definition>
                 <Definition label="Office">{user.office ? `${user.office.code} — ${user.office.name}` : "Unassigned"}</Definition>
                 <Definition label="Department">{user.department ? `${user.department.code} — ${user.department.name}` : "Unassigned"}</Definition>
+                <Definition label="Business Unit">{user.businessUnit ? `${user.businessUnit.code} — ${user.businessUnit.name}` : "Unassigned"}</Definition>
                 <Definition label="Team">{user.team ? `${user.team.code} — ${user.team.name}` : "Unassigned"}</Definition>
                 <Definition label="User type">{user.userType ? `${user.userType.code} — ${user.userType.name}` : "Unassigned"}</Definition>
                 <Definition label="Effective permissions">{user.permissions.length.toLocaleString()}</Definition>

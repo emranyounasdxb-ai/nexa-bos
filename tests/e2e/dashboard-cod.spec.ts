@@ -171,7 +171,10 @@ test("COD Operations Dashboard is office-scoped, actionable, keyboard accessible
     const departmentResponse = await request.post(`${apiOrigin}/api/v1/departments`, { headers, data: { office_id: officeId, code: `CD-${code}-${stamp}`, name: `COD review ${code} ${stamp}` } });
     expect(departmentResponse.status()).toBe(200);
     const department = await departmentResponse.json() as { id: string };
-    const teamResponse = await request.post(`${apiOrigin}/api/v1/teams`, { headers, data: { office_id: officeId, department_id: department.id, code: `CT-${code}-${stamp}`, name: `COD team ${code} ${stamp}` } });
+    const unitResponse = await request.post(`${apiOrigin}/api/v1/business-units`, { headers, data: { office_id: officeId, department_id: department.id, code: `CB-${code}-${stamp}`, name: `COD unit ${code} ${stamp}` } });
+    expect(unitResponse.status(), await unitResponse.text()).toBe(200);
+    const unit = await unitResponse.json() as { id: string };
+    const teamResponse = await request.post(`${apiOrigin}/api/v1/teams`, { headers, data: { office_id: officeId, department_id: department.id, business_unit_id: unit.id, code: `CT-${code}-${stamp}`, name: `COD team ${code} ${stamp}` } });
     expect(teamResponse.status()).toBe(200);
     return { department_id: department.id, team_id: ((await teamResponse.json()) as { id: string }).id };
   }

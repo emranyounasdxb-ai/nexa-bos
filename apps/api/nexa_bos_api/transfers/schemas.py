@@ -11,6 +11,7 @@ class ProposedAssignment(BaseModel):
     model_config = ConfigDict(extra="forbid")
     office_id: UUID | None
     department_id: UUID | None
+    business_unit_id: UUID | None = None
     team_id: UUID | None
     designation_id: UUID
     reporting_manager_id: UUID | None

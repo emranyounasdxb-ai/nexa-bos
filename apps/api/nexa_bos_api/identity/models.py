@@ -121,8 +121,9 @@ class OfficeNameHistory(Base):
     __tablename__ = "office_name_history"
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_uuid)
-    office_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid, ForeignKey("offices.id", ondelete="CASCADE"), nullable=False
+    original_record_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False)
+    office_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("offices.id", ondelete="RESTRICT")
     )
     name: Mapped[str] = mapped_column(String(120), nullable=False)
     effective_from: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
@@ -152,8 +153,9 @@ class DepartmentNameHistory(Base):
     __tablename__ = "department_name_history"
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_uuid)
-    department_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid, ForeignKey("departments.id", ondelete="CASCADE"), nullable=False
+    original_record_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False)
+    department_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("departments.id", ondelete="RESTRICT")
     )
     name: Mapped[str] = mapped_column(String(120), nullable=False)
     effective_from: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
@@ -179,14 +181,68 @@ class DesignationNameHistory(Base):
     __tablename__ = "designation_name_history"
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_uuid)
-    designation_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid, ForeignKey("designations.id", ondelete="CASCADE"), nullable=False
+    original_record_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False)
+    designation_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("designations.id", ondelete="RESTRICT")
     )
     name: Mapped[str] = mapped_column(String(120), nullable=False)
     effective_from: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     effective_to: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     designation: Mapped[Designation] = relationship(back_populates="name_history")
+
+
+class BusinessUnit(Base):
+    __tablename__ = "business_units"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_uuid)
+    office_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("offices.id"), nullable=False)
+    department_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("departments.id"), nullable=False
+    )
+    code: Mapped[str] = mapped_column(String(32), unique=True, nullable=False)
+    name: Mapped[str] = mapped_column(String(120), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_by_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("users.id", use_alter=True, name="business_units_created_by_id_fkey"),
+        nullable=False,
+    )
+    updated_by_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("users.id", use_alter=True, name="business_units_updated_by_id_fkey"),
+        nullable=False,
+    )
+
+
+class BusinessUnitNameHistory(Base):
+    __tablename__ = "business_unit_name_history"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_uuid)
+    original_record_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False)
+    business_unit_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("business_units.id", ondelete="RESTRICT")
+    )
+    name: Mapped[str] = mapped_column(String(120), nullable=False)
+    effective_from: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    effective_to: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class OrganizationMasterDeletion(Base):
+    __tablename__ = "organization_master_deletions"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_uuid)
+    record_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False, unique=True)
+    record_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    code: Mapped[str] = mapped_column(String(32), nullable=False)
+    name: Mapped[str] = mapped_column(String(120), nullable=False)
+    snapshot: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    name_history: Mapped[list] = mapped_column(JSONB, nullable=False)
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
+    actor_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("users.id"), nullable=False)
+    deleted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
 class Team(Base):
@@ -196,6 +252,9 @@ class Team(Base):
     office_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("offices.id"), nullable=False)
     department_id: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey("departments.id"), nullable=False
+    )
+    business_unit_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("business_units.id")
     )
     code: Mapped[str] = mapped_column(String(32), unique=True, nullable=False)
     name: Mapped[str] = mapped_column(String(120), nullable=False)
@@ -216,8 +275,9 @@ class TeamNameHistory(Base):
     __tablename__ = "team_name_history"
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_uuid)
-    team_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid, ForeignKey("teams.id", ondelete="CASCADE"), nullable=False
+    original_record_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False)
+    team_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("teams.id", ondelete="RESTRICT")
     )
     name: Mapped[str] = mapped_column(String(120), nullable=False)
     effective_from: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
@@ -231,7 +291,7 @@ class TeamLeaderHistory(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_uuid)
     team_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid, ForeignKey("teams.id", ondelete="CASCADE"), nullable=False
+        Uuid, ForeignKey("teams.id", ondelete="RESTRICT"), nullable=False
     )
     user_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("users.id"), nullable=False)
     effective_from: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
@@ -264,6 +324,9 @@ class User(Base):
     last_working_date: Mapped[date | None] = mapped_column(Date)
     office_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("offices.id"))
     department_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("departments.id"))
+    business_unit_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("business_units.id")
+    )
     team_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("teams.id"))
     reporting_manager_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid, ForeignKey("users.id", ondelete="SET NULL")
@@ -286,6 +349,7 @@ class User(Base):
     office: Mapped[Office | None] = relationship()
     department: Mapped[Department | None] = relationship()
     team: Mapped[Team | None] = relationship(foreign_keys=[team_id])
+    business_unit: Mapped[BusinessUnit | None] = relationship(foreign_keys=[business_unit_id])
     reporting_manager: Mapped[User | None] = relationship(
         remote_side="User.id",
         foreign_keys=[reporting_manager_id],
@@ -429,3 +493,5 @@ def _reject_audit_mutation(
 
 event.listen(AuditEvent, "before_update", _reject_audit_mutation)
 event.listen(AuditEvent, "before_delete", _reject_audit_mutation)
+event.listen(OrganizationMasterDeletion, "before_update", _reject_audit_mutation)
+event.listen(OrganizationMasterDeletion, "before_delete", _reject_audit_mutation)

@@ -8,6 +8,7 @@ from helpers import (
     authenticate,
     create_activated_user,
     create_product_variant,
+    create_team_fixture,
     office_id,
     owner_client,
     spawned_client,
@@ -470,8 +471,8 @@ async def test_office_hierarchy_drives_team_visibility_without_cross_office_leak
             },
         )
         assert department.status_code == 200, department.text
-        team = await authed.post(
-            "/api/v1/teams",
+        team = await create_team_fixture(
+            authed,
             json={
                 "office_id": office,
                 "department_id": department.json()["id"],
@@ -570,8 +571,8 @@ async def test_application_stage_metadata_respects_application_scope_without_wor
             json={"office_id": office, "name": f"Stage Sales {label}", "code": f"SS-{label}"},
         )
         assert department.status_code == 200, department.text
-        team = await authed.post(
-            "/api/v1/teams",
+        team = await create_team_fixture(
+            authed,
             json={
                 "office_id": office,
                 "department_id": department.json()["id"],

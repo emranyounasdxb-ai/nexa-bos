@@ -9,6 +9,7 @@ from helpers import (
     authenticate,
     business_today,
     create_activated_user,
+    create_team_fixture,
     owner_client,
     spawned_client,
     unique_tag,
@@ -248,8 +249,8 @@ async def test_transfer_manager_recommendation_is_direct_team_only_and_pro_denie
             },
         )
         assert department.status_code == 200, department.text
-        team = await owner.post(
-            "/api/v1/teams",
+        team = await create_team_fixture(
+            owner,
             json={
                 "code": f"T{unique_tag()}",
                 "name": "Synthetic transfer team",

@@ -412,9 +412,14 @@ async function prepareApplicationStageFixture(
     data: { office_id: dxb.id, name: `Stage Readiness ${suffix}`, code: `SR-${suffix}` },
   }));
   const departmentId = ((await department.json()) as { id: string }).id;
+  const unit = await expectOk(await request.post(`${apiOrigin}/api/v1/business-units`, {
+    headers, data: { office_id: dxb.id, department_id: departmentId, code: `SB-${suffix}`, name: `Stage unit ${suffix}` },
+  }));
+  const unitId = ((await unit.json()) as { id: string }).id;
   const team = await expectOk(await request.post(`${apiOrigin}/api/v1/teams`, {
     headers,
     data: {
+      business_unit_id: unitId,
       office_id: dxb.id,
       department_id: departmentId,
       name: `Stage Readiness Team ${suffix}`,
@@ -706,7 +711,8 @@ test.describe("shared sidebar role regression matrix", () => {
   // any fixture permissions or deriving expected access from application code.
   const additionalLinks: Record<string, string[]> = {
     GM: ["Organization", "Hierarchy", "Attendance", "Attendance reports", "Targets",
-      "KPI scorecards", "Assets", "Asset categories", "Asset reports", "Banks & products", "Security"],
+      "KPI scorecards", "Assets", "Asset categories", "Asset reports", "Banks & products", "Security",
+      "HR Dashboard", "PRO Dashboard", "Leave", "Contracts", "Transfers", "Exit and offboarding", "Approval Centre"],
     ITM: ["Hierarchy", "Asset categories", "Asset reports"],
     HR: ["Hierarchy", "KPI scorecards"],
     PRO: ["Hierarchy"],

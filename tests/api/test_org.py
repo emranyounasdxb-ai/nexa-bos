@@ -1,9 +1,15 @@
 from __future__ import annotations
 
 import pytest
+from helpers import (
+    create_activated_user,
+    create_team_fixture,
+    designation_id,
+    office_id,
+    owner_client,
+    unique_tag,
+)
 from httpx import AsyncClient
-
-from helpers import create_activated_user, designation_id, office_id, owner_client, unique_tag
 
 
 @pytest.mark.asyncio
@@ -46,8 +52,8 @@ async def test_team_and_tl_rules(client: AsyncClient) -> None:
         json={"office_id": dubai, "name": f"Ops {tag}", "code": f"OPS{tag[:6]}"},
     )
     assert dept.status_code == 200, dept.text
-    team = await authed.post(
-        "/api/v1/teams",
+    team = await create_team_fixture(
+        authed,
         json={
             "office_id": dubai,
             "department_id": dept.json()["id"],
@@ -106,8 +112,8 @@ async def test_tl_eligibility_and_type_change_clears_assignment(client: AsyncCli
         "/api/v1/departments",
         json={"office_id": abu_dhabi, "name": f"Auh {tag}", "code": f"AU{tag[:6]}"},
     )
-    team = await authed.post(
-        "/api/v1/teams",
+    team = await create_team_fixture(
+        authed,
         json={
             "office_id": dubai,
             "department_id": dept.json()["id"],
@@ -115,8 +121,8 @@ async def test_tl_eligibility_and_type_change_clears_assignment(client: AsyncCli
             "code": f"TA{tag[:6]}",
         },
     )
-    other_team = await authed.post(
-        "/api/v1/teams",
+    other_team = await create_team_fixture(
+        authed,
         json={
             "office_id": dubai,
             "department_id": dept.json()["id"],
@@ -124,8 +130,8 @@ async def test_tl_eligibility_and_type_change_clears_assignment(client: AsyncCli
             "code": f"TB{tag[:6]}",
         },
     )
-    auh_team = await authed.post(
-        "/api/v1/teams",
+    auh_team = await create_team_fixture(
+        authed,
         json={
             "office_id": abu_dhabi,
             "department_id": auh_dept.json()["id"],
@@ -235,8 +241,8 @@ async def test_org_deactivation_blocked_by_active_dependencies(client: AsyncClie
     empty_dept_ok = await authed.post(f"/api/v1/departments/{dept.json()['id']}/deactivate")
     assert empty_dept_ok.status_code == 200, empty_dept_ok.text
     await authed.post(f"/api/v1/departments/{dept.json()['id']}/activate")
-    team = await authed.post(
-        "/api/v1/teams",
+    team = await create_team_fixture(
+        authed,
         json={
             "office_id": office_id_value,
             "department_id": dept.json()["id"],
@@ -296,9 +302,7 @@ async def test_org_deactivation_blocked_by_active_dependencies(client: AsyncClie
         json={"designation_id": designation.json()["id"]},
     )
     assert patched.status_code == 200, patched.text
-    blocked_desig = await authed.post(
-        f"/api/v1/designations/{designation.json()['id']}/deactivate"
-    )
+    blocked_desig = await authed.post(f"/api/v1/designations/{designation.json()['id']}/deactivate")
     assert blocked_desig.status_code == 422
     assert blocked_desig.json()["error"]["code"] == "MASTER_IN_USE"
 
@@ -311,8 +315,13 @@ async def test_office_deactivate_blocked_while_users_exist(client: AsyncClient) 
     blocked = await authed.post(f"/api/v1/offices/{dubai}/deactivate")
     assert blocked.status_code == 422
     assert blocked.json()["error"]["code"] == "MASTER_IN_USE"
-    deleted = await authed.delete(f"/api/v1/offices/{dubai}")
-    assert deleted.status_code == 405
+    deleted = await authed.request(
+        "DELETE",
+        f"/api/v1/offices/{dubai}",
+        json={"confirmation": "DELETE", "reason": "Must refuse used office"},
+    )
+    assert deleted.status_code == 409
+    assert deleted.json()["error"]["code"] == "MASTER_IN_USE"
 
 
 @pytest.mark.asyncio

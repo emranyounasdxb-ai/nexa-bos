@@ -491,6 +491,7 @@ async def update_hr_profile(
         canonical_update["office_id"] = target.office_id
         if payload.department_id != target.department_id:
             canonical_update["team_id"] = None
+            canonical_update["business_unit_id"] = None
     if "reporting_manager_id" in payload.model_fields_set:
         canonical_update["reporting_manager_id"] = payload.reporting_manager_id
     if "work_email" in payload.model_fields_set:

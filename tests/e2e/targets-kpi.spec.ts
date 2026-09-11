@@ -133,9 +133,15 @@ test("owner targets, KPI scorecards, profile section, and scoped isolation", asy
   });
   expect(dept.ok()).toBeTruthy();
   const departmentId = ((await dept.json()) as { id: string }).id;
+  const unit = await request.post(`${apiOrigin}/api/v1/business-units`, {
+    headers, data: { office_id: dxb!.id, department_id: departmentId, code: `BU${Date.now().toString(16)}`, name: "Target fixture unit" },
+  });
+  expect(unit.ok(), await unit.text()).toBeTruthy();
+  const unitId = ((await unit.json()) as { id: string }).id;
   const team = await request.post(`${apiOrigin}/api/v1/teams`, {
     headers,
     data: {
+      business_unit_id: unitId,
       office_id: dxb!.id,
       department_id: departmentId,
       name: `Target Team ${tag}`,

@@ -483,6 +483,7 @@ def public_user(user: User, *, csrf_token: str | None = None) -> dict[str, objec
         "lastWorkingDate": user.last_working_date.isoformat() if user.last_working_date else None,
         "office": _ref(user.office),
         "department": _ref(user.department),
+        "businessUnit": _ref(user.business_unit),
         "team": _ref(user.team),
         "reportingManagerId": str(user.reporting_manager_id) if user.reporting_manager_id else None,
         "hasPhoto": bool(user.profile_photo_key),

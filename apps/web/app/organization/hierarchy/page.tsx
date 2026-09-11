@@ -24,6 +24,7 @@ export default function OrganizationHierarchyPage() {
   const [data, setData] = useState<HierarchyPayload | null>(null);
   const [officeId, setOfficeId] = useState("");
   const [departmentId, setDepartmentId] = useState("");
+  const [businessUnitId, setBusinessUnitId] = useState("");
   const [teamId, setTeamId] = useState("");
   const [includeInactive, setIncludeInactive] = useState(false);
   const [searchDraft, setSearchDraft] = useState("");
@@ -37,6 +38,7 @@ export default function OrganizationHierarchyPage() {
     const params = new URLSearchParams();
     if (officeId) params.set("officeId", officeId);
     if (departmentId) params.set("departmentId", departmentId);
+    if (businessUnitId) params.set("businessUnitId", businessUnitId);
     if (teamId) params.set("teamId", teamId);
     if (includeInactive) params.set("includeInactive", "true");
     if (searchQuery) params.set("q", searchQuery);
@@ -52,7 +54,7 @@ export default function OrganizationHierarchyPage() {
       return next;
     });
     setError("");
-  }, [api, departmentId, includeInactive, officeId, searchQuery, selectedId, teamId]);
+  }, [api, departmentId, businessUnitId, includeInactive, officeId, searchQuery, selectedId, teamId]);
 
   useEffect(() => {
     void load().catch((reason: unknown) =>
@@ -135,6 +137,7 @@ export default function OrganizationHierarchyPage() {
               onChange={(event) => {
                 setOfficeId(event.target.value);
                 setDepartmentId("");
+                setBusinessUnitId("");
                 setTeamId("");
                 setSelectedId("");
               }}
@@ -154,6 +157,7 @@ export default function OrganizationHierarchyPage() {
               value={departmentId}
               onChange={(event) => {
                 setDepartmentId(event.target.value);
+                setBusinessUnitId("");
                 setTeamId("");
                 setSelectedId("");
               }}
@@ -164,6 +168,12 @@ export default function OrganizationHierarchyPage() {
                   {department.code} — {department.name}
                 </option>
               ))}
+            </Select>
+          </Field>
+          <Field label="Business Unit" htmlFor="hierarchy-business-unit">
+            <Select id="hierarchy-business-unit" aria-label="Business Unit" value={businessUnitId} onChange={(event) => { setBusinessUnitId(event.target.value); setTeamId(""); resetSelection(); }}>
+              <option value="">All Business Units</option>
+              {data?.filters.businessUnits.map((unit) => <option key={unit.id} value={unit.id}>{unit.code} — {unit.name}</option>)}
             </Select>
           </Field>
           <Field label="Team" htmlFor="hierarchy-team">
@@ -440,6 +450,7 @@ function SelectedContext({
         <Detail label="User type" value={node.userType?.name} />
         <Detail label="Office" value={node.office?.name} />
         <Detail label="Department" value={node.department?.name} />
+        <Detail label="Business Unit" value={node.businessUnit?.name} />
         <Detail label="Team" value={node.team?.name} />
         <Detail label="Reporting manager" value={manager?.fullName} />
         <Detail label="Employment status" value={node.employmentStatus} />

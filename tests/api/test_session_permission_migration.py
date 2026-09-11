@@ -89,7 +89,7 @@ async def test_session_permission_owner_only_idempotent_explicit_ids(owner_exist
                 assert rows[0].user_type_id == roles["OWNER"]
                 if overlap:
                     assert rows[0].id == existing_id
-        assert "0026_terminate_sessions (head)" in _alembic(url, "current")
+        assert "0027_org_business_units (head)" in _alembic(url, "current")
         assert "No new upgrade operations detected" in _alembic(url, "check")
     finally:
         await engine.dispose()

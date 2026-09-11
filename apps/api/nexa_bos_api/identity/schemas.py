@@ -93,6 +93,7 @@ class UserCreateRequest(BaseModel):
     last_working_date: date | None = None
     office_id: UUID | None = None
     department_id: UUID | None = None
+    business_unit_id: UUID | None = None
     team_id: UUID | None = None
     reporting_manager_id: UUID | None = None
     user_type_id: UUID | None = None
@@ -114,6 +115,7 @@ class UserUpdateRequest(BaseModel):
     last_working_date: date | None = None
     office_id: UUID | None = None
     department_id: UUID | None = None
+    business_unit_id: UUID | None = None
     team_id: UUID | None = None
     reporting_manager_id: UUID | None = None
 
@@ -130,6 +132,7 @@ class RehireRequest(BaseModel):
     designation_id: UUID | None = None
     office_id: UUID | None = None
     department_id: UUID | None = None
+    business_unit_id: UUID | None = None
     team_id: UUID | None = None
     reporting_manager_id: UUID | None = None
 
@@ -207,6 +210,30 @@ class DepartmentCreateRequest(MasterCreateRequest):
 class TeamCreateRequest(MasterCreateRequest):
     office_id: UUID
     department_id: UUID
+    business_unit_id: UUID
+
+
+class BusinessUnitCreateRequest(MasterCreateRequest):
+    model_config = ConfigDict(extra="forbid")
+    office_id: UUID
+    department_id: UUID
+
+
+class BusinessUnitUpdateRequest(MasterNameUpdateRequest):
+    model_config = ConfigDict(extra="forbid")
+    office_id: UUID
+    department_id: UUID
+
+
+class TeamUpdateRequest(MasterNameUpdateRequest):
+    model_config = ConfigDict(extra="forbid")
+    business_unit_id: UUID | None = None
+
+
+class MasterDeleteRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    confirmation: str
+    reason: str = Field(min_length=1, max_length=1000)
 
 
 class TeamLeaderRequest(BaseModel):

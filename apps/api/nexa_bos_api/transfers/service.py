@@ -15,6 +15,7 @@ from nexa_bos_api.identity.access import has_permission, is_owner, visible_user_
 from nexa_bos_api.identity.audit import record_audit
 from nexa_bos_api.identity.enums import AccountStatus, MasterStatus
 from nexa_bos_api.identity.models import (
+    BusinessUnit,
     Department,
     Designation,
     Office,
@@ -40,7 +41,14 @@ from nexa_bos_api.transfers.schemas import (
     TransferUpdate,
 )
 
-FIELDS = ("office_id", "department_id", "team_id", "designation_id", "reporting_manager_id")
+FIELDS = (
+    "office_id",
+    "department_id",
+    "business_unit_id",
+    "team_id",
+    "designation_id",
+    "reporting_manager_id",
+)
 
 
 def today():
@@ -113,8 +121,12 @@ async def _transfer(session: AsyncSession, actor: User, transfer_id: UUID, *, lo
 
 async def _payload(row: EmployeeTransfer, actor: User, session: AsyncSession) -> dict:
     names = {}
-    for key, model in zip(FIELDS, (Office, Department, Team, Designation, User), strict=True):
-        ids = {UUID(value) for value in (row.current_snapshot[key], row.proposed[key]) if value}
+    for key, model in zip(
+        FIELDS, (Office, Department, BusinessUnit, Team, Designation, User), strict=True
+    ):
+        ids = {
+            UUID(value) for value in (row.current_snapshot.get(key), row.proposed.get(key)) if value
+        }
         names[key] = {
             str(item.id): item.full_name if model is User else item.name
             for item in await session.scalars(select(model).where(model.id.in_(ids)))
@@ -131,8 +143,8 @@ async def _payload(row: EmployeeTransfer, actor: User, session: AsyncSession) ->
         "supersedesId": str(row.supersedes_id) if row.supersedes_id else None,
         "current": row.current_snapshot,
         "proposed": row.proposed,
-        "currentLabels": {key: names[key].get(row.current_snapshot[key]) for key in FIELDS},
-        "proposedLabels": {key: names[key].get(row.proposed[key]) for key in FIELDS},
+        "currentLabels": {key: names[key].get(row.current_snapshot.get(key)) for key in FIELDS},
+        "proposedLabels": {key: names[key].get(row.proposed.get(key)) for key in FIELDS},
         "reason": row.reason,
         "notes": row.notes,
         "requestedDate": row.requested_date.isoformat(),
@@ -215,6 +227,7 @@ async def _validate(session, actor, user, proposed: ProposedAssignment):
         office_id=proposed.office_id,
         department_id=proposed.department_id,
         team_id=proposed.team_id,
+        business_unit_id=proposed.business_unit_id,
     )
     designation = await session.get(Designation, proposed.designation_id)
     if designation is None or any(
@@ -291,6 +304,7 @@ async def options(session, actor):
     for name, model in (
         ("offices", Office),
         ("departments", Department),
+        ("businessUnits", BusinessUnit),
         ("teams", Team),
         ("designations", Designation),
     ):
@@ -303,6 +317,9 @@ async def options(session, actor):
                 "name": r.name,
                 "officeId": str(r.office_id) if hasattr(r, "office_id") else None,
                 "departmentId": str(r.department_id) if hasattr(r, "department_id") else None,
+                "businessUnitId": str(r.business_unit_id)
+                if getattr(r, "business_unit_id", None)
+                else None,
             }
             for r in rows
         ]
@@ -420,7 +437,7 @@ async def _apply(session, actor, row):
         .options(*user_load_options())
         .with_for_update()
     )
-    if _snapshot(user) != row.current_snapshot:
+    if _snapshot(user) != {key: row.current_snapshot.get(key) for key in FIELDS}:
         raise AppError(
             status_code=409,
             code="TRANSFER_ASSIGNMENT_CHANGED",
