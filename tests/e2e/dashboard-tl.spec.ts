@@ -61,7 +61,8 @@ async function seed(request: APIRequestContext) {
   for (const code of ["DXB", "AUH"]) {
     const office = (await getItems(request, "offices")).find(item => item.code === code)!;
     const department = await save(request, "departments", headers, { code: `TD${code}${stamp}`, name: `TL review ${code}`, office_id: office.id });
-    const team = await save(request, "teams", headers, { code: `TT${code}${stamp}`, name: `Team ${code} ${stamp}`, office_id: office.id, department_id: department.id });
+    const businessUnit = await save(request, "business-units", headers, { code: `TB${code}${stamp}`, name: `TL review unit ${code}`, office_id: office.id, department_id: department.id });
+    const team = await save(request, "teams", headers, { code: `TT${code}${stamp}`, name: `Team ${code} ${stamp}`, office_id: office.id, department_id: department.id, business_unit_id: businessUnit.id });
     const users: Record<string, RecordId> = {};
     let manager: string | undefined;
     for (const role of ["COD", "TL", "SE"]) {
@@ -150,7 +151,7 @@ async function capturePreview(page: Page, testInfo: TestInfo, name: string) {
   await expect(page.getByRole("button", { name: "Refresh", exact: true })).toBeEnabled();
   await page.evaluate(() => window.scrollTo(0, 0));
   await expectNoOverflow(page);
-  await page.screenshot({ path: testInfo.outputPath(`${name}.png`), fullPage: true, animations: "disabled" });
+  await page.screenshot({ path: testInfo.outputPath(`${name}.png`), fullPage: false, animations: "disabled" });
 }
 
 async function expectTabVisibleInStrip(tab: Locator, tabs: Locator) {
@@ -193,7 +194,7 @@ async function expectTabFrame(page: Page, tabKey: "review" | "team" | "analytics
   for (const tab of await tabs.getByRole("tab").all()) {
     expect((await tab.boundingBox())!.height).toBe(32);
     await expect(tab.locator('svg[aria-hidden="true"]')).toHaveCount(1);
-    await expect(tab).toHaveCSS("font-size", "14px");
+    await expect(tab).toHaveCSS("font-size", "15px");
     await expect(tab).toHaveCSS("box-shadow", "none");
     await expect(tab).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
     await expect(tab).toHaveCSS("border-bottom-width", "2px");

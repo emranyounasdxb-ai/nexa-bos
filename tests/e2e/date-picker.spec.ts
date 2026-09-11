@@ -45,10 +45,19 @@ function todayIso(): string {
   return `${year}-${month}-${day}`;
 }
 
-test("create user form uses the NEXA BOS date picker", async ({ page, request }) => {
+async function openEmployeeDateForm(page: Page, request: APIRequestContext) {
   await signIn(page, request);
-  await page.goto("/users/new");
-  await expect(page.getByRole("dialog", { name: "Create User" })).toBeVisible();
+  const session = await page.request.get(`${apiOrigin}/api/v1/auth/me`);
+  expect(session.status()).toBe(200);
+  const owner = (await session.json()) as { id: string };
+  // Basic creation intentionally contains no employment dates. Exercise the
+  // existing employee edit date field without submitting or changing fixtures.
+  await page.goto(`/users/${owner.id}/edit`);
+  await expect(page.getByRole("heading", { name: "Edit employee profile", exact: true })).toBeVisible();
+}
+
+test("employee edit form uses the NEXA BOS date picker", async ({ page, request }) => {
+  await openEmployeeDateForm(page, request);
   await expect(page.locator('input[type="date"]')).toHaveCount(0);
 
   const joining = page.getByLabel("Joining date");
@@ -78,9 +87,7 @@ test("invalid typed dates block submit and month navigation keeps a focused day"
   page,
   request,
 }) => {
-  await signIn(page, request);
-  await page.goto("/users/new");
-  await expect(page.getByRole("dialog", { name: "Create User" })).toBeVisible();
+  await openEmployeeDateForm(page, request);
 
   const joining = page.getByLabel("Joining date");
   await joining.fill("2026-02-31");

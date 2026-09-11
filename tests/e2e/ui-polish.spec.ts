@@ -241,9 +241,10 @@ test("list search and page actions share compact desktop rows", async ({ page, r
   await page.goto("/users/new");
   await expect(page.getByRole("heading", { name: "Create user", exact: true })).toBeVisible();
   for (const control of [
-    page.getByLabel("Full Name", { exact: true }),
-    page.getByRole("combobox", { name: "Designation" }),
-    page.getByLabel("Joining Date", { exact: true }),
+    page.getByRole("textbox", { name: "Full Name (required)", exact: true }),
+    page.getByRole("textbox", { name: "Personal Email (required)", exact: true }),
+    page.getByRole("textbox", { name: "Personal Mobile (required)", exact: true }),
+    page.getByLabel("User Code", { exact: true }),
     page.getByRole("button", { name: "Create User", exact: true }),
   ]) {
     await expect(control).toBeVisible();
@@ -879,9 +880,16 @@ test("shared application layout stays compact, aligned, and overflow-free across
       await expect(page.locator("header h1")).toHaveCount(1);
       await expect(page.locator("body")).toHaveCSS("background-color", "rgb(247, 248, 250)");
       await expect(page.getByTestId("page-header")).toHaveCSS("padding-top", viewport.expectedHeaderPaddingTop);
-      await expect(page.getByTestId("page-main")).toHaveCSS("font-size", "14px");
+      await expect(page.getByTestId("page-main")).toHaveCSS("font-size", "15px");
 
-      const iconPresentation = await page.locator('[data-amafh-ui-icon]:visible').evaluateAll((icons) => icons
+      // Query and measure in one browser task: loading/empty icons can be
+      // replaced between locator resolution and a separate handle evaluation.
+      const iconPresentation = await page.evaluate(() => Array.from(document.querySelectorAll('[data-amafh-ui-icon]'))
+        .filter((icon) => {
+          const box = icon.getBoundingClientRect();
+          const visibility = getComputedStyle(icon).visibility;
+          return box.width > 0 && box.height > 0 && visibility !== "hidden" && visibility !== "collapse";
+        })
         .map((icon) => ({
           filter: getComputedStyle(icon).filter,
           disabled: Boolean(icon.closest('button:disabled, [aria-disabled="true"]')),
@@ -914,6 +922,11 @@ test("shared application layout stays compact, aligned, and overflow-free across
         await expect(card).toHaveCSS("background-color", "rgb(255, 255, 255)");
         await expect(card).toHaveCSS("border-color", "rgb(229, 231, 235)");
         await expect(card).toHaveCSS("border-radius", "8px");
+      }
+
+      const sectionHeading = page.locator("main [data-amafh-section-header] h2:visible").first();
+      if (await sectionHeading.count()) {
+        await expect(sectionHeading).toHaveCSS("font-size", "20px");
       }
 
       const tablist = page.locator('main [role="tablist"]:visible').first();
