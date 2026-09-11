@@ -351,6 +351,14 @@ SYSTEM_EXIT_PERMISSION_DEFAULTS = {
     "HR": tuple(code for code in EXIT_PERMISSIONS if code != "Exits.Approve"),
 }
 
+APPROVAL_PERMISSIONS = ("Approvals.View", "Approvals.Decide")
+PERMISSION_CATALOG += tuple(
+    (code, code.replace("Approvals.", "Approval Centre: ")) for code in APPROVAL_PERMISSIONS
+)
+SYSTEM_APPROVAL_PERMISSION_DEFAULTS = {
+    code: APPROVAL_PERMISSIONS for code in ("HR", "GM", "BDM", "SM", "COD", "TL")
+}
+
 ALL_PERMISSION_CODES: tuple[str, ...] = tuple(code for code, _ in PERMISSION_CATALOG)
 
 SYSTEM_PROFILE_PERMISSION_DEFAULTS: dict[str, tuple[str, ...]] = {

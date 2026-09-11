@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
 import { IconRefresh } from "@/components/icons";
+import { HrWorkflowSummary } from "@/components/hr-workflow-summary";
 import { Button, Card, EmptyState, ErrorText, LoadingState, PageHeader, SectionHeader, StatusBadge } from "@/components/ui";
 import { apiGet } from "@/lib/api";
 import { getBrowserApiUrl } from "@/lib/env";
@@ -55,6 +56,7 @@ export function EmployeeDashboard({ mode }: { mode: "hr" | "pro" }) {
     <PageHeader description={mode === "hr" ? "Implemented employee-profile completion, workforce and probation work only." : "Private employee-document compliance derived from current records."} actions={<Button variant="secondary" onClick={() => void load()} disabled={loading}><IconRefresh className="size-4" />{loading ? "Refreshing…" : "Refresh"}</Button>} title={mode === "hr" ? "HR Dashboard" : "PRO Dashboard"} />
     {error ? <ErrorText>{error}</ErrorText> : null}<MetricCards cards={data.cards} />
     {hr ? <>
+      <HrWorkflowSummary />
       <div className="grid min-w-0 gap-4 xl:grid-cols-2">{Object.entries(hr.breakdowns).map(([key, rows]) => <Card key={key}><SectionHeader title={`${key.replace(/([A-Z])/g, " $1").trim()} breakdown`} />{rows.length ? <ul className="mt-3 space-y-2">{rows.map((row) => <li key={row.label} className="flex justify-between gap-3 text-sm"><span>{row.label}</span><strong>{row.count}</strong></li>)}</ul> : <EmptyState>No data is recorded.</EmptyState>}</Card>)}</div>
       <div className="grid min-w-0 gap-4 xl:grid-cols-3"><ListCard title="New joiners" items={hr.newJoiners.map((row) => ({ id: row.id, name: row.name, detail: `${row.employeeCode} · ${row.joiningDate}` }))} /><ListCard title="Probation tracking" items={hr.probation.map((row) => ({ id: row.id, name: row.name, detail: `${row.state} · ${row.endDate ?? "End date missing"}` }))} /><ListCard title="Pending HR actions" items={hr.pendingActions.map((row) => ({ id: row.id, name: row.name, detail: row.completion.missing.join(", ") }))} /></div>
       <Card><SectionHeader title="Recent HR activity" />{hr.recentActivity.length ? <ul className="mt-3 space-y-2">{hr.recentActivity.map((row) => <li key={row.id} className="text-sm"><strong>{row.actor}</strong> · {row.action} · {row.employee}<span className="block text-xs text-text-secondary">{new Date(row.createdAt).toLocaleString("en-AE")}</span></li>)}</ul> : <EmptyState>No recent HR profile activity.</EmptyState>}</Card>

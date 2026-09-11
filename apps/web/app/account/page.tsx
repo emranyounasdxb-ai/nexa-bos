@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { HrWorkflowSummary } from "@/components/hr-workflow-summary";
 
 import { Button, ButtonLink, Card, PageHeader, TextInput, focusRing } from "@/components/ui";
 import { apiRequest } from "@/lib/api";
@@ -44,6 +45,7 @@ export default function AccountPage() {
 
   return (
     <section className="max-w-lg space-y-4">
+      <HrWorkflowSummary personal />
       <PageHeader
         title="My profile"
         description="You can change only your mobile number and profile photo. Other fields require Users.Edit."

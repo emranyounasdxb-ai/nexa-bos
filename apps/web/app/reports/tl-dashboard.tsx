@@ -7,6 +7,7 @@ import { BosChart, type BosChartOption } from "@/components/charts/bos-chart";
 import { chartAnimation, chartAxisText, chartFontFamily, chartPalette, chartSplitLine, chartTooltip } from "@/components/charts/chart-theme";
 import { IconArrowBackUp, IconArrowUpRight, IconBuildingBank, IconChartBar, IconChevronDown, IconChevronLeft, IconChevronRight, IconCircleCheck, IconClock, IconFileDescription, IconInbox, IconPackages, IconRefresh, IconUsersGroup } from "@/components/icons";
 import { Tooltip } from "@/components/tooltip";
+import { HrWorkflowSummary } from "@/components/hr-workflow-summary";
 import { Badge, Button, ErrorText, Select, cx, focusRing, primaryButtonClass } from "@/components/ui";
 import { apiGet } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
@@ -233,7 +234,7 @@ export function TlDashboard() {
       </> : null}
       {tab === "team" ? <><Disclosure title="Team targets & performance" testId="tl-team-performance" aside={<span className={styles.rowCount}>{data.staff.length} {data.staff.length === 1 ? "member" : "members"}</span>}><TeamPerformance staff={data.staff} /></Disclosure><Disclosure title="My vs Team Applications" defaultOpen={false}><Distribution rows={data.charts.ownership} label="My versus team Applications" testId="tl-ownership-chart" /></Disclosure></> : null}
       {tab === "analytics" ? <div className={styles.analyticsGrid}><Disclosure title="Applications trend" className={styles.trendPanel}><TrendChart rows={data.charts.trend} href={reviewHref("all")} /></Disclosure><Disclosure title="Bank Stage tracker" className={styles.stagePanel}><StageChart rows={data.charts.stages} href={reviewHref()} /></Disclosure><Disclosure title="Product mix"><p className={styles.chartNote}>Created in selected period</p><Distribution rows={data.charts.products} label="Product mix" testId="tl-product-chart" /></Disclosure><Disclosure title="Bank outcomes"><p className={styles.chartNote}>Cases created in selected period</p><Distribution rows={data.charts.outcomes} label="Bank outcomes" testId="tl-outcome-chart" /><Link href={reviewHref("approved")} className={cx(focusRing, styles.textLink)}>Review bank-approved cases</Link></Disclosure><Disclosure title="Waiting time & delays"><p className={styles.chartNote}>Active cases · Recorded delays</p><Distribution rows={data.charts.tat} label="Delay summary" testId="tl-tat-chart" /><Link href={reviewHref()} className={cx(focusRing, styles.textLink)}>Review active cases</Link></Disclosure><Disclosure title="Internal Review tracker" className={styles.internalPanel} defaultOpen={false}><p className={styles.chartNote}>All cases in scope · Internal routing</p><Distribution rows={data.charts.review} label="Internal review" testId="tl-review-chart" /></Disclosure></div> : null}
-      {tab === "personal" ? <PersonalPanels performance={data.personalPerformance} attendance={data.personalAttendance} period={period} /> : null}
+      {tab === "personal" ? <><PersonalPanels performance={data.personalPerformance} attendance={data.personalAttendance} period={period} /><HrWorkflowSummary personal /></> : null}
     </div> : loading ? <Empty>Loading Team Leader dashboard…</Empty> : null}
   </section>;
 }
