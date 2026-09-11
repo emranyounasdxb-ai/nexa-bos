@@ -326,6 +326,31 @@ SYSTEM_TRANSFER_PERMISSION_DEFAULTS = {
     ),
 }
 
+EXIT_PERMISSIONS = (
+    "Exits.ViewOwn",
+    "Exits.View",
+    "Exits.Request",
+    "Exits.Create",
+    "Exits.Edit",
+    "Exits.Progress",
+    "Exits.Assign",
+    "Exits.Clearance",
+    "Exits.Approve",
+    "Exits.ReturnReject",
+    "Exits.Cancel",
+    "Exits.History",
+)
+PERMISSION_CATALOG += tuple(
+    (code, code.replace("Exits.", "Employee exit: ")) for code in EXIT_PERMISSIONS
+)
+SYSTEM_EXIT_PERMISSION_DEFAULTS = {
+    **{
+        code: ("Exits.ViewOwn", "Exits.Request", "Exits.Clearance")
+        for code in ("GM", "BDM", "SM", "COD", "TL", "SE", "OM", "ITM", "FIN", "AUDITOR")
+    },
+    "HR": tuple(code for code in EXIT_PERMISSIONS if code != "Exits.Approve"),
+}
+
 ALL_PERMISSION_CODES: tuple[str, ...] = tuple(code for code, _ in PERMISSION_CATALOG)
 
 SYSTEM_PROFILE_PERMISSION_DEFAULTS: dict[str, tuple[str, ...]] = {

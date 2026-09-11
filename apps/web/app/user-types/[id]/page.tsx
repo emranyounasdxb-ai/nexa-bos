@@ -125,6 +125,12 @@ const PERMISSION_MODULES = [
     prefixes: ["Transfers."],
   },
   {
+    key: "exits",
+    label: "Exit and offboarding",
+    description: "Own resignation, scoped operations, assigned clearance and final approval.",
+    prefixes: ["Exits."],
+  },
+  {
     key: "notifications",
     label: "Notifications",
     description: "In-app notifications, rule management, urgent sends, and audit visibility.",
