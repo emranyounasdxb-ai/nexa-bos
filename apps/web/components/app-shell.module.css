@@ -10,16 +10,17 @@
 .footerIcon { position: relative; display: inline-flex; flex: 0 0 32px; width: 32px; height: 32px; align-items: center; justify-content: center; }
 .unreadBadge { position: absolute; top: -3px; right: -4px; min-width: 17px; padding: 1px 4px; border: 2px solid var(--amafh-background); border-radius: 10px; background: var(--amafh-primary); color: white; font-size: 9px; font-weight: 700; line-height: 13px; text-align: center; }
 .avatar { display: inline-flex; flex: 0 0 32px; width: 32px; height: 32px; align-items: center; justify-content: center; border-radius: 50%; background: var(--amafh-primary); color: white; font-size: 11px; font-weight: 600; }
-.footerLabel { display: block; min-width: 0; flex: 1; overflow: hidden; font-size: 12px; font-weight: 500; }
+.footerLabel { display: block; min-width: 0; flex: 1; overflow: hidden; font-size: var(--amafh-text-body); font-weight: 500; }
 .accountName, .accountType { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.accountName { font-size: 12px; font-weight: 600; color: var(--amafh-text); }
-.accountType { margin-top: 1px; color: var(--amafh-text-secondary); font-size: 10px; }
+.accountName { font-size: 14px; font-weight: 600; color: var(--amafh-text); }
+.accountType { margin-top: 1px; color: var(--amafh-text-secondary); font-size: var(--amafh-text-support); }
 .accountChevron { width: 14px; height: 14px; flex-shrink: 0; }
-.accountMenu { position: absolute; z-index: 2; right: 12px; bottom: calc(56px + env(safe-area-inset-bottom)); left: 12px; min-width: 0; max-height: min(320px, calc(100dvh - 144px)); overflow: auto; overscroll-behavior: contain; border: 1px solid var(--amafh-border); border-radius: 8px; padding: 6px; background: var(--amafh-surface); box-shadow: var(--amafh-shadow-elevated); }
+.accountAnchor { position: relative; min-width: 0; }
+.accountMenu { position: absolute; z-index: 2; right: 0; bottom: calc(100% + 4px); left: 0; min-width: 0; max-height: min(320px, calc(100dvh - 144px)); overflow: auto; overscroll-behavior: contain; border: 1px solid var(--amafh-border); border-radius: 8px; padding: 6px; background: var(--amafh-surface); box-shadow: var(--amafh-shadow-elevated); }
 .accountSummary { min-width: 0; margin-bottom: 4px; padding: 6px 8px 10px; border-bottom: 1px solid var(--amafh-border); overflow-wrap: anywhere; }
-.accountSummary p { margin: 0; font-size: 12px; font-weight: 600; color: var(--amafh-text); }
-.accountSummary > span { display: block; margin-top: 2px; color: var(--amafh-text-secondary); font-size: 11px; }
-.accountMenuItem { display: flex; width: 100%; min-height: 32px; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 5px; color: var(--amafh-text); text-align: left; font-size: 13px; }
+.accountSummary p { margin: 0; font-size: 14px; font-weight: 600; color: var(--amafh-text); }
+.accountSummary > span { display: block; margin-top: 2px; color: var(--amafh-text-secondary); font-size: var(--amafh-text-support); }
+.accountMenuItem { display: flex; width: 100%; min-height: 36px; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 5px; color: var(--amafh-text); text-align: left; font-size: var(--amafh-text-body); }
 .accountMenuItem:hover { background: var(--amafh-subtle); color: var(--amafh-text); }
 .accountMenuItem:focus-visible { background: var(--amafh-brand-soft); color: var(--amafh-primary); }
 @media (min-width: 640px) {

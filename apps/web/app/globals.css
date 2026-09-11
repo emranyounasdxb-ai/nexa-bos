@@ -39,12 +39,22 @@
   --bos-radius: 0.5rem;
   --amafh-radius-card: 0.5rem;
   --amafh-control-height: 2rem;
+  --amafh-text-body: 0.9375rem;
+  --amafh-text-support: 0.8125rem;
+  --amafh-text-section: 1.25rem;
+  --amafh-text-kpi: 2rem;
+  --amafh-space-panel: 1rem;
+  --amafh-space-section: 1.5rem;
   --amafh-shadow-surface: 0 1px 2px rgba(31, 41, 55, 0.045);
   --amafh-shadow-elevated: 0 10px 24px rgba(31, 41, 55, 0.12);
   --bos-sidebar: 18rem;
 }
 
 @theme inline {
+  --text-xs: var(--amafh-text-support);
+  --text-xs--line-height: 1.25rem;
+  --text-sm: var(--amafh-text-body);
+  --text-sm--line-height: 1.375rem;
   --color-brand-primary: var(--amafh-primary);
   --color-brand-primary-hover: var(--amafh-primary-hover);
   --color-brand-primary-pressed: var(--amafh-primary-pressed);
@@ -142,7 +152,7 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans);
-  font-size: 14px;
+  font-size: var(--amafh-text-body);
   line-height: 1.5;
 }
 
@@ -194,7 +204,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 [data-amafh-workspace] {
   min-width: 0;
   color: var(--amafh-text);
-  font-size: 14px;
+  font-size: var(--amafh-text-body);
 }
 
 [data-amafh-workspace] [data-amafh-card],
@@ -262,7 +272,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   border-radius: 0 !important;
   background: transparent !important;
   color: #4b5563 !important;
-  font-size: 14px !important;
+  font-size: var(--amafh-text-body) !important;
   font-weight: 400 !important;
   line-height: 30px !important;
   white-space: nowrap;

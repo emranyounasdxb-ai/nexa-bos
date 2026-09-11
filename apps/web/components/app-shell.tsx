@@ -553,7 +553,7 @@ function Shell({ children }: { children: ReactNode }) {
             <div className="mb-3">
               <p
                 className={cx(
-                  "mb-1 max-h-4 overflow-hidden whitespace-nowrap px-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400 transition-[max-height,opacity,margin] duration-200 ease-out motion-reduce:duration-0 motion-reduce:transition-none",
+                  "mb-2 max-h-5 overflow-hidden whitespace-nowrap px-3 text-xs font-semibold uppercase tracking-[0.08em] text-slate-500 transition-[max-height,opacity,margin] duration-200 ease-out motion-reduce:duration-0 motion-reduce:transition-none",
                   sidebarExpanded
                     ? "lg:opacity-100"
                     : "lg:invisible lg:mb-0 lg:max-h-0 lg:opacity-0",
@@ -564,6 +564,12 @@ function Shell({ children }: { children: ReactNode }) {
               <Link
                 href={dashboardItem.href}
                 onClick={closeNavigationAfterRouteClick}
+                onFocus={(event) => {
+                  // Keep the first navigation item and its Workspace caption
+                  // together when returning from a scrolled long menu.
+                  const navigation = event.currentTarget.closest("nav");
+                  if (navigation) navigation.scrollTop = 0;
+                }}
                 aria-label={dashboardItem.label}
                 aria-current={isActiveRoute(pathname, dashboardItem.href) ? "page" : undefined}
                 title={!sidebarExpanded ? dashboardItem.label : undefined}
@@ -668,7 +674,7 @@ function Shell({ children }: { children: ReactNode }) {
                           title={!sidebarExpanded ? item.label : undefined}
                           className={cx(
                             focusRing,
-                            "group flex min-h-9 items-center gap-2 rounded-md px-2 text-[13px] font-medium transition-colors",
+                            "group flex min-h-10 items-center gap-2 rounded-md px-2 text-sm font-medium transition-colors",
                             active
                               ? "bg-brand-soft text-brand-primary"
                               : "text-slate-500 hover:bg-slate-50 hover:text-slate-900",
@@ -678,8 +684,9 @@ function Shell({ children }: { children: ReactNode }) {
                             <SidebarIcon icon={item.icon} item />
                           </span>
                           <span
+                            data-sidebar-item-label=""
                             className={cx(
-                              "max-w-36 overflow-hidden whitespace-nowrap transition-[max-width,opacity] duration-200 ease-out motion-reduce:duration-0 motion-reduce:transition-none",
+                              "min-w-0 max-w-36 flex-1 overflow-hidden whitespace-normal break-words leading-5 transition-[max-width,opacity] duration-200 ease-out motion-reduce:duration-0 motion-reduce:transition-none",
                               sidebarExpanded
                                 ? "lg:opacity-100"
                                 : "lg:invisible lg:max-w-0 lg:opacity-0",
@@ -698,6 +705,7 @@ function Shell({ children }: { children: ReactNode }) {
         </nav>
         <div className={styles.sidebarFooter} data-testid="sidebar-footer" data-expanded={sidebarExpanded}>
           {can("Notifications.View") ? <NotificationBell onNavigate={closeNavigationAfterRouteClick} /> : null}
+          <div className={styles.accountAnchor}>
           <button
             ref={accountTriggerRef}
             type="button"
@@ -723,6 +731,7 @@ function Shell({ children }: { children: ReactNode }) {
             <Link href="/account" role="menuitem" tabIndex={-1} onClick={closeNavigationAfterRouteClick} className={cx(focusRing, styles.accountMenuItem)}><IconUserCircle aria-hidden="true" className="size-4" />My profile</Link>
             <button type="button" role="menuitem" tabIndex={-1} className={cx(focusRing, styles.accountMenuItem)} onClick={() => { closeAccountMenu(false); void logout(); }}><IconLogout aria-hidden="true" className="size-4" />Sign out</button>
           </div> : null}
+          </div>
         </div>
       </aside>
 

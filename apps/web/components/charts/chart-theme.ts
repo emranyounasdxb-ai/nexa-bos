@@ -21,9 +21,9 @@ export const chartFontFamily =
   'ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji"';
 
 export const chartAxisText = {
-  color: chartPalette.slate500,
+  color: chartPalette.slate700,
   fontFamily: chartFontFamily,
-  fontSize: 12,
+  fontSize: 13,
 } as const;
 
 export const chartSplitLine = {
@@ -42,7 +42,7 @@ export const chartTooltip: TooltipComponentOption = {
   textStyle: {
     color: chartPalette.white,
     fontFamily: chartFontFamily,
-    fontSize: 12,
+    fontSize: 14,
   },
   extraCssText: "border-radius: 8px; box-shadow: 0 10px 24px rgba(15,23,42,0.18);",
 };

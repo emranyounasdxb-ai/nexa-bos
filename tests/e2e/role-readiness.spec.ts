@@ -748,7 +748,7 @@ test.describe("shared sidebar role regression matrix", () => {
   test.afterAll(() => { roles = []; });
 
   for (const code of ["OWNER", "GM", ...roleDefinitions.map((role) => role.code)]) {
-    test(`${code}: authorized mobile menus, dismissal, keyboard exclusion and desktop navigation`, async ({ page }) => {
+    test(`${code}: authorized mobile menus, dismissal, keyboard exclusion and desktop navigation`, async ({ page }, testInfo) => {
       test.setTimeout(90_000);
       const role = roles.find((item) => item.code === code)!;
       const expectedLinks = [...role.expectedLinks, ...additionalLinks[code === "OWNER" ? "GM" : code]].sort();
@@ -795,6 +795,11 @@ test.describe("shared sidebar role regression matrix", () => {
         await expect(tiles.first()).toHaveCSS("box-shadow", /inset/);
       };
       const expectAnchoredFooter = async () => {
+        expect(await navigation.locator("[data-sidebar-item-label]:visible").count()).toBeGreaterThan(0);
+        const clippedLabels = await navigation.locator("[data-sidebar-item-label]:visible").evaluateAll((labels) => labels
+          .filter((label) => label.scrollWidth > label.clientWidth + 1 || label.scrollHeight > label.clientHeight + 1)
+          .map((label) => label.textContent));
+        expect(clippedLabels, "Expanded navigation labels must remain fully readable").toEqual([]);
         await expect(footer).toBeInViewport({ ratio: 1 });
         await expect(notifications).toBeInViewport({ ratio: 1 });
         await expect(avatar).toBeInViewport({ ratio: 1 });
@@ -897,6 +902,7 @@ test.describe("shared sidebar role regression matrix", () => {
       };
 
       await expectAuthorizedLinks();
+      await expect(page.locator("body")).toHaveCSS("font-size", "15px");
       await trigger.focus();
       await expectClosed();
       for (let cycle = 0; cycle < 3; cycle += 1) {
@@ -940,6 +946,7 @@ test.describe("shared sidebar role regression matrix", () => {
       }
       await expect(lastLink).toBeFocused();
       await expectAnchoredFooter();
+      await page.screenshot({ path: testInfo.outputPath(`sidebar-${code}-390.png`), fullPage: false });
       const lastLinkBox = await lastLink.boundingBox();
       const footerBox = await footer.boundingBox();
       expect(lastLinkBox).not.toBeNull();
@@ -960,7 +967,7 @@ test.describe("shared sidebar role regression matrix", () => {
 
       await page.setViewportSize({ width: 1440, height: 900 });
       await expect(sidebar).toHaveJSProperty("inert", false);
-      await expect(page.locator("body")).toHaveCSS("font-size", "14px");
+      await expect(page.locator("body")).toHaveCSS("font-size", "15px");
       await expect(page.getByTestId("page-header")).toHaveCSS("padding-top", "16px");
       if (code === "TL") await expect(page.getByTestId("tl-dashboard")).toHaveCSS("padding-top", "16px");
       await expect(trigger).toBeHidden();
@@ -968,6 +975,7 @@ test.describe("shared sidebar role regression matrix", () => {
       await dashboard.focus();
       await expect(sidebar).toHaveCSS("width", "224px");
       await expectAuthorizedLinks();
+      await page.screenshot({ path: testInfo.outputPath(`sidebar-${code}-1440.png`), fullPage: false });
       await page.keyboard.press("Escape");
       await expect(dashboard).toBeFocused();
       await expect(sidebar).toHaveJSProperty("inert", false);

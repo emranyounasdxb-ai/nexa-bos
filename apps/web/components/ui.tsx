@@ -128,7 +128,7 @@ export function Card({ children, className }: { children: ReactNode; className?:
     <div
       data-amafh-card=""
       className={cx(
-        "min-w-0 rounded-lg border border-brand-border bg-surface p-3 shadow-[var(--amafh-shadow-surface)] sm:p-4",
+        "min-w-0 rounded-lg border border-brand-border bg-surface p-4 shadow-[var(--amafh-shadow-surface)] sm:p-5",
         className,
       )}
     >
@@ -149,7 +149,7 @@ export function SectionHeader({
   return (
     <div data-amafh-section-header="" className="flex min-w-0 flex-wrap items-start justify-between gap-2 sm:gap-3">
       <div className="min-w-0">
-        <h2 className="text-base font-semibold text-text-primary">{title}</h2>
+        <h2 className="text-[length:var(--amafh-text-section)] leading-7 font-semibold text-text-primary">{title}</h2>
         {description ? <p className="mt-1 text-sm text-text-secondary">{description}</p> : null}
       </div>
       {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}
@@ -363,7 +363,7 @@ export function TableShell({
       data-amafh-table-shell=""
       {...props}
     >
-      <table className="min-w-full text-left text-[13px] leading-5 [&_tbody_tr]:border-t [&_tbody_tr]:border-brand-border [&_tbody_tr]:transition-colors [&_tbody_tr:hover]:bg-surface-subtle">
+      <table className="min-w-full text-left text-sm leading-6 [&_tbody_tr]:border-t [&_tbody_tr]:border-brand-border [&_tbody_tr]:transition-colors [&_tbody_tr:hover]:bg-surface-subtle">
         {children}
       </table>
     </div>
@@ -371,15 +371,15 @@ export function TableShell({
 }
 
 export function TableHead({ children }: { children: ReactNode }) {
-  return <thead className="bg-surface-subtle text-[11px] uppercase tracking-[0.04em] text-text-secondary">{children}</thead>;
+  return <thead className="bg-surface-subtle text-xs text-text-secondary">{children}</thead>;
 }
 
 export function Th({ children, className }: { children: ReactNode; className?: string }) {
-  return <th className={cx("whitespace-nowrap px-3 py-2 font-semibold", className)}>{children}</th>;
+  return <th className={cx("whitespace-nowrap px-4 py-3 font-semibold", className)}>{children}</th>;
 }
 
 export function Td({ children, className }: { children: ReactNode; className?: string }) {
-  return <td className={cx("px-3 py-2 align-middle text-text-primary", className)}>{children}</td>;
+  return <td className={cx("px-4 py-3 align-middle text-text-primary", className)}>{children}</td>;
 }
 
 export function DialogPanel({
