@@ -1,4 +1,5 @@
 import { Badge, Card, SectionHeader } from "@/components/ui";
+import { HrWorkflowSummary } from "@/components/hr-workflow-summary";
 import { formatAed, formatPct, type PersonalAttendance, type PersonalPerformance } from "@/lib/reports";
 
 function metricValue(value: string | null, measurement: string | null) {
@@ -159,6 +160,7 @@ export function PersonalPerformanceAttendance({ performance, attendance }: { per
     <section aria-label="My performance and attendance" className="grid min-w-0 gap-4 xl:grid-cols-2">
       <MyPerformance data={performance} />
       <MyAttendance data={attendance} />
+      <div className="min-w-0 xl:col-span-2"><HrWorkflowSummary personal /></div>
     </section>
   );
 }

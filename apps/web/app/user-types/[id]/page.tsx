@@ -128,7 +128,7 @@ const PERMISSION_MODULES = [
     key: "exits",
     label: "Exit and offboarding",
     description: "Own resignation, scoped operations, assigned clearance and final approval.",
-    prefixes: ["Exits."],
+    prefixes: ["Exits.", "Approvals."],
   },
   {
     key: "notifications",
