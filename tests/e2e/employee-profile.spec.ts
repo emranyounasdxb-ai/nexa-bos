@@ -1,6 +1,7 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 
 import { selectBrandedOption } from "./helpers/select";
+import { profileCountries } from "../../apps/web/lib/profile-countries";
 
 const apiOrigin = `http://127.0.0.1:${process.env.PLAYWRIGHT_API_PORT ?? "8010"}`;
 const secret = process.env.BOOTSTRAP_SECRET ?? "nexa-test-bootstrap-secret";
@@ -301,6 +302,10 @@ test("employee profile organizes identity, access, assets, and filtered audit hi
     await expect(employeePage.getByRole("heading", { name: "HR profile" })).toBeVisible();
     await expect(employeePage.getByLabel("Job title")).toHaveValue("Review Employee");
     await expect(employeePage.getByLabel("Job title")).toHaveAttribute("readonly", "");
+    for (const name of ["Gender", "Nationality", "Marital status", "Date of birth", "Joining date", "Probation end"]) {
+      await expect(employeePage.getByRole("combobox", { name, exact: true })).toBeDisabled();
+    }
+    await expect(employeePage.getByRole("button", { name: "Save HR profile", exact: true })).toHaveCount(0);
     await employeePage.getByRole("tab", { name: "PRO & Documents" }).click();
     await expect(employeePage.getByRole("heading", { name: "Passport" })).toBeVisible();
     await expect(
@@ -337,6 +342,121 @@ test("employee profile uses compact mobile cards without overflow", async ({ pag
   await expect(page.locator("table:visible")).toHaveCount(0);
   await expectNoHorizontalOverflow(page);
 });
+
+for (const width of [1440, 390]) {
+  test(`HR and PRO compact fields preserve values and calendars at ${width}`, async ({ page, request }, testInfo) => {
+    test.setTimeout(120_000);
+    const seeded = await seedProfile(request);
+    const headers = await ownerHeaders(request);
+    await expectOk(await request.put(`${apiOrigin}/api/v1/employee-profiles/${seeded.userId}/hr`, {
+      headers, data: { gender: "Existing gender", marital_status: "Existing status", nationality: "Existing nationality", date_of_birth: "1990-01-10" },
+    }));
+    await page.setViewportSize({ width, height: width === 1440 ? 900 : 844 });
+    await signIn(page);
+    await page.goto(`/users/${seeded.userId}?tab=hr`);
+    await expect(page.getByLabel("Gender", { exact: true })).toContainText("Existing gender");
+    await expect(page.getByLabel("Marital status", { exact: true })).toContainText("Existing status");
+    await expect(page.getByLabel("Nationality", { exact: true })).toHaveValue("Existing nationality");
+    await page.getByRole("button", { name: "Save HR profile", exact: true }).click();
+    await expect(page.getByRole("status")).toContainText("HR profile saved.");
+    await page.reload();
+    await expect(page.getByLabel("Nationality", { exact: true })).toHaveValue("Existing nationality");
+
+    for (const label of ["Date of birth", "Joining date", "Probation end"]) {
+      const field = page.getByRole("combobox", { name: label, exact: true });
+      await field.click();
+      await expect(page.getByRole("dialog", { name: "Choose date" })).toBeVisible();
+      await page.keyboard.press("Escape");
+      await field.focus();
+      await field.press("ArrowDown");
+      await expect(page.getByRole("dialog", { name: "Choose date" })).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(field).toBeFocused();
+      await page.getByRole("button", { name: `Open ${label} calendar` }).click();
+      await expect(page.getByRole("dialog", { name: "Choose date" })).toBeVisible();
+      await expectNoHorizontalOverflow(page);
+      await page.keyboard.press("Escape");
+    }
+    await selectBrandedOption(page.getByLabel("Gender", { exact: true }), "Female");
+    await selectBrandedOption(page.getByLabel("Marital status", { exact: true }), "Single");
+    const nationality = page.getByRole("combobox", { name: "Nationality", exact: true });
+    await nationality.click();
+    expect(profileCountries).toHaveLength(249);
+    expect(new Set(profileCountries.map((country) => country.code)).size).toBe(249);
+    await expect(page.getByRole("option")).toHaveCount(251);
+    // Every ISO entry is rendered with its flag and searchable readable name.
+    for (const country of profileCountries) {
+      await expect(page.locator(`[data-country-code="${country.code}"]`)).toHaveText(`${country.flag} ${country.name}`);
+    }
+    await nationality.fill("United Arab");
+    await expect(page.getByRole("option")).toHaveCount(1);
+    await expect(page.getByRole("option")).toContainText("🇦🇪 United Arab Emirates");
+    await nationality.press("Enter");
+    await expect(nationality).toHaveValue("🇦🇪 United Arab Emirates");
+    expect(await page.evaluate(async () => {
+      await document.fonts.load('14px "Profile Country Flags"', "🇦🇪");
+      return document.fonts.check('14px "Profile Country Flags"', "🇦🇪");
+    })).toBe(true);
+    await nationality.press("ArrowDown");
+    await nationality.fill("zzzz no country");
+    await expect(page.getByText("No matching countries")).toBeVisible();
+    await nationality.press("Escape");
+    await expect(nationality).toHaveValue("🇦🇪 United Arab Emirates");
+
+    const birth = page.getByRole("combobox", { name: "Date of birth", exact: true });
+    await birth.click();
+    await page.getByRole("dialog", { name: "Choose date" }).getByRole("button", { name: "1990-01-15", exact: true }).click();
+    await expect(birth).toHaveValue("1990-01-15");
+    await expect(birth).toBeFocused();
+    await birth.press("ArrowDown");
+    await page.keyboard.press("ArrowRight");
+    await page.keyboard.press("Enter");
+    await expect(birth).toHaveValue("1990-01-16");
+    await expect(birth).toBeFocused();
+    await page.getByRole("button", { name: "Save HR profile", exact: true }).click();
+    await expect(page.getByRole("status")).toContainText("HR profile saved.");
+    await page.reload();
+    await expect(birth).toHaveValue("1990-01-16");
+    await expect(nationality).toHaveValue("🇦🇪 United Arab Emirates");
+    await expect(page.getByLabel("Gender", { exact: true })).toContainText("Female");
+    await expect(page.getByLabel("Marital status", { exact: true })).toContainText("Single");
+    const columns = await page.getByTestId("hr-field-grid").first().evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(" ").length);
+    expect(columns).toBe(width === 1440 ? 5 : 1);
+    await expectNoHorizontalOverflow(page);
+    await page.getByTestId("employee-lifecycle-profile").scrollIntoViewIfNeeded();
+    await page.screenshot({ path: testInfo.outputPath(`hr-${width}.png`), fullPage: false });
+
+    await page.getByRole("tab", { name: "PRO & Documents" }).click();
+    await page.getByLabel("Number", { exact: true }).fill(`COMPACT-${width}`);
+    const expiry = page.getByRole("combobox", { name: "Expiry", exact: true });
+    await expiry.fill("2028-06-10");
+    await expiry.press("Tab");
+    await expiry.click();
+    await expect(page.getByRole("dialog", { name: "Choose date" })).toBeVisible();
+    await expiry.press("Escape");
+    await expiry.press("ArrowDown");
+    await page.keyboard.press("ArrowRight");
+    await page.keyboard.press("Enter");
+    await expect(expiry).toHaveValue("2028-06-11");
+    await expect(expiry).toBeFocused();
+    await page.getByRole("button", { name: "Open Expiry calendar" }).click();
+    await expect(page.getByRole("dialog", { name: "Choose date" })).toBeVisible();
+    await page.getByRole("dialog", { name: "Choose date" }).getByRole("button", { name: "2028-06-15", exact: true }).click();
+    await expect(expiry).toHaveValue("2028-06-15");
+    await page.getByLabel("Attachment", { exact: true }).setInputFiles({ name: "compact-test.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4\n1 0 obj<</Type/Catalog>>endobj\n%%EOF") });
+    await page.getByRole("button", { name: "Add record", exact: true }).click();
+    await expect(page.getByRole("status")).toContainText("PRO document record added.");
+    await page.reload();
+    // Metadata creation is version 1; the existing audited upload creates version 2.
+    await expect(page.getByText(`Version 2 · COMPACT-${width}`)).toBeVisible();
+    await expect(page.getByText("2028-06-15", { exact: true })).toBeVisible();
+    await expect(page.getByText("compact-test.pdf", { exact: true })).toBeVisible();
+    expect(await page.getByTestId("pro-field-grid").evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(" ").length)).toBe(width === 1440 ? 5 : 1);
+    await expectNoHorizontalOverflow(page);
+    await page.getByTestId("employee-lifecycle-profile").scrollIntoViewIfNeeded();
+    await page.screenshot({ path: testInfo.outputPath(`pro-${width}.png`), fullPage: false });
+  });
+}
 
 test("HR and PRO dashboards expose only implemented profile work", async ({ browser, page, request }) => {
   test.setTimeout(120_000);

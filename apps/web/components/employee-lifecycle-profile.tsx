@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { IconFileDescription, IconX } from "@/components/icons";
+import { DatePicker } from "@/components/date-picker";
+import { IconCalendarCheck, IconFileDescription, IconX } from "@/components/icons";
+import { ProfileNationalitySelect } from "@/components/profile-nationality-select";
 import {
   Button,
   Card,
@@ -96,6 +98,33 @@ const kinds = [
   ["other", "Other document"],
 ] as const;
 
+// These are UI suggestions, not new API enums. Any saved text remains an option.
+const personalOptions: Record<string, string[]> = {
+  gender: ["Female", "Male", "Other", "Prefer not to say"],
+  marital_status: ["Single", "Married", "Divorced", "Widowed", "Separated", "Prefer not to say"],
+};
+
+function ProfileDate({ id, label, value, disabled, onChange }: {
+  id: string; label: string; value: string; disabled?: boolean; onChange: (value: string) => void;
+}) {
+  return <div className="relative [&_input]:pr-9 [&_[role=dialog]]:right-0"
+    onKeyDown={(event) => {
+      const target = event.target as HTMLElement;
+      if (event.key === "Escape" || (event.key === "Enter" && /^\d{4}-\d{2}-\d{2}$/.test(target.getAttribute("aria-label") ?? ""))) document.getElementById(id)?.focus();
+    }}
+    onClick={(event) => {
+      const button = (event.target as HTMLElement).closest("button");
+      if (button && /^\d{4}-\d{2}-\d{2}$/.test(button.getAttribute("aria-label") ?? "")) document.getElementById(id)?.focus();
+    }}>
+    <DatePicker id={id} aria-label={label} value={value} disabled={disabled} onChange={onChange} optional />
+    <button type="button" disabled={disabled} aria-label={`Open ${label} calendar`}
+      className="absolute right-0 top-0 flex size-8 items-center justify-center rounded-md text-brand-primary focus-visible:outline-2 focus-visible:outline-brand-primary disabled:text-text-disabled"
+      onClick={() => { const input = document.getElementById(id); input?.focus(); input?.click(); }}>
+      <IconCalendarCheck className="size-4" />
+    </button>
+  </div>;
+}
+
 function completionCard(title: string, completion: Completion) {
   return (
     <Card className="!p-3">
@@ -107,7 +136,10 @@ function completionCard(title: string, completion: Completion) {
         {completion.completed} of {completion.required} required fields complete
       </p>
       {completion.missing.length ? (
-        <p className="mt-1 text-xs text-text-disabled">Missing: {completion.missing.join(", ")}</p>
+        <details className="mt-1 text-xs text-text-secondary">
+          <summary className="cursor-pointer rounded-sm focus-visible:outline-2 focus-visible:outline-brand-primary">Missing fields ({completion.missing.length})</summary>
+          <p className="mt-1">Missing: {completion.missing.join(", ")}</p>
+        </details>
       ) : null}
     </Card>
   );
@@ -219,8 +251,7 @@ export function EmployeeLifecycleProfile({ userId, section }: { userId: string; 
   }, [profile?.pro, section]);
 
   const hrGroups = useMemo(() => [
-    { title: "Employee identification", fields: [["employee_code", "Employee Code"]] },
-    { title: "Personal", fields: [["date_of_birth", "Date of birth", "date"], ["gender", "Gender"], ["nationality", "Nationality"], ["marital_status", "Marital status"]] },
+    { title: "Personal & identification", fields: [["employee_code", "Employee Code"], ["date_of_birth", "Date of birth", "date"], ["gender", "Gender"], ["nationality", "Nationality"], ["marital_status", "Marital status"]] },
     { title: "Emergency contact", fields: [["emergency_contact_name", "Name"], ["emergency_contact_relationship", "Relationship"], ["emergency_contact_mobile", "Mobile"]] },
     { title: "Employment", fields: [["employee_status", "Employee status", "status"], ["employee_type", "Employee type"], ["employment_type", "Employment type"], ["joining_date", "Joining date", "date"], ["probation_end_date", "Probation end", "date"], ["job_title", "Job title"], ["department_id", "Department", "department"], ["business_unit", "Business unit"], ["location", "Location"], ["reporting_manager_id", "Reporting manager", "manager"], ["work_email", "Work email", "email"], ["work_mobile", "Work mobile"], ["employee_grade", "Grade"]] },
     { title: "Compensation", fields: [["basic_salary", "Basic salary", "number"], ["housing_allowance", "Housing allowance", "number"], ["transport_allowance", "Transport allowance", "number"], ["other_allowances", "Other allowances", "number"], ["payment_method", "Payment method"]] },
@@ -346,7 +377,7 @@ export function EmployeeLifecycleProfile({ userId, section }: { userId: string; 
   if (!profile) return <Card><ErrorText>{error || "Profile is unavailable."}</ErrorText></Card>;
 
   return (
-    <div className="min-w-0 space-y-4">
+    <div className="min-w-0 space-y-3" data-testid="employee-lifecycle-profile">
       <div className="grid min-w-0 gap-3 md:grid-cols-3">
         {profile.basic ? completionCard("Basic profile", profile.basic.completion) : null}
         {profile.hr ? completionCard("HR profile", profile.hr.completion) : null}
@@ -356,14 +387,24 @@ export function EmployeeLifecycleProfile({ userId, section }: { userId: string; 
       {message ? <p role="status" className="rounded-md border border-success-soft bg-success-soft px-3 py-2 text-sm">{message}</p> : null}
       {section === "hr" ? (
         profile.hr ? (
-          <form onSubmit={(event) => void saveHr(event)} className="space-y-4">
+          <form onSubmit={(event) => void saveHr(event)} className="space-y-3 rounded-lg border border-brand-border bg-surface p-3">
             {hrGroups.map((group) => (
-              <Card key={group.title}>
+              <section key={group.title} className="min-w-0 border-b border-brand-border pb-3">
                 <SectionHeader title={group.title} />
-                <div className="mt-3 grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                <div className="mt-2 grid min-w-0 gap-x-3 gap-y-2 md:grid-cols-2 xl:grid-cols-5" data-testid="hr-field-grid">
                   {group.fields.map(([key, label, type]) => (
-                    <Field key={key} label={label} htmlFor={`hr-${key}`}>
-                      {type === "status" ? (
+                    <Field key={key} label={label} htmlFor={`hr-${key}`} className="min-w-0">
+                      {type === "date" ? (
+                        <ProfileDate id={`hr-${key}`} label={label} value={hrDraft[key] ?? ""} disabled={!profile.canUpdateHr} onChange={(next) => setHrDraft((current) => ({ ...current, [key]: next }))} />
+                      ) : key === "nationality" ? (
+                        <ProfileNationalitySelect id={`hr-${key}`} value={hrDraft[key] ?? ""} disabled={!profile.canUpdateHr} onChange={(next) => setHrDraft((current) => ({ ...current, [key]: next }))} />
+                      ) : personalOptions[key] ? (
+                        <Select id={`hr-${key}`} aria-label={label} value={hrDraft[key] ?? ""} disabled={!profile.canUpdateHr} onChange={(event) => setHrDraft((current) => ({ ...current, [key]: event.target.value }))}>
+                          <option value="">Not recorded</option>
+                          {hrDraft[key] && !personalOptions[key].includes(hrDraft[key]) ? <option value={hrDraft[key]}>{hrDraft[key]}</option> : null}
+                          {personalOptions[key].map((option) => <option key={option} value={option}>{option}</option>)}
+                        </Select>
+                      ) : type === "status" ? (
                         <Select id={`hr-${key}`} value={hrDraft[key] ?? ""} disabled={!profile.canUpdateHr} onChange={(event) => setHrDraft((current) => ({ ...current, [key]: event.target.value }))}>
                           {["Active", "Probation", "Notice Period", "Resigned", "Terminated", "Inactive"].map((status) => <option key={status} value={status}>{status}</option>)}
                         </Select>
@@ -385,32 +426,32 @@ export function EmployeeLifecycleProfile({ userId, section }: { userId: string; 
                     </Field>
                   ))}
                 </div>
-              </Card>
+              </section>
             ))}
-            <Card>
+            <section className="min-w-0">
               <SectionHeader title="Control" description={`Gross salary: ${profile.hr.data?.grossSalary ?? "Not recorded"}. Created/updated timestamps are system generated.`} />
-              <Field label="HR notes" htmlFor="hr-notes"><Textarea id="hr-notes" value={hrDraft.hr_notes ?? ""} readOnly={!profile.canUpdateHr} onChange={(event) => setHrDraft((current) => ({ ...current, hr_notes: event.target.value }))} /></Field>
-            </Card>
+              <Field label="HR notes" htmlFor="hr-notes"><Textarea id="hr-notes" rows={2} value={hrDraft.hr_notes ?? ""} readOnly={!profile.canUpdateHr} onChange={(event) => setHrDraft((current) => ({ ...current, hr_notes: event.target.value }))} /></Field>
+            </section>
             {profile.canUpdateHr ? <div className="flex justify-end"><Button disabled={saving}>{saving ? "Saving…" : "Save HR profile"}</Button></div> : <p className="text-sm text-text-secondary">This sensitive profile is read-only for your account.</p>}
           </form>
         ) : <Card><EmptyState>HR profile metadata is not available for this account.</EmptyState></Card>
       ) : (
         <div className="space-y-4">
           {profile.canUpdatePro ? (
-            <Card>
+            <Card className="!p-3">
               <SectionHeader title={editingDocumentId ? "Replace document metadata" : "Add document record"} description="Private attachments and metadata are validated and versioned. Issue date is intentionally not collected." />
-              <form onSubmit={(event) => void saveDocumentMetadata(event)} className="mt-3 grid min-w-0 gap-3 md:grid-cols-2 xl:grid-cols-4">
+              <form onSubmit={(event) => void saveDocumentMetadata(event)} className="mt-2 grid min-w-0 gap-3 md:grid-cols-2 xl:grid-cols-5 [&>label]:min-w-0" data-testid="pro-field-grid">
                 <Field label="Document type"><Select value={documentKind} disabled={Boolean(editingDocumentId)} onChange={(event) => setDocumentKind(event.target.value)}>{kinds.map(([key, label]) => <option key={key} value={key}>{label}</option>)}</Select></Field>
                 {documentKind === "other" ? <Field label="Document name"><TextInput value={documentName} onChange={(event) => setDocumentName(event.target.value)} required /></Field> : null}
                 <Field label="Number"><TextInput value={documentNumber} onChange={(event) => setDocumentNumber(event.target.value)} /></Field>
                 {documentKind === "visa" ? <Field label="Visa / residence type"><TextInput value={documentVisaType} onChange={(event) => setDocumentVisaType(event.target.value)} required /></Field> : null}
                 {documentKind === "medical" ? <Field label="Medical / fitness status"><TextInput value={documentMedicalStatus} onChange={(event) => setDocumentMedicalStatus(event.target.value)} required /></Field> : null}
                 {documentKind === "insurance" ? <Field label="Insurance provider"><TextInput value={documentProvider} onChange={(event) => setDocumentProvider(event.target.value)} required /></Field> : null}
-                <Field label="Expiry"><TextInput type="date" value={documentExpiry} onChange={(event) => setDocumentExpiry(event.target.value)} /></Field>
+                <Field label="Expiry" htmlFor="pro-expiry"><ProfileDate id="pro-expiry" label="Expiry" value={documentExpiry} onChange={setDocumentExpiry} /></Field>
                 <Field label="Recorded status"><TextInput value={documentStatus} onChange={(event) => setDocumentStatus(event.target.value)} /></Field>
-                <Field label="Notes"><Textarea value={documentNotes} onChange={(event) => setDocumentNotes(event.target.value)} /></Field>
-                {editingDocumentId ? <Field label="Replacement reason"><TextInput value={replacementReason} onChange={(event) => setReplacementReason(event.target.value)} required minLength={3} /></Field> : <Field label="Attachment" help="PDF, JPG/JPEG, PNG or WebP; maximum 10 MB."><input ref={fileRef} type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" className="mt-1.5 block w-full text-sm" /></Field>}
-                <div className="flex items-end gap-2"><Button disabled={saving}><IconFileDescription className="size-4" />{saving ? "Saving…" : editingDocumentId ? "Replace metadata" : "Add record"}</Button>{editingDocumentId ? <Button type="button" variant="secondary" onClick={resetDocumentDraft}>Cancel</Button> : null}</div>
+                {editingDocumentId ? <Field label="Replacement reason"><TextInput value={replacementReason} onChange={(event) => setReplacementReason(event.target.value)} required minLength={3} /></Field> : <Field label="Attachment" htmlFor="pro-attachment" help="PDF, JPG/JPEG, PNG or WebP; maximum 10 MB."><input id="pro-attachment" aria-label="Attachment" ref={fileRef} type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" className="mt-1.5 block w-full text-sm" /></Field>}
+                <Field label="Notes" className="md:col-span-2 xl:col-span-4"><Textarea rows={2} value={documentNotes} onChange={(event) => setDocumentNotes(event.target.value)} /></Field>
+                <div className="flex flex-wrap items-end gap-2"><Button disabled={saving}><IconFileDescription className="size-4" />{saving ? "Saving…" : editingDocumentId ? "Replace metadata" : "Add record"}</Button>{editingDocumentId ? <Button type="button" variant="secondary" onClick={resetDocumentDraft}>Cancel</Button> : null}</div>
               </form>
             </Card>
           ) : null}

@@ -1,0 +1,14 @@
+@font-face {
+  font-family: "Profile Country Flags";
+  src: url("/fonts/profile-flags/TwemojiCountryFlags.woff2") format("woff2");
+  font-display: swap;
+  unicode-range: U+1F1E6-1F1FF;
+}
+
+.countries {
+  font-family: "Profile Country Flags", var(--font-sans);
+}
+
+.countries input {
+  font-family: inherit;
+}
