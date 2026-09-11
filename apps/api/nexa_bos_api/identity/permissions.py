@@ -44,6 +44,16 @@ CONTRACTS_CANCEL = "Contracts.Cancel"
 CONTRACTS_HISTORY = "Contracts.History"
 CONTRACTS_SETTINGS = "Contracts.Settings"
 USER_TYPES_VIEW = "UserTypes.View"
+TRANSFERS_VIEW_OWN = "Transfers.ViewOwn"
+TRANSFERS_VIEW = "Transfers.View"
+TRANSFERS_CREATE = "Transfers.Create"
+TRANSFERS_RECOMMEND = "Transfers.Recommend"
+TRANSFERS_EDIT = "Transfers.Edit"
+TRANSFERS_REVIEW = "Transfers.Review"
+TRANSFERS_APPROVE = "Transfers.Approve"
+TRANSFERS_RETURN_REJECT = "Transfers.ReturnReject"
+TRANSFERS_CANCEL = "Transfers.Cancel"
+TRANSFERS_HISTORY = "Transfers.History"
 USER_TYPES_CREATE = "UserTypes.Create"
 USER_TYPES_EDIT = "UserTypes.Edit"
 USER_TYPES_ACTIVATE = "UserTypes.Activate"
@@ -284,6 +294,37 @@ PERMISSION_CATALOG: tuple[tuple[str, str], ...] = (
     (ASSETS_MANAGE_STATUS, "Manage audited Lost, Damaged, Repair, and Retired status"),
     (ASSETS_VIEW_AUDIT, "View authorized Asset history and audit"),
 )
+
+PERMISSION_CATALOG += (
+    (TRANSFERS_VIEW_OWN, "View own employee transfer status"),
+    (TRANSFERS_VIEW, "View employee transfers within directory scope"),
+    (TRANSFERS_CREATE, "Initiate employee transfers within scope"),
+    (TRANSFERS_RECOMMEND, "Recommend transfers for directly assigned employees"),
+    (TRANSFERS_EDIT, "Correct unapproved transfer drafts"),
+    (TRANSFERS_REVIEW, "Review submitted employee transfers"),
+    (TRANSFERS_APPROVE, "Approve and apply employee transfers"),
+    (TRANSFERS_RETURN_REJECT, "Return or reject unapproved transfers with a comment"),
+    (TRANSFERS_CANCEL, "Cancel employee transfers with a reason"),
+    (TRANSFERS_HISTORY, "View immutable employee transfer history"),
+)
+
+SYSTEM_TRANSFER_PERMISSION_DEFAULTS = {
+    **{code: (TRANSFERS_VIEW_OWN,) for code in ("SE", "OM", "ITM", "AUDITOR")},
+    **{
+        code: (TRANSFERS_VIEW_OWN, TRANSFERS_RECOMMEND, TRANSFERS_HISTORY)
+        for code in ("GM", "BDM", "SM", "COD", "TL")
+    },
+    "HR": (
+        TRANSFERS_VIEW_OWN,
+        TRANSFERS_VIEW,
+        TRANSFERS_CREATE,
+        TRANSFERS_EDIT,
+        TRANSFERS_REVIEW,
+        TRANSFERS_RETURN_REJECT,
+        TRANSFERS_CANCEL,
+        TRANSFERS_HISTORY,
+    ),
+}
 
 ALL_PERMISSION_CODES: tuple[str, ...] = tuple(code for code, _ in PERMISSION_CATALOG)
 

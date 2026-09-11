@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -25,6 +26,8 @@ from nexa_bos_api.identity.bootstrap import bootstrap_identity
 from nexa_bos_api.leave import models as _leave_models  # noqa: F401
 from nexa_bos_api.notifications import models as _notification_models  # noqa: F401
 from nexa_bos_api.targets import models as _target_models  # noqa: F401
+from nexa_bos_api.transfers import models as _transfer_models  # noqa: F401
+from nexa_bos_api.transfers.scheduler import run as run_transfer_scheduler
 
 
 @asynccontextmanager
@@ -34,14 +37,22 @@ async def lifespan(app: FastAPI):
     app.state.settings = settings
     app.state.engine = engine
     app.state.session_factory = create_session_factory(engine)
+    stop_transfers = asyncio.Event()
+    transfer_task = None
     try:
         async with app.state.session_factory() as session:
             if settings.bootstrap_on_startup:
                 await bootstrap_identity(session)
             else:
                 await session.execute(text("SELECT 1"))
+        transfer_task = asyncio.create_task(
+            run_transfer_scheduler(stop_transfers, app.state.session_factory)
+        )
         yield
     finally:
+        stop_transfers.set()
+        if transfer_task is not None:
+            await transfer_task
         await engine.dispose()
 
 
