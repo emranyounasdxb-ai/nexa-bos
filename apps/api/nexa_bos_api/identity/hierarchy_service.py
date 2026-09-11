@@ -217,11 +217,11 @@ async def organization_hierarchy(
         if parent_id is not None:
             children[parent_id].append(child_id)
     for rows in children.values():
-        rows.sort(key=lambda row: (users[row].employee_code, users[row].full_name.lower()))
+        rows.sort(key=lambda row: (users[row].employee_code or "", users[row].full_name.lower()))
 
     roots = sorted(
         (row for row, parent in parents.items() if parent is None),
-        key=lambda row: (users[row].employee_code, users[row].full_name.lower()),
+        key=lambda row: (users[row].employee_code or "", users[row].full_name.lower()),
     )
     nodes = [
         _node_payload(
@@ -232,7 +232,7 @@ async def organization_hierarchy(
         )
         for user_id in sorted(
             included,
-            key=lambda row: (users[row].employee_code, users[row].full_name.lower()),
+            key=lambda row: (users[row].employee_code or "", users[row].full_name.lower()),
         )
     ]
 
@@ -253,7 +253,7 @@ async def organization_hierarchy(
         matching = [
             user
             for user in candidates
-            if normalized_query in user.employee_code.lower()
+            if normalized_query in (user.employee_code or "").lower()
             or normalized_query in user.full_name.lower()
         ][:20]
         search_results = [

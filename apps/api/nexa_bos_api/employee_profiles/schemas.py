@@ -16,21 +16,29 @@ DocumentKind = Literal[
 
 
 class BasicProfileUpdate(BaseModel):
-    first_name: str = Field(min_length=1, max_length=100)
+    full_name: str | None = Field(default=None, min_length=1, max_length=200)
+    first_name: str | None = Field(default=None, min_length=1, max_length=100)
     middle_name: str | None = Field(default=None, max_length=100)
-    last_name: str = Field(min_length=1, max_length=100)
+    last_name: str | None = Field(default=None, min_length=1, max_length=100)
     personal_email: AccountEmail | None = None
     personal_mobile: str | None = Field(default=None, min_length=5, max_length=32)
 
-    @field_validator("first_name", "middle_name", "last_name", mode="before")
+    @field_validator("full_name", "first_name", "middle_name", "last_name", mode="before")
     @classmethod
     def normalize_name(cls, value: object) -> object:
         if isinstance(value, str):
             return " ".join(value.split()) or None
         return value
 
+    @model_validator(mode="after")
+    def name_required(self) -> BasicProfileUpdate:
+        if not self.full_name and not (self.first_name and self.last_name):
+            raise ValueError("Full Name is required")
+        return self
+
 
 class HRProfileUpdate(BaseModel):
+    employee_code: str | None = Field(default=None, min_length=1, max_length=64)
     date_of_birth: date | None = None
     gender: str | None = Field(default=None, max_length=40)
     nationality: str | None = Field(default=None, max_length=100)

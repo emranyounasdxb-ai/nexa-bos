@@ -351,7 +351,10 @@ test("HR and PRO dashboards expose only implemented profile work", async ({ brow
   await expect(page).not.toHaveURL(/\/login$/, { timeout: 30_000 });
   await page.goto("/hr");
   await expect(page.getByRole("heading", { name: "HR Dashboard" })).toBeVisible();
-  await expect(page.getByText(/leave/i)).toHaveCount(0);
+  // Phase 2 adds the authorized operational summary, not a personal leave panel.
+  await expect(page.getByRole("heading", { name: "HR workflows" })).toBeVisible();
+  await expect(page.getByText("On leave today", { exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Open Approval Centre", exact: true })).toHaveAttribute("href", "/approvals");
   await expectNoHorizontalOverflow(page);
 
   const proContext = await browser.newContext({ baseURL: new URL(page.url()).origin });

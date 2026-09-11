@@ -364,14 +364,31 @@ async def consume_password_token(
     validate_password_policy(password)
     token_hash = hash_token(raw_token)
     row = (
-        await session.execute(select(OneTimeToken).where(OneTimeToken.token_hash == token_hash))
+        await session.execute(
+            select(OneTimeToken).where(OneTimeToken.token_hash == token_hash).with_for_update()
+        )
     ).scalar_one_or_none()
     now = _utcnow()
     if row is None or row.used_at is not None or row.expires_at <= now or row.purpose != purpose:
         raise AppError(status_code=400, code="TOKEN_INVALID", message="Link is invalid or expired")
-    user = await session.get(User, row.user_id)
+    user = await session.get(User, row.user_id, with_for_update=True)
     if user is None:
         raise AppError(status_code=400, code="TOKEN_INVALID", message="Link is invalid or expired")
+    if purpose is TokenPurpose.SETUP:
+        role = await session.get(UserType, user.user_type_id) if user.user_type_id else None
+        if user.password_hash or user.account_status == AccountStatus.DEACTIVATED:
+            raise AppError(
+                status_code=409,
+                code="SETUP_UNAVAILABLE",
+                message="Password setup is no longer available",
+            )
+        if role is None or role.code == "PENDING" or role.status != UserTypeStatus.ACTIVE:
+            raise AppError(
+                status_code=422,
+                code="USER_TYPE_REQUIRED",
+                message="Assign an active User Type before password setup",
+            )
+        user.account_status = AccountStatus.ACTIVE
     await _assert_password_not_reused(session, user.id, password)
     password_hash = hash_password(password)
     user.password_hash = password_hash
@@ -449,6 +466,7 @@ def public_user(user: User, *, csrf_token: str | None = None) -> dict[str, objec
         "id": str(user.id),
         "userCode": user.user_code,
         "employeeCode": user.employee_code,
+        "hasPassword": bool(user.password_hash),
         "firstName": user.first_name,
         "middleName": user.middle_name,
         "lastName": user.last_name,
@@ -459,7 +477,9 @@ def public_user(user: User, *, csrf_token: str | None = None) -> dict[str, objec
         "personalMobile": user.personal_mobile,
         "designation": _ref(user.designation),
         "employmentStatus": user.employment_status,
-        "joiningDate": user.joining_date.isoformat(),
+        "joiningDate": user.joining_date.isoformat() if user.joining_date else None,
+        "workEmail": user.work_email,
+        "workMobile": user.work_mobile,
         "lastWorkingDate": user.last_working_date.isoformat() if user.last_working_date else None,
         "office": _ref(user.office),
         "department": _ref(user.department),

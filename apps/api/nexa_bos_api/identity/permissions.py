@@ -5,6 +5,7 @@ USERS_CREATE = "Users.Create"
 USERS_EDIT = "Users.Edit"
 USERS_ACTIVATE = "Users.Activate"
 USERS_DEACTIVATE = "Users.Deactivate"
+USERS_TERMINATE_SESSIONS = "Users.TerminateSessions"
 USERS_UNLOCK = "Users.Unlock"
 USERS_ASSIGN_USER_TYPE = "Users.AssignUserType"
 USERS_GENERATE_SETUP_LINK = "Users.GenerateSetupLink"
@@ -147,6 +148,7 @@ PERMISSION_CATALOG: tuple[tuple[str, str], ...] = (
     (USERS_EDIT, "Edit user profiles, including employee code"),
     (USERS_ACTIVATE, "Activate users"),
     (USERS_DEACTIVATE, "Deactivate users and terminate their session"),
+    (USERS_TERMINATE_SESSIONS, "Terminate user sessions without changing the account"),
     (USERS_UNLOCK, "Manually unlock locked accounts"),
     (USERS_ASSIGN_USER_TYPE, "Assign a non-OWNER user type"),
     (USERS_GENERATE_SETUP_LINK, "Generate one-time password setup links"),

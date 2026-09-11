@@ -23,14 +23,17 @@ from nexa_bos_api.identity.permissions import (
     USERS_CREATE,
     USERS_DEACTIVATE,
     USERS_EDIT,
+    USERS_TERMINATE_SESSIONS,
     USERS_UNLOCK,
     USERS_VIEW,
     USERS_VIEW_AUDIT,
 )
 from nexa_bos_api.identity.schemas import (
     AssignUserTypeRequest,
+    BasicUserCreateRequest,
     RehireRequest,
     SelfUpdateRequest,
+    TerminateSessionsRequest,
     UserCreateRequest,
     UserUpdateRequest,
 )
@@ -157,13 +160,28 @@ async def case_owners(
     }
 
 
+@router.post("/code-reservations")
+async def reserve_code_route(
+    session: SessionDep,
+    actor: Annotated[CurrentUser, Depends(require_permission(USERS_CREATE))],
+) -> dict[str, str]:
+    from nexa_bos_api.identity.onboarding_service import reserve_user_code
+
+    return {"userCode": await reserve_user_code(session, actor)}
+
+
 @router.post("")
 async def create_user_route(
-    payload: UserCreateRequest,
+    payload: BasicUserCreateRequest | UserCreateRequest,
     session: SessionDep,
     actor: Annotated[CurrentUser, Depends(require_permission(USERS_CREATE))],
 ) -> dict[str, object]:
-    user = await create_user(session, actor, payload)
+    if isinstance(payload, BasicUserCreateRequest):
+        from nexa_bos_api.identity.onboarding_service import create_basic_user
+
+        user = await create_basic_user(session, actor, payload)
+    else:
+        user = await create_user(session, actor, payload)
     return public_user(user)
 
 
@@ -190,6 +208,19 @@ async def update_my_photo(
 ) -> dict[str, object]:
     updated = await _store_photo(session, user, user, file)
     return public_user(updated)
+
+
+@router.post("/{user_id}/terminate-sessions")
+async def terminate_sessions_route(
+    user_id: UUID,
+    payload: TerminateSessionsRequest,
+    session: SessionDep,
+    actor: Annotated[CurrentUser, Depends(require_permission(USERS_TERMINATE_SESSIONS))],
+) -> dict[str, object]:
+    from nexa_bos_api.identity.session_management import terminate_user_sessions
+
+    revoked = await terminate_user_sessions(session, actor, user_id, payload.reason)
+    return {"status": "ok", "sessionsRevoked": revoked}
 
 
 @router.get("/{user_id}")

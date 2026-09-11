@@ -71,20 +71,13 @@ export default function EditUserPage() {
         return;
       }
       userHydrated.current = true;
-      const legacyName = user.fullName.trim().split(/\s+/);
       setForm({
-        first_name: user.firstName ?? legacyName[0] ?? "",
-        middle_name: user.middleName ?? (legacyName.length > 2 ? legacyName.slice(1, -1).join(" ") : ""),
-        last_name: user.lastName ?? legacyName.at(-1) ?? "",
         full_name: user.fullName,
         personal_email: user.personalEmail ?? "",
         personal_mobile: user.personalMobile ?? "",
-        employee_code: user.employeeCode,
-        email: user.email,
-        mobile: user.mobile,
         designation_id: user.designation?.id ?? "",
         employment_status: user.employmentStatus,
-        joining_date: user.joiningDate,
+        joining_date: user.joiningDate ?? "",
         last_working_date: user.lastWorkingDate ?? "",
         office_id: user.office?.id ?? "",
         department_id: user.department?.id ?? "",
@@ -159,9 +152,10 @@ export default function EditUserPage() {
         method: "PATCH",
         body: JSON.stringify({
           ...form,
-          middle_name: form.middle_name || null,
           personal_email: form.personal_email || null,
           personal_mobile: form.personal_mobile || null,
+          joining_date: form.joining_date || undefined,
+          designation_id: form.designation_id || undefined,
           last_working_date: form.last_working_date || null,
           office_id: form.office_id || null,
           department_id: form.department_id || null,
@@ -183,16 +177,8 @@ export default function EditUserPage() {
     <section className="max-w-2xl space-y-4">
       <PageHeader title="Edit user" />
       <form onSubmit={(event) => void onSubmit(event)} className="grid gap-3">
-        <div className="grid gap-3 sm:grid-cols-3">
-        {["first_name", "middle_name", "last_name"].map((name) => (
-          <label key={name} className="block text-sm">
-            {name.replace("_", " ")}
-            <TextInput value={form[name] ?? ""} onChange={(event) => setForm({ ...form, [name]: event.target.value })} required={name !== "middle_name"} />
-          </label>
-        ))}
-        </div>
-        <p className="text-xs text-text-secondary">Full name is derived and synchronized from these fields.</p>
-        {["employee_code", "email", "mobile", "personal_email", "personal_mobile"].map((name) => (
+        <label className="block text-sm">Full Name<TextInput value={form.full_name} required maxLength={200} onChange={(event) => setForm({ ...form, full_name: event.target.value })} /></label>
+        {["personal_email", "personal_mobile"].map((name) => (
           <label key={name} className="block text-sm">
             {name.replace("_", " ")}
             <TextInput
@@ -219,7 +205,6 @@ export default function EditUserPage() {
           <DatePicker
             value={form.joining_date}
             onChange={(joining_date) => setForm({ ...form, joining_date })}
-            required
             aria-label="Joining date"
           />
         </label>

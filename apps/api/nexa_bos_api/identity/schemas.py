@@ -5,7 +5,7 @@ from typing import Annotated
 from uuid import UUID
 
 from email_validator import EmailNotValidError, validate_email
-from pydantic import AfterValidator, BaseModel, EmailStr, Field
+from pydantic import AfterValidator, BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 from nexa_bos_api.core.config import get_settings
 from nexa_bos_api.identity.enums import EmploymentStatus, VisibilityScope
@@ -64,6 +64,19 @@ class SecuritySettingsUpdate(BaseModel):
     absolute_session_hours: int | None = Field(default=None, ge=1, le=168)
 
 
+class BasicUserCreateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    full_name: str = Field(min_length=1, max_length=200)
+    personal_email: AccountEmail
+    personal_mobile: str = Field(min_length=5, max_length=32)
+    user_code: str = Field(pattern=r"^USR-\d{6,12}$")
+
+    @field_validator("full_name", "personal_mobile", mode="before")
+    @classmethod
+    def trimmed(cls, value: object) -> object:
+        return value.strip() if isinstance(value, str) else value
+
+
 class UserCreateRequest(BaseModel):
     full_name: str = Field(min_length=1, max_length=200)
     first_name: str | None = Field(default=None, max_length=100)
@@ -104,6 +117,11 @@ class UserUpdateRequest(BaseModel):
     team_id: UUID | None = None
     reporting_manager_id: UUID | None = None
 
+    @field_validator("full_name", mode="before")
+    @classmethod
+    def trim_full_name(cls, value: object) -> object:
+        return value.strip() if isinstance(value, str) else value
+
 
 class RehireRequest(BaseModel):
     joining_date: date
@@ -122,6 +140,16 @@ class SelfUpdateRequest(BaseModel):
 
 class AssignUserTypeRequest(BaseModel):
     user_type_id: UUID
+
+
+class TerminateSessionsRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    reason: str = Field(min_length=1, max_length=1000)
+
+    @field_validator("reason", mode="before")
+    @classmethod
+    def trim_reason(cls, value: object) -> object:
+        return value.strip() if isinstance(value, str) else value
 
 
 class UserTypeCreateRequest(BaseModel):

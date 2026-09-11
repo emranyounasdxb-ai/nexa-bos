@@ -37,7 +37,9 @@ export type UserTypeSummary = {
 export type UserRecord = {
   id: string;
   userCode: string;
-  employeeCode: string;
+  employeeCode: string | null;
+  workEmail?: string | null;
+  workMobile?: string | null;
   fullName: string;
   firstName?: string | null;
   middleName?: string | null;
@@ -48,7 +50,7 @@ export type UserRecord = {
   mobile: string;
   designation: OrgRef | null;
   employmentStatus: string;
-  joiningDate: string;
+  joiningDate: string | null;
   lastWorkingDate: string | null;
   office: OrgRef | null;
   department: OrgRef | null;
@@ -57,6 +59,7 @@ export type UserRecord = {
   hasPhoto: boolean;
   userType: UserTypeSummary | null;
   accountStatus: string;
+  hasPassword?: boolean;
   mfaEnabled: boolean;
   lockedUntil: string | null;
   permissions: string[];

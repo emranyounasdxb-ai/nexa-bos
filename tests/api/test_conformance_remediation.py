@@ -806,9 +806,15 @@ async def test_historical_email_and_employee_code_are_reserved(client: AsyncClie
     tag = unique_tag()
     patched = await authed.patch(
         f"/api/v1/users/{user['id']}",
-        json={"email": f"new-{tag}@example.com", "employee_code": f"EMP-NEW-{tag}"},
+        json={"email": f"new-{tag}@example.com"},
     )
     assert patched.status_code == 200, patched.text
+    # The new workflow keeps Employee Code immutable. Retain historical reservation
+    # coverage with a pre-existing issued code rather than mutating an issued code.
+    old_code = f"EMP-HIST-{tag}"
+    async with app.state.session_factory() as session:
+        session.add(ReservedEmployeeCode(employee_code=old_code, user_id=UUID(user["id"])))
+        await session.commit()
     reuse_email = await authed.post(
         "/api/v1/users",
         json={
