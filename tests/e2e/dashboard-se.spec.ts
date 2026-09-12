@@ -1,5 +1,6 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { preserveBuiltInRoleConfiguration } from "./helpers/role-configuration";
+import { captureViewportThemes } from "./helpers/viewport-capture";
 
 preserveBuiltInRoleConfiguration();
 import { selectBrandedOption } from "./helpers/select";
@@ -171,7 +172,7 @@ test("SE dashboard is own-scoped, actionable, accessible and responsive", async 
     }
     await page.evaluate(() => window.scrollTo(0, 0));
     expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
-    await page.screenshot({ path: testInfo.outputPath(`se-populated-${viewport.width}.png`), fullPage: false });
+    await captureViewportThemes(page, testInfo.outputPath(`se-populated-${viewport.width}.png`));
   }
   await page.setViewportSize({ width: 1440, height: 900 });
   await expect(page.getByText("Top employees")).toHaveCount(0);

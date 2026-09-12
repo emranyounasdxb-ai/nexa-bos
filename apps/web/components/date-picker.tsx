@@ -304,7 +304,7 @@ export function DatePicker({
           id={dialogId}
           role="dialog"
           aria-label="Choose date"
-          className="absolute z-20 mt-2 w-[min(19.5rem,calc(100vw-2rem))] rounded-xl border border-slate-200 bg-white p-3 shadow-[0_12px_28px_rgba(15,23,42,0.12)]"
+          className="absolute z-20 mt-2 w-[min(19.5rem,calc(100vw-2rem))] rounded-xl border border-slate-200 bg-surface p-3 shadow-[0_12px_28px_rgba(15,23,42,0.12)]"
         >
           <div className="mb-2 flex items-center justify-between gap-1">
             <button
@@ -749,7 +749,7 @@ export function DateRangePicker({
           id={dialogId}
           role="dialog"
           aria-label={`Choose ${ariaLabel.toLowerCase()} range`}
-          className="fixed z-50 max-h-[calc(100vh-2rem)] overflow-y-auto rounded-xl border border-slate-200 bg-white p-3 shadow-[0_12px_28px_rgba(15,23,42,0.16)]"
+          className="fixed z-50 max-h-[calc(100vh-2rem)] overflow-y-auto rounded-xl border border-slate-200 bg-surface p-3 shadow-[0_12px_28px_rgba(15,23,42,0.16)]"
           style={popupPosition}
         >
           <div className="mb-3 flex items-center justify-between gap-2">

@@ -3,6 +3,7 @@ import { preserveBuiltInRoleConfiguration } from "./helpers/role-configuration";
 
 preserveBuiltInRoleConfiguration();
 import { selectBrandedOption } from "./helpers/select";
+import { captureViewport, captureViewportThemes, setVisualTheme } from "./helpers/viewport-capture";
 
 const api = `http://127.0.0.1:${process.env.PLAYWRIGHT_API_PORT ?? "8010"}`;
 const testPassword = "UserPass1!";
@@ -139,9 +140,9 @@ async function signIn(page: Page, email: string, title: string) {
 async function signOut(page: Page) {
   const sidebar = page.getByLabel("Application sidebar", { exact: true });
   const trigger = page.getByRole("button", { name: "Open navigation", exact: true });
-  if (await trigger.isVisible() && await sidebar.evaluate(element => element.inert)) await trigger.click();
-  await sidebar.getByRole("button", { name: "Open user menu", exact: true }).click();
-  await sidebar.getByRole("menu", { name: "User account" }).getByRole("menuitem", { name: "Sign out" }).click();
+  if (await trigger.isVisible() && !(await sidebar.evaluate(element => element.inert))) await sidebar.getByLabel("Close navigation", { exact: true }).click();
+  await page.getByRole("button", { name: "Open user menu", exact: true }).click();
+  await page.getByRole("menu", { name: "User account" }).getByRole("menuitem", { name: "Sign out" }).click();
   await expect(page).toHaveURL(/\/login$/);
 }
 
@@ -149,12 +150,12 @@ async function expectNoOverflow(page: Page) {
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
 }
 
-async function capturePreview(page: Page, testInfo: TestInfo, name: string) {
+async function capturePreview(page: Page, testInfo: TestInfo, name: string, anchor?: Locator) {
   await expect(page.getByTestId("tl-dashboard")).toHaveAttribute("aria-busy", "false");
   await expect(page.getByRole("button", { name: "Refresh", exact: true })).toBeEnabled();
   await page.evaluate(() => window.scrollTo(0, 0));
   await expectNoOverflow(page);
-  await page.screenshot({ path: testInfo.outputPath(`${name}.png`), fullPage: false, animations: "disabled" });
+  await captureViewportThemes(page, testInfo.outputPath(`${name}.png`), anchor);
 }
 
 async function expectTabVisibleInStrip(tab: Locator, tabs: Locator) {
@@ -179,8 +180,7 @@ async function expectTabVisibleInStrip(tab: Locator, tabs: Locator) {
 
 async function expectTabFrame(page: Page, tabKey: "review" | "team" | "analytics" | "personal", viewportWidth: number) {
   await expect(page.getByTestId("tl-dashboard")).toHaveAttribute("aria-busy", "false");
-  // Keep the pointer outside the folded sidebar's hover-expand zone, then let
-  // its existing 200ms width transition settle before measuring stability.
+  // Keep hover feedback out of the initial token measurements.
   await page.mouse.move(viewportWidth - 2, 2);
   await page.waitForTimeout(250);
   const dashboard = page.getByTestId("tl-dashboard");
@@ -199,12 +199,11 @@ async function expectTabFrame(page: Page, tabKey: "review" | "team" | "analytics
     await expect(tab.locator('svg[aria-hidden="true"]')).toHaveCount(1);
     await expect(tab).toHaveCSS("font-size", "15px");
     await expect(tab).toHaveCSS("box-shadow", "none");
-    await expect(tab).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
-    await expect(tab).toHaveCSS("border-bottom-width", "2px");
+    await expect(tab).toHaveCSS("border-bottom-width", "0px");
   }
-  await expect(tabs).toHaveCSS("gap", "0px");
+  await expect(tabs).toHaveCSS("gap", "4px");
   await expect(tabs).toHaveCSS("border-bottom-width", "0px");
-  await expect(tabs).toHaveCSS("box-shadow", "rgb(209, 213, 219) 0px -1px 0px 0px inset");
+  await expect(tabs).toHaveCSS("box-shadow", "none");
   const geometry = await tabs.getByRole("tab").evaluateAll(elements => elements.map(element => {
     const rect = element.getBoundingClientRect(); const style = getComputedStyle(element);
     const label = element.querySelector("span")!; const icon = element.querySelector("svg")!;
@@ -221,17 +220,17 @@ async function expectTabFrame(page: Page, tabKey: "review" | "team" | "analytics
     expect(item.labelOverflow).toBeLessThanOrEqual(1);
     expect(item.baselineDifference).toBeLessThanOrEqual(1);
     expect(item.unobstructed).toBe(true);
-    if (index > 0) expect(Math.abs(item.left - geometry[index - 1].right)).toBeLessThanOrEqual(1);
+    if (index > 0) expect(Math.abs(item.left - geometry[index - 1].right - 4)).toBeLessThanOrEqual(1);
   }
-  await expect(selected).toHaveCSS("font-weight", "600");
-  await expect(selected).toHaveCSS("border-bottom-color", "rgb(111, 13, 131)");
+  await expect(selected).toHaveCSS("font-weight", "500");
+  await expect(selected).toHaveCSS("border-radius", "20px");
   await expect(selected).toHaveCSS("box-shadow", "none");
-  await expect(selected).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+  await expect(selected).toHaveCSS("background-color", "rgb(40, 36, 46)");
   const beforeHover = await selected.boundingBox();
   const beforeHoverToolbar = await workspaceBar.boundingBox();
   const beforeHoverContent = await workspace.boundingBox();
   await selected.hover();
-  await expect(selected).toHaveCSS("background-color", "rgb(243, 244, 246)");
+  await expect(selected).toHaveCSS("background-color", "rgb(66, 58, 73)");
   const afterHover = await selected.boundingBox();
   expect(afterHover?.width).toBe(beforeHover?.width);
   expect(afterHover?.height).toBe(beforeHover?.height);
@@ -320,16 +319,19 @@ async function expectReviewLayout(page: Page, viewportWidth: number) {
   await expect(cards).toHaveCount(4);
   const cardBoxes = await Promise.all((await cards.all()).map(card => card.locator("..").boundingBox()));
   expect(Math.max(...cardBoxes.map(box => box!.width)) - Math.min(...cardBoxes.map(box => box!.width))).toBeLessThanOrEqual(1);
-  for (let index = 0; index < cardBoxes.length; index += viewportWidth === 1440 ? 4 : 2) {
-    const row = cardBoxes.slice(index, index + (viewportWidth === 1440 ? 4 : 2));
+  for (let index = 0; index < cardBoxes.length; index += 2) {
+    const row = cardBoxes.slice(index, index + 2);
     expect(Math.max(...row.map(box => box!.height)) - Math.min(...row.map(box => box!.height))).toBeLessThanOrEqual(1);
   }
-  for (const card of await cards.all()) await expect(card.locator("strong")).toHaveCSS("font-size", "36px");
-  if (viewportWidth === 1440) expect(Math.max(...cardBoxes.map(box => box!.y)) - Math.min(...cardBoxes.map(box => box!.y))).toBeLessThanOrEqual(1);
-  else {
+  for (const card of await cards.all()) await expect(card.locator("strong")).toHaveCSS("font-size", "32px");
+  {
     expect(Math.abs(cardBoxes[0]!.y - cardBoxes[1]!.y)).toBeLessThanOrEqual(1);
     expect(Math.abs(cardBoxes[2]!.y - cardBoxes[3]!.y)).toBeLessThanOrEqual(1);
     expect(cardBoxes[2]!.y).toBeGreaterThanOrEqual(cardBoxes[0]!.y + cardBoxes[0]!.height);
+  }
+  if (viewportWidth === 1440) {
+    const bankBox = (await page.getByTestId("tl-bank-status").boundingBox())!;
+    expect(bankBox.x).toBeGreaterThan(cardBoxes[1]!.x + cardBoxes[1]!.width);
   }
   const queue = page.getByTestId("tl-review-queue");
   const activity = page.getByTestId("tl-review-activity");
@@ -549,6 +551,7 @@ test("DXB and AUH TL review: scope, tabs, charts, breadcrumbs and responsive que
       }
       await expect(page.getByTestId("tl-target-progress-chart")).toHaveCount(0);
       await capturePreview(page, testInfo, `tl-${group.office.code}-${viewport.width}-team`);
+      await capturePreview(page, testInfo, `tl-${group.office.code}-${viewport.width}-member-target`, member);
       await page.reload();
       await expect(page.getByRole("tab", { name: "Team Performance", exact: true })).toHaveAttribute("aria-selected", "true");
       await page.getByRole("tab", { name: "Team Performance", exact: true }).focus();
@@ -691,7 +694,7 @@ test("DXB and AUH TL review: scope, tabs, charts, breadcrumbs and responsive que
         await expect(entry).toContainText("Present");
         await expect(entry).toContainText("09:05 / 17:00");
         await expect(entry).toContainText("7h 55m");
-        await capturePreview(page, testInfo, `tl-${group.office.code}-${viewport.width}-personal-monthly`);
+        await capturePreview(page, testInfo, `tl-${group.office.code}-${viewport.width}-personal-monthly`, attendance.locator("details"));
         await monthly.focus();
       } else await expect(attendance.getByText("No attendance records are available this month.")).toBeVisible();
       await page.keyboard.press("Enter");
@@ -763,7 +766,8 @@ test("DXB and AUH TL review: scope, tabs, charts, breadcrumbs and responsive que
       const breadcrumb = page.getByRole("navigation", { name: "Breadcrumb" });
       await expect(breadcrumb.getByRole("link", { name: "Dashboard", exact: true })).toHaveAttribute("href", "/reports");
       await expect(breadcrumb.getByRole("link", { name: "Applications", exact: true })).toHaveAttribute("href", "/applications");
-      await expect(breadcrumb.getByRole("heading", { name: "Application details", exact: true })).toHaveAttribute("aria-current", "page");
+      await expect(breadcrumb.locator('[aria-current="page"]')).toHaveText("Application details");
+      await expect(page.getByRole("heading", { name: "Application details", exact: true })).toBeVisible();
       const review = page.getByTestId("internal-review");
       await expect(review).toContainText("Pending TL Review");
       await expect(page.getByRole("button", { name: "Save Product Variant" })).toHaveCount(0);
@@ -856,175 +860,89 @@ test("DXB and AUH TL review: scope, tabs, charts, breadcrumbs and responsive que
   expect(errors).toEqual([]);
 });
 
-test("TL embossed review cards preserve metrics, selection, focus and motion preferences", async ({ page, request, browser }, testInfo) => {
-  test.setTimeout(180_000);
+test("TL approved review cards preserve real metrics, selection, focus and motion preferences", async ({ page, request, browser }, testInfo) => {
+  test.setTimeout(240_000);
   const fixture = await seed(request);
   const group = fixture.groups[0];
   await signIn(page, group.users.TL.email, "Team Leader Dashboard");
   const keys = ["pending_review", "resubmitted", "returned", "forwarded"];
   for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
     await page.setViewportSize(viewport);
-    await page.emulateMedia({ reducedMotion: "no-preference" });
-    await page.goto("/reports?tab=review&period=ytd&view=combined&queue=pending_review&page=1");
-    await expect(page.getByTestId("tl-dashboard")).toHaveAttribute("aria-busy", "false");
-    await expect(page.getByTestId("tl-dashboard")).toHaveCSS("background-color", "rgb(247, 248, 250)");
-    await expect(page.getByTestId("tl-review-workspace")).toHaveCSS("background-color", "rgb(247, 248, 250)");
-    const bankStrip = page.getByTestId("tl-bank-status");
-    const bankBand = bankStrip.locator("..");
-    await expect(bankBand).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
-    await expect(bankBand).toHaveCSS("border-top-width", "0px");
-    await expect(bankStrip).toHaveCSS("column-gap", "12px");
-    await expect(bankStrip).toHaveCSS("row-gap", "12px");
-    const bankMetrics = bankStrip.locator("[data-selected]");
-    await expect(bankMetrics).toHaveCount(4);
-    for (const metric of await bankMetrics.all()) {
-      await expect(metric).toHaveCSS("background-color", "rgb(255, 255, 255)");
-      await expect(metric).toHaveCSS("border-color", "rgb(229, 231, 235)");
-      await expect(metric).toHaveCSS("border-radius", "8px");
-      await expect(metric).toHaveCSS("padding", "12px");
-    }
-    const bankBoxes = await bankMetrics.evaluateAll(elements => elements.map(element => {
-      const box = element.getBoundingClientRect();
-      return { x: box.x, y: box.y, width: box.width, height: box.height };
-    }));
-    expect(new Set(bankBoxes.map(box => box.height)).size).toBe(1);
-    if (viewport.width === 1440) {
-      expect(new Set(bankBoxes.map(box => box.y)).size).toBe(1);
-      const reviewBoxes = await page.getByTestId("tl-cards").locator("[data-queue]").evaluateAll(elements => elements.map(element => {
-        const box = element.getBoundingClientRect();
-        return { x: box.x, width: box.width };
-      }));
-      for (const [index, box] of bankBoxes.entries()) {
-        expect(Math.abs(box.x - reviewBoxes[index].x)).toBeLessThan(1);
-        expect(Math.abs(box.width - reviewBoxes[index].width)).toBeLessThan(1);
-      }
-    } else {
-      expect(new Set(bankBoxes.map(box => box.y)).size).toBe(2);
-      expect(bankBoxes[1].x - (bankBoxes[0].x + bankBoxes[0].width)).toBeCloseTo(12, 0);
-      expect(bankBoxes[2].y - (bankBoxes[0].y + bankBoxes[0].height)).toBeCloseTo(12, 0);
-    }
-    const queuePanel = page.getByTestId("tl-review-queue");
-    await expect(queuePanel).toHaveCSS("background-color", "rgb(255, 255, 255)");
-    await expect(queuePanel).toHaveCSS("border-color", "rgb(229, 231, 235)");
-    await expect(page.getByTestId("tl-returned-queue")).toHaveCSS("background-color", "rgb(255, 255, 255)");
-    const activityPanel = page.getByTestId("tl-review-activity");
-    await expect(activityPanel).toHaveCSS("background-color", "rgb(255, 255, 255)");
-    await expect(activityPanel).toHaveCSS("border-color", "rgb(229, 231, 235)");
-    const normalBankMetric = bankStrip.locator("[data-selected=false]").first();
-    await expect(normalBankMetric).toHaveCSS("background-color", "rgb(255, 255, 255)");
-    await normalBankMetric.hover();
-    await expect(normalBankMetric).toHaveCSS("background-color", "rgb(243, 244, 246)");
-    const cards = page.getByTestId("tl-cards").locator("[data-queue]");
-    await expect(cards).toHaveCount(4);
-    const baseline = await cards.evaluateAll(elements => elements.map(element => {
-      const box = element.getBoundingClientRect();
-      return { x: box.x, y: box.y, width: box.width, height: box.height };
-    }));
-    expect(new Set(baseline.map(box => box.height)).size).toBe(1);
-    expect(new Set(baseline.map(box => box.y)).size).toBe(viewport.width === 1440 ? 1 : 2);
-    const response = await page.request.get(`${api}/api/v1/reports/tl-dashboard?period=ytd&view=combined&queue=pending_review&page=1`);
-    expect(response.status()).toBe(200);
-    const report = await response.json();
-    for (const [index, key] of keys.entries()) {
-      const card = cards.nth(index);
-      const count = report.cards.find((item: { key: string }) => item.key === key).count;
-      await expect(card.locator("button > strong")).toHaveText(count.toLocaleString());
-      await expect(card).toHaveCSS("transform", "none");
-      await expect(card).toHaveCSS("overflow", "visible");
-      expect(await card.evaluate(element => getComputedStyle(element).boxShadow)).toContain("inset");
-      const colors = ["rgb(152, 30, 188)", "rgb(237, 245, 255)", "rgb(255, 245, 234)", "rgb(239, 251, 246)"];
-      expect(await card.evaluate(element => getComputedStyle(element).backgroundImage)).toContain(colors[index]);
-      await expect(card.locator("button > strong")).toHaveCSS("font-size", "36px");
-      await expect(card.locator("button > strong")).toHaveCSS("text-shadow", "none");
-    }
-    await capturePreview(page, testInfo, `embossed-${viewport.width}-default`);
-    const hovered = cards.nth(1);
-    await hovered.hover({ position: { x: 10, y: 10 } });
-    expect(await hovered.evaluate(element => getComputedStyle(element).backgroundImage)).not.toContain("rgb(152, 30, 188)");
-    const sheen = await hovered.evaluate(element => {
-      const style = getComputedStyle(element, "::before");
-      return { name: style.animationName, duration: style.animationDuration, easing: style.animationTimingFunction, iterations: style.animationIterationCount, pointerEvents: style.pointerEvents, clip: style.clipPath, fade: style.transitionDuration };
-    });
-    expect(sheen.name).not.toBe("none");
-    expect(sheen).toMatchObject({ duration: "0.65s", easing: "ease-out", iterations: "1", pointerEvents: "none", fade: "0.18s" });
-    expect(sheen.clip).toContain("inset");
-    // Inspect the actual CSS animation at its midpoint, without changing app data or geometry.
-    await hovered.evaluate(element => {
-      const animation = element.getAnimations({ subtree: true }).find(item => item instanceof CSSAnimation);
-      if (!animation) throw new Error("Expected a real CSS sheen animation");
-      animation.pause();
-      animation.currentTime = 325;
-    });
-    await page.screenshot({ path: testInfo.outputPath(`embossed-${viewport.width}-hover.png`), fullPage: true });
-    expect(await cards.evaluateAll(elements => elements.map(element => {
-      const box = element.getBoundingClientRect();
-      return { x: box.x, y: box.y, width: box.width, height: box.height };
-    }))).toEqual(baseline);
-    await page.getByRole("button", { name: "Refresh", exact: true }).hover();
-    await expect.poll(() => hovered.evaluate(element => getComputedStyle(element, "::before").opacity)).toBe("0");
-    await page.emulateMedia({ reducedMotion: "reduce" });
-    await hovered.hover();
-    expect(await hovered.evaluate(element => getComputedStyle(element, "::before").animationName)).toBe("none");
-    for (const index of [0, 1, 2, 3, 0]) {
-      const key = keys[index];
-      const action = cards.nth(index).getByRole("button");
-      await action.focus();
-      await expect(action).toBeFocused();
-      await expect(action).toHaveCSS("outline-style", "solid");
-      await expect(action).toHaveCSS("outline-width", "3px");
-      await action.press("Enter");
+    for (const theme of ["light", "dark"] as const) {
+      await setVisualTheme(page, theme);
+      await page.goto("/reports?tab=review&period=ytd&view=combined&queue=pending_review&page=1");
       await expect(page.getByTestId("tl-dashboard")).toHaveAttribute("aria-busy", "false");
-      await expect(action).toHaveAttribute("aria-pressed", "true");
-      await expect(page).toHaveURL(new RegExp(`queue=${key}`));
-      const selectedLabel = (await action.getAttribute("aria-label"))!.replace(/ queue$/, "");
-      await expect(page.getByRole("heading", { name: `${selectedLabel} review queue`, exact: true })).toBeAttached();
-      expect(await cards.nth(index).evaluate(element => getComputedStyle(element).backgroundImage)).toContain("rgb(152, 30, 188)");
-      await expect(cards.nth(index)).toHaveCSS("outline-width", "2px");
-      await expect(cards.locator('button[aria-pressed="true"]')).toHaveCount(1);
-      const lightColors = ["rgb(246, 240, 250)", "rgb(237, 245, 255)", "rgb(255, 245, 234)", "rgb(239, 251, 246)"];
-      for (const otherIndex of keys.keys()) {
-        const other = cards.nth(otherIndex);
-        const selected = otherIndex === index;
-        const surface = await other.evaluate(element => getComputedStyle(element).backgroundImage);
-        expect(surface).toContain(selected ? "rgb(152, 30, 188)" : lightColors[otherIndex]);
-        if (!selected) {
-          expect(surface).not.toContain("rgb(152, 30, 188)");
-          await expect(other).toHaveCSS("outline-style", "none");
-        }
-        if (selected) await expect(other.locator("button > strong")).toHaveCSS("color", "rgb(255, 255, 255)");
-        if (selected) await expect(other.locator('button > span > span')).toHaveCSS("color", "rgb(255, 255, 255)");
-        if (otherIndex === 0 && !selected) {
-          await expect(other.locator("button > strong")).toHaveCSS("color", "rgb(46, 21, 61)");
-          await expect(other.locator('button > span > span')).toHaveCSS("color", "rgb(116, 82, 139)");
-          expect(surface).toContain("rgb(231, 219, 241)");
-        }
+      const bankStrip = page.getByTestId("tl-bank-status");
+      const bankMetrics = bankStrip.locator("[data-selected]");
+      await expect(bankMetrics).toHaveCount(4);
+      await expect(bankStrip).toHaveCSS("column-gap", "12px");
+      const bankBoxes = await bankMetrics.evaluateAll(elements => elements.map(element => {
+        const box = element.getBoundingClientRect(); return { x: box.x, y: box.y, width: box.width, height: box.height };
+      }));
+      expect(new Set(bankBoxes.map(box => box.height)).size).toBe(1);
+      expect(new Set(bankBoxes.map(box => box.y)).size).toBe(2);
+      const cards = page.getByTestId("tl-cards").locator("[data-queue]");
+      await expect(cards).toHaveCount(4);
+      const baseline = await cards.evaluateAll(elements => elements.map(element => {
+        const box = element.getBoundingClientRect(); return { x: box.x, y: box.y, width: box.width, height: box.height };
+      }));
+      expect(new Set(baseline.map(box => box.height)).size).toBe(1);
+      expect(new Set(baseline.map(box => box.y)).size).toBe(2);
+      const response = await page.request.get(`${api}/api/v1/reports/tl-dashboard?period=ytd&view=combined&queue=pending_review&page=1`);
+      expect(response.status()).toBe(200);
+      const report = await response.json();
+      for (const [index, key] of keys.entries()) {
+        const card = cards.nth(index);
+        await expect(card.locator("button > strong")).toHaveText(report.cards.find((item: { key: string }) => item.key === key).count.toLocaleString());
+        await expect(card.locator("button > strong")).toHaveCSS("font-size", "32px");
+        await expect(card).toHaveCSS("box-shadow", "none");
+        await expect(card).toHaveCSS("transform", "none");
+        expect(await card.evaluate(element => getComputedStyle(element, "::before").animationName)).toBe("none");
       }
-      if (index === 1) await capturePreview(page, testInfo, `selection-${viewport.width}-resubmitted`);
-      expect(new URL(page.url()).searchParams.get("period")).toBe("ytd");
-      expect(new URL(page.url()).searchParams.get("view")).toBe("combined");
+      await cards.nth(1).hover();
+      expect(await cards.evaluateAll(elements => elements.map(element => {
+        const box = element.getBoundingClientRect(); return { x: box.x, y: box.y, width: box.width, height: box.height };
+      }))).toEqual(baseline);
+      await page.emulateMedia({ reducedMotion: "reduce" });
+      for (const index of [0, 1, 2, 3, 0]) {
+        const action = cards.nth(index).getByRole("button");
+        await action.focus();
+        await expect(action).toBeFocused();
+        await expect(action).toHaveCSS("outline-width", "2px");
+        await action.press("Enter");
+        await expect(page.getByTestId("tl-dashboard")).toHaveAttribute("aria-busy", "false");
+        await expect(page).toHaveURL(new RegExp(`queue=${keys[index]}`));
+        await expect(action).toHaveAttribute("aria-pressed", "true");
+        await expect(cards.locator('button[aria-pressed="true"]')).toHaveCount(1);
+        await expect(cards.nth(index)).toHaveCSS("background-image", /linear-gradient/);
+        await expect(cards.nth(index).locator("button > strong")).toHaveCSS("color", "rgb(255, 255, 255)");
+        const selectedLabel = (await action.getAttribute("aria-label"))!.replace(/ queue$/, "");
+        await expect(page.getByRole("heading", { name: `${selectedLabel} review queue`, exact: true })).toBeAttached();
+        expect(new URL(page.url()).searchParams.get("period")).toBe("ytd");
+        expect(new URL(page.url()).searchParams.get("view")).toBe("combined");
+      }
+      await capturePreview(page, testInfo, `approved-review-${theme}-${viewport.width}`);
+      for (const tabName of ["Team Performance", "Analytics", "My Performance & Attendance", "Review"]) {
+        await page.getByRole("tab", { name: tabName, exact: true }).click();
+        await expect(page.getByTestId("tl-dashboard")).toHaveAttribute("aria-busy", "false");
+        await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+        await capturePreview(page, testInfo, `approved-${tabName.replaceAll(" ", "-")}-${theme}-${viewport.width}`);
+      }
+      await expectNoOverflow(page);
     }
-    await capturePreview(page, testInfo, `embossed-${viewport.width}-selected-focus`);
-    for (const tabName of ["Team Performance", "Analytics", "My Performance & Attendance", "Review"]) {
-      await page.getByRole("tab", { name: tabName, exact: true }).click();
-      await expect(page.getByRole("tabpanel")).toHaveCSS("background-color", "rgb(247, 248, 250)");
-    }
-    await expectNoOverflow(page);
   }
   await signOut(page);
   const touchContext = await browser.newContext({ baseURL: new URL(page.url()).origin, viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, reducedMotion: "no-preference" });
   try {
     const touchPage = await touchContext.newPage();
-    await touchPage.goto(new URL("/login", page.url()).href);
     await signIn(touchPage, group.users.TL.email, "Team Leader Dashboard");
-    const touchCard = touchPage.getByTestId("tl-cards").locator('[data-queue="returned"]');
-    await touchCard.getByRole("button").tap();
-    await expect(touchCard.getByRole("button")).toHaveAttribute("aria-pressed", "true");
-    expect(await touchCard.evaluate(element => ({ hover: matchMedia("(hover: hover) and (pointer: fine)").matches, animation: getComputedStyle(element, "::before").animationName }))).toEqual({ hover: false, animation: "none" });
-    await capturePreview(touchPage, testInfo, "embossed-touch-static");
+    const card = touchPage.getByTestId("tl-cards").locator('[data-queue="returned"]');
+    await card.getByRole("button").tap();
+    await expect(card.getByRole("button")).toHaveAttribute("aria-pressed", "true");
+    expect(await card.evaluate(element => ({ hover: matchMedia("(hover: hover) and (pointer: fine)").matches, animation: getComputedStyle(element, "::before").animationName }))).toEqual({ hover: false, animation: "none" });
+    await capturePreview(touchPage, testInfo, "approved-touch-static");
     await signOut(touchPage);
-  } finally {
-    await touchContext.close();
-  }
+  } finally { await touchContext.close(); }
 });
 
 test("TL compact header and real database refresh preserve selections and last successful time", async ({ page, request }, testInfo) => {
@@ -1124,7 +1042,7 @@ test("TL compact header and real database refresh preserve selections and last s
   await signOut(page);
 });
 
-test("TL portal surfaces share compact spacing, connected tabs, embossed cards and responsive access", async ({ page, request }, testInfo) => {
+test("TL portal surfaces share approved spacing, pill tabs, flat cards and responsive access", async ({ page, request }, testInfo) => {
   test.setTimeout(240_000);
   const fixture = await seed(request);
   const group = fixture.groups[0];
@@ -1140,7 +1058,7 @@ test("TL portal surfaces share compact spacing, connected tabs, embossed cards a
     { path: "/account", heading: "My profile", tabs: false },
   ] as const;
 
-  for (const viewport of [{ width: 1440, height: 900, top: 16 }, { width: 390, height: 844, top: 12 }]) {
+  for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
     await page.setViewportSize(viewport);
     for (const route of routes) {
       await page.goto(route.path);
@@ -1151,22 +1069,22 @@ test("TL portal surfaces share compact spacing, connected tabs, embossed cards a
       }
       const header = page.getByTestId("page-header");
       const headerBox = await header.boundingBox();
-      const headerChildBox = await header.locator(":scope > div").boundingBox();
+      const headerChildBox = await header.getByRole("navigation", { name: "Breadcrumb" }).boundingBox();
       expect(headerBox).not.toBeNull();
       expect(headerChildBox).not.toBeNull();
-      expect(Math.round(headerChildBox!.y - headerBox!.y)).toBe(viewport.top);
+      expect(Math.round(headerChildBox!.y - headerBox!.y)).toBe(0);
       await expectNoOverflow(page);
 
       const firstCard = page.locator("[data-amafh-card]").first();
       if (await firstCard.count()) {
-        await expect(firstCard).toHaveCSS("border-color", "rgb(229, 231, 235)");
-        expect(await firstCard.evaluate(element => getComputedStyle(element).boxShadow)).not.toBe("none");
+        await expect(firstCard).toHaveCSS("border-color", "rgb(236, 233, 239)");
+        await expect(firstCard).toHaveCSS("box-shadow", "none");
       }
 
       if (route.tabs) {
         const tablist = page.getByRole("tablist").first();
         await expect(tablist).toHaveCSS("height", "32px");
-        await expect(tablist).toHaveCSS("gap", "0px");
+        await expect(tablist).toHaveCSS("gap", "4px");
         const tabs = tablist.getByRole("tab");
         expect(await tabs.count()).toBeGreaterThan(1);
         for (const tab of await tabs.all()) {

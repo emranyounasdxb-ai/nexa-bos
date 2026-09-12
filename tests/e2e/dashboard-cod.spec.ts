@@ -1,5 +1,6 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { preserveBuiltInRoleConfiguration } from "./helpers/role-configuration";
+import { captureViewportThemes } from "./helpers/viewport-capture";
 
 preserveBuiltInRoleConfiguration();
 import { selectBrandedOption } from "./helpers/select";
@@ -151,10 +152,10 @@ async function signIn(page: Page, email: string) {
 
 async function signOut(page: Page) {
   const navigationTrigger = page.getByRole("button", { name: "Open navigation" });
-  if (await navigationTrigger.isVisible() && await navigationTrigger.getAttribute("aria-expanded") !== "true") {
-    await navigationTrigger.click();
+  if (await navigationTrigger.isVisible() && await navigationTrigger.getAttribute("aria-expanded") === "true") {
+    await page.getByRole("button", { name: "Close navigation", exact: true }).click();
   }
-  await page.getByTestId("sidebar-footer").getByLabel("Open user menu").click();
+  await page.getByTestId("account-actions").getByLabel("Open user menu").click();
   await page.getByRole("menu", { name: "User account" }).getByRole("menuitem", { name: "Sign out" }).click();
   await expect(page).toHaveURL(/\/login$/, { timeout: 20_000 });
 }
@@ -232,7 +233,8 @@ test("COD Operations Dashboard is office-scoped, actionable, keyboard accessible
     }
     await page.evaluate(() => window.scrollTo(0, 0));
     expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
-    await page.screenshot({ path: testInfo.outputPath(`cod-populated-${viewport.width}.png`), fullPage: false });
+    await captureViewportThemes(page, testInfo.outputPath(`cod-populated-${viewport.width}.png`));
+    await captureViewportThemes(page, testInfo.outputPath(`cod-queue-${viewport.width}.png`), page.getByRole("heading", { name: "Operational queues", exact: true }));
   }
   await page.setViewportSize({ width: 1440, height: 900 });
   await expect(page.getByTestId("cod-staff-workload")).toContainText(dxbTl.fullName);

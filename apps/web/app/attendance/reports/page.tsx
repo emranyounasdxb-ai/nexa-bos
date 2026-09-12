@@ -1,5 +1,8 @@
 "use client";
 
+import { ListWorkspace } from "@/components/page-patterns";
+import styles from "../attendance.module.css";
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { DateRangePicker } from "@/components/date-picker";
@@ -128,8 +131,9 @@ export default function AttendanceReportsPage() {
           </ButtonLink>
         }
       />
+      <ListWorkspace title="Attendance analysis" filters={
       <FilterBar>
-        <label className="text-sm">
+        <label className="col-span-2 text-sm sm:col-span-1">
           Report date
           <DateRangePicker
             aria-label="Report date"
@@ -206,6 +210,7 @@ export default function AttendanceReportsPage() {
           </Select>
         </label>
       </FilterBar>
+      }>
       <div className="flex flex-wrap gap-4 text-sm">
         <label>
           <input type="checkbox" className="mr-2" checked={late} onChange={(event) => setLate(event.target.checked)} />
@@ -230,7 +235,7 @@ export default function AttendanceReportsPage() {
       </div>
       <ErrorText>{error}</ErrorText>
       {summary ? (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className={styles.reportMetrics}>
           <Card>
             <p className="text-xs uppercase text-slate-500">Present</p>
             <p className="mt-2 text-xl font-semibold">{summary.presentCount}</p>
@@ -251,7 +256,7 @@ export default function AttendanceReportsPage() {
           </Card>
         </div>
       ) : null}
-      <TableShell className={loading && items.length > 0 ? "opacity-70" : undefined}>
+      <TableShell className={`${styles.reportRecords} ${loading && items.length > 0 ? "opacity-70" : ""}`}>
         <TableHead>
           <tr>
             <Th>Date</Th>
@@ -306,6 +311,7 @@ export default function AttendanceReportsPage() {
           void load(1, value);
         }}
       />
+      </ListWorkspace>
     </section>
   );
 }

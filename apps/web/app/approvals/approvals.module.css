@@ -1,0 +1,13 @@
+@media (max-width: 639px) {
+  .queue { border: 0; overflow: visible; }
+  .queue table { display: block; width: 100%; min-width: 0 !important; }
+  .queue tbody { display: block; }
+  .queue thead { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .queue tbody tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding: 12px; margin-bottom: 12px; border: 0; border-radius: 16px; background: var(--amafh-subtle); }
+  .queue tbody td { display: block; min-width: 0; padding: 0; }
+  .queue tbody td:first-child, .queue tbody td:last-child { grid-column: 1 / -1; }
+  .queue tbody td:first-child { padding-bottom: 8px; border-bottom: 1px solid var(--amafh-border); }
+  .queue tbody td:nth-child(2)::before { content: "Requester"; display: block; font-size: 12px; color: var(--amafh-text-secondary); }
+  .queue tbody td:nth-child(4)::before { content: "Due date"; display: block; font-size: 12px; color: var(--amafh-text-secondary); }
+  .queue tbody td:last-child { padding-top: 8px; border-top: 1px solid var(--amafh-border); }
+}

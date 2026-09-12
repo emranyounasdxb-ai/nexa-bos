@@ -226,14 +226,15 @@ function UsersDirectory() {
         ) : null}
       />
 
-      <FilterBar className="sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-        <Field label="Search users" className="sm:col-span-2 lg:col-span-3 xl:col-span-2">
+      <div data-amafh-list-surface="">
+      <FilterBar className="grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        <Field label="Search users" className="col-span-2 lg:col-span-3 xl:col-span-2">
           <div className="relative">
             <span aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-disabled">⌕</span>
             <TextInput aria-label="Search users" className="pl-9" placeholder="Name, email, code, mobile, office or department" value={searchDraft} onChange={(event) => setSearchDraft(event.target.value)} />
           </div>
         </Field>
-        <Field label="Employment status">
+        <Field label="Employment status" className="col-span-2 sm:col-span-1">
           <Select aria-label="Employment status" value={employmentStatus} onChange={(event) => updateUrl({ employmentStatus: event.target.value || null, page: null })}>
             <option value="">All employment states</option>
             {EMPLOYMENT_STATUSES.map((value) => <option key={value}>{value}</option>)}
@@ -263,7 +264,7 @@ function UsersDirectory() {
             {options.userTypes.map((type) => <option key={type.id} value={type.id}>{type.name} ({type.code})</option>)}
           </Select>
         </Field>
-        <div className="flex items-end gap-2 sm:col-span-2 lg:col-span-3 xl:col-span-1">
+        <div className="col-span-2 flex items-end gap-2 lg:col-span-3 xl:col-span-1">
           <Button type="button" variant="secondary" className="w-full" disabled={!hasFilters} onClick={() => router.push("/users", { scroll: false })}>Clear filters</Button>
         </div>
       </FilterBar>
@@ -328,6 +329,7 @@ function UsersDirectory() {
           onPageSizeChange={(value) => { if (value !== "all") updateUrl({ pageSize: value === 10 ? null : String(value), page: null }); }}
         />
       </Card>
+      </div>
     </section>
   );
 }

@@ -1,5 +1,8 @@
 "use client";
 
+import { RegisterWorkspace } from "@/components/page-patterns";
+import styles from "./schedules.module.css";
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { DatePicker } from "@/components/date-picker";
@@ -146,9 +149,9 @@ export default function SchedulesPage() {
       />
       <ErrorText>{error}</ErrorText>
       {message ? <p className="text-sm text-slate-600">{message}</p> : null}
-      <section className="space-y-3 rounded-xl border border-slate-200 bg-white p-4">
+      <section className={styles.workingDays}>
         <h3 className="text-lg font-semibold">Company working days</h3>
-        <div className="flex flex-wrap gap-3">
+        <div className={styles.dayChoices}>
           {WEEKDAYS.map((day) => (
             <label key={day.value} className="text-sm">
               <input
@@ -174,9 +177,11 @@ export default function SchedulesPage() {
           </Button>
         ) : null}
       </section>
-      {canManage ? (
+      <RegisterWorkspace editor={
+      canManage ? (
         <form
-          className="grid gap-3 rounded-xl border border-slate-200 bg-white p-4 md:grid-cols-3"
+          className="grid gap-3 rounded-xl border border-slate-200 bg-surface p-4 md:grid-cols-3"
+          aria-label="Schedule editor"
           onSubmit={(event) => {
             event.preventDefault();
             void createSchedule();
@@ -264,8 +269,9 @@ export default function SchedulesPage() {
             <Button type="submit">Save schedule</Button>
           </div>
         </form>
-      ) : null}
-      <TableShell className="rounded-b-none">
+      ) : null
+      }>
+      <TableShell className={styles.records}>
         <TableHead>
           <tr>
             <Th>Office / Department</Th>
@@ -314,6 +320,7 @@ export default function SchedulesPage() {
         onPageSizeChange={schedulesPagination.setPageSize}
       />
       <ImpactRules canManage={canManage} />
+      </RegisterWorkspace>
     </section>
   );
 }
@@ -372,7 +379,7 @@ function ImpactRules({ canManage }: { canManage: boolean }) {
       <ErrorText>{error}</ErrorText>
       {canManage ? (
         <form
-          className="grid gap-3 rounded-xl border border-slate-200 bg-white p-4 md:grid-cols-4"
+          className="grid gap-3 rounded-xl border border-slate-200 bg-surface p-4 md:grid-cols-4"
           onSubmit={(event) => {
             event.preventDefault();
             void save();
@@ -421,7 +428,7 @@ function ImpactRules({ canManage }: { canManage: boolean }) {
           </div>
         </form>
       ) : null}
-      <ul className="divide-y divide-slate-100 rounded-t-[10px] border border-slate-200 bg-white text-[13px]">
+      <ul className="divide-y divide-slate-100 rounded-t-[10px] border border-slate-200 bg-surface text-[13px]">
         {pagination.pagedItems.map((item) => (
           <li key={item.id} className="px-3 py-2">
             {item.condition}

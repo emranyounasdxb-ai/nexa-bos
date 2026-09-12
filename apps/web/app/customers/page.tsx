@@ -140,6 +140,7 @@ function CustomersDirectory() {
         actions={can("Customers.Create") ? <ButtonLink href="/customers/new">Create customer</ButtonLink> : null}
       />
 
+      <div data-amafh-list-surface="">
       <FilterBar className="sm:grid-cols-[minmax(0,2fr)_minmax(12rem,1fr)_auto]">
         <Field label="Search customers">
           <div className="relative">
@@ -256,6 +257,7 @@ function CustomersDirectory() {
           }}
         />
       </Card>
+      </div>
     </section>
   );
 }

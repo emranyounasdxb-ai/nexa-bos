@@ -1,5 +1,6 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { selectBrandedOption } from "./helpers/select";
+import { captureViewportPair } from "./helpers/viewport-capture";
 
 const apiOrigin = `http://127.0.0.1:${process.env.PLAYWRIGHT_API_PORT ?? "8010"}`;
 const secret = process.env.BOOTSTRAP_SECRET ?? "nexa-test-bootstrap-secret";
@@ -127,8 +128,8 @@ async function createViewOnlyUser(request: APIRequestContext) {
   return { email, id: user.id, headers };
 }
 
-test("owner manages rules and uses the in-app notification center", async ({ page, request }) => {
-  test.setTimeout(120_000);
+test("owner manages rules and uses the in-app notification center", async ({ page, request }, testInfo) => {
+  test.setTimeout(180_000);
   await signIn(page, request);
   await page.goto("/notifications/manage");
   await expect(page.getByRole("heading", { name: "Notification administration" })).toBeVisible();
@@ -143,12 +144,14 @@ test("owner manages rules and uses the in-app notification center", async ({ pag
   await page.getByLabel("Notification message").fill("An assigned application changed stage.");
   await selectBrandedOption(page.getByLabel("Recipient target").first(), "affected_user");
   await page.getByRole("button", { name: "Add target" }).first().click();
+  await captureViewportPair(page, testInfo, "notification-rule-form", page.getByRole("heading", { name: "New notification rule", exact: true }));
   await page.getByRole("button", { name: "Create draft rule" }).click();
   await expect(page.getByText("Notification rule created as draft.")).toBeVisible();
   const ruleRow = page.getByRole("row").filter({ hasText: `Stage alert ${suffix}` });
   await expect(ruleRow).toBeVisible();
   await ruleRow.getByRole("button", { name: "Activate" }).click();
   await expect(ruleRow.getByText("Active", { exact: true })).toBeVisible();
+  await captureViewportPair(page, testInfo, "notification-active-rule", page.getByRole("heading", { name: "Notification rules", exact: true }));
 
   const urgentTitle = `Urgent system notice ${suffix}`;
   await selectBrandedOption(page.getByLabel("Urgent category"), "system");
@@ -157,6 +160,8 @@ test("owner manages rules and uses the in-app notification center", async ({ pag
   await page.getByLabel("Require acknowledgement").last().check();
   await selectBrandedOption(page.getByLabel("Recipient target").last(), "company");
   await page.getByRole("button", { name: "Add target" }).last().click();
+  await captureViewportPair(page, testInfo, "notification-urgent-form", page.getByRole("heading", { name: "Send urgent in-app notification", exact: true }));
+  await captureViewportPair(page, testInfo, "notification-audit", page.getByRole("heading", { name: "Notification audit", exact: true }));
   await page.getByRole("button", { name: "Send urgent notification" }).click();
   await expect(page.getByText("Urgent in-app notification sent.")).toBeVisible();
 
@@ -168,11 +173,13 @@ test("owner manages rules and uses the in-app notification center", async ({ pag
   await expect(notice).toContainText("System");
   await expect(notice).toContainText("Urgent");
   await expect(notice).toContainText("Acknowledgement required");
+  await captureViewportPair(page, testInfo, "notification-awaiting-acknowledgement", notice);
   await notice.getByRole("button", { name: "Acknowledge" }).click();
   await expect(notice).toContainText("Acknowledged");
   await expect(notice.getByText("Unread", { exact: true })).toBeVisible();
   await notice.getByRole("button", { name: "Mark as read" }).click();
   await expect(notice.getByText("Read", { exact: true })).toBeVisible();
+  await captureViewportPair(page, testInfo, "notification-read-acknowledged", notice);
 });
 
 test("view-only user has own notification UI but no administration controls", async ({

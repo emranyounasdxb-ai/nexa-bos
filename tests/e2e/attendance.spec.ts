@@ -1,5 +1,6 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { selectBrandedOption } from "./helpers/select";
+import { captureViewportPair } from "./helpers/viewport-capture";
 
 const apiOrigin = `http://127.0.0.1:${process.env.PLAYWRIGHT_API_PORT ?? "8010"}`;
 const secret = process.env.BOOTSTRAP_SECRET ?? "nexa-test-bootstrap-secret";
@@ -50,7 +51,7 @@ async function signIn(page: Page, email = "owner@example.com", password = "Owner
 test("owner attendance bulk entry, calculations, correction, holiday, schedule, report, and profile", async ({
   page,
   request,
-}) => {
+}, testInfo) => {
   test.setTimeout(180_000);
   const headers = await ownerHeaders(request);
   const offices = (
@@ -180,7 +181,7 @@ test("owner attendance bulk entry, calculations, correction, holiday, schedule, 
     timeout: 20_000,
   });
   await page.getByRole("button", { name: "People menu" }).click();
-  await page.getByRole("navigation").getByRole("link", { name: "Attendance", exact: true }).click();
+  await page.getByRole("dialog", { name: "People", exact: true }).getByRole("link", { name: "Attendance", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Attendance" })).toBeVisible();
   await page.getByLabel("Attendance date").fill("2026-08-03");
   await selectBrandedOption(page.getByLabel("Office"), { label: "Dubai" });
@@ -194,6 +195,7 @@ test("owner attendance bulk entry, calculations, correction, holiday, schedule, 
   await expect(page.getByText(/Late 10m/)).toBeVisible();
   await expect(page.getByText(/Early 15m/)).toBeVisible();
   await expect(page.getByLabel(`${user.fullName} time in`)).toHaveValue("09:20");
+  await captureViewportPair(page, testInfo, "attendance-saved-record", page.getByRole("row").filter({ hasText: user.fullName }));
   await expect(page.getByLabel(`${user.fullName} time out`)).toHaveValue("17:45");
   await page.reload();
   await expect(page.getByRole("heading", { name: "Attendance" })).toBeVisible({ timeout: 20_000 });
@@ -206,8 +208,10 @@ test("owner attendance bulk entry, calculations, correction, holiday, schedule, 
   await page.getByLabel(`${user.fullName} time out`).fill("");
   await page.getByRole("button", { name: `${user.fullName} correct` }).click();
   await page.getByLabel("Correction reason").fill("Missing clock-out");
+  await captureViewportPair(page, testInfo, "attendance-correction", page.getByRole("heading", { name: "Correct attendance", exact: true }));
   await page.getByRole("button", { name: "Save correction" }).click();
   await expect(page.getByText("Incomplete Attendance")).toBeVisible({ timeout: 20_000 });
+  await captureViewportPair(page, testInfo, "attendance-incomplete-record", page.getByRole("row").filter({ hasText: user.fullName }));
   await selectBrandedOption(page.getByLabel(`${user.fullName} status`), "Leave");
   await selectBrandedOption(page.getByLabel(`${user.fullName} leave type`), { label: `Study leave ${tag}` });
   await page.getByRole("button", { name: `${user.fullName} correct` }).click();
@@ -237,6 +241,7 @@ test("owner attendance bulk entry, calculations, correction, holiday, schedule, 
   await expect(page.getByRole("columnheader", { name: "Ramadan dates" })).toBeVisible();
   const ramadanSchedule = page.getByRole("row").filter({ hasText: `Att ${tag}` }).filter({ hasText: "ramadan" });
   await expect(ramadanSchedule).toContainText("2026-03-01 – 2026-03-30");
+  await captureViewportPair(page, testInfo, "attendance-ramadan-schedule", ramadanSchedule);
 
   await page.goto("/attendance/reports");
   await expect(page.getByRole("heading", { name: "Attendance reports" })).toBeVisible({
@@ -248,6 +253,7 @@ test("owner attendance bulk entry, calculations, correction, holiday, schedule, 
   await expect(page.getByRole("cell", { name: new RegExp(user.fullName) })).toBeVisible({
     timeout: 20_000,
   });
+  await captureViewportPair(page, testInfo, "attendance-report-results", page.getByRole("row").filter({ hasText: user.fullName }));
 
   await page.goto(`/reports/employees/${user.id}`);
   await expect(page.getByRole("heading", { name: "Employee report", exact: true })).toBeVisible();
@@ -340,7 +346,7 @@ test("scoped user cannot access unauthorized attendance or send urgent reminders
 
   await signIn(page, scopedUser.email, "UserPass1!");
   await page.getByRole("button", { name: "People menu" }).click();
-  await page.getByRole("navigation").getByRole("link", { name: "Attendance", exact: true }).click();
+  await page.getByRole("dialog", { name: "People", exact: true }).getByRole("link", { name: "Attendance", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Attendance" })).toBeVisible();
   await expect(page.getByText(hiddenUser.fullName)).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Attendance reports" })).toHaveCount(0);

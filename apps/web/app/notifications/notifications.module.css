@@ -1,0 +1,20 @@
+.rules { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+@media (max-width: 639px) {
+  .rules, .audit { border: 0; background: transparent; overflow: visible; }
+  .rules table, .audit table, .rules tbody, .audit tbody { display: block; width: 100%; min-width: 0; }
+  .rules thead, .audit thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .rules tr, .audit tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-bottom: 12px; padding: 16px; border: 0; border-radius: 20px; background: var(--amafh-surface); }
+  .rules td, .audit td { display: block; min-width: 0; padding: 0; border: 0; white-space: normal; overflow-wrap: anywhere; }
+  .rules td::before, .audit td::before { display: block; margin-bottom: 4px; font-size: 11px; color: var(--amafh-text-secondary); }
+  .rules td:first-child, .rules td:nth-child(2), .rules td:last-child, .audit td { grid-column: 1 / -1; }
+  .rules td:first-child { font-weight: 600; }
+  .rules td:nth-child(2)::before { content: "Event"; }
+  .rules td:nth-child(3)::before { content: "Category"; }
+  .rules td:nth-child(4)::before { content: "Severity"; }
+  .rules td:nth-child(5)::before { content: "Status"; }
+  .rules td:last-child > div { flex-wrap: wrap; }
+  .audit td:nth-child(1)::before { content: "Timestamp"; }
+  .audit td:nth-child(2)::before { content: "Action"; }
+  .audit td:nth-child(3)::before { content: "Entity"; }
+  .audit td:nth-child(4)::before { content: "Note"; }
+}

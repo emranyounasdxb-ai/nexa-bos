@@ -1,0 +1,10 @@
+.editor section { min-width: 0; padding: 16px; border-radius: 18px; background: var(--amafh-subtle); }
+.editor section h3 { font-size: 17px; font-weight: 500; }
+.editor section > h3::before { content: ""; display: block; width: 30px; height: 4px; margin-bottom: 12px; border-radius: 4px; background: var(--amafh-gradient); }
+.editor label { min-width: 0; }
+@media (min-width: 640px) {
+  .editor label > span:first-child { min-height: 42px; align-items: end; }
+  .editor [aria-labelledby="rule-recipients"] div[class*="xl:grid-cols-4"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+.editor :is(input, textarea, [role="combobox"]) { background-color: var(--amafh-surface); }
+@media (max-width: 639px) { .editor section { padding: 12px; } }

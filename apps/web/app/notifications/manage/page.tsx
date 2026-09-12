@@ -1,5 +1,8 @@
 "use client";
 
+import { FormFrame } from "@/components/page-patterns";
+import styles from "../notifications.module.css";
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { IconX } from "@/components/icons";
@@ -17,6 +20,7 @@ import {
   EmptyState,
   ErrorText,
   Field,
+  LoadingState,
   PageHeader,
   Select,
   TableHead,
@@ -304,10 +308,11 @@ export default function NotificationManagementPage() {
     <section className="space-y-4">
       <PageHeader title="Notification administration" description="Configure deterministic in-app alerts, send urgent notices, and review audited actions." />
       <ErrorText>{error}</ErrorText>
+      {!options && (manageRules || sendUrgent) && !error ? <LoadingState>Loading notification configuration…</LoadingState> : null}
       {message ? <p className="text-sm text-slate-700" aria-live="polite">{message}</p> : null}
 
       {manageRules && options ? (
-        <Card>
+        <FormFrame title="Event-based rules" description="Define the event, message and recipients together. New rules are saved as drafts; activation remains a separate action."><Card>
           <form className="space-y-4" onSubmit={(event) => void saveRule(event)}>
             <h3 className="text-lg font-semibold text-slate-900">{editingId ? "Edit notification rule" : "New notification rule"}</h3>
             <div className="grid gap-3 md:grid-cols-2">
@@ -335,14 +340,14 @@ export default function NotificationManagementPage() {
               {editingId ? <Button type="button" variant="secondary" onClick={() => { setEditingId(null); setRuleDraft(emptyRule()); }}>Cancel edit</Button> : null}
             </div>
           </form>
-        </Card>
+        </Card></FormFrame>
       ) : null}
 
       {manageRules ? (
         <div className="space-y-3">
           <h3 className="text-lg font-semibold text-slate-900">Notification rules</h3>
           {rules.length === 0 ? <Card><EmptyState>No notification rules have been configured.</EmptyState></Card> : (
-            <><TableShell className="rounded-b-none"><TableHead><tr><Th>Name</Th><Th>Event</Th><Th>Category</Th><Th>Severity</Th><Th>Status</Th><Th>Actions</Th></tr></TableHead><tbody>
+            <><TableShell className={styles.rules}><TableHead><tr><Th>Name</Th><Th>Event</Th><Th>Category</Th><Th>Severity</Th><Th>Status</Th><Th>Actions</Th></tr></TableHead><tbody>
               {rulesPagination.pagedItems.map((rule) => <tr key={rule.id} className="border-t border-slate-100"><Td>{rule.name}</Td><Td>{friendly(rule.eventType)}</Td><Td>{friendly(rule.category)}</Td><Td><Badge>{friendly(rule.severity)}</Badge></Td><Td><Badge>{friendly(rule.status)}</Badge></Td><Td><div className="flex gap-1.5"><Button type="button" variant="secondary" size="compact" onClick={() => editRule(rule)}>Edit</Button><Button type="button" variant="secondary" size="compact" onClick={() => void changeStatus(rule)}>{rule.status === "active" ? "Deactivate" : "Activate"}</Button></div></Td></tr>)}
             </tbody></TableShell>
             <Pagination className="-mt-3 rounded-b-[10px] border border-slate-200" page={rulesPagination.page} pageSize={rulesPagination.pageSize} total={rulesPagination.total} totalPages={rulesPagination.totalPages} onPageChange={rulesPagination.setPage} onPageSizeChange={rulesPagination.setPageSize} /></>
@@ -351,7 +356,7 @@ export default function NotificationManagementPage() {
       ) : null}
 
       {sendUrgent && options ? (
-        <Card>
+        <FormFrame title="Urgent delivery" description="Review the audience and acknowledgement requirement before sending. This action sends a real in-app notification to the selected recipients."><Card>
           <form className="space-y-4" onSubmit={(event) => void submitUrgent(event)}>
             <h3 className="text-lg font-semibold text-slate-900">Send urgent in-app notification</h3>
             <div className="grid gap-3 md:grid-cols-2">
@@ -363,14 +368,14 @@ export default function NotificationManagementPage() {
             <TargetBuilder options={options} urgent targets={urgentDraft.targets} affectedUserId={urgentDraft.affected_user_id} onAffectedUserChange={(affected_user_id) => setUrgentDraft({ ...urgentDraft, affected_user_id })} onChange={(targets) => setUrgentDraft({ ...urgentDraft, targets })} />
             <Button type="submit" disabled={urgentDraft.targets.length === 0}>Send urgent notification</Button>
           </form>
-        </Card>
+        </Card></FormFrame>
       ) : null}
 
       {viewAudit ? (
         <div className="space-y-3">
           <h3 className="text-lg font-semibold text-slate-900">Notification audit</h3>
           {audit.length === 0 ? <Card><EmptyState>No notification administration audit events are available.</EmptyState></Card> : (
-            <TableShell><TableHead><tr><Th>Timestamp</Th><Th>Action</Th><Th>Entity</Th><Th>Note</Th></tr></TableHead><tbody>
+            <TableShell className={styles.audit}><TableHead><tr><Th>Timestamp</Th><Th>Action</Th><Th>Entity</Th><Th>Note</Th></tr></TableHead><tbody>
               {audit.map((item) => <tr key={item.id} className="border-t border-slate-100"><Td>{new Date(item.createdAt).toLocaleString()}</Td><Td>{item.action}</Td><Td>{item.entityType} · {item.entityId}</Td><Td>{item.note ?? "—"}</Td></tr>)}
             </tbody></TableShell>
           )}

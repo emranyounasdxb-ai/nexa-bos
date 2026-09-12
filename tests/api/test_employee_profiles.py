@@ -5,6 +5,7 @@ from datetime import timedelta
 
 import pytest
 from helpers import (
+    business_today,
     create_activated_user,
     owner_client,
     spawned_client,
@@ -296,7 +297,7 @@ async def test_document_validation_version_history_soft_delete_and_purge(
 async def test_document_expiry_dashboard_boundaries(client: AsyncClient) -> None:
     owner, _ = await owner_client(client)
     employee = await create_activated_user(owner, user_type_code="SE")
-    today = utc_today()
+    today = business_today()
     for kind, days in (("passport", 60), ("visa", 59), ("emirates_id", -1)):
         payload = {
             "kind": kind,

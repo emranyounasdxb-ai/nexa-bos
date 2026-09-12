@@ -11,6 +11,8 @@ import type {
 import { IconAlertTriangle, IconInfoCircle, IconX } from "@/components/icons";
 import { BrandedSelect, type BrandedSelectProps } from "@/components/select";
 import { Tooltip } from "@/components/tooltip";
+import { ThemeControls } from "@/components/theme-controls";
+import patterns from "./page-patterns.module.css";
 
 export function cx(...parts: Array<string | false | null | undefined>): string {
   return parts.filter(Boolean).join(" ");
@@ -20,8 +22,8 @@ export const focusRing =
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary";
 
 const controlSurfaceClass = cx(
-  "w-full rounded-md border border-brand-border bg-surface px-3 text-sm text-text-primary shadow-[0_1px_1px_rgba(31,41,55,0.035)] transition-colors placeholder:text-text-disabled",
-  "hover:border-text-disabled focus:border-brand-primary disabled:cursor-not-allowed disabled:bg-surface-subtle disabled:text-text-disabled",
+  "w-full rounded-xl border border-control-border bg-surface px-3 text-sm text-text-primary transition-colors placeholder:text-text-secondary",
+  "hover:border-brand-primary focus:border-brand-primary disabled:cursor-not-allowed disabled:border-brand-border disabled:bg-surface-subtle disabled:text-text-disabled",
   focusRing,
 );
 
@@ -32,7 +34,7 @@ export const multilineControlClass = cx("min-h-10 py-2", controlSurfaceClass);
 export const controlErrorClass = "border-danger focus:border-danger";
 
 const buttonBaseClass = cx(
-  "inline-flex items-center justify-center whitespace-nowrap rounded-md font-medium transition-colors",
+  "inline-flex items-center justify-center whitespace-nowrap rounded-full font-medium transition-colors",
   "disabled:cursor-not-allowed disabled:opacity-50",
   focusRing,
 );
@@ -46,11 +48,11 @@ const buttonSizeClass: Record<ButtonSize, string> = {
 };
 
 const primaryButtonTone =
-  "bg-brand-primary text-white hover:bg-brand-primary-hover active:bg-brand-primary-pressed";
+  "bg-action text-action-text hover:bg-action-hover active:bg-action-hover";
 const secondaryButtonTone =
-  "border border-brand-primary bg-surface text-brand-primary hover:bg-brand-soft active:bg-brand-soft";
+  "border border-brand-border bg-surface text-text-primary hover:bg-surface-subtle active:bg-brand-soft";
 const ghostButtonTone = "text-text-secondary hover:bg-brand-soft hover:text-brand-primary";
-const dangerButtonTone = "bg-danger text-white hover:bg-danger active:bg-danger";
+const dangerButtonTone = "bg-[#b9233b] text-white hover:bg-[#9f1e33] active:bg-[#89182b]";
 
 export const primaryButtonClass = cx(
   buttonBaseClass,
@@ -128,7 +130,7 @@ export function Card({ children, className }: { children: ReactNode; className?:
     <div
       data-amafh-card=""
       className={cx(
-        "min-w-0 rounded-lg border border-brand-border bg-surface p-4 shadow-[var(--amafh-shadow-surface)] sm:p-5",
+        "min-w-0 rounded-[20px] bg-surface p-4 sm:p-5",
         className,
       )}
     >
@@ -173,7 +175,7 @@ export function Field({
   helpLabel?: string;
 }) {
   return (
-    <label className={cx("block text-sm font-medium text-text-primary", className)} htmlFor={htmlFor}>
+    <label className={cx("block min-w-0 text-sm font-medium text-text-primary", className)} htmlFor={htmlFor}>
       <span className="inline-flex items-center gap-1.5">
         {label}
         {help ? <Tooltip label={helpLabel ?? `About ${label}`} text={help} /> : null}
@@ -296,7 +298,7 @@ const badgeToneClass: Record<BadgeTone, string> = {
 
 export function Badge({ children, tone = "neutral" }: { children: ReactNode; tone?: BadgeTone }) {
   return (
-    <span className={cx("inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium", badgeToneClass[tone])}>
+    <span className={cx("inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium", badgeToneClass[tone])}>
       {children}
     </span>
   );
@@ -333,18 +335,18 @@ export function FilterBar({ children, className }: { children: ReactNode; classN
 
 export function LoadingState({ children = "Loading…" }: { children?: ReactNode }) {
   return (
-    <div data-amafh-state-surface="" role="status" className="flex min-h-20 items-center gap-3 rounded-lg border border-brand-border bg-surface px-4 py-4 text-sm text-text-secondary">
-      <span className="size-5 animate-spin rounded-full border-2 border-brand-border border-t-brand-primary" aria-hidden="true" />
-      {children}
+    <div data-amafh-state-surface="" role="status" className="flex min-h-28 items-center gap-4 rounded-[20px] bg-surface px-5 py-5 text-sm text-text-secondary">
+      <span className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-surface-subtle" aria-hidden="true"><span className="size-5 animate-spin rounded-full border-2 border-brand-border border-t-brand-primary" /></span>
+      <div className="min-w-0 flex-1"><p>{children}</p><div className="mt-3 h-1 max-w-40 overflow-hidden rounded-full bg-surface-subtle" aria-hidden="true"><div className="h-full w-1/3 animate-pulse rounded-full bg-brand-primary" /></div></div>
     </div>
   );
 }
 
 export function EmptyState({ children }: { children: ReactNode }) {
   return (
-    <div data-amafh-empty-state="" className="flex min-h-20 flex-col items-center justify-center px-4 py-4 text-center text-sm text-text-secondary">
-      <IconInfoCircle className="mb-2 size-6 text-text-disabled" />
-      {children}
+    <div data-amafh-empty-state="" className="flex min-h-36 flex-col items-center justify-center gap-3 px-5 py-6 text-center text-sm text-text-secondary">
+      <span className="flex size-11 items-center justify-center rounded-2xl bg-surface-subtle"><IconInfoCircle className="size-5 text-text-secondary" /></span>
+      <div className="max-w-md">{children}</div>
     </div>
   );
 }
@@ -363,7 +365,7 @@ export function TableShell({
       data-amafh-table-shell=""
       {...props}
     >
-      <table className="min-w-full text-left text-sm leading-6 [&_tbody_tr]:border-t [&_tbody_tr]:border-brand-border [&_tbody_tr]:transition-colors [&_tbody_tr:hover]:bg-surface-subtle">
+      <table className="w-full min-w-full text-left text-sm leading-6 [&_tbody_tr]:border-t [&_tbody_tr]:border-brand-border [&_tbody_tr]:transition-colors [&_tbody_tr:hover]:bg-surface-subtle">
         {children}
       </table>
     </div>
@@ -387,19 +389,21 @@ export function DialogPanel({
   description,
   children,
   onClose,
+  className = "",
 }: {
   title: string;
   description?: string;
   children: ReactNode;
   onClose: () => void;
+  className?: string;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/40 p-0 sm:items-center sm:p-4" role="presentation">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#17101f]/45 p-4 backdrop-blur-sm" role="presentation">
       <section
         role="dialog"
         aria-modal="true"
         aria-labelledby="bos-dialog-title"
-        className="max-h-[calc(100vh-2rem)] min-w-0 w-full overflow-y-auto rounded-t-lg border border-brand-border bg-surface p-4 shadow-[var(--amafh-shadow-elevated)] sm:max-w-lg sm:rounded-lg sm:p-5"
+        className={`max-h-[calc(100dvh-2rem)] min-w-0 w-full overflow-y-auto rounded-[24px] border border-brand-border bg-surface p-5 shadow-[var(--amafh-shadow-elevated)] sm:max-w-lg sm:p-6 ${className}`}
       >
         <div className="flex items-start justify-between gap-4">
           <div>
@@ -418,6 +422,13 @@ export function DialogPanel({
   );
 }
 
+export function BrandLogo({ className = "" }: { className?: string }) {
+  return <span className={cx("amafh-full-logo", className)}>
+    <Image data-logo-theme="light" src="/brand/amafh-core-full-logo-exact.svg" alt="AMAFH CORE" width={1551} height={479} priority unoptimized />
+    <Image data-logo-theme="dark" src="/brand/amafh-core-full-logo-dark.svg" alt="AMAFH CORE" width={1551} height={479} priority unoptimized />
+  </span>;
+}
+
 export function PublicScreen({
   title,
   description,
@@ -430,25 +441,20 @@ export function PublicScreen({
   wide?: boolean;
 }) {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-app-background px-4 py-6 sm:px-6 sm:py-8">
-      <div className={cx("w-full", wide ? "max-w-xl" : "max-w-md")}>
-        <div className="mb-5 flex items-center justify-center">
-          <Image
-            src="/brand/amafh-core-full-logo-exact.svg"
-            alt="AMAFH CORE"
-            width={1551}
-            height={479}
-            className="h-14 w-auto max-w-full"
-            priority
-            unoptimized
-          />
+    <main className="relative flex min-h-screen items-center justify-center bg-[var(--amafh-canvas)] px-4 py-20 sm:px-6">
+      <ThemeControls className="absolute right-4 top-4" />
+      <div className={cx(patterns.publicFrame, wide && patterns.publicWide)}>
+        <div className={patterns.publicBrand}>
+        <div className={patterns.publicLogo}>
+          <BrandLogo />
         </div>
-        <section data-amafh-public-surface="" className="rounded-lg border border-brand-border bg-surface p-5 shadow-[var(--amafh-shadow-elevated)] sm:p-6">
+        <p>Secure AMAFH CORE workspace</p>
+        </div>
+        <section data-amafh-public-surface="" className={patterns.publicForm}>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">{title}</h1>
-          {description ? <p className="mt-2 text-sm leading-6 text-slate-600">{description}</p> : null}
+          {description ? <p data-testid="page-purpose" className="mt-2 text-sm leading-6 text-slate-600">{description}</p> : null}
           {children}
         </section>
-        <p className="mt-5 text-center text-xs text-slate-500">Secure AMAFH CORE workspace</p>
       </div>
     </main>
   );

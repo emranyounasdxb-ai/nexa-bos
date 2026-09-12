@@ -1,0 +1,24 @@
+.detail > * { min-width: 0; }
+.detail section { padding: 16px; border-radius: 18px; background: var(--amafh-subtle); }
+.detail section h3 { font-size: 17px; }
+.detail section ul { display: grid; gap: 12px; }
+.detail section li { margin: 0; border-color: var(--amafh-border); border-radius: 14px; background: var(--amafh-surface); }
+@media (min-width: 1024px) {
+  .dialog { max-width: 1000px; }
+  .detail { display: grid; grid-template-columns: minmax(230px, .7fr) minmax(0, 1.6fr); gap: 16px; align-items: start; }
+  .detail > * { margin-top: 0; grid-column: 1; }
+  .detail > section { grid-column: 2; }
+  .detail > section:first-of-type { grid-row: 1 / span 5; }
+  .detail section ul { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 639px) {
+  .register { border: 0; overflow: visible; }
+  .register table { display: block; width: 100%; min-width: 0 !important; }
+  .register tbody { display: block; }
+  .register thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .register tbody tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; padding: 12px; margin-bottom: 10px; border: 0; border-radius: 16px; background: var(--amafh-subtle); }
+  .register tbody td { display: block; min-width: 0; padding: 0; }
+  .register tbody td:first-child { grid-column: 1 / -1; font-weight: 600; }
+  .register tbody td:nth-child(3)::before { content: "Last working date"; display: block; font-size: 11px; color: var(--amafh-text-secondary); }
+  .register tbody td:last-child { justify-self: end; }
+}

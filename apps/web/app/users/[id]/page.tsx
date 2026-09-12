@@ -1,5 +1,7 @@
 "use client";
 
+import { RecordFrame } from "@/components/page-patterns";
+
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
@@ -361,9 +363,10 @@ export default function UserProfilePage() {
         }
       />
 
+      <RecordFrame summary={
       <Card className="overflow-hidden !p-0">
         <div className="flex min-w-0 flex-col gap-4 bg-surface px-4 py-4 sm:flex-row sm:items-center sm:px-5">
-          <div className="flex size-16 shrink-0 items-center justify-center rounded-full bg-brand-primary text-xl font-semibold text-white shadow-sm" aria-label={`${user.fullName} initials`}>
+          <div className="flex size-16 shrink-0 items-center justify-center rounded-full bg-brand-fill text-xl font-semibold text-white shadow-sm" aria-label={`${user.fullName} initials`}>
             {initials(user.fullName)}
           </div>
           <div className="min-w-0 flex-1">
@@ -383,6 +386,7 @@ export default function UserProfilePage() {
           </div>
         </div>
       </Card>
+      }>
 
       <div role="tablist" aria-label="Employee profile" className="grid min-w-0 grid-cols-2 gap-1 rounded-[10px] border border-brand-border bg-surface p-1 md:grid-cols-3 xl:grid-cols-6">
         {PROFILE_TABS.map((tab, index) => (
@@ -396,7 +400,7 @@ export default function UserProfilePage() {
             tabIndex={activeTab === tab.id ? 0 : -1}
             className={cx(
               "min-h-8 min-w-0 rounded-md px-2 py-1 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary",
-              activeTab === tab.id ? "bg-brand-primary text-white" : "text-text-secondary hover:bg-brand-soft hover:text-brand-primary",
+              activeTab === tab.id ? "bg-brand-fill text-white" : "text-text-secondary hover:bg-brand-soft hover:text-brand-primary",
             )}
             onClick={() => selectTab(tab.id)}
             onKeyDown={(event) => navigateTabs(event, index)}
@@ -552,8 +556,8 @@ export default function UserProfilePage() {
       </section>
 
       {confirmation ? (
-        <div className="fixed inset-0 z-[70] grid place-items-center bg-slate-950/40 p-4" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) closeConfirmation(); }}>
-          <section ref={confirmationRef} role="dialog" aria-modal="true" aria-labelledby="profile-confirm-title" aria-describedby="profile-confirm-description" className="w-full max-w-md rounded-[10px] border border-brand-border bg-surface p-4 shadow-2xl" onKeyDown={trapConfirmationFocus}>
+        <div className="fixed inset-0 z-[70] grid place-items-center bg-[#100916]/65 p-4 backdrop-blur-sm" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) closeConfirmation(); }}>
+          <section ref={confirmationRef} role="dialog" aria-modal="true" aria-labelledby="profile-confirm-title" aria-describedby="profile-confirm-description" className="max-h-[calc(100dvh_-_32px)] w-full max-w-md overflow-y-auto rounded-[24px] border border-brand-border bg-surface p-5 shadow-2xl" onKeyDown={trapConfirmationFocus}>
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0"><h2 id="profile-confirm-title" className="text-[length:var(--amafh-text-section)] font-semibold text-text-primary">{confirmation.title}</h2><p id="profile-confirm-description" className="mt-2 text-sm text-text-secondary">{confirmation.description}</p></div>
               <Button type="button" variant="ghost" size="icon" aria-label="Close confirmation" disabled={actionLoading} onClick={closeConfirmation}><IconX className="size-4" /></Button>
@@ -570,6 +574,7 @@ export default function UserProfilePage() {
           </section>
         </div>
       ) : null}
+      </RecordFrame>
     </section>
   );
 }

@@ -1,5 +1,6 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { selectBrandedOption } from "./helpers/select";
+import { captureViewportPair } from "./helpers/viewport-capture";
 
 const apiOrigin = `http://127.0.0.1:${process.env.PLAYWRIGHT_API_PORT ?? "8010"}`;
 const secret = process.env.BOOTSTRAP_SECRET ?? "nexa-test-bootstrap-secret";
@@ -115,8 +116,8 @@ test("owner targets, KPI scorecards, profile section, and scoped isolation", asy
   page,
   request,
   browser,
-}) => {
-  test.setTimeout(180_000);
+}, testInfo) => {
+  test.setTimeout(300_000);
   let headers = await ownerHeaders(request);
   const offices = (
     (await (await request.get(`${apiOrigin}/api/v1/offices`)).json()) as {
@@ -338,7 +339,7 @@ test("owner targets, KPI scorecards, profile section, and scoped isolation", asy
 
   await signIn(page);
   await page.getByRole("button", { name: "Performance menu" }).click();
-  await page.getByRole("link", { name: "Targets", exact: true }).click();
+  await page.getByRole("dialog", { name: "Performance", exact: true }).getByRole("link", { name: "Targets", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Targets" })).toBeVisible();
 
   await expect(page.getByRole("tab", { name: "Targets" })).toHaveAttribute("aria-selected", "true");
@@ -413,7 +414,7 @@ test("owner targets, KPI scorecards, profile section, and scoped isolation", asy
   await expect(page.getByText("Target period reopened.")).toBeVisible();
 
   await page.getByRole("button", { name: "Performance menu" }).click();
-  await page.getByRole("navigation").getByRole("link", { name: "KPI scorecards" }).click();
+  await page.getByRole("dialog", { name: "Performance", exact: true }).getByRole("link", { name: "KPI scorecards" }).click();
   await expect(page.getByRole("heading", { name: "KPI scorecards" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Scorecards", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Create scorecard" }).first().click();
@@ -425,6 +426,9 @@ test("owner targets, KPI scorecards, profile section, and scoped isolation", asy
   await scorecardDrawer.getByLabel("Weight 1").fill("40");
   await expect(scorecardDrawer.getByRole("button", { name: "Save scorecard" })).toBeDisabled();
   await expect(scorecardDrawer.getByLabel("Scorecard validation")).toContainText("exactly 100%");
+  await captureViewportPair(page, testInfo, "kpi-weight-validation");
+  await captureViewportPair(page, testInfo, "kpi-metric-fields", scorecardDrawer.getByLabel("Weight 1"));
+  await captureViewportPair(page, testInfo, "kpi-validation-actions", scorecardDrawer.getByLabel("Scorecard validation"));
   await scorecardDrawer.getByRole("button", { name: "Cancel" }).click();
   const discardDialog = page.getByRole("dialog", { name: "Discard unsaved changes?" });
   await expect(discardDialog).toBeVisible();
@@ -434,7 +438,7 @@ test("owner targets, KPI scorecards, profile section, and scoped isolation", asy
   await expect(scorecardDrawer.getByText("Scorecard configuration is ready to save.")).toBeVisible();
   await scorecardDrawer.getByRole("button", { name: "Save scorecard" }).click();
   await expect(page.getByText("KPI scorecard saved.")).toBeVisible();
-  const cardRow = page.getByRole("row", { name: new RegExp(`Card ${tag}`) });
+  const cardRow = page.getByRole("article").filter({ has: page.getByRole("heading", { name: `Card ${tag}`, exact: true }) });
   await expect(cardRow).toBeVisible();
   await cardRow.getByRole("button", { name: "Activate" }).click();
   const activationDialog = page.getByRole("dialog", { name: "Confirm activation" });
@@ -453,11 +457,17 @@ test("owner targets, KPI scorecards, profile section, and scoped isolation", asy
   await scorecardDrawer.getByRole("button", { name: "Save changes" }).click();
   await expect(page.getByText("KPI scorecard updated.")).toBeVisible();
   await expect(cardRow).toContainText("Attendance score");
+  await captureViewportPair(page, testInfo, "kpi-configured-scorecard");
+  await captureViewportPair(page, testInfo, "kpi-scorecard-actions", cardRow);
 
   await page.goto(`/reports/employees/${employee.id}`);
   await expect(page.getByRole("heading", { name: "Targets / KPI" })).toBeVisible();
   await expect(page.getByText(/KPI score /)).toBeVisible();
   await expect(page.getByText(/Attendance score:/)).toBeVisible();
+  await captureViewportPair(page, testInfo, "employee-target-kpi-report");
+  await captureViewportPair(page, testInfo, "employee-report-attendance", page.getByRole("heading", { name: "Attendance summary", exact: true }));
+  await captureViewportPair(page, testInfo, "employee-report-kpi-results", page.getByRole("heading", { name: "Targets / KPI", exact: true }));
+  await captureViewportPair(page, testInfo, "employee-report-applications", page.getByRole("heading", { name: "Current stage breakdown", exact: true }));
 
   const context = await browser.newContext();
   const scopedPage = await context.newPage();

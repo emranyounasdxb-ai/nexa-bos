@@ -50,14 +50,14 @@ async function signIn(
 }
 
 async function ensureAssetsMenuOpen(page: Page) {
-  const assetsLink = page.getByRole("complementary", { name: "Application sidebar" }).getByRole("link", { name: "Assets", exact: true });
+  const assetsLink = page.getByRole("dialog", { name: "Assets", exact: true }).getByRole("link", { name: "Assets", exact: true });
   if (!(await assetsLink.isVisible())) {
     await expect(page.getByRole("button", { name: "Assets menu" })).toBeVisible({
       timeout: 30_000,
     });
     await page.getByRole("button", { name: "Assets menu" }).click();
   }
-  await expect(page.getByRole("complementary", { name: "Application sidebar" }).getByRole("link", { name: "Assets", exact: true })).toBeVisible({
+  await expect(page.getByRole("dialog", { name: "Assets", exact: true }).getByRole("link", { name: "Assets", exact: true })).toBeVisible({
     timeout: 5_000,
   });
 }
@@ -126,7 +126,7 @@ test("owner completes tracked Asset creation, custody, profile, offboarding, ret
   const suffix = `${Date.now()}`.slice(-8);
 
   await signIn(page, request);
-  await page.getByRole("complementary", { name: "Application sidebar" }).getByRole("link", { name: "Assets", exact: true }).click();
+  await page.getByRole("dialog", { name: "Assets", exact: true }).getByRole("link", { name: "Assets", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Asset Register" })).toBeVisible();
 
   await page.getByRole("button", { name: "Add asset" }).click();
@@ -166,7 +166,7 @@ test("owner completes tracked Asset creation, custody, profile, offboarding, ret
   await expect(page.getByRole("row").filter({ hasText: iccid })).toBeVisible();
 
   await pcRow.getByRole("link", { name: assetCode }).click();
-  await expect(page.getByRole("heading", { name: "Asset identity and custody" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Asset identity and custody" })).toBeVisible({ timeout: 30_000 });
   await page.getByRole("tab", { name: "Custody" }).click();
   await selectBrandedOption(page.getByLabel("Allocation employee"), firstEmployee.id);
   await selectBrandedOption(page.getByLabel("Condition at Issue"), "Good");
@@ -213,7 +213,7 @@ test("owner completes tracked Asset creation, custody, profile, offboarding, ret
   await expect(page.getByText("CSV", { exact: true })).toHaveCount(0);
 
   await ensureAssetsMenuOpen(page);
-  await page.getByRole("complementary", { name: "Application sidebar" }).getByRole("link", { name: "Assets", exact: true }).click();
+  await page.getByRole("dialog", { name: "Assets", exact: true }).getByRole("link", { name: "Assets", exact: true }).click();
   await page.getByRole("row").filter({ hasText: assetCode }).getByRole("link").click();
   await page.getByRole("tab", { name: "Custody" }).click();
   await selectBrandedOption(page.getByLabel("Return Condition"), "Fair");
@@ -336,7 +336,7 @@ test("Assets.View-only user sees own custody without privileged controls or muta
 
   await signIn(page, request, viewer.email, "UserPass1!");
   await expect(page.getByRole("link", { name: "Asset categories" })).toHaveCount(0);
-  await page.getByRole("complementary", { name: "Application sidebar" }).getByRole("link", { name: "Assets", exact: true }).click();
+  await page.getByRole("dialog", { name: "Assets", exact: true }).getByRole("link", { name: "Assets", exact: true }).click();
   await expect(page.getByRole("row").filter({ hasText: asset.assetCode })).toBeVisible();
   await expect(page.getByRole("button", { name: "Add asset" })).toHaveCount(0);
   await page.getByRole("link", { name: asset.assetCode }).click();
@@ -396,8 +396,11 @@ test("Asset drawer and custody workspace preserve keyboard focus and avoid viewp
   await expect(drawer).toBeVisible();
   await expect(page.getByRole("combobox", { name: "Asset category", exact: true })).toBeFocused();
   await page.getByLabel("Asset description").fill("Unsaved keyboard review");
+  await captureViewportPair(page, testInfo, "asset-create-grouped");
+  await captureViewportPair(page, testInfo, "asset-create-identity-fields", page.getByLabel("Asset description"));
   await page.keyboard.press("Escape");
   await expect(page.getByRole("alertdialog", { name: "Discard unsaved asset?" })).toBeVisible();
+  await captureViewportPair(page, testInfo, "asset-discard-confirmation");
   await page.getByRole("button", { name: "Keep editing" }).click();
   await expect(drawer).toBeVisible();
   await page.getByRole("button", { name: "Cancel", exact: true }).click();
@@ -409,8 +412,8 @@ test("Asset drawer and custody workspace preserve keyboard focus and avoid viewp
   await addAsset.click();
   const box = await drawer.boundingBox();
   expect(box).not.toBeNull();
-  expect(box!.x).toBeGreaterThanOrEqual(0);
-  expect(box!.width).toBeLessThanOrEqual(390);
+  expect(box!.x).toBe(12);
+  expect(box!.width).toBe(366);
   expect(
     await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth),
   ).toBeTruthy();
@@ -431,6 +434,7 @@ test("Asset drawer and custody workspace preserve keyboard focus and avoid viewp
   const retireButton = page.getByRole("button", { name: "Retire Asset" });
   await retireButton.click();
   await expect(page.getByRole("alertdialog", { name: "Retire this Asset?" })).toBeVisible();
+  await captureViewportPair(page, testInfo, "asset-retire-confirmation");
   await page.keyboard.press("Escape");
   await expect(page.getByRole("alertdialog", { name: "Retire this Asset?" })).toBeHidden();
   await expect(retireButton).toBeFocused();

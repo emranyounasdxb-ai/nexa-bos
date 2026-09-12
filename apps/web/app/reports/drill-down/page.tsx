@@ -11,8 +11,10 @@ import {
   ServerPageSize,
 } from "@/components/pagination";
 import {
+  Card,
   EmptyState,
   ErrorText,
+  LoadingState,
   PageHeader,
   TableHead,
   TableShell,
@@ -22,6 +24,7 @@ import {
 import { apiGet, ApiClientError } from "@/lib/api";
 import { getBrowserApiUrl } from "@/lib/env";
 import { formatAed, queryFromSearch } from "@/lib/reports";
+import { RecordFrame } from "@/components/page-patterns";
 
 type DrilldownItem = {
   id: string;
@@ -95,7 +98,16 @@ function DrillDownInner() {
         }
       />
       <ErrorText>{error}</ErrorText>
-      {!data && !error ? <p className="text-sm text-slate-500">Loading…</p> : null}
+      {!data && !error ? <LoadingState>Loading report results…</LoadingState> : null}
+      <RecordFrame summary={data ? <Card className="space-y-4">
+        <h2 className="text-[17px] font-medium">Report context</h2>
+        <dl className="grid gap-4 text-sm">
+          <div><dt className="text-text-secondary">Metric</dt><dd className="mt-1 font-medium">{data.metric}</dd></div>
+          <div><dt className="text-text-secondary">Period</dt><dd className="mt-1">{data.period.label}</dd></div>
+          <div><dt className="text-text-secondary">Visibility</dt><dd className="mt-1">{data.reportingScope ?? "No reporting scope"}</dd></div>
+          <div><dt className="text-text-secondary">Matching applications</dt><dd className="mt-1 text-3xl font-medium">{data.total}</dd></div>
+        </dl>
+      </Card> : null}>
       {data && data.items.length === 0 ? (
         <EmptyState>No applications match this metric, period, and reporting scope.</EmptyState>
       ) : null}
@@ -149,6 +161,7 @@ function DrillDownInner() {
           onPageSizeChange={(pageSize) => void load(1, pageSize as ServerPageSize)}
         />
       ) : null}
+      </RecordFrame>
     </section>
   );
 }

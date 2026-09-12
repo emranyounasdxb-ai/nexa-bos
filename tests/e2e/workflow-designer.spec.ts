@@ -1,4 +1,5 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { captureViewportPair } from "./helpers/viewport-capture";
 
 const apiOrigin = `http://127.0.0.1:${process.env.PLAYWRIGHT_API_PORT ?? "8010"}`;
 const secret = process.env.BOOTSTRAP_SECRET ?? "nexa-test-bootstrap-secret";
@@ -122,7 +123,7 @@ async function chooseOption(page: Page, name: string, option: string) {
   await expect(combobox).toHaveAttribute("value", /.+/);
 }
 
-test("Workflow Designer presents dependent branded selectors, drawers, branching preview, and responsive containment", async ({ page, request }) => {
+test("Workflow Designer presents dependent branded selectors, drawers, branching preview, and responsive containment", async ({ page, request }, testInfo) => {
   test.setTimeout(120_000);
   await ensureOwner(request);
   const fixture = await createBranchingWorkflow(request);
@@ -205,6 +206,7 @@ test("Workflow Designer presents dependent branded selectors, drawers, branching
   await addStageButton.click();
   const addStageDialog = page.getByRole("dialog", { name: "Add stage" });
   await expect(addStageDialog).toBeVisible();
+  await captureViewportPair(page, testInfo, "workflow-stage-editor");
   await addStageDialog.press("Escape");
   await expect(addStageDialog).toHaveCount(0);
   await expect(addStageButton).toBeFocused();
@@ -230,6 +232,7 @@ test("Workflow Designer presents dependent branded selectors, drawers, branching
   await chooseOption(page, "From stage", "Application Created (APPLICATION_CREATED)");
   await chooseOption(page, "To stage", fixture.documentStageLabel);
   await expect(transitionDialog.getByRole("alert")).toContainText("already exists");
+  await captureViewportPair(page, testInfo, "workflow-transition-validation");
   page.once("dialog", (dialog) => dialog.accept());
   await transitionDialog.getByRole("button", { name: "Cancel" }).click();
 
@@ -240,11 +243,13 @@ test("Workflow Designer presents dependent branded selectors, drawers, branching
   await expect(preview).toContainText("Final Decision");
   await page.getByText("Accessible transition table").click();
   await expect(page.getByRole("columnheader", { name: "From stage" })).toBeVisible();
+  await captureViewportPair(page, testInfo, "workflow-branching-preview", preview);
 
   await page.getByRole("button", { name: "Create workflow version" }).click();
   const createDialog = page.getByRole("dialog", { name: "Create workflow version" });
   await expect(createDialog).toBeVisible();
   await expect(createDialog.getByRole("combobox", { name: "Bank" })).toBeVisible();
+  await captureViewportPair(page, testInfo, "workflow-version-editor");
   await createDialog.getByRole("button", { name: "Close workflow drawer" }).click();
 
   await page.setViewportSize({ width: 390, height: 844 });
@@ -252,7 +257,8 @@ test("Workflow Designer presents dependent branded selectors, drawers, branching
   const mobileDialog = page.getByRole("dialog", { name: "Create workflow version" });
   await expect(mobileDialog).toBeVisible();
   const dialogBox = await mobileDialog.boundingBox();
-  expect(dialogBox?.width).toBeGreaterThanOrEqual(388);
+  expect(dialogBox?.x).toBe(12);
+  expect(dialogBox?.width).toBe(366);
   await mobileDialog.getByRole("button", { name: "Close workflow drawer" }).click();
   const overflow = await page.evaluate(() => ({ client: document.documentElement.clientWidth, scroll: document.documentElement.scrollWidth }));
   expect(overflow.scroll).toBeLessThanOrEqual(overflow.client);

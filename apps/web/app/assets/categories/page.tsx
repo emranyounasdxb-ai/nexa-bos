@@ -1,5 +1,7 @@
 "use client";
 
+import { RegisterWorkspace } from "@/components/page-patterns";
+
 import { useCallback, useEffect, useState } from "react";
 
 import { IconEdit, IconPower } from "@/components/icons";
@@ -121,6 +123,7 @@ export default function AssetCategoriesPage() {
         title="Asset Categories"
         description="Configure future individually tracked Asset types without changing the custody model."
       />
+      <RegisterWorkspace editor={
       <Card>
         <h3 className="text-lg font-semibold text-slate-900">New category</h3>
         <form className="mt-4 space-y-4" onSubmit={createCategory}>
@@ -142,6 +145,7 @@ export default function AssetCategoriesPage() {
           <Button type="submit">Create category</Button>
         </form>
       </Card>
+      }>
       <ErrorText>{error}</ErrorText>
       {message ? <p className="text-sm text-slate-700">{message}</p> : null}
       <TableShell className="rounded-b-none">
@@ -167,6 +171,7 @@ export default function AssetCategoriesPage() {
         onPageChange={pagination.setPage}
         onPageSizeChange={pagination.setPageSize}
       />
+      </RegisterWorkspace>
     </section>
   );
 }

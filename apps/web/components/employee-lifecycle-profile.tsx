@@ -378,7 +378,7 @@ export function EmployeeLifecycleProfile({ userId, section }: { userId: string; 
 
   return (
     <div className="min-w-0 space-y-3" data-testid="employee-lifecycle-profile">
-      <div className="grid min-w-0 gap-3 md:grid-cols-3">
+      <div tabIndex={0} aria-label="Profile completion overview" className="grid min-w-0 auto-cols-[minmax(230px,80%)] grid-flow-col gap-3 overflow-x-auto rounded-2xl focus-visible:outline-2 focus-visible:outline-brand-primary md:auto-cols-auto md:grid-flow-row md:grid-cols-3">
         {profile.basic ? completionCard("Basic profile", profile.basic.completion) : null}
         {profile.hr ? completionCard("HR profile", profile.hr.completion) : null}
         {profile.pro ? completionCard("PRO & Documents", profile.pro.completion) : null}
@@ -387,11 +387,11 @@ export function EmployeeLifecycleProfile({ userId, section }: { userId: string; 
       {message ? <p role="status" className="rounded-md border border-success-soft bg-success-soft px-3 py-2 text-sm">{message}</p> : null}
       {section === "hr" ? (
         profile.hr ? (
-          <form onSubmit={(event) => void saveHr(event)} className="space-y-3 rounded-lg border border-brand-border bg-surface p-3">
+          <form onSubmit={(event) => void saveHr(event)} className="grid min-w-0 gap-4 rounded-[20px] bg-surface p-3">
             {hrGroups.map((group) => (
-              <section key={group.title} className="min-w-0 border-b border-brand-border pb-3">
+              <section key={group.title} className="grid min-w-0 gap-3 rounded-2xl bg-surface-subtle p-3 xl:grid-cols-[160px_minmax(0,1fr)]">
                 <SectionHeader title={group.title} />
-                <div className="mt-2 grid min-w-0 gap-x-3 gap-y-2 md:grid-cols-2 xl:grid-cols-5" data-testid="hr-field-grid">
+                <div className={`grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-3 ${group.title === "Compensation" ? "grid-cols-2 [&>label>span:first-child]:min-h-10 [&>label>span:first-child]:items-end" : ""}`} data-testid="hr-field-grid">
                   {group.fields.map(([key, label, type]) => (
                     <Field key={key} label={label} htmlFor={`hr-${key}`} className="min-w-0">
                       {type === "date" ? (
@@ -428,7 +428,7 @@ export function EmployeeLifecycleProfile({ userId, section }: { userId: string; 
                 </div>
               </section>
             ))}
-            <section className="min-w-0">
+            <section className="grid min-w-0 gap-3 rounded-2xl bg-surface-subtle p-3 xl:grid-cols-[160px_minmax(0,1fr)]">
               <SectionHeader title="Control" description={`Gross salary: ${profile.hr.data?.grossSalary ?? "Not recorded"}. Created/updated timestamps are system generated.`} />
               <Field label="HR notes" htmlFor="hr-notes"><Textarea id="hr-notes" rows={2} value={hrDraft.hr_notes ?? ""} readOnly={!profile.canUpdateHr} onChange={(event) => setHrDraft((current) => ({ ...current, hr_notes: event.target.value }))} /></Field>
             </section>
@@ -440,7 +440,7 @@ export function EmployeeLifecycleProfile({ userId, section }: { userId: string; 
           {profile.canUpdatePro ? (
             <Card className="!p-3">
               <SectionHeader title={editingDocumentId ? "Replace document metadata" : "Add document record"} description="Private attachments and metadata are validated and versioned. Issue date is intentionally not collected." />
-              <form onSubmit={(event) => void saveDocumentMetadata(event)} className="mt-2 grid min-w-0 gap-3 md:grid-cols-2 xl:grid-cols-5 [&>label]:min-w-0" data-testid="pro-field-grid">
+              <form onSubmit={(event) => void saveDocumentMetadata(event)} className="mt-3 grid min-w-0 gap-3 rounded-2xl bg-surface-subtle p-3 sm:grid-cols-2 xl:grid-cols-3 [&>label]:min-w-0" data-testid="pro-field-grid">
                 <Field label="Document type"><Select value={documentKind} disabled={Boolean(editingDocumentId)} onChange={(event) => setDocumentKind(event.target.value)}>{kinds.map(([key, label]) => <option key={key} value={key}>{label}</option>)}</Select></Field>
                 {documentKind === "other" ? <Field label="Document name"><TextInput value={documentName} onChange={(event) => setDocumentName(event.target.value)} required /></Field> : null}
                 <Field label="Number"><TextInput value={documentNumber} onChange={(event) => setDocumentNumber(event.target.value)} /></Field>
@@ -450,7 +450,7 @@ export function EmployeeLifecycleProfile({ userId, section }: { userId: string; 
                 <Field label="Expiry" htmlFor="pro-expiry"><ProfileDate id="pro-expiry" label="Expiry" value={documentExpiry} onChange={setDocumentExpiry} /></Field>
                 <Field label="Recorded status"><TextInput value={documentStatus} onChange={(event) => setDocumentStatus(event.target.value)} /></Field>
                 {editingDocumentId ? <Field label="Replacement reason"><TextInput value={replacementReason} onChange={(event) => setReplacementReason(event.target.value)} required minLength={3} /></Field> : <Field label="Attachment" htmlFor="pro-attachment" help="PDF, JPG/JPEG, PNG or WebP; maximum 10 MB."><input id="pro-attachment" aria-label="Attachment" ref={fileRef} type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" className="mt-1.5 block w-full text-sm" /></Field>}
-                <Field label="Notes" className="md:col-span-2 xl:col-span-4"><Textarea rows={2} value={documentNotes} onChange={(event) => setDocumentNotes(event.target.value)} /></Field>
+                <Field label="Notes" className="sm:col-span-2"><Textarea rows={2} value={documentNotes} onChange={(event) => setDocumentNotes(event.target.value)} /></Field>
                 <div className="flex flex-wrap items-end gap-2"><Button disabled={saving}><IconFileDescription className="size-4" />{saving ? "Saving…" : editingDocumentId ? "Replace metadata" : "Add record"}</Button>{editingDocumentId ? <Button type="button" variant="secondary" onClick={resetDocumentDraft}>Cancel</Button> : null}</div>
               </form>
             </Card>

@@ -1,0 +1,17 @@
+.summary { min-width: 0; }
+.personal { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; margin-top: 16px; }
+.personal > div, .personal > details { min-width: 0; padding: 16px; border-radius: 16px; background: var(--amafh-subtle); }
+.personal h3 { font-size: 17px; }
+.balances { min-width: 0; }
+.balanceGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
+.balanceGrid > li { padding: 12px; border-radius: 14px; background: var(--amafh-subtle); min-width: 0; }
+.balanceGrid > li > strong { display: block; font-size: 13px; overflow-wrap: anywhere; }
+.balanceGrid dl { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-top: 12px; }
+.balanceGrid dt { color: var(--amafh-text-secondary); font-size: 11px; }
+.balanceGrid dd { font-size: 20px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.balances > details { margin-top: 12px; padding: 12px; border: 1px solid var(--amafh-border); border-radius: 14px; }
+.records { display: grid; gap: 8px; margin-block: 12px; }
+.records > li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 12px; padding: 10px; border-radius: 10px; background: var(--amafh-subtle); font-size: 13px; }
+.personal summary { min-height: 32px; }
+@media (min-width: 1024px) { .personal { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); align-items: start; } .balances { grid-row: span 3; } .balanceGrid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 639px) { .balanceGrid > li { padding: 10px; } .balanceGrid dl { gap: 6px 8px; } }

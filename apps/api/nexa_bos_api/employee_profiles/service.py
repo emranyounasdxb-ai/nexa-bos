@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlalchemy.orm.exc import StaleDataError
 
+from nexa_bos_api.attendance.enums import BUSINESS_TZ
 from nexa_bos_api.core.config import get_settings
 from nexa_bos_api.core.exceptions import AppError
 from nexa_bos_api.employee_profiles.models import EmployeeDocument, HRProfile
@@ -81,6 +82,10 @@ def _now() -> datetime:
     return datetime.now(UTC)
 
 
+def _today() -> date:
+    return datetime.now(BUSINESS_TZ).date()
+
+
 def _money(value: Decimal | None) -> str | None:
     return f"{value:.2f}" if value is not None else None
 
@@ -98,7 +103,7 @@ def _completion(required: dict[str, object]) -> dict[str, object]:
 
 
 def _derived_document_status(row: EmployeeDocument, *, today: date | None = None) -> str:
-    current = today or date.today()
+    current = today or _today()
     if row.expiry_date is None:
         return "Missing"
     remaining = (row.expiry_date - current).days
@@ -270,7 +275,7 @@ def _hr_payload(
 def _document_payload(
     row: EmployeeDocument, *, include_attachment_metadata: bool
 ) -> dict[str, object]:
-    today = date.today()
+    today = _today()
     return {
         "id": str(row.id),
         "recordKey": row.record_key,
@@ -1045,7 +1050,7 @@ def _breakdown(values: list[str | None]) -> list[dict[str, object]]:
 
 async def hr_dashboard(session: AsyncSession, actor: User) -> dict[str, object]:
     users = await _visible_users(session, actor)
-    today = date.today()
+    today = _today()
     new_cutoff = today - timedelta(days=30)
     active = [user for user in users if user.employment_status.lower() == "active"]
     probation = [user for user in users if user.employment_status.lower() == "probation"]
@@ -1186,7 +1191,7 @@ async def pro_dashboard(session: AsyncSession, actor: User) -> dict[str, object]
                 "expiryDate": row.expiry_date.isoformat() if row and row.expiry_date else None,
             }
             if row and row.expiry_date:
-                days = (row.expiry_date - date.today()).days
+                days = (row.expiry_date - _today()).days
                 if days <= 60:
                     expiring.append(
                         {

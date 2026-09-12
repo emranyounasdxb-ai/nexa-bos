@@ -1,5 +1,7 @@
 "use client";
 
+import { ListWorkspace } from "@/components/page-patterns";
+
 import Link from "next/link";
 import {
   useCallback,
@@ -325,6 +327,7 @@ export default function AssetsPage() {
         ) : null}
       />
 
+      <ListWorkspace title="Asset records" filters={
       <FilterBar className="sm:grid-cols-2 lg:grid-cols-[minmax(14rem,1.5fr)_repeat(3,minmax(9rem,1fr))_auto]">
         <Field label="Search">
           <TextInput
@@ -359,6 +362,7 @@ export default function AssetsPage() {
           <Button type="button" onClick={() => void refresh()}>Apply filters</Button>
         </div>
       </FilterBar>
+      }>
 
       {pageError ? <ErrorText>{pageError}</ErrorText> : null}
       {message ? <p role="status" className="text-sm font-medium text-success">{message}</p> : null}
@@ -413,7 +417,7 @@ export default function AssetsPage() {
 
       {drawerOpen ? (
         <div
-          className="fixed inset-0 z-50 flex justify-end bg-slate-950/40"
+          className="fixed inset-0 z-50 flex justify-end bg-[#17101f]/45 p-3 backdrop-blur-sm"
           role="presentation"
           onMouseDown={(event) => {
             if (event.currentTarget === event.target) requestDrawerClose();
@@ -425,7 +429,7 @@ export default function AssetsPage() {
             aria-modal="true"
             aria-labelledby="asset-drawer-title"
             aria-describedby="asset-drawer-description"
-            className="flex h-full w-full min-w-0 flex-col bg-surface shadow-2xl sm:max-w-xl"
+            className="flex h-full w-full min-w-0 flex-col overflow-hidden rounded-[24px] border border-brand-border bg-surface shadow-2xl sm:max-w-xl"
             onKeyDown={trapDrawerFocus}
           >
             <div className="flex items-start justify-between gap-3 border-b border-brand-border px-4 py-3 sm:px-5">
@@ -441,7 +445,8 @@ export default function AssetsPage() {
             </div>
 
             <form id="asset-create-form" className="min-h-0 flex-1 overflow-y-auto" onSubmit={createAsset}>
-              <div className="grid gap-4 px-4 py-4 sm:grid-cols-2 sm:px-5">
+              <div className="space-y-4 p-4 sm:p-5">
+                <fieldset className="grid gap-4 rounded-2xl bg-surface-subtle p-4 sm:grid-cols-2"><legend className="px-1 text-sm font-medium">Classification and custody</legend>
                 <Field label="Category" help="Controls which identity fields are required for this Asset.">
                   <Select
                     aria-label="Asset category"
@@ -472,11 +477,14 @@ export default function AssetsPage() {
                     {options?.conditions.map((item) => <option key={item}>{item}</option>)}
                   </Select>
                 </Field>
+                </fieldset>
+                <fieldset className="grid gap-4 rounded-2xl bg-surface-subtle p-4 sm:grid-cols-2"><legend className="px-1 text-sm font-medium">Asset identity</legend>
                 {selectedCategory?.fields.map(categoryField)}
                 <Field label="Description" className="sm:col-span-2">
                   <TextInput aria-label="Asset description" value={form.description} onChange={(event) => setField("description", event.target.value)} />
                 </Field>
                 {drawerError ? <div className="sm:col-span-2"><ErrorText>{drawerError}</ErrorText></div> : null}
+                </fieldset>
               </div>
             </form>
 
@@ -494,8 +502,8 @@ export default function AssetsPage() {
       ) : null}
 
       {discardConfirmOpen ? (
-        <div className="fixed inset-0 z-[80] grid place-items-center bg-slate-950/40 p-4" role="presentation">
-          <section role="alertdialog" aria-modal="true" aria-labelledby="asset-discard-title" aria-describedby="asset-discard-description" className="w-full max-w-md rounded-[10px] border border-brand-border bg-surface p-4 shadow-2xl">
+        <div className="fixed inset-0 z-[80] grid place-items-center bg-[#17101f]/45 p-4 backdrop-blur-sm" role="presentation">
+          <section role="alertdialog" aria-modal="true" aria-labelledby="asset-discard-title" aria-describedby="asset-discard-description" className="w-full max-w-md rounded-[24px] border border-brand-border bg-surface p-5 shadow-2xl">
             <h2 id="asset-discard-title" className="text-[length:var(--amafh-text-section)] font-semibold text-text-primary">Discard unsaved asset?</h2>
             <p id="asset-discard-description" className="mt-2 text-sm text-text-secondary">The asset has not been created. Your staged details will be lost.</p>
             <div className="mt-4 flex justify-end gap-2">
@@ -505,6 +513,7 @@ export default function AssetsPage() {
           </section>
         </div>
       ) : null}
+      </ListWorkspace>
     </section>
   );
 }

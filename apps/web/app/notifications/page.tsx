@@ -12,6 +12,7 @@ import {
 import { Badge, Button, Card, EmptyState, ErrorText, LoadingState, PageHeader, StatusBadge } from "@/components/ui";
 import { apiGet, apiRequest } from "@/lib/api";
 import { getBrowserApiUrl } from "@/lib/env";
+import { RecordFrame } from "@/components/page-patterns";
 
 type NotificationItem = {
   id: string;
@@ -124,6 +125,11 @@ export default function NotificationsPage() {
         }
       />
       <ErrorText>{error}</ErrorText>
+      <RecordFrame summary={<Card className="space-y-4 border-0">
+        <h2 className="text-[17px] font-medium">Your inbox</h2>
+        <div className="rounded-2xl p-4 text-white" style={{ background: "linear-gradient(#36033e66, #36033e66), var(--amafh-gradient)" }}><p className="text-sm">Unread</p><p className="mt-2 text-3xl font-medium">{unreadCount}</p></div>
+        <p className="text-sm text-text-secondary">{total} notifications · Actions and acknowledgements stay attached to each message.</p>
+      </Card>}>
       {loading && items.length === 0 ? <LoadingState>Loading notifications…</LoadingState> : null}
       {!loading && items.length === 0 ? (
         <Card>
@@ -138,7 +144,7 @@ export default function NotificationsPage() {
         {items.map((item) => (
           <Card
             key={item.id}
-            className={`relative overflow-hidden ${item.unread ? "border-blue-200 bg-blue-50/30" : ""}`}
+            className={`relative overflow-hidden border-0 ${item.unread ? "bg-surface" : "bg-surface-subtle"}`}
           >
             <span
               aria-hidden="true"
@@ -147,10 +153,10 @@ export default function NotificationsPage() {
                   ? "bg-red-700"
                   : item.severity.toLowerCase() === "urgent"
                     ? "bg-amber-500"
-                    : "bg-brand-primary"
+                    : "bg-brand-fill"
               }`}
             />
-            <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="grid min-w-0 gap-4">
               <div className="min-w-0 flex-1 space-y-2 pl-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <StatusBadge value={item.unread ? "Unread" : "Read"} />
@@ -166,11 +172,11 @@ export default function NotificationsPage() {
                   {new Date(item.timestamp).toLocaleString()}
                 </p>
               </div>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-2 border-t border-brand-border pt-3">
                 {item.contextualLink ? (
                   <Link
                     href={item.contextualLink}
-                    className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700"
+                    className="rounded-md border border-slate-300 bg-surface px-3 py-1.5 text-sm text-slate-700"
                   >
                     Open related record
                   </Link>
@@ -201,6 +207,7 @@ export default function NotificationsPage() {
           if (value !== "all") setPageSize(value);
         }}
       />
+      </RecordFrame>
     </section>
   );
 }

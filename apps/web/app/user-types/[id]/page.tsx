@@ -28,6 +28,7 @@ import { apiGet, apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { getBrowserApiUrl } from "@/lib/env";
 import type { UserTypeSummary } from "@/lib/types";
+import { RecordFrame } from "@/components/page-patterns";
 
 const SCOPES = ["company", "office", "team", "own"] as const;
 
@@ -301,7 +302,7 @@ function SwitchControl({
   const descriptionId = `${id}-description`;
   const reasonId = `${id}-reason`;
   return (
-    <div className="rounded-lg border border-slate-200 bg-white px-3 py-3">
+    <div className="rounded-lg border border-slate-200 bg-surface px-3 py-3">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <label htmlFor={id} className="text-sm font-medium text-slate-900">
@@ -326,13 +327,13 @@ function SwitchControl({
             aria-hidden="true"
             className={cx(
               "flex h-5 w-9 items-center rounded-full p-0.5 transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-brand-primary peer-focus-visible:ring-offset-2",
-              checked ? "bg-brand-primary" : "bg-slate-300",
+              checked ? "bg-brand-fill" : "bg-slate-300",
               disabled && "opacity-55",
             )}
           >
             <span
               className={cx(
-                "size-4 rounded-full bg-white shadow-sm transition-transform",
+                "size-4 rounded-full bg-surface shadow-sm transition-transform",
                 checked && "translate-x-4",
               )}
             />
@@ -680,7 +681,7 @@ export default function UserTypeDetailPage() {
         {group.visibleItems.map((permission) => (
           <label
             key={permission.code}
-            className="flex min-w-0 cursor-pointer items-start gap-3 bg-white px-3 py-3 transition-colors hover:bg-slate-50"
+            className="flex min-w-0 cursor-pointer items-start gap-3 bg-surface px-3 py-3 transition-colors hover:bg-slate-50"
           >
             <input
               type="checkbox"
@@ -711,7 +712,7 @@ export default function UserTypeDetailPage() {
 
   return (
     <section className="w-full space-y-4 pb-28">
-      <Card className="overflow-hidden p-0">
+      <RecordFrame summary={<div className="space-y-4"><Card className="overflow-hidden p-0">
         <div className="flex flex-col gap-4 px-4 py-4 sm:px-5 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0 flex-1">
             <ButtonLink href="/user-types" variant="ghost" size="compact" className="-ml-2 mb-2">
@@ -738,7 +739,6 @@ export default function UserTypeDetailPage() {
         </div>
       </Card>
 
-      <div className="grid items-stretch gap-4 xl:grid-cols-[minmax(0,7fr)_minmax(0,13fr)]">
         <Card className="h-full">
           <SectionHeader
             title="Basic Settings"
@@ -793,12 +793,13 @@ export default function UserTypeDetailPage() {
           </div>
         </Card>
 
-        <Card className="h-full">
+      </div>}>
+        <Card>
           <SectionHeader
             title="Data Access Scopes"
             description="Existing server-enforced visibility boundaries for each data area."
           />
-          <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
             {(Object.keys(scopeLabels) as Array<keyof typeof scopeLabels>).map((field, index) => (
               <label key={field} className="block min-w-0 text-sm font-medium text-slate-700">
                 <span className="flex items-center gap-1.5">
@@ -841,8 +842,6 @@ export default function UserTypeDetailPage() {
             </p>
           ) : null}
         </Card>
-      </div>
-
       {canEditPermissions ? (
         <Card className="overflow-hidden p-0">
           <div className="border-b border-slate-100 px-4 py-4 sm:px-5">
@@ -870,7 +869,7 @@ export default function UserTypeDetailPage() {
                   onChange={(event) => setPermissionQuery(event.target.value)}
                 />
               </label>
-              <div className="mt-3 grid grid-cols-3 gap-1 rounded-lg border border-slate-200 bg-white p-1" aria-label="Permission filter">
+              <div className="mt-3 grid grid-cols-3 gap-1 rounded-lg border border-slate-200 bg-surface p-1" aria-label="Permission filter">
                 {(["all", "selected", "unselected"] as const).map((filter) => (
                   <Button
                     key={filter}
@@ -902,12 +901,12 @@ export default function UserTypeDetailPage() {
                         "flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors",
                         focusRing,
                         active
-                          ? "bg-slate-900 text-white shadow-sm"
-                          : "text-slate-700 hover:bg-white hover:text-slate-950",
+                          ? "bg-[var(--amafh-text)] text-[var(--amafh-surface)] shadow-sm"
+                          : "text-slate-700 hover:bg-surface hover:text-slate-950",
                       )}
                       onClick={() => setActiveModuleKey(group.key)}
                     >
-                      <span className="min-w-0 truncate font-medium">{group.label}</span>
+                      <span className="min-w-0 whitespace-normal break-words text-left font-medium">{group.label}</span>
                       <Badge tone={countTone(selectedCount, group.items.length)}>
                         {selectedCount}/{group.items.length}
                       </Badge>
@@ -981,8 +980,8 @@ export default function UserTypeDetailPage() {
                 const isExpanded = expandedModules.has(group.key) || Boolean(permissionQuery.trim());
                 const panelId = `mobile-permission-module-${group.key}`;
                 return (
-                  <section key={group.key} className="overflow-hidden rounded-lg border border-slate-200 bg-white">
-                    <div className="flex min-w-0 flex-wrap items-center gap-2 bg-slate-50/80 px-2 py-2 sm:flex-nowrap">
+                  <section key={group.key} className="overflow-hidden rounded-lg border border-slate-200 bg-surface">
+                    <div className="grid min-w-0 gap-2 bg-slate-50/80 px-2 py-2 sm:flex sm:items-center">
                       <button
                         type="button"
                         className={cx("flex min-w-0 flex-1 items-center gap-3 rounded-md px-2 py-1.5 text-left", focusRing)}
@@ -1002,7 +1001,7 @@ export default function UserTypeDetailPage() {
                           <span className="mt-0.5 block text-xs leading-4 text-slate-500">{group.description}</span>
                         </span>
                       </button>
-                      <div className="ml-8 flex shrink-0 items-center gap-1 sm:ml-0">
+                      <div className="ml-8 flex shrink-0 items-center justify-end gap-1 border-t border-slate-200 pt-2 sm:ml-0 sm:border-0 sm:pt-0">
                         <Button
                           type="button"
                           size="compact"
@@ -1043,8 +1042,9 @@ export default function UserTypeDetailPage() {
         </Card>
       ) : null}
 
+      </RecordFrame>
       {canSave ? (
-        <div className="sticky bottom-3 z-20 w-full rounded-xl border border-slate-300 bg-white/95 px-3 py-3 shadow-[0_12px_30px_rgba(15,23,42,0.14)] backdrop-blur sm:px-4">
+        <div className="sticky bottom-3 z-20 w-full rounded-xl border border-slate-300 bg-surface/95 px-3 py-3 shadow-[0_12px_30px_rgba(15,23,42,0.14)] backdrop-blur sm:px-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0" aria-live="polite">
               {saving ? (

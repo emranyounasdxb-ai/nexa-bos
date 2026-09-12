@@ -71,6 +71,7 @@ import { CodDashboard } from "./cod-dashboard";
 import { TlDashboard } from "./tl-dashboard";
 import { SeDashboard } from "./se-dashboard";
 import { RoleWorkspace } from "./role-workspace";
+import overview from "./overview.module.css";
 
 const comparisonPeriodFor: Partial<Record<string, string>> = {
   mtd: "month",
@@ -104,7 +105,7 @@ function DashboardSkeleton() {
       <span className="sr-only">Loading dashboard metrics…</span>
       <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
         {Array.from({ length: 4 }, (_, index) => (
-          <div key={index} className="h-32 animate-pulse rounded-[10px] border border-slate-200 bg-white p-4">
+          <div key={index} className="h-32 animate-pulse rounded-[10px] border border-slate-200 bg-surface p-4">
             <div className="h-3 w-20 rounded bg-slate-200" />
             <div className="mt-4 h-6 w-28 rounded bg-slate-200" />
             <div className="mt-3 h-3 w-32 rounded bg-slate-100" />
@@ -112,11 +113,11 @@ function DashboardSkeleton() {
         ))}
       </div>
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(18rem,0.6fr)]">
-        <div className="h-44 animate-pulse rounded-[10px] border border-slate-200 bg-white p-4">
+        <div className="h-44 animate-pulse rounded-[10px] border border-slate-200 bg-surface p-4">
           <div className="h-4 w-36 rounded bg-slate-200" />
           <div className="mt-5 h-28 rounded-lg bg-slate-100" />
         </div>
-        <div className="h-44 animate-pulse rounded-[10px] border border-slate-200 bg-white p-4">
+        <div className="h-44 animate-pulse rounded-[10px] border border-slate-200 bg-surface p-4">
           <div className="h-4 w-32 rounded bg-slate-200" />
           <div className="mt-5 grid grid-cols-2 gap-3">
             {Array.from({ length: 4 }, (_, index) => (
@@ -129,7 +130,7 @@ function DashboardSkeleton() {
   );
 }
 
-export function DashboardInner() {
+function DashboardInner() {
   const { can, user } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -382,13 +383,13 @@ export function DashboardInner() {
   }
 
   return (
-    <section className="space-y-6">
+    <section className={`${overview.dashboard} space-y-4`}>
       <RoleWorkspace />
       <PageHeader
         title="Dashboard"
         description={data && !data.reportingScope ? "Your permitted work areas, personal performance and read-only attendance." : "Review application performance, pipeline movement, target progress, and items that may need attention."}
       />
-      <div data-testid="dashboard-filters" className="rounded-[10px] border border-slate-200/90 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.035)]">
+      <div data-testid="dashboard-filters" className="rounded-[10px] border border-slate-200/90 bg-surface shadow-[0_1px_2px_rgba(15,23,42,0.035)]">
         <div className="flex min-w-0 flex-col gap-3 px-4 py-3 sm:px-5 md:flex-row md:items-center md:justify-between">
           <div className="min-w-0">
             <span className="block text-sm font-semibold text-slate-900">Reporting filters</span>
@@ -435,7 +436,7 @@ export function DashboardInner() {
         </div>
 
         {activePanel === "refine" ? (
-          <div id="dashboard-refine-panel" data-testid="dashboard-refine-panel" className="grid gap-3 border-t border-slate-200 bg-slate-50/40 p-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
+          <div id="dashboard-refine-panel" data-testid="dashboard-refine-panel" className="grid grid-cols-2 gap-3 border-t border-slate-200 bg-slate-50/40 p-4 lg:grid-cols-4 xl:grid-cols-5 [&>label]:min-w-0">
           <label className="text-sm font-medium text-slate-700">
             Reporting period
             <Select aria-label="Reporting period" value={query.period} onChange={(event) => setQuery({ ...query, period: event.target.value })}>
@@ -611,7 +612,7 @@ export function DashboardInner() {
             </div>
             <ErrorText>{comparisonError}</ErrorText>
             {comparisonResult ? (
-              <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3" data-testid="dashboard-comparison-result">
+              <div className="mt-3 rounded-lg border border-slate-200 bg-surface p-3" data-testid="dashboard-comparison-result">
                 <p className="text-xs text-slate-500">
                   {comparisonResult.kind} · {comparisonResult.reportingScope ?? "No reporting scope"}
                 </p>
@@ -642,15 +643,15 @@ export function DashboardInner() {
         </div>
       ) : data ? (
         <div data-testid="dashboard-overview" className="space-y-4">
-          <div data-testid="dashboard-kpi-charts" className="space-y-4">
-            <div data-testid="dashboard-kpi-grid" className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-              <KpiCard label="Submitted" count={data.kpis.submitted.count} value={data.kpis.submitted.value} href={drill("submitted")} tone="blue" icon={IconInbox} context={<DirectionIndicator direction={submittedDirection} comparisonLabel={comparisonLabel} />} />
+          <div data-testid="dashboard-kpi-charts" className={overview.summary}>
+            <div data-testid="dashboard-kpi-grid" className={overview.metrics}>
+              <KpiCard featured label="Submitted" count={data.kpis.submitted.count} value={data.kpis.submitted.value} href={drill("submitted")} tone="blue" icon={IconInbox} context={<DirectionIndicator direction={submittedDirection} comparisonLabel={comparisonLabel} />} />
               <KpiCard label="Approved" count={data.kpis.approved.count} value={data.kpis.approved.value} href={drill("approved")} tone="violet" icon={IconCircleCheck} context={<span className="text-xs font-medium text-slate-500">Approval conversion {formatPct(data.conversions.submittedToApproved)}</span>} />
               <KpiCard label="Funded" count={data.kpis.funded.count} value={data.kpis.funded.value} href={drill("funded")} tone="green" icon={IconCashBanknote} context={<DirectionIndicator direction={fundedDirection} comparisonLabel={comparisonLabel} />} />
               <KpiCard label="Pending" count={data.kpis.pending.count} href={drill("pending")} tone="amber" icon={IconClock} context={<span className="text-xs font-medium text-slate-500">Open at reporting cutoff</span>} />
             </div>
 
-            <Card className="p-3 sm:p-3.5">
+            <Card className={`${overview.pipeline} p-3 sm:p-3.5`}>
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <h2 className="text-sm font-semibold text-slate-950">Pipeline snapshot</h2>
@@ -658,7 +659,7 @@ export function DashboardInner() {
                 </div>
                 <Badge>{data.currency}</Badge>
               </div>
-              <div className="mt-2.5 grid gap-1.5 sm:grid-cols-2 lg:grid-cols-4">
+              <div className={overview.pipelineItems}>
                 <PipelineMetric label="Booked" count={data.kpis.booked.count} value={data.kpis.booked.value} href={drill("booked")} tone="green" icon={IconBook2} />
                 <PipelineMetric label="Returned / Requirement Pending" count={data.kpis.returnedRequirementPending.count} href={drill("returned")} tone="amber" icon={IconArrowBackUp} />
                 <PipelineMetric label="Final Rejected" count={data.kpis.finalRejected.count} href={drill("final_rejected")} tone="red" icon={IconCircleX} />
@@ -670,8 +671,8 @@ export function DashboardInner() {
               </div>
             </Card>
 
-            <div data-testid="dashboard-charts-grid">
-              <Card className="min-w-0 p-4 sm:p-4">
+            <div data-testid="dashboard-charts-grid" className={overview.trend}>
+              <Card className="h-full min-w-0 p-4 sm:p-4">
                 <SectionHeader title="Application performance trend" description="Submitted and funded applications over authoritative reporting periods." actions={data.trend.length > 0 ? <Badge>{data.trend.length} {data.trend.length === 1 ? "period" : "periods"}</Badge> : null} />
                 <TimeSeriesChart rows={data.trend} />
               </Card>
@@ -700,7 +701,7 @@ export function DashboardInner() {
                 />
                 <div className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-1">
                   {(["Bank", "Customer", "Internal", "Other"] as const).map((type) => (
-                    <Link key={type} href={drill(`delay_${type.toLowerCase()}`)} aria-label={`${type} delays`} className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50/50 px-2.5 py-2 text-sm hover:bg-white">
+                    <Link key={type} href={drill(`delay_${type.toLowerCase()}`)} aria-label={`${type} delays`} className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50/50 px-2.5 py-2 text-sm hover:bg-surface">
                       <span className="text-slate-600">{type}</span>
                       <strong className="tabular-nums text-slate-950">{data.activeDelays[type]}</strong>
                     </Link>

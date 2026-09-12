@@ -1,6 +1,6 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { preserveBuiltInRoleConfiguration } from "./helpers/role-configuration";
-import { captureViewport, captureViewportPair } from "./helpers/viewport-capture";
+import { captureViewport, captureViewportPair, captureViewportThemes } from "./helpers/viewport-capture";
 
 preserveBuiltInRoleConfiguration();
 
@@ -215,6 +215,8 @@ test("employee profile organizes identity, access, assets, and filtered audit hi
   await expect(page.getByRole("link", { name: "Performance profile" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Contact details" })).toBeVisible();
   await captureViewportPair(page, testInfo, "employee-overview");
+  await captureViewportPair(page, testInfo, "employee-contact", page.getByRole("heading", { name: "Contact details", exact: true }));
+  await captureViewportPair(page, testInfo, "employee-employment", page.getByRole("heading", { name: "Employment", exact: true }));
   await expect(page.getByRole("heading", { name: "Organization assignment" })).toHaveCount(0);
 
   const tabs = page.getByRole("tablist", { name: "Employee profile" });
@@ -426,10 +428,14 @@ for (const width of [1440, 390]) {
     await expect(page.getByLabel("Gender", { exact: true })).toContainText("Female");
     await expect(page.getByLabel("Marital status", { exact: true })).toContainText("Single");
     const columns = await page.getByTestId("hr-field-grid").first().evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(" ").length);
-    expect(columns).toBe(width === 1440 ? 5 : 1);
+    expect(columns).toBe(width === 1440 ? 3 : 1);
     await expectNoHorizontalOverflow(page);
     await page.getByTestId("employee-lifecycle-profile").scrollIntoViewIfNeeded();
-    await page.screenshot({ path: testInfo.outputPath(`hr-${width}.png`), fullPage: false });
+    await captureViewportThemes(page, testInfo.outputPath(`hr-${width}.png`), page.getByTestId("hr-field-grid").first());
+    await captureViewportThemes(page, testInfo.outputPath(`hr-employment-${width}.png`), page.getByRole("heading", { name: "Employment", exact: true }));
+    await captureViewportThemes(page, testInfo.outputPath(`hr-compensation-${width}.png`), page.getByRole("heading", { name: "Compensation", exact: true }));
+    await captureViewportThemes(page, testInfo.outputPath(`hr-bank-${width}.png`), page.getByRole("heading", { name: "Bank", exact: true }));
+    await captureViewportThemes(page, testInfo.outputPath(`hr-control-${width}.png`), page.getByRole("button", { name: "Save HR profile", exact: true }));
 
     await page.getByRole("tab", { name: "PRO & Documents" }).click();
     await page.getByLabel("Number", { exact: true }).fill(`COMPACT-${width}`);
@@ -456,10 +462,11 @@ for (const width of [1440, 390]) {
     await expect(page.getByText(`Version 2 · COMPACT-${width}`)).toBeVisible();
     await expect(page.getByText("2028-06-15", { exact: true })).toBeVisible();
     await expect(page.getByText("compact-test.pdf", { exact: true })).toBeVisible();
-    expect(await page.getByTestId("pro-field-grid").evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(" ").length)).toBe(width === 1440 ? 5 : 1);
+    expect(await page.getByTestId("pro-field-grid").evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(" ").length)).toBe(width === 1440 ? 3 : 1);
     await expectNoHorizontalOverflow(page);
     await page.getByTestId("employee-lifecycle-profile").scrollIntoViewIfNeeded();
-    await page.screenshot({ path: testInfo.outputPath(`pro-${width}.png`), fullPage: false });
+    await captureViewportThemes(page, testInfo.outputPath(`pro-${width}.png`), page.getByTestId("pro-field-grid"));
+    await captureViewportThemes(page, testInfo.outputPath(`pro-records-${width}.png`), page.getByRole("heading", { name: "PRO compliance records", exact: true }));
   });
 }
 

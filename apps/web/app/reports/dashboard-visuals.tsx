@@ -12,6 +12,7 @@ import {
 } from "@/components/icons";
 import { Badge, SectionHeader } from "@/components/ui";
 import { formatPct, type DashboardPayload, type RankingRow } from "@/lib/reports";
+import overview from "./overview.module.css";
 
 export type MetricTone = "blue" | "green" | "amber" | "red" | "violet";
 export type TrendDirection = { kind: "up" | "down" | "stable"; delta: number };
@@ -83,6 +84,7 @@ export function KpiCard({
   tone,
   icon,
   context,
+  featured = false,
 }: {
   label: string;
   count: number;
@@ -91,28 +93,25 @@ export function KpiCard({
   tone: MetricTone;
   icon: IconComponent;
   context?: ReactNode;
+  featured?: boolean;
 }) {
   const MetricIcon = icon;
   return (
     <Link
       href={href}
       aria-label={`${label} KPI`}
-      className="group flex min-h-32 flex-col rounded-[10px] border border-slate-200/90 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.035)] transition hover:border-slate-300 hover:shadow-[0_3px_8px_rgba(15,23,42,0.07)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary"
+      className={`${overview.metric} ${featured ? overview.featured : ""}`}
+      data-tone={tone}
     >
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-2.5">
-          <span data-amafh-icon-tile="" className={`inline-flex size-8 shrink-0 items-center justify-center rounded-md ${metricToneClasses[tone].icon}`}>
-            <MetricIcon className="size-5" />
-          </span>
-          <p className="text-sm font-semibold text-slate-700">{label}</p>
-        </div>
-        <IconArrowUpRight className="size-4 shrink-0 text-slate-300 transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-slate-500" />
+      <div className={overview.metricLabel}>
+        <span><MetricIcon className="size-4 shrink-0" />{label}</span>
+        <IconArrowUpRight className="size-4 shrink-0" />
       </div>
-      <div className="mt-3 flex min-w-0 flex-wrap items-end justify-between gap-2">
-        <p className="text-[32px] font-semibold leading-none tracking-tight text-slate-950">{count.toLocaleString()}</p>
-        {value !== undefined ? <p className="truncate text-right text-xs font-medium tabular-nums text-slate-500">{formatCurrencyValue(value)}</p> : null}
+      <div className={overview.metricValue}>
+        <strong>{count.toLocaleString()}</strong>
+        {value !== undefined ? <small>{formatCurrencyValue(value)}</small> : null}
       </div>
-      <div className="mt-auto border-t border-slate-100 pt-2.5">{context ?? <span className="text-xs text-slate-500">Selected period</span>}</div>
+      <div className={overview.metricContext}>{context ?? <span>Selected period</span>}</div>
     </Link>
   );
 }
@@ -137,7 +136,7 @@ export function PipelineMetric({
     <Link
       href={href}
       aria-label={`${label} KPI`}
-      className="group flex min-w-0 items-center gap-2 rounded-lg border border-slate-200 bg-slate-50/60 px-2.5 py-2 hover:border-slate-300 hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary"
+      className="group flex min-w-0 items-center gap-2 rounded-lg border border-slate-200 bg-slate-50/60 px-2.5 py-2 hover:border-slate-300 hover:bg-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary"
     >
       <span aria-hidden="true" data-amafh-icon-tile="" className={`inline-flex size-7 shrink-0 items-center justify-center rounded-md ${metricToneClasses[tone].icon}`}>
         <MetricIcon className="size-4" />
@@ -178,7 +177,7 @@ export function StageDistribution({
       <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-2.5 text-xs text-slate-500"><span>{total.toLocaleString()} pending applications</span><span>{rows.length} workflow stages</span></div>
       <details className="group mt-2 rounded-lg border border-slate-200 bg-slate-50/60">
         <summary className="cursor-pointer list-none px-3 py-2 text-sm font-semibold text-brand-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary"><span className="inline-flex w-full items-center justify-between gap-3">All stage details<IconChevronDown className="size-4 transition-transform group-open:rotate-180" /></span></summary>
-        <div data-testid="stage-breakdown-scroll" className="max-h-48 overflow-y-auto border-t border-slate-200 bg-white p-1.5">
+        <div data-testid="stage-breakdown-scroll" className="max-h-48 overflow-y-auto border-t border-slate-200 bg-surface p-1.5">
           {rows.map((row) => (
             <Link key={`${row.stageId ?? "none"}:${row.name}:detail`} className="flex items-center justify-between gap-4 rounded-md px-2 py-1.5 text-sm hover:bg-slate-50" href={drill("stage", row.stageId ? { stage_id: row.stageId } : {})}>
               <span className="font-medium text-slate-700">{row.name}</span><span className="shrink-0 font-semibold tabular-nums text-slate-950">{row.count}</span>
@@ -257,7 +256,7 @@ export function RankingList({ title, rows, metric, hrefFor }: { title: string; r
       {rows.length === 0 ? <p className="px-3 py-4 text-sm text-slate-500">No ranking rows for the selected period.</p> : (
         <div className="max-h-56 divide-y divide-slate-100 overflow-y-auto px-1.5 py-1">
           {rows.slice(0, 8).map((row) => (
-            <Link key={row.id} href={hrefFor(row)} className="group flex items-center gap-2 rounded-md px-2 py-2 hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary">
+            <Link key={row.id} href={hrefFor(row)} className="group flex items-center gap-2 rounded-md px-2 py-2 hover:bg-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary">
               <span className={`inline-flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-bold ${row.rank <= 3 ? "bg-blue-50 text-blue-700" : "bg-slate-100 text-slate-600"}`}>{row.rank}</span>
               <span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold text-slate-800 group-hover:text-brand-link">{row.name}</span>{row.count !== null && row.count !== undefined ? <span className="block text-xs text-slate-500">{row.count.toLocaleString()} cases</span> : null}</span>
               <span className="shrink-0 text-right text-xs font-semibold tabular-nums text-slate-950">{formatValue(row)}</span>

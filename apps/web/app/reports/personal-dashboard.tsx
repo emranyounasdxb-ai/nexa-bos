@@ -1,4 +1,5 @@
 import { Badge, Card, SectionHeader } from "@/components/ui";
+import styles from "./personal-dashboard.module.css";
 import { HrWorkflowSummary } from "@/components/hr-workflow-summary";
 import { formatAed, formatPct, type PersonalAttendance, type PersonalPerformance } from "@/lib/reports";
 
@@ -16,7 +17,7 @@ function minutes(value: number | null) {
 
 function MiniMetric({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="min-w-0 border-b border-slate-200 py-3">
+    <div className={styles.metric}>
       <dt className="text-sm font-medium text-slate-600">{label}</dt>
       <dd className="mt-1 break-words text-base font-semibold tabular-nums text-slate-950">{value}</dd>
     </div>
@@ -41,7 +42,7 @@ export function MyPerformance({ data }: { data: PersonalPerformance }) {
         </p>
       ) : (
         <>
-          <dl className="mt-3 grid gap-2 sm:grid-cols-3">
+          <dl className={styles.targetMetrics}>
             <MiniMetric label="Assigned target" value={metricValue(target.assigned, target.measurement)} />
             <MiniMetric label="Achieved" value={metricValue(target.achieved, target.measurement)} />
             <MiniMetric label="Remaining" value={metricValue(target.remaining, target.measurement)} />
@@ -118,6 +119,8 @@ export function MyAttendance({ data }: { data: PersonalAttendance }) {
     <div className="min-w-0" data-testid="my-attendance">
     <Card className="min-w-0 p-4">
       <SectionHeader title="My Attendance" description="Read-only attendance for the current month." actions={<Badge>{today.status}</Badge>} />
+      <section className={styles.attendanceSection} aria-label="Today's attendance">
+      <h3 className={styles.label}>Today</h3>
       <dl className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
         <MiniMetric label="Duty" value={today.scheduledStart && today.scheduledEnd ? `${today.scheduledStart}–${today.scheduledEnd}` : "Not scheduled"} />
         <MiniMetric label="Check-in" value={today.actualCheckIn ?? "—"} />
@@ -127,12 +130,16 @@ export function MyAttendance({ data }: { data: PersonalAttendance }) {
         <MiniMetric label="Early departure" value={minutes(today.earlyDepartureMinutes)} />
         <MiniMetric label="Overtime" value={today.overtimeConfigured ? minutes(today.overtimeMinutes) : "Not configured"} />
       </dl>
+      </section>
+      <section className={styles.attendanceSection} aria-label="Monthly attendance totals">
+      <h3 className={styles.label}>This month</h3>
       <dl className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
         <MiniMetric label="Present" value={data.summary.presentCount} />
         <MiniMetric label="Absent" value={data.summary.absentCount} />
         <MiniMetric label="Late" value={data.summary.lateCount} />
         <MiniMetric label="Leave" value={data.summary.leaveCount} />
       </dl>
+      </section>
       <details className="group mt-3 rounded-lg border border-slate-200">
         <summary className="cursor-pointer px-3 py-2.5 text-sm font-semibold text-brand-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary">
           Monthly attendance view ({data.items.length})

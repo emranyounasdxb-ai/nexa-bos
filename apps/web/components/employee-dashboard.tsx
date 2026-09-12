@@ -1,5 +1,7 @@
 "use client";
 
+import styles from "./employee-dashboard.module.css";
+
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
@@ -34,7 +36,7 @@ const cardLabels: Record<string, string> = {
 };
 
 function MetricCards({ cards }: { cards: Record<string, number> }) {
-  return <div className="grid min-w-0 grid-cols-2 gap-3 lg:grid-cols-5">{Object.entries(cards).map(([key, count]) => <Card key={key} className="!p-4"><p className="text-xs font-medium text-text-secondary">{cardLabels[key] ?? key}</p><p className="mt-2 text-[32px] font-semibold tabular-nums text-text-primary">{count.toLocaleString()}</p></Card>)}</div>;
+  return <dl className={styles.metrics}>{Object.entries(cards).map(([key, count]) => <div key={key} className={styles.metric}><dt>{cardLabels[key] ?? key}</dt><dd>{count.toLocaleString()}</dd></div>)}</dl>;
 }
 
 export function EmployeeDashboard({ mode }: { mode: "hr" | "pro" }) {
@@ -54,10 +56,13 @@ export function EmployeeDashboard({ mode }: { mode: "hr" | "pro" }) {
   const pro = mode === "pro" ? data as ProDashboard : null;
   return <section className="min-w-0 space-y-6">
     <PageHeader description={mode === "hr" ? "Implemented employee-profile completion, workforce and probation work only." : "Private employee-document compliance derived from current records."} actions={<Button variant="secondary" onClick={() => void load()} disabled={loading}><IconRefresh className="size-4" />{loading ? "Refreshing…" : "Refresh"}</Button>} title={mode === "hr" ? "HR Dashboard" : "PRO Dashboard"} />
-    {error ? <ErrorText>{error}</ErrorText> : null}<MetricCards cards={data.cards} />
+    {error ? <ErrorText>{error}</ErrorText> : null}
+    <div className={styles.overview}>
+    <MetricCards cards={data.cards} />
+    <div className={styles.activity}>
     {hr ? <>
       <HrWorkflowSummary />
-      <div className="grid min-w-0 items-start gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)]"><ListCard title="Pending HR actions" items={hr.pendingActions.map((row) => ({ id: row.id, name: row.name, detail: row.completion.missing.join(", ") }))} /><ListCard title="New joiners" items={hr.newJoiners.map((row) => ({ id: row.id, name: row.name, detail: `${row.employeeCode} · ${row.joiningDate}` }))} /><ListCard title="Probation tracking" items={hr.probation.map((row) => ({ id: row.id, name: row.name, detail: `${row.state} · ${row.endDate ?? "End date missing"}` }))} /></div>
+      <div className={styles.attention}><ListCard collapsible title="Pending HR actions" items={hr.pendingActions.map((row) => ({ id: row.id, name: row.name, detail: row.completion.missing.join(", ") }))} /><ListCard title="New joiners" items={hr.newJoiners.map((row) => ({ id: row.id, name: row.name, detail: `${row.employeeCode} · ${row.joiningDate}` }))} /><ListCard title="Probation tracking" items={hr.probation.map((row) => ({ id: row.id, name: row.name, detail: `${row.state} · ${row.endDate ?? "End date missing"}` }))} /></div>
       <div className="grid min-w-0 gap-4 xl:grid-cols-2">{Object.entries(hr.breakdowns).map(([key, rows]) => <Card key={key}><SectionHeader title={`${key.replace(/([A-Z])/g, " $1").trim()} breakdown`} />{rows.length ? <ul className="mt-3 divide-y divide-slate-100">{rows.map((row) => <li key={row.label} className="flex justify-between gap-3 text-sm"><span>{row.label}</span><strong>{row.count}</strong></li>)}</ul> : <EmptyState>No data is recorded.</EmptyState>}</Card>)}</div>
       <Card><SectionHeader title="Recent HR activity" />{hr.recentActivity.length ? <ul className="mt-3 divide-y divide-slate-100">{hr.recentActivity.map((row) => <li key={row.id} className="py-3 text-sm"><strong>{row.actor}</strong> · {row.action} · {row.employee}<span className="block text-xs text-text-secondary">{new Date(row.createdAt).toLocaleString("en-AE")}</span></li>)}</ul> : <EmptyState>No recent HR profile activity.</EmptyState>}</Card>
     </> : null}
@@ -65,11 +70,13 @@ export function EmployeeDashboard({ mode }: { mode: "hr" | "pro" }) {
       <Card><SectionHeader title="Employee compliance" description="Required Passport, Visa, Emirates ID, Work Permit, Medical and Insurance records." />{pro.compliance.length ? <div className="mt-3 grid gap-3 lg:grid-cols-2">{pro.compliance.map((row) => <article key={row.employeeId} className="rounded-lg border border-brand-border p-3"><Link href={`/users/${row.employeeId}?tab=pro`} className="text-sm font-semibold text-brand-primary hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-primary">{row.employee}</Link><div className="mt-2 flex flex-wrap gap-1.5">{Object.entries(row.documents).map(([kind, document]) => <Link key={kind} href={`/users/${row.employeeId}?tab=pro${document.documentId ? `&document=${document.documentId}` : ""}`} aria-label={`${row.employee} ${kind.replaceAll("_", " ")} ${document.status}`}><StatusBadge value={`${kind.replaceAll("_", " ")}: ${document.status}`} /></Link>)}</div></article>)}</div> : <EmptyState>No employees are visible in the current scope.</EmptyState>}</Card>
       <div className="grid min-w-0 gap-4 lg:grid-cols-2"><ExpiryCard title="Expiring in 7 days" rows={pro.expiry.within7} /><ExpiryCard title="Expiring in 30 days" rows={pro.expiry.within30} /><ExpiryCard title="Expiring in 60 days" rows={pro.expiry.within60} /><ExpiryCard title="Expired" rows={pro.expiry.expired} /></div>
     </> : null}
+    </div>
+    </div>
   </section>;
 }
 
-function ListCard({ title, items }: { title: string; items: { id: string; name: string; detail: string }[] }) {
-  return <Card><SectionHeader title={title} />{items.length ? <ul tabIndex={0} aria-label={title} className="mt-3 max-h-96 overflow-y-auto divide-y divide-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-primary">{items.map((row) => <li key={row.id} className="py-3"><Link className="text-sm font-medium text-brand-primary hover:underline" href={`/users/${row.id}?tab=hr`}>{row.name}</Link><p className="text-xs text-text-secondary">{row.detail}</p></li>)}</ul> : <EmptyState>Nothing requires attention.</EmptyState>}</Card>;
+function ListCard({ title, items, collapsible = false }: { title: string; items: { id: string; name: string; detail: string }[]; collapsible?: boolean }) {
+  return <Card><SectionHeader title={title} />{items.length ? <ul tabIndex={0} aria-label={title} className="mt-3 max-h-96 overflow-y-auto divide-y divide-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-primary">{items.map((row) => <li key={row.id} className="py-3"><Link className="text-sm font-medium text-brand-primary hover:underline" href={`/users/${row.id}?tab=hr`}>{row.name}</Link>{collapsible ? <details className="mt-1 text-xs text-text-secondary"><summary className="cursor-pointer rounded focus-visible:outline-2 focus-visible:outline-brand-primary">Review missing fields</summary><p className="mt-2 rounded-xl bg-surface-subtle p-3">{row.detail}</p></details> : <p className="text-xs text-text-secondary">{row.detail}</p>}</li>)}</ul> : <EmptyState>Nothing requires attention.</EmptyState>}</Card>;
 }
 function ExpiryCard({ title, rows }: { title: string; rows: Expiry[] }) {
   return <Card><SectionHeader title={title} />{rows.length ? <ul className="mt-3 divide-y divide-slate-100">{rows.map((row) => <li key={`${row.employeeId}-${row.label}`}><Link href={`/users/${row.employeeId}?tab=pro`} className="text-sm font-medium text-brand-primary hover:underline">{row.employee} · {row.label}</Link><p className="text-xs text-text-secondary">{row.expiryDate} · {row.remainingDays} days</p></li>)}</ul> : <EmptyState>No matching documents.</EmptyState>}</Card>;

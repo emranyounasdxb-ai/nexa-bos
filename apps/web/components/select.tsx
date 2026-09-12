@@ -311,7 +311,7 @@ export function BrandedSelect({
                       onMouseEnter={() => { if (!option.disabled) setActiveIndex(index); }}
                       onClick={() => choose(index)}
                     >
-                      <span className={`size-1.5 shrink-0 rounded-full ${option.value === selectedValue ? "bg-brand-primary" : "bg-transparent"}`} aria-hidden="true" />
+                      <span className={`size-1.5 shrink-0 rounded-full ${option.value === selectedValue ? "bg-brand-fill" : "bg-transparent"}`} aria-hidden="true" />
                       <span className="min-w-0 flex-1 break-words">{option.label}</span>
                     </div>
                   </div>

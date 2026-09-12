@@ -1,5 +1,9 @@
 "use client";
 
+import styles from "./finance.module.css";
+
+import { ConfigurationWorkspace, ListWorkspace } from "@/components/page-patterns";
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { DatePicker } from "@/components/date-picker";
@@ -735,8 +739,8 @@ export default function FinancePage() {
 
   return (
     <section className="min-w-0 space-y-4">
-      <Card className="overflow-hidden p-0">
-        <div className="flex flex-col gap-3 border-b border-slate-200 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+      <Card className="overflow-hidden !p-3 sm:!p-4">
+        <div className="flex flex-col items-start gap-2 border-b border-slate-200 pb-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="max-w-3xl text-sm text-slate-600">
             Manage monthly payouts, effective-dated commission rules, and non-progressive incentive plans.
           </p>
@@ -807,12 +811,14 @@ export default function FinancePage() {
 
       {!loading && currentTab === "payouts" ? (
         <div id="finance-panel-payouts" role="tabpanel" aria-labelledby="finance-tab-payouts" className="space-y-4">
+          <ConfigurationWorkspace controls={
           <Card className="p-3">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-              <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-end">
+            <h2 className="mb-4 text-[17px] font-medium">Payout period</h2>
+            <div className="flex flex-col gap-4">
+              <div className="flex min-w-0 flex-col gap-3">
                 <Field
                   label="Payout month"
-                  className="w-full sm:w-56"
+                  className="w-full"
                   help="Select the calendar month whose Finance period you want to review or generate. Generation remains subject to the existing period workflow."
                 >
                   <DatePicker
@@ -904,7 +910,7 @@ export default function FinancePage() {
                     <div
                       id="finance-export-menu"
                       role="menu"
-                      className="absolute right-0 z-20 mt-1 w-40 rounded-lg border border-slate-200 bg-white p-1 shadow-lg"
+                      className="absolute right-0 z-20 mt-1 w-40 rounded-lg border border-slate-200 bg-surface p-1 shadow-lg"
                     >
                       <button role="menuitem" type="button" className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-sm text-slate-700 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-primary" onClick={() => void exportStatement("xlsx")}><IconFileSpreadsheet className="size-4" />Excel</button>
                       <button role="menuitem" type="button" className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-sm text-slate-700 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-primary" onClick={() => void exportStatement("pdf")}><IconFileTypePdf className="size-4" />PDF</button>
@@ -916,6 +922,7 @@ export default function FinancePage() {
             </div>
           </Card>
 
+          }>
           {!month ? (
             <Card><EmptyState>Choose a payout month to view or generate its statement.</EmptyState></Card>
           ) : statementLoading ? (
@@ -959,11 +966,13 @@ export default function FinancePage() {
           {selectedPeriod?.status === "finalized" && can("Finance.ReopenPeriod") ? (
             <Card><h2 className="text-[length:var(--amafh-text-section)] font-semibold text-slate-900">Reopen finalized period</h2><Field label="Mandatory reason" className="mt-3"><Textarea value={reopenReason} onChange={(event) => setReopenReason(event.target.value)} /></Field><Button className="mt-3" type="button" disabled={!reopenReason.trim()} onClick={() => setConfirmation({ title: "Reopen finalized period?", description: "Return this locked period to Review without regenerating its Finance components.", confirmLabel: "Reopen to Review", path: `/api/v1/finance/periods/${month}/reopen`, success: "Period reopened to Review without regeneration.", body: { reason: reopenReason } })}>Reopen to Review</Button></Card>
           ) : null}
+          </ConfigurationWorkspace>
         </div>
       ) : null}
 
       {!loading && currentTab === "commission-rules" ? (
         <div id="finance-panel-commission-rules" role="tabpanel" aria-labelledby="finance-tab-commission-rules" className="space-y-4">
+          <ListWorkspace title="Commission rule versions" filters={
           <Card className="p-3">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
               <Field label="Search commission rules" className="min-w-0 flex-1"><TextInput value={ruleSearch} onChange={(event) => { setRuleSearch(event.target.value); rulesPagination.setPage(1); }} placeholder="Bank, product, milestone, recipient, or status" /></Field>
@@ -972,15 +981,18 @@ export default function FinancePage() {
             </div>
             <p className="mt-2 text-xs text-slate-500">Rule versions are immutable. Status actions apply to the selected version.</p>
           </Card>
+          }>
           {rulesPagination.pagedItems.length ? (
             <TableShell><TableHead><tr><Th>Bank / Product</Th><Th>Milestone</Th><Th>Version</Th><Th>Effective period</Th><Th>Payout mode</Th><Th>Recipients</Th><Th>Status</Th><Th>Actions</Th></tr></TableHead><tbody>{rulesPagination.pagedItems.map((rule) => <tr key={rule.id}><Td><span className="font-medium text-slate-900">{rule.bankName}</span><span className="block text-xs text-slate-500">{rule.productName}</span></Td><Td className="capitalize">{rule.eligibilityMilestone}</Td><Td>Version {rule.version}</Td><Td>{rule.effectiveFrom}<span className="block text-xs text-slate-500">to {rule.effectiveTo ?? "open-ended"}</span></Td><Td>{rule.payoutMode === "percentage_split" ? "Percentage Split" : "Independent Role Rate"}</Td><Td className="min-w-56">{rule.recipients.map((row) => `${row.roleName}: ${row.recipientSource === "case_owner" ? "Case Owner" : `Manager level ${row.hierarchyLevel}`}`).join(", ")}</Td><Td><StatusBadge value={rule.status} /></Td><Td>{can("Finance.ManageCommissionRules") ? <Button type="button" variant={rule.status === "active" ? "secondary" : "primary"} size="compact" onClick={() => setConfirmation({ title: `${rule.status === "active" ? "Deactivate" : "Activate"} commission rule?`, description: `${rule.status === "active" ? "Deactivate" : "Activate"} version ${rule.version} for ${rule.bankName} / ${rule.productName}.`, confirmLabel: rule.status === "active" ? "Deactivate" : "Activate", path: `/api/v1/finance/commission-rules/${rule.id}/${rule.status === "active" ? "deactivate" : "activate"}`, success: `Rule ${rule.status === "active" ? "deactivated" : "activated"}.`, danger: rule.status === "active" })}>{rule.status === "active" ? "Deactivate" : "Activate"}</Button> : null}</Td></tr>)}</tbody></TableShell>
           ) : <Card><EmptyState>{ruleSearch ? "No commission rules match your search." : "No commission rule versions exist yet."}</EmptyState></Card>}
           {rulesPagination.totalPages > 1 ? <Pagination page={rulesPagination.page} pageSize={rulesPagination.pageSize} total={rulesPagination.total} totalPages={rulesPagination.totalPages} onPageChange={rulesPagination.setPage} onPageSizeChange={rulesPagination.setPageSize} /> : null}
+          </ListWorkspace>
         </div>
       ) : null}
 
       {!loading && currentTab === "incentive-plans" ? (
         <div id="finance-panel-incentive-plans" role="tabpanel" aria-labelledby="finance-tab-incentive-plans" className="space-y-4">
+          <ListWorkspace title="Incentive plan versions" filters={
           <Card className="p-3">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
               <Field label="Search incentive plans" className="min-w-0 flex-1"><TextInput value={planSearch} onChange={(event) => { setPlanSearch(event.target.value); plansPagination.setPage(1); }} placeholder="Plan name, version, effective date, or status" /></Field>
@@ -989,16 +1001,18 @@ export default function FinancePage() {
             </div>
             <p className="mt-2 text-xs text-slate-500">Plan versions are immutable and pay the highest single matching slab, not cumulative tiers.</p>
           </Card>
+          }>
           {plansPagination.pagedItems.length ? (
             <TableShell><TableHead><tr><Th>Incentive plan</Th><Th>Version</Th><Th>Effective period</Th><Th>Production slabs</Th><Th>Status</Th><Th>Actions</Th></tr></TableHead><tbody>{plansPagination.pagedItems.map((plan) => <tr key={plan.id}><Td className="font-medium text-slate-900">{plan.name}</Td><Td>Version {plan.version}</Td><Td>{plan.effectiveFrom}<span className="block text-xs text-slate-500">to {plan.effectiveTo ?? "open-ended"}</span></Td><Td className="min-w-64">{plan.slabs.map((slab) => `${slab.minimumProduction}–${slab.maximumProduction ?? "open"}: ${formatAed(slab.payoutAmount)}`).join(", ")}</Td><Td><StatusBadge value={plan.status} /></Td><Td>{can("Finance.ManageCommissionRules") ? <Button type="button" variant={plan.status === "active" ? "secondary" : "primary"} size="compact" onClick={() => setConfirmation({ title: `${plan.status === "active" ? "Deactivate" : "Activate"} incentive plan?`, description: `${plan.status === "active" ? "Deactivate" : "Activate"} ${plan.name}, version ${plan.version}.`, confirmLabel: plan.status === "active" ? "Deactivate" : "Activate", path: `/api/v1/finance/incentive-plans/${plan.id}/${plan.status === "active" ? "deactivate" : "activate"}`, success: `Incentive plan ${plan.status === "active" ? "deactivated" : "activated"}.`, danger: plan.status === "active" })}>{plan.status === "active" ? "Deactivate" : "Activate"}</Button> : null}</Td></tr>)}</tbody></TableShell>
           ) : <Card><EmptyState>{planSearch ? "No incentive plans match your search." : "No incentive plan versions exist yet."}</EmptyState></Card>}
           {plansPagination.totalPages > 1 ? <Pagination page={plansPagination.page} pageSize={plansPagination.pageSize} total={plansPagination.total} totalPages={plansPagination.totalPages} onPageChange={plansPagination.setPage} onPageSizeChange={plansPagination.setPageSize} /> : null}
+          </ListWorkspace>
         </div>
       ) : null}
 
       {drawer ? (
-        <div className="fixed inset-0 z-50 flex justify-end bg-slate-950/40" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) requestDrawerClose(); }}>
-          <aside role="dialog" aria-modal="true" aria-labelledby="finance-drawer-title" className="flex h-full w-full flex-col bg-white shadow-2xl sm:max-w-3xl">
+        <div className="fixed inset-0 z-50 flex justify-end bg-black/40 p-3 backdrop-blur-sm" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) requestDrawerClose(); }}>
+          <aside role="dialog" aria-modal="true" aria-labelledby="finance-drawer-title" className={`${styles.editor} flex h-full w-full flex-col overflow-hidden rounded-[24px] bg-surface shadow-2xl sm:max-w-3xl`}>
             <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-4 py-3 sm:px-5">
               <div><h2 id="finance-drawer-title" className="text-[length:var(--amafh-text-section)] font-semibold text-slate-900">{drawer === "commission-rule" ? "Create commission rule" : "Create incentive plan"}</h2><p className="mt-0.5 text-sm text-slate-500">{drawer === "commission-rule" ? "Create a new immutable Draft rule version." : "Create a new immutable monthly Draft plan version."}</p></div>
               <Button type="button" variant="ghost" size="icon" aria-label="Close drawer" onClick={requestDrawerClose}><IconX className="size-4" /></Button>
@@ -1018,7 +1032,7 @@ export default function FinancePage() {
                 <div className="space-y-5 p-4 sm:p-5"><section aria-labelledby="plan-details"><h3 id="plan-details" className="text-lg font-semibold text-slate-900">Plan Details</h3><div className="mt-3 grid gap-3 sm:grid-cols-3"><Field label="Plan name"><TextInput autoFocus value={planName} onChange={(event) => setPlanName(event.target.value)} /></Field><Field label="Effective from"><DatePicker value={planFrom} onChange={(value) => { setDrawerDirty(true); setPlanFrom(value); }} /></Field><Field label="Effective to"><DatePicker value={planTo} onChange={(value) => { setDrawerDirty(true); setPlanTo(value); }} /></Field></div></section><section aria-labelledby="plan-slabs"><h3 id="plan-slabs" className="text-lg font-semibold text-slate-900">Production Slabs</h3><div className="mt-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-900">The highest single matching achieved-production slab is paid. Slabs are not progressive or cumulative.</div><p className="mt-2 text-xs text-slate-500">Each range needs a minimum, may have an open maximum, and cannot overlap another range.</p><div className="mt-3"><SlabEditor slabs={planSlabs} onChange={(rows) => { setDrawerDirty(true); setPlanSlabs(rows); }} basis="production" showAdd={false} /></div></section></div>
               </form>
             ) : null}
-            <div className="sticky bottom-0 border-t border-slate-200 bg-white px-4 py-3 sm:px-5"><div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between"><div className="min-w-0 text-xs text-slate-500">{drawerDirty ? "Unsaved changes" : "No staged changes"}{drawer === "commission-rule" && ruleValidation ? ` · ${ruleValidation}` : ""}{drawer === "incentive-plan" && planValidation ? ` · ${planValidation}` : ""}</div><div className="flex flex-wrap justify-end gap-2">{drawer === "incentive-plan" ? <Button type="button" variant="secondary" onClick={() => { setDrawerDirty(true); setPlanSlabs((rows) => [...rows, newSlab(rows.length)]); }}>Add Slab</Button> : null}<Button type="button" variant="secondary" disabled={saving} onClick={requestDrawerClose}>Cancel</Button><Button type="submit" form={drawer === "commission-rule" ? "commission-rule-form" : "incentive-plan-form"} disabled={saving || (drawer === "commission-rule" ? Boolean(ruleValidation) : Boolean(planValidation))} title={drawer === "commission-rule" ? ruleValidation ?? undefined : planValidation ?? undefined}>{saving ? "Saving…" : "Create Draft"}</Button></div></div>{error ? <div className="mt-2"><ErrorText>{error}</ErrorText></div> : null}</div>
+            <div className="sticky bottom-0 border-t border-slate-200 bg-surface px-4 py-3 sm:px-5"><div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between"><div className="min-w-0 text-xs text-slate-500">{drawerDirty ? "Unsaved changes" : "No staged changes"}{drawer === "commission-rule" && ruleValidation ? ` · ${ruleValidation}` : ""}{drawer === "incentive-plan" && planValidation ? ` · ${planValidation}` : ""}</div><div className="flex flex-wrap justify-end gap-2">{drawer === "incentive-plan" ? <Button type="button" variant="secondary" onClick={() => { setDrawerDirty(true); setPlanSlabs((rows) => [...rows, newSlab(rows.length)]); }}>Add Slab</Button> : null}<Button type="button" variant="secondary" disabled={saving} onClick={requestDrawerClose}>Cancel</Button><Button type="submit" form={drawer === "commission-rule" ? "commission-rule-form" : "incentive-plan-form"} disabled={saving || (drawer === "commission-rule" ? Boolean(ruleValidation) : Boolean(planValidation))} title={drawer === "commission-rule" ? ruleValidation ?? undefined : planValidation ?? undefined}>{saving ? "Saving…" : "Create Draft"}</Button></div></div>{error ? <div className="mt-2"><ErrorText>{error}</ErrorText></div> : null}</div>
           </aside>
         </div>
       ) : null}

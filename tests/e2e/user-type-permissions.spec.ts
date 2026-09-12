@@ -1,6 +1,6 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { selectBrandedOption } from "./helpers/select";
-import { captureViewport, captureViewportPair } from "./helpers/viewport-capture";
+import { captureViewportThemes, captureViewportPair } from "./helpers/viewport-capture";
 
 const apiOrigin = `http://127.0.0.1:${process.env.PLAYWRIGHT_API_PORT ?? "8010"}`;
 const secret = process.env.BOOTSTRAP_SECRET ?? "nexa-test-bootstrap-secret";
@@ -56,7 +56,7 @@ test("User Type editor groups permissions and saves existing settings without ch
       expect((await field.boundingBox())?.height).toBe(32);
     }
     expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
-    await captureViewport(page, testInfo.outputPath(`user-type-create-${viewport.width}.png`));
+    await captureViewportThemes(page, testInfo.outputPath(`user-type-create-${viewport.width}.png`), page.getByRole("textbox", { name: "Name", exact: true }));
   }
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.getByPlaceholder("Name").fill(typeName);
@@ -78,6 +78,8 @@ test("User Type editor groups permissions and saves existing settings without ch
   await expect(page.getByText(/^inactive$/i).first()).toBeVisible();
   await expect(page.getByText("This User Type currently grants no system access.")).toBeVisible();
   await captureViewportPair(page, testInfo, "user-type-detail");
+  await captureViewportPair(page, testInfo, "user-type-scopes", page.getByRole("heading", { name: "Data Access Scopes", exact: true }));
+  await captureViewportPair(page, testInfo, "user-type-permissions", page.getByRole("heading", { name: "Permissions", exact: true }));
   await expect(page.getByRole("button", { name: "Activate", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Deactivate", exact: true })).toHaveCount(0);
   await page.getByRole("button", { name: "Activate", exact: true }).click();
@@ -87,6 +89,7 @@ test("User Type editor groups permissions and saves existing settings without ch
   await expect(page.getByRole("dialog", { name: `Deactivate ${typeName}?` })).toBeVisible();
   await expect(page.getByText(/cannot sign in.*terminates.*active sessions/s)).toBeVisible();
   await expect(page.getByText("No assigned-user count is available from this page.")).toBeVisible();
+  await captureViewportPair(page, testInfo, "user-type-deactivation-confirmation");
   await page.getByRole("button", { name: "Deactivate User Type" }).click();
   await expect(page.getByRole("button", { name: "Activate", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Activate", exact: true }).click();
@@ -122,6 +125,7 @@ test("User Type editor groups permissions and saves existing settings without ch
   await expect(usersModule.getByText("Users.View", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Select all Users permissions" }).click();
   await expect(page.getByText("This will include sensitive administrative permissions.")).toBeVisible();
+  await captureViewportPair(page, testInfo, "user-type-sensitive-permission-confirmation");
   await page.getByRole("button", { name: "Include permissions" }).click();
   await expect(page.getByRole("button", { name: "Users permissions", exact: true })).toContainText("23/23");
 
@@ -134,7 +138,8 @@ test("User Type editor groups permissions and saves existing settings without ch
   await page.getByRole("button", { name: "Selected", exact: true }).click();
   await expect(urgentPermission).toBeVisible();
   await page.getByRole("button", { name: "Unselected", exact: true }).click();
-  await expect(page.getByText("No permissions match the current search and filter.").first()).toBeVisible();
+  await expect(page.getByText("No permissions match the current search and filter.").filter({ visible: true })).toBeVisible();
+  await captureViewportPair(page, testInfo, "user-type-filtered-empty", page.getByText("No permissions match the current search and filter.").filter({ visible: true }));
   await page.getByRole("button", { name: "All", exact: true }).click();
   await page.getByLabel("Search permissions").fill("");
 
@@ -150,6 +155,7 @@ test("User Type editor groups permissions and saves existing settings without ch
   await expect(changeSummary).toContainText("Case Owner enabled");
   await expect(changeSummary).toContainText("User Directory scope: No scope → Office");
   await expect(changeSummary).toContainText("permission");
+  await captureViewportPair(page, testInfo, "user-type-staged-changes", changeSummary);
 
   await page.getByRole("button", { name: "Save changes" }).click();
   await expect(page.getByText(/Changes saved successfully/)).toBeVisible({ timeout: 20_000 });

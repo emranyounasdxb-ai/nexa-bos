@@ -1,3 +1,4 @@
+import { captureViewportThemes } from "./helpers/viewport-capture";
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { preserveBuiltInRoleConfiguration } from "./helpers/role-configuration";
 
@@ -16,7 +17,7 @@ async function signIn(page: Page, email: string, value: string) {
 }
 async function signOut(page: Page, width: number) {
   await expect(page.getByRole("dialog")).toHaveCount(0);
-  if (width < 1024) await page.getByRole("button", { name: "Open navigation" }).click();
+  if (width < 1024) await expect(page.getByRole("button", { name: "Open navigation" })).toHaveAttribute("aria-expanded", "false");
   await page.getByRole("button", { name: "Open user menu" }).focus(); await expect(page.getByRole("button", { name: "Open user menu" })).toBeFocused(); await page.keyboard.press("Enter"); await expect(page.getByRole("menuitem", { name: "Sign out" })).toBeVisible(); await page.getByRole("menuitem", { name: "Sign out" }).click(); await expect(page).toHaveURL(/\/login/);
 }
 async function closeDetails(page: Page, restoredAction = "Prepare exit") {
@@ -53,7 +54,7 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
     const { users: [employee, hr, reviewer], ownerId } = await setup(request);
     await page.setViewportSize(viewport); await signIn(page, employee.email, password); await page.goto("/exits?status=Draft");
     await expect(page.getByText("No exits in this scope.", { exact: true })).toBeVisible();
-    await page.screenshot({ path: testInfo.outputPath(`exit-empty-${viewport.width}.png`), fullPage: false });
+    await captureViewportThemes(page, testInfo.outputPath(`exit-empty-${viewport.width}.png`));
     const trigger = page.getByRole("button", { name: "Request resignation", exact: true }); await trigger.click();
     await expect(page.getByRole("button", { name: "Close dialog" })).toBeFocused();
     await page.getByRole("button", { name: "Save exit" }).focus(); await page.keyboard.press("Tab"); await expect(page.getByRole("button", { name: "Close dialog" })).toBeFocused();
@@ -61,7 +62,7 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
     await expect(page.getByLabel("Exit type *", { exact: true })).toHaveCount(0);
     const date = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Dubai" }).format(new Date());
     await page.getByLabel("Notice date *").fill(date); await page.getByLabel("Last working date *").fill(date); await page.getByLabel("Reason *", { exact: true }).fill("Synthetic browser resignation");
-    await page.screenshot({ path: testInfo.outputPath(`exit-form-${viewport.width}.png`), fullPage: false });
+    await captureViewportThemes(page, testInfo.outputPath(`exit-form-${viewport.width}.png`));
     const response = page.waitForResponse(r => r.url().endsWith("/api/v1/exits") && r.request().method() === "POST"); await page.getByRole("button", { name: "Save exit" }).click(); const saved = await (await response).json();
     await page.getByRole("button", { name: "Submit exit", exact: true }).click(); await page.getByLabel("Reason / comment *").fill("Request reviewed by employee"); await page.getByRole("button", { name: "Confirm decision" }).click(); await expect(page.getByRole("dialog").getByText("Submitted", { exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Complete exit", exact: true })).toHaveCount(0);
@@ -78,16 +79,18 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
     await closeDetails(page); await page.getByRole("button", { name: "Refresh", exact: true }).click(); await selectBrandedOption(page.getByLabel("Status", { exact: true }), "Clearance in Progress"); await page.getByRole("row").filter({ hasText: employee.employeeCode }).getByRole("button", { name: "View exit" }).click();
     await page.getByRole("button", { name: "Update Company assets", exact: true }).click(); await page.getByLabel("Reason / comment *").fill("No outstanding synthetic assets"); await page.getByRole("button", { name: "Confirm decision" }).click(); await expect(page.getByRole("dialog").getByText("Cleared", { exact: true })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
-    await page.screenshot({ path: testInfo.outputPath(`exit-clearance-${viewport.width}.png`), fullPage: false });
+    await expect(page.getByRole("dialog", { name: "Exit details", exact: true })).toBeVisible();
+    await captureViewportThemes(page, testInfo.outputPath(`exit-clearance-${viewport.width}.png`));
+    await captureViewportThemes(page, testInfo.outputPath(`exit-settlement-${viewport.width}.png`), page.getByRole("heading", { name: "Settlement reference", exact: true }));
     headers = await login(request, reviewer.email, password); row = await (await request.get(`${api}/api/v1/exits/${saved.id}`)).json();
     for (const key of ["manager", "it", "finance", "hr"]) { const changed = await request.patch(`${api}/api/v1/exits/${saved.id}/checklist/${key}`, { headers, data: { lock_version: row.lockVersion, status: key === "manager" ? "Not applicable" : "Cleared", note: "Synthetic clearance; no manager assigned" } }); expect(changed.ok(), await changed.text()).toBeTruthy(); row = await changed.json(); }
     headers = await login(request, "owner@example.com", "OwnerPass1!");
     const approved = await request.patch(`${api}/api/v1/exits/${saved.id}/checklist/approval`, { headers, data: { lock_version: row.lockVersion, status: "Cleared", note: "Independent OWNER approval" } }); expect(approved.ok(), await approved.text()).toBeTruthy(); row = await approved.json();
     const ready = await request.post(`${api}/api/v1/exits/${saved.id}/action`, { headers, data: { action: "ready", lock_version: row.lockVersion, comment: "Clearance reviewed" } }); expect(ready.ok(), await ready.text()).toBeTruthy();
     await closeDetails(page); await signOut(page, viewport.width); await signIn(page, "owner@example.com", "OwnerPass1!"); await page.goto("/exits?status=Ready+to+Close"); await page.getByRole("row").filter({ hasText: employee.employeeCode }).getByRole("button", { name: "View exit" }).click();
-    await page.getByRole("button", { name: "Complete exit", exact: true }).click(); await expect(page.getByText(/Completion deactivates this employee/)).toBeVisible(); await page.getByLabel("Reason / comment *").fill("Final completion after clearance"); await page.getByRole("button", { name: "Confirm decision" }).click(); await expect(page.getByRole("dialog").getByText("Completed", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Complete exit", exact: true }).click(); await expect(page.getByText(/Completion deactivates this employee/)).toBeVisible(); await page.getByLabel("Reason / comment *").fill("Final completion after clearance"); await captureViewportThemes(page, testInfo.outputPath(`exit-completion-confirmation-${viewport.width}.png`)); await page.getByRole("button", { name: "Confirm decision" }).click(); await expect(page.getByRole("dialog").getByText("Completed", { exact: true })).toBeVisible();
     await closeDetails(page); await selectBrandedOption(page.getByLabel("Status", { exact: true }), "Completed"); await expect(page).toHaveURL(/status=Completed/); await expect(page.getByRole("row").filter({ hasText: employee.employeeCode })).toBeVisible(); await page.reload(); await expect(page).toHaveURL(/status=Completed/); await expect(page.getByRole("row").filter({ hasText: employee.employeeCode })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
-    await page.screenshot({ path: testInfo.outputPath(`exit-completed-${viewport.width}.png`), fullPage: false });
+    await captureViewportThemes(page, testInfo.outputPath(`exit-completed-${viewport.width}.png`));
   });
 }

@@ -1,5 +1,6 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { selectBrandedOption } from "./helpers/select";
+import { captureViewportPair } from "./helpers/viewport-capture";
 
 const apiOrigin = `http://127.0.0.1:${process.env.PLAYWRIGHT_API_PORT ?? "8010"}`;
 const secret = process.env.BOOTSTRAP_SECRET ?? "nexa-test-bootstrap-secret";
@@ -47,15 +48,15 @@ async function signIn(page: Page, request: APIRequestContext) {
 }
 
 async function openFinance(page: Page) {
-  await page.getByRole("button", { name: "Finance menu" }).click();
-  await page.getByRole("complementary", { name: "Application sidebar" }).getByRole("link", { name: "Finance", exact: true }).click();
+  await page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "Finance", exact: true }).click();
+  await expect(page).toHaveURL(/\/finance(?:\?|$)/, { timeout: 30_000 });
 }
 
 test("Finance exposes only the approved Task 11 workflows and calculation modes", async ({
   page,
   request,
-}) => {
-  test.setTimeout(90_000);
+}, testInfo) => {
+  test.setTimeout(240_000);
   await signIn(page, request);
   await openFinance(page);
   await expect(page.getByRole("heading", { name: "Finance", exact: true })).toBeVisible();
@@ -67,6 +68,9 @@ test("Finance exposes only the approved Task 11 workflows and calculation modes"
   await expect(generateDialog).toContainText(new Date().toISOString().slice(0, 7));
   await generateDialog.getByRole("button", { name: "Generate payout" }).click();
   await expect(page.getByText("Payout period generated in Draft.")).toBeVisible();
+  await captureViewportPair(page, testInfo, "finance-draft-period");
+  await captureViewportPair(page, testInfo, "finance-adjustment", page.getByRole("heading", { name: "Adjustment", exact: true }));
+  await captureViewportPair(page, testInfo, "finance-clawback", page.getByRole("heading", { name: "Clawback", exact: true }));
   await page.getByRole("button", { name: "Export" }).click();
   const exportMenu = page.getByRole("menu");
   await expect(exportMenu.getByRole("menuitem")).toHaveText(["Excel", "PDF", "Print"]);
@@ -84,6 +88,7 @@ test("Finance exposes only the approved Task 11 workflows and calculation modes"
   await expect(ruleDrawer.getByText("3. Calculation Method")).toBeVisible();
   await expect(ruleDrawer.getByText("4. Recipient Split")).toBeVisible();
   await expect(ruleDrawer.getByText("Total split 100% / 100%")).toBeVisible();
+  await captureViewportPair(page, testInfo, "finance-commission-shared");
   const sharedCalculation = ruleDrawer.getByLabel(/^Calculation/).first();
   await sharedCalculation.click();
   await expect(page.getByRole("listbox").getByRole("option")).toHaveText([
@@ -99,6 +104,9 @@ test("Finance exposes only the approved Task 11 workflows and calculation modes"
   await ruleDrawer.getByRole("button", { name: "Add slab" }).click();
   await expect(ruleDrawer.getByLabel(/^Minimum eligible value/)).toBeVisible();
   await expect(ruleDrawer.getByLabel(/^Maximum eligible value \(optional\)/)).toBeVisible();
+  await captureViewportPair(page, testInfo, "finance-commission-slab");
+  await captureViewportPair(page, testInfo, "finance-commission-slab-fields", ruleDrawer.locator('section[aria-labelledby="rule-calculation"]'));
+  await captureViewportPair(page, testInfo, "finance-recipient-split", ruleDrawer.locator('section[aria-labelledby="rule-recipients"]'));
 
   await selectBrandedOption(ruleDrawer.getByLabel("Payout mode"), "independent_role_rate");
   const roleCalculation = ruleDrawer.getByLabel(/^Calculation/).first();
@@ -106,6 +114,8 @@ test("Finance exposes only the approved Task 11 workflows and calculation modes"
   await expect(ruleDrawer.getByLabel(/^Flat amount/)).toBeVisible();
   await expect(ruleDrawer.getByLabel(/^Rate %/)).toBeVisible();
   await expect(ruleDrawer.getByLabel(/^Authoritative Source/)).toHaveAttribute("value", "case_owner");
+  await captureViewportPair(page, testInfo, "finance-commission-independent");
+  await captureViewportPair(page, testInfo, "finance-independent-fields", ruleDrawer.locator('section[aria-labelledby="rule-recipients"]'));
   await expect(ruleDrawer.getByText("Team Leader", { exact: true })).toHaveCount(0);
   await expect(ruleDrawer.getByText("Designation", { exact: true })).toHaveCount(0);
   await ruleDrawer.getByRole("button", { name: "Close drawer" }).click();
@@ -120,10 +130,13 @@ test("Finance exposes only the approved Task 11 workflows and calculation modes"
   await incentiveDrawer.getByRole("button", { name: "Add slab" }).click();
   await expect(incentiveDrawer.getByLabel(/^Minimum production/).first()).toBeVisible();
   await expect(incentiveDrawer.getByRole("button", { name: "Create Draft" })).toBeDisabled();
+  await captureViewportPair(page, testInfo, "finance-incentive-slabs");
+  await captureViewportPair(page, testInfo, "finance-incentive-slab-fields", incentiveDrawer.locator('section[aria-labelledby="plan-slabs"]'));
 
   await page.setViewportSize({ width: 390, height: 844 });
   const drawerBox = await incentiveDrawer.boundingBox();
-  expect(drawerBox?.width).toBeGreaterThanOrEqual(389);
+  expect(drawerBox?.width).toBe(366);
+  expect(drawerBox?.x).toBe(12);
   expect(
     await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth),
   ).toBeTruthy();

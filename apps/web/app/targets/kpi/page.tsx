@@ -17,11 +17,7 @@ import {
   PageHeader,
   Select,
   StatusBadge,
-  TableHead,
-  TableShell,
-  Td,
   TextInput,
-  Th,
   cx,
 } from "@/components/ui";
 import { apiGet, apiRequest, ApiClientError } from "@/lib/api";
@@ -384,28 +380,21 @@ export default function KpiScorecardsPage() {
             </EmptyState>
           ) : (
             <>
-              <TableShell className="rounded-b-none">
-                <TableHead>
-                  <tr>
-                    <Th>Name</Th>
-                    <Th>Status</Th>
-                    <Th>Weight</Th>
-                    <Th>Metrics</Th>
-                    <Th>Actions</Th>
-                  </tr>
-                </TableHead>
-                <tbody>
+              <div className="grid gap-3 lg:grid-cols-2" aria-label="Configured scorecards">
                   {pagination.pagedItems.map((item) => (
-                    <tr key={item.id}>
-                      <Td className="font-medium text-slate-900">{item.name}</Td>
-                      <Td><StatusBadge value={item.status} /></Td>
-                      <Td>
+                    <article key={item.id} className="flex min-w-0 flex-col gap-4 rounded-[18px] bg-surface-subtle p-4">
+                      <header className="flex flex-wrap items-start justify-between gap-2"><h3 className="text-[17px] font-medium text-text-primary">{item.name}</h3>
+                      <StatusBadge value={item.status} /></header>
+                      <div className="rounded-xl bg-surface p-3">
+                        <p className="mb-2 text-xs text-text-secondary">Metric weight</p>
                         <div className="flex items-center gap-2">
                           <span className="font-medium text-slate-900">{item.weightTotal}%</span>
                           <Badge tone={item.weightValid ? "green" : "amber"}>{item.weightValid ? "Complete" : "Incomplete"}</Badge>
                         </div>
-                      </Td>
-                      <Td>
+                        <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-surface-subtle" aria-hidden="true"><div className="h-full rounded-full bg-[image:var(--amafh-gradient)]" style={{ width: `${Math.min(100, Math.max(0, Number(item.weightTotal)))}%` }} /></div>
+                      </div>
+                      <div>
+                        <p className="mb-2 text-xs text-text-secondary">Configured metrics</p>
                         <div className="flex max-w-2xl flex-wrap gap-1.5">
                           {item.metrics.map((metric) => (
                             <Badge key={metric.id ?? metric.metricCode} tone="neutral">
@@ -413,8 +402,8 @@ export default function KpiScorecardsPage() {
                             </Badge>
                           ))}
                         </div>
-                      </Td>
-                      <Td>
+                      </div>
+                      <footer className="mt-auto border-t border-brand-border pt-3">
                         <div className="flex flex-wrap gap-1.5">
                           {can("Targets.Edit") ? (
                             <Button type="button" variant="secondary" size="compact" onClick={() => openEdit(item)}>
@@ -433,11 +422,10 @@ export default function KpiScorecardsPage() {
                             </Button>
                           ) : null}
                         </div>
-                      </Td>
-                    </tr>
+                      </footer>
+                    </article>
                   ))}
-                </tbody>
-              </TableShell>
+              </div>
               <Pagination
                 className="rounded-t-none border-t-0"
                 page={pagination.page}
@@ -454,8 +442,8 @@ export default function KpiScorecardsPage() {
 
       {editorOpen ? (
         <div className="fixed inset-0 z-50" role="presentation">
-          <button type="button" className="absolute inset-0 bg-slate-950/40" aria-label="Close scorecard drawer" onClick={requestCloseEditor} />
-          <aside role="dialog" aria-modal="true" aria-labelledby="scorecard-editor-title" className="absolute inset-y-0 right-0 flex w-full flex-col overflow-hidden border-l border-slate-200 bg-white shadow-2xl sm:max-w-4xl">
+          <button type="button" className="absolute inset-0 bg-black/40 backdrop-blur-sm" aria-label="Close scorecard drawer" onClick={requestCloseEditor} />
+          <aside role="dialog" aria-modal="true" aria-labelledby="scorecard-editor-title" className="absolute inset-y-3 right-3 flex w-[calc(100%-24px)] flex-col overflow-hidden rounded-[24px] border border-brand-border bg-surface shadow-2xl sm:max-w-4xl">
             <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-4 py-4 sm:px-6">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">{editorMode === "edit" ? "Edit configuration" : "New configuration"}</p>
@@ -511,10 +499,10 @@ export default function KpiScorecardsPage() {
                     const selectedDefinition = catalogByCode.get(row.metricCode);
                     const milestoneMetric = milestoneMetricCodes.has(row.metricCode);
                     return (
-                      <section key={`${row.id ?? row.metricCode}-${index}`} className="rounded-lg border border-slate-200 bg-white p-3" aria-labelledby={`metric-${index + 1}-title`}>
+                      <section key={`${row.id ?? row.metricCode}-${index}`} className="rounded-lg border border-slate-200 bg-surface p-3" aria-labelledby={`metric-${index + 1}-title`}>
                         <div className="mb-3 flex items-center justify-between gap-3">
                           <div className="flex min-w-0 items-center gap-2">
-                            <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-slate-900 text-xs font-semibold text-white">{index + 1}</span>
+                            <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-action text-xs font-semibold text-action-text">{index + 1}</span>
                             <div className="min-w-0">
                               <h3 id={`metric-${index + 1}-title`} className="truncate text-sm font-semibold text-slate-900">{selectedDefinition?.label ?? "Metric"}</h3>
                               <p className="truncate text-xs text-slate-500">{row.metricCode}</p>
@@ -578,7 +566,7 @@ export default function KpiScorecardsPage() {
               <ErrorText>{error}</ErrorText>
             </div>
 
-            <div className="sticky bottom-0 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 bg-white px-4 py-3 sm:px-6">
+            <div className="sticky bottom-0 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 bg-surface px-4 py-3 sm:px-6">
               <p className="text-xs text-slate-500">{editorDirty ? "You have unsaved changes." : "No unsaved changes."}</p>
               <div className="flex items-center gap-2">
                 <Button type="button" variant="secondary" disabled={saving} onClick={requestCloseEditor}>Cancel</Button>

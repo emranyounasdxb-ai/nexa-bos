@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { captureViewportThemes } from "./helpers/viewport-capture";
 
 const api = `http://127.0.0.1:${process.env.PLAYWRIGHT_API_PORT ?? "8010"}`;
 for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
@@ -39,7 +40,7 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
       const reason = page.getByLabel("Reason", { exact: false }); await expect(reason).toBeFocused();
       await expect(dialog.getByText("Enter a reason for terminating sessions.")).toBeVisible();
       await reason.fill("Reviewed disposable session revocation");
-      await page.screenshot({ path: info.outputPath(`session-confirmation-${viewport.width}.png`), fullPage: false });
+      await captureViewportThemes(page, info.outputPath(`session-confirmation-${viewport.width}.png`));
       const response = page.waitForResponse(result => result.url().endsWith(`/users/${user.id}/terminate-sessions`) && result.request().method() === "POST");
       await dialog.getByRole("button", { name: "Terminate sessions", exact: true }).click();
       expect((await response).status()).toBe(200);

@@ -1,5 +1,7 @@
 "use client";
 
+import { RecordFrame } from "@/components/page-patterns";
+
 import { useState } from "react";
 import { HrWorkflowSummary } from "@/components/hr-workflow-summary";
 
@@ -44,20 +46,21 @@ export default function AccountPage() {
   }
 
   return (
-    <section className="max-w-lg space-y-4">
-      <HrWorkflowSummary personal />
+    <section className="min-w-0 space-y-4">
       <PageHeader
         title="My profile"
         description="You can change only your mobile number and profile photo. Other fields require Users.Edit."
         actions={<ButtonLink href={`/users/${user.id}`}>View employee profile</ButtonLink>}
       />
-      <Card className="text-sm">
+      <RecordFrame summary={
+      <Card className="text-sm space-y-2">
         <p>
           <strong>{user.fullName}</strong> · {user.userCode}
         </p>
         <p>{user.email}</p>
         <p>{user.userType?.name ?? "No user type"}</p>
       </Card>
+      }>
       <Card>
         <form onSubmit={(event) => void saveMobile(event)} className="grid gap-3">
           <label className="text-sm">
@@ -67,16 +70,18 @@ export default function AccountPage() {
           <Button type="submit">Save mobile</Button>
         </form>
       </Card>
-      <label className="block rounded-xl border border-slate-200 bg-white p-5 text-sm">
+      <label className="block rounded-xl border border-slate-200 bg-surface p-5 text-sm">
         Profile photo
         <input
-          className={`mt-2 block ${focusRing}`}
+          className={`mt-2 block max-w-full ${focusRing}`}
           type="file"
           accept="image/png,image/jpeg,image/webp"
           onChange={(event) => void uploadPhoto(event)}
         />
       </label>
       {message ? <p className="text-sm text-slate-700">{message}</p> : null}
+      </RecordFrame>
+      <HrWorkflowSummary personal />
     </section>
   );
 }

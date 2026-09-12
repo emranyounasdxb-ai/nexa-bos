@@ -1,5 +1,7 @@
 "use client";
 
+import { ConfigurationWorkspace } from "@/components/page-patterns";
+
 import { useCallback, useEffect, useState } from "react";
 
 import { DateRangePicker } from "@/components/date-picker";
@@ -7,6 +9,7 @@ import {
   Button,
   Card,
   ErrorText,
+  EmptyState,
   FilterBar,
   PageHeader,
   Select,
@@ -100,6 +103,7 @@ export default function ComparePage() {
   return (
     <section className="space-y-4">
       <PageHeader title="Comparisons" description="Compare entities or periods within reporting scope." />
+      <ConfigurationWorkspace controls={
       <FilterBar>
         <label className="text-sm">
           Comparison type
@@ -200,6 +204,7 @@ export default function ComparePage() {
           </Button>
         </div>
       </FilterBar>
+      }>
       <ErrorText>{error}</ErrorText>
       {result ? (
         <Card>
@@ -233,7 +238,8 @@ export default function ComparePage() {
             </div>
           </dl>
         </Card>
-      ) : null}
+      ) : <Card><EmptyState>Choose the entities or periods, then run Compare to see their authoritative results.</EmptyState></Card>}
+      </ConfigurationWorkspace>
     </section>
   );
 }

@@ -1,0 +1,26 @@
+.workingDays { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; padding: 20px; border-radius: 20px; background: var(--amafh-surface); }
+.workingDays h3 { width: 100%; font-size: 17px; }
+.dayChoices { display: flex; flex-wrap: wrap; gap: 8px; flex: 1; }
+.dayChoices label { display: flex; align-items: center; padding: 8px 12px; border-radius: 12px; background: var(--amafh-subtle); }
+.dayChoices label:has(input:checked) { background: var(--amafh-brand-soft); }
+.dayChoices input { accent-color: var(--amafh-primary); }
+.records { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+@media (max-width: 639px) {
+  .workingDays { padding: 16px; }
+  .dayChoices { flex-basis: 100%; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .records { border: 0; overflow: visible; background: transparent; }
+  .records table, .records tbody { display: block; width: 100%; min-width: 0; }
+  .records thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .records tbody tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding: 16px; margin-bottom: 12px; border-radius: 20px; border: 0; background: var(--amafh-surface); }
+  .records tbody td { display: block; min-width: 0; padding: 0; overflow-wrap: anywhere; }
+  .records tbody td:first-child, .records tbody td:last-child { grid-column: 1 / -1; }
+  .records tbody td:first-child { font-weight: 500; }
+  .records tbody td:nth-child(2)::before { content: "Kind"; }
+  .records tbody td:nth-child(3)::before { content: "Start"; }
+  .records tbody td:nth-child(4)::before { content: "End"; }
+  .records tbody td:nth-child(5)::before { content: "Grace minutes"; }
+  .records tbody td:nth-child(6)::before { content: "Ramadan dates"; }
+  .records tbody td::before { display: block; font-size: 12px; color: var(--amafh-text-secondary); }
+  .records tbody td[colspan] { grid-column: 1 / -1; }
+  .records tbody td[colspan]::before { content: none; }
+}

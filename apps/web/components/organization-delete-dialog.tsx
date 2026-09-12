@@ -55,7 +55,7 @@ export function OrganizationDeleteDialog({ endpoint, api, item, trigger, onClose
   }
 
   return <dialog ref={dialog} aria-labelledby="org-delete-title" aria-describedby="org-delete-description"
-    className="fixed inset-0 m-auto max-h-[90dvh] w-[calc(100%_-_24px)] max-w-lg overflow-y-auto rounded-lg border border-brand-border bg-surface p-4 text-text-primary shadow-[var(--amafh-shadow-elevated)] backdrop:bg-slate-950/40"
+    className="fixed inset-0 m-auto max-h-[calc(100dvh_-_32px)] w-[calc(100%_-_32px)] max-w-lg overflow-y-auto rounded-[24px] border border-brand-border bg-surface p-5 text-text-primary shadow-[var(--amafh-shadow-elevated)] backdrop:bg-[#100916]/65 backdrop:backdrop-blur-sm"
     onKeyDown={(event) => {
       if (event.key !== "Tab") return;
       const controls = Array.from(event.currentTarget.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), [tabindex="0"]'));
@@ -66,11 +66,11 @@ export function OrganizationDeleteDialog({ endpoint, api, item, trigger, onClose
     }}
     onCancel={(event) => { event.preventDefault(); if (!requestPending.current) onClose(); }}>
     <header className="flex items-start justify-between gap-3">
-      <h2 id="org-delete-title" className="text-lg font-semibold">Delete organization master</h2>
+      <h2 id="org-delete-title" className="text-[17px] font-semibold">Delete organization master</h2>
       <Button type="button" variant="ghost" disabled={saving} onClick={onClose} aria-label="Close delete dialog">Close</Button>
     </header>
-    <p id="org-delete-description" className="mt-2 break-words text-sm">Permanently delete <strong>{item.name}</strong> (<span className="font-mono">{item.code}</span>) only if unused. Name history and audit evidence are retained. This cannot be undone.</p>
-    <div className="my-3 text-sm" role="status">
+    <p id="org-delete-description" className="mt-4 rounded-2xl bg-danger-soft p-3 break-words text-sm text-danger">Permanently delete <strong>{item.name}</strong> (<span className="font-mono">{item.code}</span>) only if unused. Name history and audit evidence are retained. This cannot be undone.</p>
+    <div className="my-3 rounded-2xl bg-surface-subtle p-3 text-sm" role="status">
       {!preview && !error ? "Checking dependencies…" : preview?.canDelete ? "No usage dependencies found. The server will check again when deleting." : preview ? <><p className="font-semibold">Deletion is blocked by:</p><ul className="mt-1 list-inside list-disc">{preview.dependencies.map((entry) => <li key={entry.type}>{entry.type.replaceAll("_", " ")}: {entry.count}</li>)}</ul><p className="mt-2">Use Deactivate where permitted.</p></> : null}
     </div>
     <form className="space-y-3" onSubmit={(event) => { event.preventDefault(); void remove(); }}>

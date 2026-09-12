@@ -99,14 +99,14 @@ export function CreateUserDialog() {
 
   if (!visible) return null;
   return (
-    <div data-testid="create-user-modal-backdrop" className="fixed inset-0 z-[70] flex items-end justify-center bg-slate-950/45 sm:items-center sm:p-4" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) close(); }}>
-      <section ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="create-user-dialog-title" className="flex max-h-[95dvh] w-full min-w-0 flex-col rounded-t-lg border border-brand-border bg-surface shadow-[var(--amafh-shadow-elevated)] sm:max-h-[90vh] sm:max-w-xl sm:rounded-lg">
+    <div data-testid="create-user-modal-backdrop" className="fixed inset-0 z-[70] flex items-center justify-center bg-[#17101f]/45 p-4 backdrop-blur-sm" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) close(); }}>
+      <section ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="create-user-dialog-title" className="flex max-h-[calc(100dvh-2rem)] w-full min-w-0 flex-col overflow-hidden rounded-[24px] border border-brand-border bg-surface shadow-[var(--amafh-shadow-elevated)] sm:max-w-xl">
         <header className="flex shrink-0 items-center justify-between gap-3 border-b border-brand-border px-4 py-3">
           <h2 id="create-user-dialog-title" className="text-lg font-semibold">Create User</h2>
           <Button data-dialog-close="" type="button" variant="ghost" size="compact" disabled={submitting} aria-label="Close Create User" onClick={close}>Close</Button>
         </header>
         <form noValidate onSubmit={(event) => void submit(event)} className="flex min-h-0 flex-col">
-          <div data-testid="create-user-form-body" className="grid min-h-0 gap-3 overflow-y-auto overscroll-contain p-4 sm:grid-cols-2">
+          <div data-testid="create-user-form-body" className="grid min-h-0 gap-4 overflow-y-auto overscroll-contain p-5 sm:grid-cols-2">
             {FIELDS.map(({ name, label, type, complete, max }) => {
               const id = name.replaceAll("_", "-");
               return <div key={name} className="min-w-0">
@@ -115,7 +115,7 @@ export function CreateUserDialog() {
                 {errors[name] ? <p id={`${id}-error`} role="alert" className="mt-1 text-xs text-danger">{errors[name]}</p> : null}
               </div>;
             })}
-            <div className="min-w-0"><label htmlFor="user-code" className="block text-sm font-medium">User Code</label><TextInput id="user-code" readOnly value={userCode} placeholder="Reserving…" aria-busy={!userCode} /></div>
+            <div className="min-w-0 rounded-xl bg-surface-subtle p-3 sm:col-span-2"><label htmlFor="user-code" className="block text-sm font-medium">User Code</label><TextInput id="user-code" readOnly value={userCode} placeholder="Reserving…" aria-busy={!userCode} /></div>
           </div>
           {error ? <div className="px-4 pb-3"><ErrorText>{error}</ErrorText></div> : null}
           <footer className="flex shrink-0 justify-end gap-2 border-t border-brand-border px-4 py-3">

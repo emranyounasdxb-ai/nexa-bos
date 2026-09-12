@@ -1,5 +1,8 @@
 "use client";
 
+import { ListWorkspace } from "@/components/page-patterns";
+import styles from "./attendance.module.css";
+
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -269,8 +272,9 @@ export default function AttendancePage() {
           </>
         }
       />
-      <FilterBar>
-        <label className="text-sm">
+      <ListWorkspace title="Daily register" filters={
+      <FilterBar className="!grid-cols-2 sm:!grid-cols-3">
+        <label className="col-span-2 text-sm sm:col-span-1">
           Date
           <DatePicker aria-label="Attendance date" value={date} onChange={(value) => { setDate(value); setPage(1); }} required />
         </label>
@@ -305,12 +309,13 @@ export default function AttendancePage() {
           </Select>
         </label>
       </FilterBar>
+      }>
       {holiday ? <p className="text-sm font-medium text-slate-800">Official Holiday: {holiday.name}</p> : null}
       {weeklyOff ? <p className="text-sm font-medium text-slate-800">Weekly Off</p> : null}
       <ErrorText>{error}</ErrorText>
       {message ? <p className="text-sm text-slate-600">{message}</p> : null}
       {loading ? <p className="text-sm text-slate-500">Loading…</p> : null}
-      <TableShell>
+      <TableShell className={styles.register}>
         <TableHead>
           <tr>
             <Th>Employee</Th>
@@ -373,6 +378,7 @@ export default function AttendancePage() {
                     ) : null}
                   </Td>
                   <Td>
+                    <span className="mb-1 block text-xs text-text-secondary sm:hidden">Time in</span>
                     <input
                       aria-label={`${item.fullName} time in`}
                       type="time"
@@ -383,6 +389,7 @@ export default function AttendancePage() {
                     />
                   </Td>
                   <Td>
+                    <span className="mb-1 block text-xs text-text-secondary sm:hidden">Time out</span>
                     <input
                       aria-label={`${item.fullName} time out`}
                       type="time"
@@ -404,6 +411,7 @@ export default function AttendancePage() {
                     </div>
                   </Td>
                   <Td>
+                    <span className="mb-1 block text-xs text-text-secondary sm:hidden">Notes</span>
                     <input
                       aria-label={`${item.fullName} notes`}
                       className={`${controlClass} !min-h-8 !py-1 text-xs`}
@@ -465,7 +473,7 @@ export default function AttendancePage() {
         }}
       />
       {correcting ? (
-        <div className="rounded-xl border border-slate-200 bg-white p-4">
+        <div className="rounded-xl border border-slate-200 bg-surface p-4">
           <h3 className="text-lg font-semibold">Correct attendance</h3>
           <p className="mt-1 text-sm text-slate-600">
             Correction reason is required. Previous values are kept in immutable history.
@@ -503,6 +511,7 @@ export default function AttendancePage() {
           </Link>
         </p>
       ) : null}
+      </ListWorkspace>
     </section>
   );
 }

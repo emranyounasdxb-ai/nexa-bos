@@ -38,10 +38,11 @@ async function signIn(page: Page, request: APIRequestContext) {
 }
 
 function todayIso(): string {
+  // The Playwright browser is explicitly UTC; the host may be in Dubai.
   const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
+  const year = now.getUTCFullYear();
+  const month = String(now.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(now.getUTCDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
 }
 
@@ -212,7 +213,7 @@ test("application filters use the compact responsive grid without resizing contr
   const layouts = [
     { width: 1824, height: 1000, columns: 6, maxCardHeight: 300 },
     { width: 1440, height: 900, columns: 6, maxCardHeight: 160 },
-    { width: 390, height: 844, columns: 1, maxCardHeight: 520 },
+    { width: 390, height: 844, columns: 2, maxCardHeight: 520 },
   ];
 
   for (const layout of layouts) {

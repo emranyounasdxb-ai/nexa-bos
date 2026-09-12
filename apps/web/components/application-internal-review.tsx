@@ -66,7 +66,7 @@ export function ApplicationInternalReview({ applicationId, state, requestedAmoun
         {state.actions.includes("resubmit") && <Button variant="secondary" disabled={busy} onClick={event => open("correct", event.currentTarget)}>Correct requested amount</Button>}
       </div>
     </Card>
-    <dialog ref={dialog} aria-labelledby="review-confirm-title" aria-describedby="review-confirm-description" onCancel={event => { event.preventDefault(); close(); }} className="m-auto w-[calc(100%_-_2rem)] max-w-md rounded-xl border border-brand-border bg-surface p-4 text-text-primary shadow-xl backdrop:bg-black/40">
+    <dialog ref={dialog} aria-labelledby="review-confirm-title" aria-describedby="review-confirm-description" onCancel={event => { event.preventDefault(); close(); }} className="m-auto max-h-[calc(100dvh_-_32px)] w-[calc(100%_-_2rem)] max-w-md overflow-y-auto rounded-[24px] border border-brand-border bg-surface p-5 text-text-primary shadow-xl backdrop:bg-[#100916]/65 backdrop:backdrop-blur-sm">
       <form onSubmit={event => { event.preventDefault(); void confirm(); }}>
         <h2 id="review-confirm-title" className="text-lg font-semibold">{action && labels[action]}</h2>
         <p id="review-confirm-description" className="mt-2 text-sm text-text-secondary">{action === "return" ? "Return to the original SE for correction. A reason is required and recorded permanently." : action === "forward" ? "Send to the assigned office COD for bank processing. The SE cannot edit while forwarded." : action === "resubmit" ? "Send the corrected case back to the same TL for review." : "Correct the requested amount before resubmitting. This change is audited."}</p>

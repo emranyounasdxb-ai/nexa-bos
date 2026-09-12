@@ -1,5 +1,7 @@
 "use client";
 
+import { RecordFrame } from "@/components/page-patterns";
+
 import { useParams } from "next/navigation";
 import {
   useCallback,
@@ -309,6 +311,7 @@ export default function AssetDetailPage() {
       {error ? <ErrorText>{error}</ErrorText> : null}
       {message ? <p role="status" className="text-sm font-medium text-success">{message}</p> : null}
 
+      <RecordFrame summary={
       <Card>
         <SectionHeader title="Asset identity and custody" description="Current operational state at a glance." />
         <dl className="mt-3 grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -318,6 +321,7 @@ export default function AssetDetailPage() {
           <Detail label="Primary identity">{asset.serialNumber ?? asset.imei ?? asset.iccid ?? asset.mobileNumber ?? asset.model ?? "—"}</Detail>
         </dl>
       </Card>
+      }>
 
       <div className="grid min-w-0 grid-cols-2 gap-1 rounded-[10px] border border-brand-border bg-surface p-1 sm:grid-cols-4" role="tablist" aria-label="Asset workspace">
         {TABS.map((tab, index) => (
@@ -331,7 +335,7 @@ export default function AssetDetailPage() {
             tabIndex={activeTab === tab.id ? 0 : -1}
             className={cx(
               "h-8 min-w-0 rounded-md px-2 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary",
-              activeTab === tab.id ? "bg-brand-primary text-white" : "text-text-secondary hover:bg-brand-soft hover:text-brand-primary",
+              activeTab === tab.id ? "bg-brand-fill text-white" : "text-text-secondary hover:bg-brand-soft hover:text-brand-primary",
             )}
             onClick={() => selectTab(tab.id)}
             onKeyDown={(event) => handleTabKey(event, index)}
@@ -346,7 +350,7 @@ export default function AssetDetailPage() {
           <div className="space-y-4">
             <Card>
               <SectionHeader title="Master data" description="Identifiers and descriptive details recorded for this Asset." />
-              <dl className="mt-3 grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <dl className="mt-3 grid min-w-0 grid-cols-2 gap-3 lg:grid-cols-3">
                 <Detail label="Brand">{asset.brand ?? "—"}</Detail>
                 <Detail label="Model">{asset.model ?? "—"}</Detail>
                 <Detail label="Serial / Service Tag">{asset.serialNumber ?? "—"}</Detail>
@@ -578,6 +582,7 @@ export default function AssetDetailPage() {
           </section>
         </div>
       ) : null}
+      </RecordFrame>
     </section>
   );
 }

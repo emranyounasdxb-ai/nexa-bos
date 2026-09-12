@@ -45,20 +45,16 @@ export default function BootstrapPage() {
       title="First-time OWNER setup"
       description="Requires the one-time bootstrap secret. After OWNER is created, this flow is permanently disabled."
     >
-      <form onSubmit={(event) => void onSubmit(event)} className="mt-6 grid gap-3">
-        {(
-          [
-            ["secret", "Bootstrap secret", "password"],
-            ["full_name", "Full name", "text"],
-            ["employee_code", "Employee code", "text"],
-            ["email", "Email", "email"],
-            ["mobile", "Mobile", "text"],
-            ["password", "Password", "password"],
-            ["designation_name", "Designation name", "text"],
-            ["designation_code", "Designation code", "text"],
-          ] as const
-        ).map(([name, label, type]) => (
-          <label key={name} className="block text-sm">
+      <form onSubmit={(event) => void onSubmit(event)} className="mt-6 grid gap-4">
+        {([
+          { title: "Secure access", fields: [["secret", "Bootstrap secret", "password"], ["password", "Password", "password"]] },
+          { title: "OWNER identity", fields: [["full_name", "Full name", "text"], ["employee_code", "Employee code", "text"], ["email", "Email", "email"], ["mobile", "Mobile", "text"]] },
+          { title: "Designation", fields: [["designation_name", "Designation name", "text"], ["designation_code", "Designation code", "text"]] },
+        ] as const).map((group) => (
+          <fieldset key={group.title} className="grid min-w-0 gap-3 rounded-2xl bg-surface-subtle p-3 sm:grid-cols-2">
+          <legend className="px-1 text-[17px] font-medium">{group.title}</legend>
+          {group.fields.map(([name, label, type]) => (
+          <label key={name} className="block min-w-0 text-sm">
             {label}
             <TextInput
               type={type}
@@ -67,7 +63,11 @@ export default function BootstrapPage() {
               required
             />
           </label>
+          ))}
+          </fieldset>
         ))}
+        <fieldset className="grid min-w-0 grid-cols-2 gap-3 rounded-2xl bg-surface-subtle p-3">
+        <legend className="px-1 text-[17px] font-medium">Employment</legend>
         <label className="block text-sm">
           Joining date
           <DatePicker
@@ -88,6 +88,7 @@ export default function BootstrapPage() {
             <option>Notice Period</option>
           </Select>
         </label>
+        </fieldset>
         <ErrorText>{error}</ErrorText>
         <Button type="submit">Create OWNER</Button>
       </form>
