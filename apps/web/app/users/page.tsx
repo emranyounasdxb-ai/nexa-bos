@@ -114,16 +114,16 @@ function UsersDirectory() {
         searchTimer.current = null;
       }
       const params = new URLSearchParams(searchParams.toString());
-      // Apply pending search together with a filter/page-size action, rather than
-      // letting its older debounce replace that navigation afterward.
+      for (const [key, value] of Object.entries(updates)) {
+        if (value) params.set(key, value);
+        else params.delete(key);
+      }
+      // A pending search starts a new result set. Apply its page reset last so
+      // pagination from the old results cannot override it; retain page size.
       if (!("q" in updates) && searchDraft !== query) {
         if (searchDraft.trim()) params.set("q", searchDraft.trim());
         else params.delete("q");
         params.delete("page");
-      }
-      for (const [key, value] of Object.entries(updates)) {
-        if (value) params.set(key, value);
-        else params.delete(key);
       }
       const destination = params.size ? `/users?${params.toString()}` : "/users";
       if (mode === "replace") router.replace(destination, { scroll: false });

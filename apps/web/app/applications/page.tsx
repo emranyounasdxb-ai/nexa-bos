@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { ApplicationCreateDialog } from "@/components/application-create-dialog";
@@ -89,6 +89,12 @@ function ApplicationsPageInner() {
   const [banks, setBanks] = useState<CatalogItem[]>([]);
   const [products, setProducts] = useState<CatalogItem[]>([]);
   const [stages, setStages] = useState<Array<{ id: string; code: string; name: string }>>([]);
+  // List responses must not restart the open dialog's focus-management effect.
+  const closeCreate = useCallback(() => {
+    setCreateOpen(false);
+    if (searchParams.get("create") === "true") router.replace("/applications");
+    window.setTimeout(() => document.getElementById("create-application-trigger")?.focus(), 0);
+  }, [router, searchParams]);
 
   useEffect(() => {
     void Promise.all([
@@ -393,11 +399,7 @@ function ApplicationsPageInner() {
       />
       <ApplicationCreateDialog
         open={createOpen}
-        onClose={() => {
-          setCreateOpen(false);
-          if (searchParams.get("create") === "true") router.replace("/applications");
-          window.setTimeout(() => document.getElementById("create-application-trigger")?.focus(), 0);
-        }}
+        onClose={closeCreate}
         onCreated={(created) => {
           setCreateOpen(false);
           if (searchParams.get("create") === "true") router.replace("/applications");
