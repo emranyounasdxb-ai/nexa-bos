@@ -245,39 +245,39 @@ test("owner can log in, navigate major screens, sign out, and log in again", asy
   test.setTimeout(150_000);
   await signIn(page, request);
   await openGroup(page, "People");
-  await page.getByRole("link", { name: "Users", exact: true }).click();
+  await page.getByRole("complementary", { name: "Application sidebar" }).getByRole("link", { name: "Users", exact: true }).click();
   await expect(page.getByRole("link", { name: "USR-000001" })).toBeVisible();
   await expect(page.getByLabel("Authenticator code")).toHaveCount(0);
 
   await openGroup(page, "Operations");
-  await page.getByRole("link", { name: "Customers", exact: true }).click();
+  await page.getByRole("complementary", { name: "Application sidebar" }).getByRole("link", { name: "Customers", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Customers", exact: true })).toBeVisible();
 
   await openGroup(page, "Operations");
-  await page.getByRole("link", { name: "Applications", exact: true }).click();
+  await page.getByRole("complementary", { name: "Application sidebar" }).getByRole("link", { name: "Applications", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Applications" })).toBeVisible();
 
   await openGroup(page, "Operations");
-  await page.getByRole("link", { name: "Workflows" }).click();
+  await page.getByRole("complementary", { name: "Application sidebar" }).getByRole("link", { name: "Workflows" }).click();
   await expect(page.getByRole("heading", { name: "Workflow Designer" })).toBeVisible();
 
   await page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "Dashboard", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
 
   await openGroup(page, "Performance");
-  await page.getByRole("link", { name: "Reports", exact: true }).click();
+  await page.getByRole("complementary", { name: "Application sidebar" }).getByRole("link", { name: "Reports", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Comparisons" })).toBeVisible();
 
   await openGroup(page, "People");
-  await page.getByRole("link", { name: "Attendance", exact: true }).click();
+  await page.getByRole("complementary", { name: "Application sidebar" }).getByRole("link", { name: "Attendance", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Attendance" })).toBeVisible();
 
   await openGroup(page, "Performance");
-  await page.getByRole("link", { name: "Targets", exact: true }).click();
+  await page.getByRole("complementary", { name: "Application sidebar" }).getByRole("link", { name: "Targets", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Targets" })).toBeVisible();
 
   await openGroup(page, "Finance");
-  await page.getByRole("link", { name: "Finance", exact: true }).click();
+  await page.getByRole("complementary", { name: "Application sidebar" }).getByRole("link", { name: "Finance", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Finance", exact: true })).toBeVisible();
 
   await expect(page.getByRole("link", { name: "Notifications", exact: true })).toHaveCount(0);
@@ -285,27 +285,27 @@ test("owner can log in, navigate major screens, sign out, and log in again", asy
   await expect(page.getByRole("heading", { name: "Notifications" })).toBeVisible();
 
   await openGroup(page, "Assets");
-  await page.getByRole("link", { name: "Assets", exact: true }).click();
+  await page.getByRole("complementary", { name: "Application sidebar" }).getByRole("link", { name: "Assets", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Asset Register" })).toBeVisible();
 
   await openGroup(page, "Administration");
-  await page.getByRole("link", { name: "User types" }).click();
+  await page.getByRole("complementary", { name: "Application sidebar" }).getByRole("link", { name: "User types" }).click();
   await expect(page.getByRole("heading", { name: "User types" })).toBeVisible();
 
   await openGroup(page, "People");
-  await page.getByRole("link", { name: "Organization" }).click();
+  await page.getByRole("complementary", { name: "Application sidebar" }).getByRole("link", { name: "Organization" }).click();
   await expect(page.getByRole("heading", { name: "Organization masters" })).toBeVisible();
 
   await openGroup(page, "People");
-  await page.getByRole("link", { name: "Hierarchy", exact: true }).click();
+  await page.getByRole("complementary", { name: "Application sidebar" }).getByRole("link", { name: "Hierarchy", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Organization hierarchy" })).toBeVisible();
 
   await openGroup(page, "Administration");
-  await page.getByRole("link", { name: "Banks & products" }).click();
+  await page.getByRole("complementary", { name: "Application sidebar" }).getByRole("link", { name: "Banks & products" }).click();
   await expect(page.getByRole("heading", { name: "Banks and products" })).toBeVisible();
 
   await openGroup(page, "Administration");
-  await page.getByRole("link", { name: "Security" }).click();
+  await page.getByRole("complementary", { name: "Application sidebar" }).getByRole("link", { name: "Security" }).click();
   await expect(page).toHaveURL(/\/security/);
   await expect(page.getByRole("heading", { name: "Security settings" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Save" })).toBeVisible({ timeout: 15_000 });

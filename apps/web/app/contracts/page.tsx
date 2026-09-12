@@ -462,7 +462,7 @@ export default function ContractsPage() {
         ownContract ? (
           <Card className="space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="text-base font-semibold">My active contract</h2>
+              <h2 className="text-[length:var(--amafh-text-section)] font-semibold">My active contract</h2>
               <StatusBadge value={ownContract.status} />
             </div>
             {renderSummary(ownContract)}
@@ -511,7 +511,7 @@ export default function ContractsPage() {
       {!loading && activeTab === "settings" ? (
         <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.7fr)]">
           <Card className="space-y-3">
-            <h2 className="text-base font-semibold">Configured contract types</h2>
+            <h2 className="text-[length:var(--amafh-text-section)] font-semibold">Configured contract types</h2>
             {types.length ? types.map((item) => (
               <div key={item.id} className="flex items-start justify-between gap-3 border-t border-brand-border pt-3 first:border-0 first:pt-0">
                 <div><p className="font-medium">{item.name}</p><p className="text-xs text-text-secondary">{item.code}{item.description ? ` · ${item.description}` : ""}</p></div>
@@ -521,7 +521,7 @@ export default function ContractsPage() {
           </Card>
           <Card>
             <form className="space-y-3" onSubmit={createType}>
-              <h2 className="text-base font-semibold">Add contract type</h2>
+              <h2 className="text-[length:var(--amafh-text-section)] font-semibold">Add contract type</h2>
               <Field label="Code"><TextInput required pattern="[A-Z0-9_-]+" value={typeDraft.code} onChange={(event) => setTypeDraft((value) => ({ ...value, code: event.target.value.toUpperCase() }))} /></Field>
               <Field label="Name"><TextInput required value={typeDraft.name} onChange={(event) => setTypeDraft((value) => ({ ...value, name: event.target.value }))} /></Field>
               <Field label="Description"><Textarea value={typeDraft.description} onChange={(event) => setTypeDraft((value) => ({ ...value, description: event.target.value }))} /></Field>
@@ -574,12 +574,12 @@ export default function ContractsPage() {
               </form>
             ) : null}
             <div>
-              <h3 className="text-sm font-semibold">Attachments</h3>
+              <h3 className="text-lg font-semibold">Attachments</h3>
               {selected.attachments.length ? selected.attachments.map((file) => (
                 <button key={file.id} type="button" onClick={() => void download(selected, file)} className={cx("mt-2 block text-sm text-brand-primary underline", focusRing)}>{file.name} · version {file.version}{file.isActive ? " · current" : ""}</button>
               )) : <p className="mt-1 text-sm text-text-secondary">No signed attachment uploaded.</p>}
             </div>
-            {can("Contracts.History") ? <div><h3 className="text-sm font-semibold">History</h3>{selected.history.map((item) => <div key={item.id} className="mt-2 border-l-2 border-brand-border pl-3 text-sm"><p className="font-medium">{item.action} · {item.toStatus}</p><p className="text-xs text-text-secondary">{item.actor} · {new Date(item.createdAt).toLocaleString("en-AE")}</p>{item.comment ? <p>{item.comment}</p> : null}</div>)}</div> : null}
+            {can("Contracts.History") ? <div><h3 className="text-lg font-semibold">History</h3>{selected.history.map((item) => <div key={item.id} className="mt-2 border-l-2 border-brand-border pl-3 text-sm"><p className="font-medium">{item.action} · {item.toStatus}</p><p className="text-xs text-text-secondary">{item.actor} · {new Date(item.createdAt).toLocaleString("en-AE")}</p>{item.comment ? <p>{item.comment}</p> : null}</div>)}</div> : null}
           </div>
         </DialogPanel>
       ) : null}

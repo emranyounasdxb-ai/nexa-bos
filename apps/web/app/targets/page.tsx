@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { type KeyboardEvent as ReactKeyboardEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { type KeyboardEvent as ReactKeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { DatePicker } from "@/components/date-picker";
 import {
@@ -158,6 +158,7 @@ export default function TargetsPage() {
   const [statusSaving, setStatusSaving] = useState(false);
   const [historyId, setHistoryId] = useState<string | null>(null);
   const [history, setHistory] = useState<Target["history"]>([]);
+  const loadVersion = useRef(0);
 
   const entities = useMemo(() => {
     if (!options) return [];
@@ -175,6 +176,7 @@ export default function TargetsPage() {
   const canSubmitTarget = Boolean(entityId && normalizedMonth && productId && targetValue.trim());
 
   const load = useCallback(async () => {
+    const version = ++loadVersion.current;
     try {
       setError("");
       const query = new URLSearchParams({ period: filterPeriod });
@@ -187,19 +189,23 @@ export default function TargetsPage() {
         apiGet<Options>("/api/v1/targets/options", api),
         apiGet<PaginatedResponse<Target>>(`/api/v1/targets?${query}`, api),
       ]);
+      if (version !== loadVersion.current) return;
       setOptions(opts);
       setItems(listed.items);
       setTotal(listed.pagination.total);
       setTotalPages(listed.pagination.totalPages);
     } catch (err) {
-      setError(err instanceof ApiClientError ? err.message : "Unable to load targets");
+      if (version === loadVersion.current) {
+        setError(err instanceof ApiClientError ? err.message : "Unable to load targets");
+      }
     } finally {
-      setLoading(false);
+      if (version === loadVersion.current) setLoading(false);
     }
   }, [api, filterLevel, filterPeriod, page, pageSize, periodMonth]);
 
   useEffect(() => {
     if (can("Targets.View")) void load();
+    return () => { loadVersion.current += 1; };
   }, [can, load]);
 
   useEffect(() => {
@@ -577,7 +583,7 @@ export default function TargetsPage() {
           <div id="periods-panel" role="tabpanel" aria-labelledby="periods-tab" className="space-y-3 p-3 sm:p-4">
             <div data-testid="period-control-toolbar" className="rounded-[10px] border border-brand-border bg-surface-subtle p-3">
               <div className="flex min-w-0 flex-wrap items-start justify-between gap-2">
-                <div className="min-w-0"><h2 className="text-sm font-semibold text-text-primary">Monthly period controls</h2><p className="mt-0.5 text-xs leading-5 text-text-secondary">Locking prevents target edits. Reopening requires an audited reason.</p></div>
+                <div className="min-w-0"><h2 className="text-[length:var(--amafh-text-section)] font-semibold text-text-primary">Monthly period controls</h2><p className="mt-0.5 text-xs leading-5 text-text-secondary">Locking prevents target edits. Reopening requires an audited reason.</p></div>
               </div>
               <div className="mt-3 grid min-w-0 gap-3 sm:grid-cols-[minmax(12rem,1fr)_minmax(8rem,auto)_auto] sm:items-end">
                 <Field label="Target month" className="min-w-0 [&>div]:grid [&>div]:grid-cols-[minmax(0,1fr)_auto] [&>div]:items-center [&>div]:gap-2 [&>div>button]:mt-0 [&>div>button]:h-8 [&>div>button]:rounded-md [&>div>button]:border [&>div>button]:border-brand-border [&>div>button]:px-2.5 [&>div>button]:text-xs [&>div>button]:no-underline"><DatePicker aria-label="Target month" value={periodMonth} onChange={(value) => { setPeriodMonth(monthFirst(value)); setPage(1); }} /></Field>
@@ -590,7 +596,7 @@ export default function TargetsPage() {
             </div>
 
             <div className="rounded-[10px] border border-brand-border bg-surface p-3">
-              <div className="flex min-w-0 flex-wrap items-center justify-between gap-2"><div><h2 className="text-sm font-semibold text-text-primary">Locked months</h2><p className="mt-0.5 text-xs text-text-secondary">Months returned by the target-period service.</p></div><Badge tone="neutral">{options?.lockedMonths.length ?? 0} locked</Badge></div>
+              <div className="flex min-w-0 flex-wrap items-center justify-between gap-2"><div><h2 className="text-[length:var(--amafh-text-section)] font-semibold text-text-primary">Locked months</h2><p className="mt-0.5 text-xs text-text-secondary">Months returned by the target-period service.</p></div><Badge tone="neutral">{options?.lockedMonths.length ?? 0} locked</Badge></div>
               {options?.lockedMonths.length ? (
                 <>
                   <TableShell className="mt-3 hidden sm:block">
@@ -614,7 +620,7 @@ export default function TargetsPage() {
           <button type="button" className="absolute inset-0 bg-slate-950/40" aria-label="Close create target drawer" onClick={() => !createSaving && closeCreateDrawer()} />
           <aside role="dialog" aria-modal="true" aria-labelledby="create-target-title" className="absolute inset-y-0 right-0 flex w-full flex-col overflow-hidden border-l border-slate-200 bg-white shadow-2xl sm:max-w-2xl">
             <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-4 py-4 sm:px-6">
-              <div><h2 id="create-target-title" className="text-lg font-semibold text-slate-900">Create target</h2><p className="mt-1 text-sm text-slate-600">Define who owns the target, its monthly period, and how results are measured.</p></div>
+              <div><h2 id="create-target-title" className="text-[length:var(--amafh-text-section)] font-semibold text-slate-900">Create target</h2><p className="mt-1 text-sm text-slate-600">Define who owns the target, its monthly period, and how results are measured.</p></div>
               <Button type="button" variant="ghost" size="icon" aria-label="Close drawer" disabled={createSaving} onClick={closeCreateDrawer}><IconX className="size-4" /></Button>
             </div>
             <div className="flex-1 space-y-5 overflow-y-auto px-4 py-5 sm:px-6">
@@ -647,7 +653,7 @@ export default function TargetsPage() {
               </fieldset>
 
               <div className="rounded-lg border border-blue-200 bg-blue-50 p-4" aria-label="Target summary">
-                <h3 className="text-sm font-semibold text-blue-950">Target summary</h3>
+                <h3 className="text-lg font-semibold text-blue-950">Target summary</h3>
                 <dl className="mt-3 grid gap-x-4 gap-y-2 text-sm sm:grid-cols-2">
                   <div><dt className="text-blue-700">Assignment</dt><dd className="font-medium text-blue-950">{humanize(level)} · {namedLabel(selectedEntity)}</dd></div>
                   <div><dt className="text-blue-700">Period</dt><dd className="font-medium text-blue-950">{normalizedMonth || "Not selected"}</dd></div>

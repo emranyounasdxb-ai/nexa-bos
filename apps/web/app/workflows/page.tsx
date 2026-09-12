@@ -437,7 +437,7 @@ export default function WorkflowsPage() {
         {steps.map((step, index) => (
           <div key={step} className="flex shrink-0 items-center gap-1">
             <span className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium ${index < currentStep ? "bg-success-soft text-success" : index === currentStep ? "bg-brand-soft text-brand-primary" : "bg-surface-subtle text-text-secondary"}`}>
-              {index < currentStep ? <IconCircleCheck className="size-3.5" /> : <span className="inline-grid size-4 place-items-center rounded-full border border-current text-[10px]">{index + 1}</span>}
+              {index < currentStep ? <IconCircleCheck className="size-3.5" /> : <span className="inline-grid size-4 place-items-center rounded-full border border-current text-xs">{index + 1}</span>}
               {step}
             </span>
             {index < steps.length - 1 ? <IconChevronRight className="size-3.5 text-text-disabled" /> : null}
@@ -483,7 +483,7 @@ export default function WorkflowsPage() {
           <Card className="p-3 sm:p-4">
             <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
               <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2"><h2 className="text-base font-semibold text-text-primary">Version {selected.version}</h2><StatusBadge value={selected.status} /></div>
+                <div className="flex flex-wrap items-center gap-2"><h2 className="text-[length:var(--amafh-text-section)] font-semibold text-text-primary">Version {selected.version}</h2><StatusBadge value={selected.status} /></div>
                 <p className="mt-1 text-sm text-text-secondary">{catalogLabel(selected.bank, "Unknown Bank")} · {catalogLabel(selected.product, "Unknown Product")}</p>
               </div>
               <dl className="flex flex-wrap gap-2 text-xs">
@@ -504,7 +504,7 @@ export default function WorkflowsPage() {
           {view === "stages" ? (
             <Card className="p-3 sm:p-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <div><h2 className="text-base font-semibold">Ordered stages</h2><p className="mt-0.5 text-sm text-text-secondary">Stage codes are immutable after creation. Sort order controls the displayed sequence.</p></div>
+                <div><h2 className="text-[length:var(--amafh-text-section)] font-semibold">Ordered stages</h2><p className="mt-0.5 text-sm text-text-secondary">Stage codes are immutable after creation. Sort order controls the displayed sequence.</p></div>
                 {can("WorkflowStages.Create") ? <Button type="button" variant="secondary" onClick={() => openDrawer("add-stage")}>Add stage</Button> : null}
               </div>
               {stages.length ? (
@@ -521,7 +521,7 @@ export default function WorkflowsPage() {
                             <h3 className="truncate text-sm font-semibold text-text-primary">{stage.name}</h3><StatusBadge value={stage.status ?? "active"} />
                             {fixed ? <span className="inline-flex items-center gap-1"><Badge tone="purple">Fixed entry stage</Badge><Tooltip label="About the fixed entry stage" text="Application Created is the system-defined entry stage. Its name, order, and active status cannot be changed." /></span> : null}
                           </div>
-                          <p className="mt-1 font-mono text-[11px] text-text-secondary">{stage.code}</p>
+                          <p className="mt-1 font-mono text-xs text-text-secondary">{stage.code}</p>
                           {!fixed && (can("WorkflowStages.Edit") || canActivate || canDeactivate) ? (
                             <div className="mt-2 flex flex-wrap gap-1">
                               {can("WorkflowStages.Edit") ? <Button type="button" size="compact" variant="ghost" onClick={() => openDrawer("edit-stage", stage)}><IconEdit className="size-3.5" /> Edit</Button> : null}
@@ -540,7 +540,7 @@ export default function WorkflowsPage() {
           {view === "transitions" ? (
             <Card className="p-3 sm:p-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <div><h2 className="text-base font-semibold">Allowed transitions</h2><p className="mt-0.5 text-sm text-text-secondary">Each row is an allowed direction between two stages in this version.</p></div>
+                <div><h2 className="text-[length:var(--amafh-text-section)] font-semibold">Allowed transitions</h2><p className="mt-0.5 text-sm text-text-secondary">Each row is an allowed direction between two stages in this version.</p></div>
                 {can("WorkflowStages.ConfigureTransitions") ? <Button type="button" variant="secondary" disabled={stages.length < 2} onClick={() => openDrawer("add-transition")}>Add transition</Button> : null}
               </div>
               {selected.transitions.length ? (
@@ -557,7 +557,7 @@ export default function WorkflowsPage() {
 
           {view === "preview" ? (
             <Card className="p-3 sm:p-4">
-              <div><h2 className="text-base font-semibold">Read-only workflow preview</h2><p className="mt-0.5 text-sm text-text-secondary">Stages that share a row represent branches reachable at the same depth. Unlinked stages remain visible at the end.</p></div>
+              <div><h2 className="text-[length:var(--amafh-text-section)] font-semibold">Read-only workflow preview</h2><p className="mt-0.5 text-sm text-text-secondary">Stages that share a row represent branches reachable at the same depth. Unlinked stages remain visible at the end.</p></div>
               {stages.length ? (
                 <div className="mt-4 max-w-full overflow-x-auto rounded-lg border border-brand-border bg-surface-subtle p-4" data-testid="workflow-preview">
                   <div className="mx-auto flex min-w-max flex-col items-center">
@@ -565,7 +565,7 @@ export default function WorkflowsPage() {
                       <div key={layer.map((stage) => stage.id).join("-")} className="flex flex-col items-center">
                         {layerIndex ? <div className="h-5 w-px bg-brand-border" aria-hidden="true" /> : null}
                         <div className="flex items-stretch justify-center gap-3">
-                          {layer.map((stage) => <div key={stage.id} className="w-48 rounded-lg border border-brand-border bg-surface px-3 py-2 text-center shadow-sm"><p className="truncate text-sm font-semibold text-text-primary">{stage.name}</p><p className="mt-0.5 font-mono text-[10px] text-text-secondary">{stage.code}</p><div className="mt-1"><StatusBadge value={stage.status ?? "active"} /></div></div>)}
+                          {layer.map((stage) => <div key={stage.id} className="w-48 rounded-lg border border-brand-border bg-surface px-3 py-2 text-center shadow-sm"><p className="truncate text-sm font-semibold text-text-primary">{stage.name}</p><p className="mt-0.5 font-mono text-xs text-text-secondary">{stage.code}</p><div className="mt-1"><StatusBadge value={stage.status ?? "active"} /></div></div>)}
                         </div>
                       </div>
                     ))}
@@ -585,7 +585,7 @@ export default function WorkflowsPage() {
         <div className="fixed inset-0 z-50 flex justify-end bg-black/40" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) requestDrawerClose(); }}>
           <aside ref={drawerRef} role="dialog" aria-modal="true" aria-labelledby="workflow-drawer-title" className="flex h-full w-full flex-col bg-surface shadow-2xl sm:max-w-xl" onKeyDown={trapDrawerFocus}>
             <div className="flex items-start justify-between gap-3 border-b border-brand-border px-4 py-3 sm:px-5">
-              <div className="min-w-0"><h2 id="workflow-drawer-title" className="text-lg font-semibold text-text-primary">{drawer === "create-version" ? "Create workflow version" : drawer === "add-stage" ? "Add stage" : drawer === "edit-stage" ? "Edit stage" : "Add transition"}</h2><p className="mt-0.5 text-sm text-text-secondary">{drawer === "create-version" ? "Choose an active Bank–Product mapping." : drawer === "add-transition" ? "Add one allowed movement without replacing existing transitions." : "Configure the stage label and its order in this version."}</p></div>
+              <div className="min-w-0"><h2 id="workflow-drawer-title" className="text-[length:var(--amafh-text-section)] font-semibold text-text-primary">{drawer === "create-version" ? "Create workflow version" : drawer === "add-stage" ? "Add stage" : drawer === "edit-stage" ? "Edit stage" : "Add transition"}</h2><p className="mt-0.5 text-sm text-text-secondary">{drawer === "create-version" ? "Choose an active Bank–Product mapping." : drawer === "add-transition" ? "Add one allowed movement without replacing existing transitions." : "Configure the stage label and its order in this version."}</p></div>
               <Button type="button" variant="ghost" size="icon" aria-label="Close workflow drawer" onClick={requestDrawerClose}><IconX className="size-4" /></Button>
             </div>
             <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-5">
@@ -623,7 +623,7 @@ export default function WorkflowsPage() {
       {confirmation ? (
         <div className="fixed inset-0 z-[80] grid place-items-center bg-black/40 p-4" role="presentation">
           <div role="alertdialog" aria-modal="true" aria-labelledby="workflow-confirm-title" aria-describedby="workflow-confirm-description" className="w-full max-w-md rounded-xl border border-brand-border bg-surface p-4 shadow-2xl">
-            <h2 id="workflow-confirm-title" className="text-base font-semibold text-text-primary">{confirmation.title}</h2>
+            <h2 id="workflow-confirm-title" className="text-[length:var(--amafh-text-section)] font-semibold text-text-primary">{confirmation.title}</h2>
             <p id="workflow-confirm-description" className="mt-2 text-sm leading-6 text-text-secondary">{confirmation.description}</p>
             <div className="mt-4 flex justify-end gap-2"><Button type="button" variant="secondary" disabled={saving} onClick={() => setConfirmation(null)}>Cancel</Button><Button type="button" variant={confirmation.actionLabel.startsWith("Deactivate") ? "danger" : "primary"} disabled={saving} onClick={() => void confirmation.run()}>{saving ? "Working…" : confirmation.actionLabel}</Button></div>
           </div>

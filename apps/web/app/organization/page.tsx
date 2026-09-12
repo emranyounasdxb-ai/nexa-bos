@@ -644,7 +644,7 @@ export default function OrganizationPage() {
           >
             <div className="flex items-start justify-between gap-3 border-b border-brand-border px-4 py-3 sm:px-5">
               <div className="min-w-0">
-                <h2 id="organization-drawer-title" className="text-lg font-semibold text-text-primary">
+                <h2 id="organization-drawer-title" className="text-[length:var(--amafh-text-section)] font-semibold text-text-primary">
                   {drawerTitle}
                 </h2>
                 <p id="organization-drawer-description" className="mt-0.5 text-sm text-text-secondary">
@@ -795,7 +795,7 @@ export default function OrganizationPage() {
       {discardConfirmOpen ? (
         <div className="fixed inset-0 z-[80] grid place-items-center bg-slate-950/40 p-4" role="presentation">
           <section role="alertdialog" aria-modal="true" aria-labelledby="discard-title" aria-describedby="discard-description" className="w-full max-w-md rounded-[10px] border border-brand-border bg-surface p-4 shadow-2xl">
-            <h2 id="discard-title" className="text-base font-semibold text-text-primary">Discard unsaved changes?</h2>
+            <h2 id="discard-title" className="text-[length:var(--amafh-text-section)] font-semibold text-text-primary">Discard unsaved changes?</h2>
             <p id="discard-description" className="mt-2 text-sm text-text-secondary">Your organization master changes will be lost.</p>
             <div className="mt-4 flex justify-end gap-2">
               <Button type="button" variant="secondary" autoFocus onClick={() => setDiscardConfirmOpen(false)}>Keep editing</Button>
@@ -808,7 +808,7 @@ export default function OrganizationPage() {
       {statusTarget ? (
         <div className="fixed inset-0 z-[80] grid place-items-center bg-slate-950/40 p-4" role="presentation">
           <section role="alertdialog" aria-modal="true" aria-labelledby="status-title" aria-describedby="status-description" className="w-full max-w-md rounded-[10px] border border-brand-border bg-surface p-4 shadow-2xl">
-            <h2 id="status-title" className="text-base font-semibold text-text-primary">
+            <h2 id="status-title" className="text-[length:var(--amafh-text-section)] font-semibold text-text-primary">
               {normalizedStatus(statusTarget.item) === "active" ? "Deactivate" : "Activate"} {MASTER_CONFIG[statusTarget.kind].singular.toLowerCase()}?
             </h2>
             <p id="status-description" className="mt-2 text-sm text-text-secondary">

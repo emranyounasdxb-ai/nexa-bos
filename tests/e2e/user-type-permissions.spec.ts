@@ -1,5 +1,6 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { selectBrandedOption } from "./helpers/select";
+import { captureViewport } from "./helpers/viewport-capture";
 
 const apiOrigin = `http://127.0.0.1:${process.env.PLAYWRIGHT_API_PORT ?? "8010"}`;
 const secret = process.env.BOOTSTRAP_SECRET ?? "nexa-test-bootstrap-secret";
@@ -38,7 +39,7 @@ async function signIn(page: Page, request: APIRequestContext) {
 test("User Type editor groups permissions and saves existing settings without changing the assignment model", async ({
   page,
   request,
-}) => {
+}, testInfo) => {
   test.setTimeout(120_000);
   await page.setViewportSize({ width: 1440, height: 900 });
   await signIn(page, request);
@@ -47,6 +48,17 @@ test("User Type editor groups permissions and saves existing settings without ch
   const typeCode = `UX${suffix}`;
   const typeName = `Permission UX ${suffix}`;
   await page.goto("/user-types");
+  for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
+    await page.setViewportSize(viewport);
+    for (const label of ["Name", "Unique code", "Description"]) {
+      const field = page.getByRole("textbox", { name: label, exact: true });
+      await expect(field).toBeVisible();
+      expect((await field.boundingBox())?.height).toBe(32);
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
+    await captureViewport(page, testInfo.outputPath(`user-type-create-${viewport.width}.png`));
+  }
+  await page.setViewportSize({ width: 1440, height: 900 });
   await page.getByPlaceholder("Name").fill(typeName);
   await page.getByPlaceholder("Unique code").fill(typeCode);
   await page.getByPlaceholder("Description").fill("Focused permission editor workflow");
@@ -110,7 +122,7 @@ test("User Type editor groups permissions and saves existing settings without ch
   await page.getByRole("button", { name: "Select all Users permissions" }).click();
   await expect(page.getByText("This will include sensitive administrative permissions.")).toBeVisible();
   await page.getByRole("button", { name: "Include permissions" }).click();
-  await expect(page.getByRole("button", { name: "Users permissions", exact: true })).toContainText("22/22");
+  await expect(page.getByRole("button", { name: "Users permissions", exact: true })).toContainText("23/23");
 
   await page.getByLabel("Search permissions").fill("urgent");
   const urgentPanel = page.getByTestId("permission-panel-notifications");

@@ -129,7 +129,7 @@ function completionCard(title: string, completion: Completion) {
   return (
     <Card className="!p-3">
       <div className="flex items-start justify-between gap-2">
-        <h2 className="text-sm font-semibold text-text-primary">{title}</h2>
+        <h2 className="text-[length:var(--amafh-text-section)] font-semibold text-text-primary">{title}</h2>
         <StatusBadge value={completion.state} />
       </div>
       <p className="mt-2 text-xs text-text-secondary">

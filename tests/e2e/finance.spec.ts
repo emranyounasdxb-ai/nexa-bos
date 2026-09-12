@@ -48,7 +48,7 @@ async function signIn(page: Page, request: APIRequestContext) {
 
 async function openFinance(page: Page) {
   await page.getByRole("button", { name: "Finance menu" }).click();
-  await page.getByRole("link", { name: "Finance", exact: true }).click();
+  await page.getByRole("complementary", { name: "Application sidebar" }).getByRole("link", { name: "Finance", exact: true }).click();
 }
 
 test("Finance exposes only the approved Task 11 workflows and calculation modes", async ({

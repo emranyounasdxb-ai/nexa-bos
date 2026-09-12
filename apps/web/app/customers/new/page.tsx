@@ -77,16 +77,16 @@ export default function CreateCustomerPage() {
   }
 
   return (
-    <section className="max-w-2xl space-y-4">
+    <section className="min-w-0 max-w-5xl space-y-6">
       <PageHeader title="Create customer" />
       <form
         onSubmit={(event) => {
           event.preventDefault();
           void submit(false);
         }}
-        className="grid gap-3"
+        className="grid min-w-0 gap-4 rounded-lg border border-brand-border bg-surface p-4 sm:grid-cols-2 sm:p-5"
       >
-        <fieldset className="space-y-2 text-sm">
+        <fieldset className="space-y-2 text-sm sm:col-span-2">
           <legend className="font-medium">Customer type</legend>
           <label className="mr-4">
             <input
@@ -181,9 +181,9 @@ export default function CreateCustomerPage() {
             />
           </>
         )}
-        <ErrorText>{error}</ErrorText>
+        {error ? <div className="sm:col-span-2"><ErrorText>{error}</ErrorText></div> : null}
         {duplicates.length > 0 ? (
-          <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm">
+          <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm sm:col-span-2">
             <p className="font-medium">Possible duplicates</p>
             <ul className="mt-2 list-disc pl-5">
               {duplicates.map((row) => (
@@ -197,7 +197,7 @@ export default function CreateCustomerPage() {
             </button>
           </div>
         ) : null}
-        <Button type="submit">Create customer</Button>
+        <div className="flex justify-end border-t border-brand-border pt-4 sm:col-span-2"><Button type="submit">Create customer</Button></div>
       </form>
     </section>
   );

@@ -102,3 +102,23 @@ supporting breakdowns; 03/12 establish workforce grouping. No screenshot values,
 new workflows, invented role permissions or unavailable business statistics are used.
 Historical test IDs containing `chart` remain stable for category breakdowns that now
 render accessible definition lists; they do not imply a canvas/chart implementation.
+
+## Part 3: page-family alignment
+
+The [route ledger](ui-route-ledger.md) distinguishes inherited styles from refined
+pages. Customer Create and employee Edit use bounded two-column desktop forms and
+single-column mobile forms. User Type creation retains its existing fields with
+persistent accessible labels. Section headings use the shared 20px token; secondary
+headings use 18px and technical metadata uses the 13px supporting scale. No data,
+permission, schema or workflow changes are part of this alignment. Full-corpus QA
+also proved two frontend timing defects: an older Targets response could replace
+newer filtered results, and a pending Users search debounce could replace a page-size
+navigation. Latest-request protection and combined pending URL updates correct these
+without changing endpoints, filter meanings, calculations or authorization. Focused
+regressions delay unchanged real responses to exercise both orderings.
+
+Browser specs that deliberately change built-in role configuration restore their
+original permissions/scopes through the existing authenticated APIs and verify the
+restoration. This isolates test fixtures without changing the role contracts or
+weakening deny assertions. Exact viewport screenshots wait for sidebar geometry
+and page scroll settlement; capture count is not a claim that every state was reviewed.

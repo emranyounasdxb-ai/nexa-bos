@@ -223,7 +223,7 @@ function ProfileInner() {
           </dl>
           {data.attendanceSummary ? (
             <Card>
-              <h3 className="text-sm font-semibold">Attendance summary</h3>
+              <h3 className="text-lg font-semibold">Attendance summary</h3>
               <dl className="mt-3 grid gap-3 text-sm md:grid-cols-3">
                 <div>
                   <dt className="text-slate-500">Present</dt>
@@ -314,14 +314,14 @@ function ProfileInner() {
             </Card>
           </div>
           <Card>
-            <h3 className="text-sm font-semibold">Conversions</h3>
+            <h3 className="text-lg font-semibold">Conversions</h3>
             <p className="mt-2 text-sm">Submitted → Approved {formatPct(data.conversions.submittedToApproved)}</p>
             <p className="text-sm">Approved → Booked {formatPct(data.conversions.approvedToBooked)}</p>
             <p className="text-sm">Booked → Funded {formatPct(data.conversions.bookedToFunded)}</p>
           </Card>
           {data.targetsKpi ? (
             <Card>
-              <h3 className="text-sm font-semibold">Targets / KPI</h3>
+              <h3 className="text-lg font-semibold">Targets / KPI</h3>
               {data.targetsKpi.targets.length === 0 ? (
                 <EmptyState>No active targets for this period.</EmptyState>
               ) : (
@@ -358,7 +358,7 @@ function ProfileInner() {
             </Card>
           ) : null}
           <Card>
-            <h3 className="text-sm font-semibold">Current stage breakdown</h3>
+            <h3 className="text-lg font-semibold">Current stage breakdown</h3>
             {data.stageBreakdown.length === 0 ? (
               <EmptyState>No pending applications.</EmptyState>
             ) : (

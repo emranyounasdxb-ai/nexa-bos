@@ -1,4 +1,5 @@
 import { expect, test, type APIRequestContext } from "@playwright/test";
+import { captureViewport } from "./helpers/viewport-capture";
 import { brandedOptionValues, selectBrandedOption } from "./helpers/select";
 
 const apiOrigin = `http://127.0.0.1:${process.env.PLAYWRIGHT_API_PORT ?? "8010"}`;
@@ -42,7 +43,7 @@ async function ownerHeaders(request: APIRequestContext) {
 test("edit user office department team selectors do not silently clear invalid values", async ({
   page,
   request,
-}) => {
+}, testInfo) => {
   const headers = await ownerHeaders(request);
   const offices = ((await (await request.get(`${apiOrigin}/api/v1/offices`)).json()) as { items: NamedRef[] })
     .items;
@@ -121,6 +122,17 @@ test("edit user office department team selectors do not silently clear invalid v
   await expect(office).toHaveAttribute("value", dxb!.id);
   await expect(department).toHaveAttribute("value", dxbDeptId);
   await expect(team).toHaveAttribute("value", dxbTeamId);
+  for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
+    await page.setViewportSize(viewport);
+    const fields = page.locator("main form");
+    const columns = await fields.evaluate(element => getComputedStyle(element).gridTemplateColumns.split(" ").length);
+    expect(columns).toBe(viewport.width === 1440 ? 2 : 1);
+    await expect(page.getByLabel("Office", { exact: true })).toHaveAttribute("id", "edit-office");
+    await expect(page.getByLabel("Department", { exact: true })).toHaveAttribute("id", "edit-department");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
+    await captureViewport(page, testInfo.outputPath(`employee-edit-${viewport.width}.png`));
+  }
+  await page.setViewportSize({ width: 1440, height: 900 });
   expect(await brandedOptionValues(department)).not.toContain(auhDeptId);
   expect(await brandedOptionValues(department)).toContain(otherDxbDeptId);
 

@@ -355,7 +355,7 @@ export default function KpiScorecardsPage() {
       <Card className="overflow-hidden p-0">
         <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-200 px-4 py-3">
           <div>
-            <h2 className="text-base font-semibold text-slate-900">Scorecards</h2>
+            <h2 className="text-[length:var(--amafh-text-section)] font-semibold text-slate-900">Scorecards</h2>
             <p className="mt-1 text-sm text-slate-600">
               Review configured metrics, weight completeness, and the scorecard currently used for KPI results.
             </p>
@@ -459,7 +459,7 @@ export default function KpiScorecardsPage() {
             <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-4 py-4 sm:px-6">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">{editorMode === "edit" ? "Edit configuration" : "New configuration"}</p>
-                <h2 id="scorecard-editor-title" className="mt-1 text-lg font-semibold text-slate-900">
+                <h2 id="scorecard-editor-title" className="mt-1 text-[length:var(--amafh-text-section)] font-semibold text-slate-900">
                   {editorMode === "edit" ? "Edit KPI scorecard" : "Create KPI scorecard"}
                 </h2>
                 <p className="mt-1 text-sm text-slate-600">Combine weighted operational metrics into one scorecard.</p>

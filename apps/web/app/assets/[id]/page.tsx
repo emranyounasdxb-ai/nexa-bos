@@ -568,7 +568,7 @@ export default function AssetDetailPage() {
       {confirmation ? (
         <div className="fixed inset-0 z-[70] grid place-items-center bg-slate-950/40 p-4" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) closeConfirmation(); }}>
           <section ref={confirmationRef} role="alertdialog" aria-modal="true" aria-labelledby="asset-confirm-title" aria-describedby="asset-confirm-description" className="w-full max-w-md rounded-[10px] border border-brand-border bg-surface p-4 shadow-2xl" onKeyDown={trapConfirmationFocus}>
-            <h2 id="asset-confirm-title" className="text-base font-semibold text-text-primary">{confirmation.title}</h2>
+            <h2 id="asset-confirm-title" className="text-[length:var(--amafh-text-section)] font-semibold text-text-primary">{confirmation.title}</h2>
             <p id="asset-confirm-description" className="mt-2 text-sm leading-6 text-text-secondary">{confirmation.description}</p>
             {confirmationError ? <div className="mt-3"><ErrorText>{confirmationError}</ErrorText></div> : null}
             <div className="mt-4 flex flex-wrap justify-end gap-2">

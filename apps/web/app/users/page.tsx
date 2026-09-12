@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   Pagination,
@@ -96,6 +96,7 @@ function UsersDirectory() {
   const page = pageValue(searchParams.get("page"));
   const pageSize = pageSizeValue(searchParams.get("pageSize"));
   const [searchDraft, setSearchDraft] = useState(query);
+  const searchTimer = useRef<number | null>(null);
   const [items, setItems] = useState<UserRecord[]>([]);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
@@ -108,7 +109,18 @@ function UsersDirectory() {
 
   const updateUrl = useCallback(
     (updates: Record<string, string | null>, mode: "push" | "replace" = "push") => {
+      if (searchTimer.current !== null) {
+        window.clearTimeout(searchTimer.current);
+        searchTimer.current = null;
+      }
       const params = new URLSearchParams(searchParams.toString());
+      // Apply pending search together with a filter/page-size action, rather than
+      // letting its older debounce replace that navigation afterward.
+      if (!("q" in updates) && searchDraft !== query) {
+        if (searchDraft.trim()) params.set("q", searchDraft.trim());
+        else params.delete("q");
+        params.delete("page");
+      }
       for (const [key, value] of Object.entries(updates)) {
         if (value) params.set(key, value);
         else params.delete(key);
@@ -117,17 +129,20 @@ function UsersDirectory() {
       if (mode === "replace") router.replace(destination, { scroll: false });
       else router.push(destination, { scroll: false });
     },
-    [router, searchParams],
+    [query, router, searchDraft, searchParams],
   );
 
   useEffect(() => setSearchDraft(query), [query]);
 
   useEffect(() => {
     if (searchDraft === query) return;
-    const timer = window.setTimeout(() => {
+    searchTimer.current = window.setTimeout(() => {
       updateUrl({ q: searchDraft.trim() || null, page: null }, "replace");
     }, 300);
-    return () => window.clearTimeout(timer);
+    return () => {
+      if (searchTimer.current !== null) window.clearTimeout(searchTimer.current);
+      searchTimer.current = null;
+    };
   }, [query, searchDraft, updateUrl]);
 
   useEffect(() => {
@@ -259,7 +274,7 @@ function UsersDirectory() {
       <Card className="!p-0">
         <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 border-b border-brand-border px-3 py-2 sm:px-4">
           <div className="min-w-0">
-            <h2 className="text-sm font-semibold text-text-primary">Users in scope</h2>
+            <h2 className="text-[length:var(--amafh-text-section)] font-semibold text-text-primary">Users in scope</h2>
             <p className="text-xs text-text-secondary">{loading ? "Refreshing…" : `${total.toLocaleString()} authorized record${total === 1 ? "" : "s"}`}</p>
           </div>
           {hasFilters ? <Badge>Filtered</Badge> : <Badge>All authorized</Badge>}

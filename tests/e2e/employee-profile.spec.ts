@@ -1,4 +1,7 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { preserveBuiltInRoleConfiguration } from "./helpers/role-configuration";
+
+preserveBuiltInRoleConfiguration();
 
 import { selectBrandedOption } from "./helpers/select";
 import { profileCountries } from "../../apps/web/lib/profile-countries";

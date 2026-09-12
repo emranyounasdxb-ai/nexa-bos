@@ -39,14 +39,20 @@ test("owner lands on the dashboard and can open the user directory", async ({ pa
   const peopleMenu = page.getByRole("button", { name: "People menu" });
   await peopleMenu.click();
   await expect(peopleMenu).toHaveAttribute("aria-expanded", "true");
-  await page.getByRole("link", { name: "Users", exact: true }).click();
+  await page.getByRole("complementary", { name: "Application sidebar" }).getByRole("link", { name: "Users", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Users", exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "USR-000001" })).toBeVisible();
   await page.goto("/users/new");
-  await expect(page.getByLabel("Reporting manager")).toBeVisible();
+  const dialog = page.getByRole("dialog", { name: "Create User" });
+  await expect(dialog).toBeVisible();
+  for (const label of ["User Code", "Full Name", "Personal Email", "Personal Mobile"]) {
+    await expect(dialog.getByLabel(new RegExp(`^${label}`))).toBeVisible();
+  }
+  await expect(dialog.getByLabel("Reporting manager")).toHaveCount(0);
   await page.goto("/organization");
   await page.getByRole("tab", { name: "Teams" }).click();
   await expect(page).toHaveURL(/\/organization\?tab=teams$/);
-  await expect(page.getByRole("heading", { name: "Teams" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Organization masters", exact: true })).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Teams", exact: true })).toHaveAttribute("aria-selected", "true");
   await expect(page.getByRole("button", { name: "Add team" })).toBeVisible();
 });

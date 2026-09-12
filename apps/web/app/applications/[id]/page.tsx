@@ -532,7 +532,7 @@ export default function ApplicationDetailPage() {
       <Card>
         <div className="flex min-w-0 flex-wrap items-start justify-between gap-2">
           <div className="min-w-0">
-            <h3 className="font-semibold text-text-primary">Workflow timeline</h3>
+            <h3 className="text-lg font-semibold text-text-primary">Workflow timeline</h3>
             <p className="mt-1 text-xs text-text-secondary">
               Completed stages retain their timestamps; the current stage is highlighted and upcoming stages remain visible.
             </p>
@@ -566,7 +566,7 @@ export default function ApplicationDetailPage() {
                 >
                   <div className="flex min-w-0 items-start justify-between gap-2">
                     <span className="break-words text-sm font-semibold">{stage.name}</span>
-                    <span className={cx("shrink-0 text-[10px] font-semibold uppercase tracking-wide", stage.current ? "text-white/80" : "text-current")}>{state}</span>
+                    <span className={cx("shrink-0 text-xs font-semibold uppercase tracking-wide", stage.current ? "text-white/80" : "text-current")}>{state}</span>
                   </div>
                   <p className={cx("mt-2 break-words text-xs", stage.current ? "text-white/80" : "text-text-secondary")}>
                     {timestamp ? displayDate(timestamp) : "Pending"}
@@ -613,7 +613,7 @@ export default function ApplicationDetailPage() {
             <Card>
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
-                  <h3 className="font-semibold text-text-primary">Product classification</h3>
+                  <h3 className="text-lg font-semibold text-text-primary">Product classification</h3>
                   <p className="mt-1 text-xs text-text-secondary">Bank and Product Category are immutable. Product Variant follows the saved mapping.</p>
                 </div>
                 {item.productVariantStatus ? <StatusBadge value={item.productVariantStatus} /> : null}
@@ -636,9 +636,9 @@ export default function ApplicationDetailPage() {
               {canEditOwn ? <div className="mt-3 flex justify-end"><Button type="button" disabled={variantSaving || !variantId || variantId === item.productVariantId} onClick={() => void saveVariant()}>{variantSaving ? "Saving…" : "Save Product Variant"}</Button></div> : null}
             </Card>
             <div className="grid min-w-0 gap-4 lg:grid-cols-3">
-              <Card><h3 className="font-semibold">Customer</h3><dl className="mt-3 grid gap-3"><Value label="Customer">{item.customerCode} · {item.customerName}</Value><Value label="Mobile">{item.customerMobile ?? "Not recorded"}</Value></dl></Card>
-              <Card><h3 className="font-semibold">Application values</h3><dl className="mt-3 grid gap-3 sm:grid-cols-2"><Value label="Requested amount">{item.requestedAmount ?? "—"}</Value><Value label="Approved amount">{item.approvedAmount ?? "—"}</Value><Value label="Booked amount">{item.bookedAmount ?? "—"}</Value><Value label="Funded amount">{item.fundedAmount ?? "—"}</Value></dl></Card>
-              <Card><h3 className="font-semibold">Submission</h3><dl className="mt-3 grid gap-3 sm:grid-cols-2"><Value label="Bank File / Case Number">{item.bankCaseNumber ?? "Not submitted"}</Value><Value label="Submitted">{displayDate(item.submittedAt)}</Value><Value label="Created">{displayDate(item.createdAt)}</Value><Value label="Last updated">{displayDate(item.updatedAt)}</Value></dl></Card>
+              <Card><h3 className="text-lg font-semibold">Customer</h3><dl className="mt-3 grid gap-3"><Value label="Customer">{item.customerCode} · {item.customerName}</Value><Value label="Mobile">{item.customerMobile ?? "Not recorded"}</Value></dl></Card>
+              <Card><h3 className="text-lg font-semibold">Application values</h3><dl className="mt-3 grid gap-3 sm:grid-cols-2"><Value label="Requested amount">{item.requestedAmount ?? "—"}</Value><Value label="Approved amount">{item.approvedAmount ?? "—"}</Value><Value label="Booked amount">{item.bookedAmount ?? "—"}</Value><Value label="Funded amount">{item.fundedAmount ?? "—"}</Value></dl></Card>
+              <Card><h3 className="text-lg font-semibold">Submission</h3><dl className="mt-3 grid gap-3 sm:grid-cols-2"><Value label="Bank File / Case Number">{item.bankCaseNumber ?? "Not submitted"}</Value><Value label="Submitted">{displayDate(item.submittedAt)}</Value><Value label="Created">{displayDate(item.createdAt)}</Value><Value label="Last updated">{displayDate(item.updatedAt)}</Value></dl></Card>
             </div>
           </>
         ) : null}
@@ -646,14 +646,14 @@ export default function ApplicationDetailPage() {
         {activeTab === "workflow" ? (
           <>
             <Card>
-              <div className="flex flex-wrap items-start justify-between gap-2"><div><h3 className="font-semibold">Current workflow state</h3><p className="mt-1 text-xs text-text-secondary">Version {version} · {item.currentStageElapsedSeconds != null ? formatDuration(item.currentStageElapsedSeconds) : "Duration unavailable"}</p></div><StatusBadge value={status} /></div>
+              <div className="flex flex-wrap items-start justify-between gap-2"><div><h3 className="text-lg font-semibold">Current workflow state</h3><p className="mt-1 text-xs text-text-secondary">Version {version} · {item.currentStageElapsedSeconds != null ? formatDuration(item.currentStageElapsedSeconds) : "Duration unavailable"}</p></div><StatusBadge value={status} /></div>
             </Card>
             <div className="grid min-w-0 gap-4 lg:grid-cols-2">
-              <Card><h3 className="font-semibold">Turnaround time</h3><dl className="mt-3 grid gap-3 sm:grid-cols-2"><Value label={item.terminal ? "Total duration" : "Elapsed TAT"}>{item.terminal ? formatDuration(item.totalDurationSeconds) : formatDuration(item.currentElapsedSeconds)}</Value><Value label="Current stage elapsed">{formatDuration(item.currentStageElapsedSeconds)}</Value><Value label="Started">{displayDate(item.tatStartedAt)}</Value><Value label="Stopped">{displayDate(item.tatStoppedAt)}</Value></dl></Card>
-              <Card><div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-semibold">Delay state</h3>{item.activeDelay ? <Badge tone="amber">{item.activeDelay.delayType}</Badge> : null}</div>{item.activeDelay ? <dl className="mt-3 grid gap-3 sm:grid-cols-2"><Value label="Stage">{item.activeDelay.stageName}</Value><Value label="Marked by">{item.activeDelay.markedBy}</Value><Value label="Started">{displayDate(item.activeDelay.startedAt)}</Value><Value label="Reason">{item.activeDelay.reason}</Value></dl> : <p className="mt-2 text-sm text-text-secondary">No active delay is recorded.</p>}</Card>
+              <Card><h3 className="text-lg font-semibold">Turnaround time</h3><dl className="mt-3 grid gap-3 sm:grid-cols-2"><Value label={item.terminal ? "Total duration" : "Elapsed TAT"}>{item.terminal ? formatDuration(item.totalDurationSeconds) : formatDuration(item.currentElapsedSeconds)}</Value><Value label="Current stage elapsed">{formatDuration(item.currentStageElapsedSeconds)}</Value><Value label="Started">{displayDate(item.tatStartedAt)}</Value><Value label="Stopped">{displayDate(item.tatStoppedAt)}</Value></dl></Card>
+              <Card><div className="flex flex-wrap items-center justify-between gap-2"><h3 className="text-lg font-semibold">Delay state</h3>{item.activeDelay ? <Badge tone="amber">{item.activeDelay.delayType}</Badge> : null}</div>{item.activeDelay ? <dl className="mt-3 grid gap-3 sm:grid-cols-2"><Value label="Stage">{item.activeDelay.stageName}</Value><Value label="Marked by">{item.activeDelay.markedBy}</Value><Value label="Started">{displayDate(item.activeDelay.startedAt)}</Value><Value label="Reason">{item.activeDelay.reason}</Value></dl> : <p className="mt-2 text-sm text-text-secondary">No active delay is recorded.</p>}</Card>
             </div>
             <Card>
-              <h3 className="font-semibold">Stage durations</h3>
+              <h3 className="text-lg font-semibold">Stage durations</h3>
               {item.stageDurations.length ? <ol className="mt-3 grid min-w-0 gap-2 lg:grid-cols-2">{item.stageDurations.map((row) => <li key={row.id} className="min-w-0 rounded-md border border-brand-border p-3 text-sm"><div className="flex flex-wrap items-center justify-between gap-2"><p className="font-medium">{row.stageName}</p>{!row.completed ? <Badge tone="blue">Current</Badge> : null}</div><p className="mt-1 text-text-secondary">Duration {formatDuration(row.durationSeconds)}</p><p className="mt-1 break-words text-xs text-text-secondary">Entered {displayDate(row.enteredAt)}{row.exitedAt ? ` · Exited ${displayDate(row.exitedAt)}` : ""}</p>{row.bankStageDate ? <p className="mt-1">Bank Stage Date {row.bankStageDate}</p> : null}{row.stageNote ? <p className="mt-1 break-words">Note {row.stageNote}</p> : null}</li>)}</ol> : <EmptyState>No stage duration records are available.</EmptyState>}
             </Card>
           </>
@@ -664,7 +664,7 @@ export default function ApplicationDetailPage() {
             {!hasActions ? <Card className="xl:col-span-2"><EmptyState>No application actions are available for your permissions.</EmptyState></Card> : null}
             {item.activeDelay && !item.terminal && can("Applications.CorrectDelay") ? (
               <Card>
-                <h3 className="font-semibold">Correct active delay</h3>
+                <h3 className="text-lg font-semibold">Correct active delay</h3>
                 <p className="mt-1 text-xs text-text-secondary">Original delay history remains immutable.</p>
                 <form
                   className="mt-3 space-y-3"
@@ -695,7 +695,7 @@ export default function ApplicationDetailPage() {
 
             {!item.terminal && !item.activeDelay && can("Applications.MarkDelay") ? (
               <Card>
-                <h3 className="font-semibold">Mark delay</h3>
+                <h3 className="text-lg font-semibold">Mark delay</h3>
                 <p className="mt-1 text-xs text-text-secondary">Record a reason against the current workflow stage.</p>
                 <form
                   className="mt-3 space-y-3"
@@ -731,7 +731,7 @@ export default function ApplicationDetailPage() {
 
             {!item.terminal && can("Applications.Submit") ? (
               <Card>
-                <h3 className="font-semibold">Bank File / Case Number</h3>
+                <h3 className="text-lg font-semibold">Bank File / Case Number</h3>
                 <p className="mt-1 text-xs text-text-secondary">
                   {item.submitted ? "Changing a submitted case number appends an audited correction." : "Saving the first case number submits the application."}
                 </p>
@@ -766,7 +766,7 @@ export default function ApplicationDetailPage() {
 
             {!item.terminal && can("Applications.UpdateStage") ? (
               <Card>
-                <h3 className="font-semibold">Update stage</h3>
+                <h3 className="text-lg font-semibold">Update stage</h3>
                 <p className="mt-1 text-xs text-text-secondary">Only configured next stages are available.</p>
                 <form
                   className="mt-3 space-y-3"
@@ -806,7 +806,7 @@ export default function ApplicationDetailPage() {
 
             {!item.terminal && can("Applications.CorrectStage") ? (
               <Card>
-                <h3 className="font-semibold">Correct stage</h3>
+                <h3 className="text-lg font-semibold">Correct stage</h3>
                 <p className="mt-1 text-xs text-text-secondary">Original events remain immutable; a correction reason is mandatory.</p>
                 <form
                   className="mt-3 space-y-3"
@@ -841,7 +841,7 @@ export default function ApplicationDetailPage() {
 
             {!item.terminal && can("Applications.CorrectSubmittedData") && item.submitted ? (
               <Card>
-                <h3 className="font-semibold">Correct submitted data</h3>
+                <h3 className="text-lg font-semibold">Correct submitted data</h3>
                 <p className="mt-1 text-xs text-text-secondary">Only explicitly supplied values change; previous values remain in immutable history.</p>
                 <form
                   className="mt-3 space-y-3"
@@ -877,7 +877,7 @@ export default function ApplicationDetailPage() {
 
             {!item.terminal && can("Applications.ReassignCaseOwner") ? (
               <Card>
-                <h3 className="font-semibold">Reassign Case Owner</h3>
+                <h3 className="text-lg font-semibold">Reassign Case Owner</h3>
                 <p className="mt-1 text-xs text-text-secondary">Ownership history is preserved and scope may change for the selected owner.</p>
                 <form
                   className="mt-3 space-y-3"
@@ -908,7 +908,7 @@ export default function ApplicationDetailPage() {
 
             {!item.terminal && can("Workflows.MigrateApplication") ? (
               <Card>
-                <h3 className="font-semibold">Migrate workflow version</h3>
+                <h3 className="text-lg font-semibold">Migrate workflow version</h3>
                 <p className="mt-1 text-xs text-text-secondary">Migration changes the governing workflow and target stage; history is preserved.</p>
                 <form
                   className="mt-3 space-y-3"
@@ -950,7 +950,7 @@ export default function ApplicationDetailPage() {
 
             {!item.terminal && can("Applications.SetOutcome") ? (
               <Card className="border-danger-soft">
-                <h3 className="font-semibold">Terminal outcome</h3>
+                <h3 className="text-lg font-semibold">Terminal outcome</h3>
                 <p className="mt-1 text-xs text-text-secondary">Closing is irreversible in this workspace and stops active application processing.</p>
                 <form
                   className="mt-3 space-y-3"
@@ -980,7 +980,7 @@ export default function ApplicationDetailPage() {
 
         {activeTab === "timeline" ? (
           <Card>
-            <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-end lg:justify-between"><div className="min-w-0"><h3 className="font-semibold">Immutable timeline</h3><p className="mt-1 text-xs text-text-secondary">Filter existing lifecycle events without changing audit history.</p></div><div className="grid min-w-0 gap-3 sm:grid-cols-2 lg:w-[38rem]"><Field label="Search timeline"><TextInput aria-label="Search timeline" placeholder="Stage, reason, action, or person" value={timelineQuery} onChange={(event) => setTimelineQuery(event.target.value)} /></Field><Field label="Event type"><Select aria-label="Filter timeline by event type" value={timelineType} onChange={(event) => setTimelineType(event.target.value)}><option value="">All event types</option>{timelineTypes.map((type) => <option key={type} value={type}>{eventLabel(type)}</option>)}</Select></Field></div></div>
+            <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-end lg:justify-between"><div className="min-w-0"><h3 className="text-lg font-semibold">Immutable timeline</h3><p className="mt-1 text-xs text-text-secondary">Filter existing lifecycle events without changing audit history.</p></div><div className="grid min-w-0 gap-3 sm:grid-cols-2 lg:w-[38rem]"><Field label="Search timeline"><TextInput aria-label="Search timeline" placeholder="Stage, reason, action, or person" value={timelineQuery} onChange={(event) => setTimelineQuery(event.target.value)} /></Field><Field label="Event type"><Select aria-label="Filter timeline by event type" value={timelineType} onChange={(event) => setTimelineType(event.target.value)}><option value="">All event types</option>{timelineTypes.map((type) => <option key={type} value={type}>{eventLabel(type)}</option>)}</Select></Field></div></div>
             <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-y border-brand-border py-2 text-xs text-text-secondary"><span>{filteredTimeline.length} of {timeline.length} events</span>{timelineQuery || timelineType ? <Button type="button" size="compact" variant="ghost" onClick={() => { setTimelineQuery(""); setTimelineType(""); }}>Clear timeline filters</Button> : null}</div>
             {visibleTimeline.length ? <ol className="mt-3 grid min-w-0 gap-2 lg:grid-cols-2">{visibleTimeline.map((event) => { const oldVariant = correctionVariant(event.payload, "old"); const newVariant = correctionVariant(event.payload, "new"); return <li key={event.id} className="min-w-0 rounded-md border border-brand-border p-3 text-sm"><div className="flex min-w-0 flex-wrap items-center justify-between gap-2"><p className="break-words font-medium">{eventLabel(event.eventType)}</p><time className="text-xs text-text-secondary">{displayDate(event.bosUpdatedAt)}</time></div>{event.previousStage || event.newStage ? <p className="mt-1 break-words text-text-secondary">{event.previousStage ? `${event.previousStage} → ` : ""}{event.newStage ?? ""}</p> : null}{event.bankStageDate ? <p className="mt-1">Bank Stage Date {event.bankStageDate}</p> : null}{event.stageNote ? <p className="mt-1 break-words">Note {event.stageNote}</p> : null}{event.reason ? <p className="mt-1 break-words">Reason {event.reason}</p> : null}{event.payload && typeof event.payload.delayType === "string" ? <p className="mt-1 break-words">Delay {event.payload.delayType}</p> : null}{oldVariant && newVariant && oldVariant.id !== newVariant.id ? <p className="mt-1 break-words">Product Variant: {oldVariant.label} → {newVariant.label}</p> : null}<p className="mt-2 break-words text-xs text-text-secondary">Updated by {event.updatedBy || "System"}</p></li>; })}</ol> : <EmptyState>No timeline events match the current filters.</EmptyState>}
             {timelinePages > 1 ? <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-brand-border pt-3 text-sm"><span className="text-text-secondary">Page {currentTimelinePage} of {timelinePages}</span><div className="flex gap-2"><Button type="button" size="compact" variant="secondary" disabled={currentTimelinePage <= 1} onClick={() => setTimelinePage((page) => Math.max(1, page - 1))}>Previous</Button><Button type="button" size="compact" variant="secondary" disabled={currentTimelinePage >= timelinePages} onClick={() => setTimelinePage((page) => Math.min(timelinePages, page + 1))}>Next</Button></div></div> : null}
@@ -991,7 +991,7 @@ export default function ApplicationDetailPage() {
       {confirmation ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4">
           <section ref={confirmationRef} role="alertdialog" aria-modal="true" aria-labelledby="application-confirm-title" aria-describedby="application-confirm-description" className="w-full max-w-md rounded-[10px] border border-brand-border bg-surface p-4 shadow-2xl" onKeyDown={trapFocus}>
-            <h2 id="application-confirm-title" className="text-base font-semibold">{confirmation.title}</h2>
+            <h2 id="application-confirm-title" className="text-[length:var(--amafh-text-section)] font-semibold">{confirmation.title}</h2>
             <p id="application-confirm-description" className="mt-2 text-sm text-text-secondary">{confirmation.description}</p>
             {confirmationError ? <div className="mt-3"><ErrorText>{confirmationError}</ErrorText></div> : null}
             <div className="mt-4 flex flex-wrap justify-end gap-2"><Button data-autofocus type="button" variant="secondary" disabled={busy} onClick={closeConfirmation}>Cancel</Button><Button type="button" variant={confirmation.danger ? "danger" : "primary"} disabled={busy} onClick={() => void runConfirmed()}>{busy ? "Saving…" : confirmation.confirmLabel}</Button></div>
