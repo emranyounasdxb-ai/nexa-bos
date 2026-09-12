@@ -1,4 +1,8 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { preserveBuiltInRoleConfiguration } from "./helpers/role-configuration";
+import { captureViewport } from "./helpers/viewport-capture";
+
+preserveBuiltInRoleConfiguration();
 
 import { selectBrandedOption } from "./helpers/select";
 
@@ -73,12 +77,27 @@ async function createCustomer(
   return (await response.json()) as Customer;
 }
 
-test("owner can create a customer and view bank product catalog", async ({ page, request }) => {
+test("owner can create a customer and view bank product catalog", async ({ page, request }, testInfo) => {
   test.setTimeout(60_000);
   await ensureOwner(request);
   await signIn(page);
   const suffix = Date.now().toString().slice(-8);
   await page.goto("/customers/new");
+  for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
+    await page.setViewportSize(viewport);
+    const name = page.getByLabel("Full name", { exact: true });
+    const mobile = page.getByLabel("Mobile", { exact: true });
+    await expect(name).toBeVisible();
+    const a = (await name.boundingBox())!;
+    const b = (await mobile.boundingBox())!;
+    expect(a.height).toBe(32);
+    expect(b.height).toBe(32);
+    if (viewport.width === 1440) { expect(Math.abs(a.y - b.y)).toBeLessThanOrEqual(1); expect(b.x).toBeGreaterThan(a.x + a.width); }
+    else { expect(Math.abs(a.x - b.x)).toBeLessThanOrEqual(1); expect(b.y).toBeGreaterThan(a.y + a.height); }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
+    await captureViewport(page, testInfo.outputPath(`customer-create-${viewport.width}.png`));
+  }
+  await page.setViewportSize({ width: 1440, height: 900 });
   await page.getByLabel("Full name").fill(`Playwright Customer ${suffix}`);
   await page.getByLabel("Mobile").fill(`+97150${suffix}`);
   await page.getByRole("button", { name: "Create customer" }).click();

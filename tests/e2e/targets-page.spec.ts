@@ -80,6 +80,46 @@ async function expectNoHorizontalOverflow(page: Page) {
   )).toBeTruthy();
 }
 
+test("latest target filter survives an older real response finishing last", async ({ page, request }) => {
+  test.setTimeout(120_000);
+  const initialMonth = `${new Date().toISOString().slice(0, 7)}-01`;
+  const emptyMonth = "2098-11-01";
+  await seedTarget(request, initialMonth);
+  await signIn(page);
+  let release!: () => void;
+  const held = new Promise<void>(resolve => { release = resolve; });
+  let received = 0;
+  let finished = 0;
+  await page.route(url => url.pathname === "/api/v1/targets" && url.searchParams.get("period_month") === initialMonth, async route => {
+    const response = await route.fetch({ maxRetries: 0 });
+    expect(response.ok()).toBeTruthy();
+    expect((await response.json()).items.length).toBeGreaterThan(0);
+    received += 1;
+    await held;
+    await route.fulfill({ response }); // Unchanged real authenticated response.
+    finished += 1;
+  });
+  try {
+    await page.goto("/targets");
+    await expect.poll(() => received).toBeGreaterThan(0);
+    const month = page.getByLabel("Target month filter");
+    await month.fill(emptyMonth);
+    await month.press("Enter");
+    const empty = page.getByText("No targets are in scope for the selected filters. Adjust the filters or use the page-level Create target action.", { exact: true });
+    await expect(empty).toBeVisible();
+    release();
+    await expect.poll(() => finished === received && received > 0).toBe(true);
+    // Let the browser commit response-driven renders, not an arbitrary timeout.
+    await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+    await expect(month).toHaveValue(emptyMonth);
+    await expect(empty).toBeVisible();
+    await expect(page.getByTestId("target-filter-toolbar").getByText("0 in scope", { exact: true })).toBeVisible();
+  } finally {
+    release();
+    await page.unrouteAll({ behavior: "wait" });
+  }
+});
+
 test("Targets workspace keeps URL tabs, compact filters, results, and drawer focus", async ({
   page,
   request,

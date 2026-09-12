@@ -466,7 +466,7 @@ export default function AttendancePage() {
       />
       {correcting ? (
         <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <h3 className="text-sm font-semibold">Correct attendance</h3>
+          <h3 className="text-lg font-semibold">Correct attendance</h3>
           <p className="mt-1 text-sm text-slate-600">
             Correction reason is required. Previous values are kept in immutable history.
           </p>

@@ -157,7 +157,7 @@ test("bounded master lists paginate accessibly with compact responsive rows", as
       paddingBottom: style.paddingBottom,
     };
   });
-  expect(firstCellDensity).toEqual({ fontSize: "13px", paddingTop: "8px", paddingBottom: "8px" });
+  expect(firstCellDensity).toEqual({ fontSize: "15px", paddingTop: "12px", paddingBottom: "12px" });
 
   for (const viewport of [
     { width: 900, height: 900 },
@@ -170,6 +170,42 @@ test("bounded master lists paginate accessibly with compact responsive rows", as
       ),
     ).toBeTruthy();
     await expect(categoryPagination.getByLabel("Rows per page")).toBeVisible();
+  }
+});
+
+test("pending directory search preserves a concurrently selected page size", async ({ page, request }) => {
+  test.setTimeout(120_000);
+  const marker = await seedServerUsers(request);
+  await page.clock.install({ time: new Date() });
+  await signIn(page, request);
+  await page.goto(`/users?q=${encodeURIComponent(`${marker} 00`)}`);
+  const pagination = page.getByRole("navigation", { name: "List pagination" });
+  await expect(pagination.getByText("Showing 1–10 of 10")).toBeVisible();
+  await page.clock.pauseAt(new Date(await page.evaluate(() => Date.now()) + 1000));
+  let release!: () => void;
+  const held = new Promise<void>(resolve => { release = resolve; });
+  let navigationHeld = false;
+  await page.route(url => url.pathname === "/users" && url.searchParams.get("pageSize") === "25" && url.searchParams.has("_rsc"), async route => {
+    const response = await route.fetch({ maxRetries: 0 });
+    expect(response.ok()).toBeTruthy();
+    navigationHeld = true;
+    await held;
+    await route.fulfill({ response });
+  });
+  try {
+    await page.getByLabel("Search users").fill(marker);
+    await selectBrandedOption(pagination.getByLabel("Rows per page"), "25");
+    await expect.poll(() => navigationHeld).toBe(true);
+    await page.clock.runFor(300); // Exercise the actual search debounce while navigation is pending.
+    release();
+    await page.clock.resume();
+    await expect(page).toHaveURL(url => url.searchParams.get("q") === marker && url.searchParams.get("pageSize") === "25");
+    await expect(page.locator("tbody tr")).toHaveCount(22);
+    await expect(pagination.getByText("Showing 1–22 of 22")).toBeVisible();
+  } finally {
+    release();
+    await page.clock.resume();
+    await page.unrouteAll({ behavior: "wait" });
   }
 });
 

@@ -365,7 +365,7 @@ function HierarchyBranch({
             >
               {node.designation?.name ?? "No designation"}
             </span>
-            <span className="flex min-w-0 items-center gap-1.5 text-[10px] leading-3 text-slate-400">
+            <span className="flex min-w-0 items-center gap-1.5 text-xs leading-5 text-slate-400">
               <span className="min-w-0 truncate">{node.employeeCode}</span>
               {node.contextOnly ? (
                 <span className="rounded bg-slate-100 px-1 text-slate-500">Context</span>
@@ -441,7 +441,7 @@ function SelectedContext({
   return (
     <Card className="space-y-4" >
       <div>
-        <h3 className="font-semibold text-slate-900">Selected employee</h3>
+        <h3 className="text-lg font-semibold text-slate-900">Selected employee</h3>
         <p className="text-sm text-slate-600">{node.employeeCode}</p>
       </div>
       <dl className="grid gap-2 text-sm">

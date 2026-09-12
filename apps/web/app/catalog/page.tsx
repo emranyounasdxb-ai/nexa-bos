@@ -588,7 +588,7 @@ function CatalogInner() {
       <Card className="overflow-hidden p-0">
         <div className="flex flex-col gap-3 px-4 py-4 sm:px-5 lg:flex-row lg:items-center lg:justify-between">
           <div className="min-w-0">
-            <h2 className="text-lg font-semibold tracking-tight text-slate-950">Catalogue workspace</h2>
+            <h2 className="text-[length:var(--amafh-text-section)] font-semibold tracking-tight text-slate-950">Catalogue workspace</h2>
             <p className="mt-1 max-w-4xl text-sm leading-5 text-slate-600">
               Manage banks, product categories, Product Variants, amount and target rules, and the products available for each bank.
             </p>
@@ -741,7 +741,7 @@ function CatalogInner() {
           <div id="catalog-panel-rules" role="tabpanel" aria-labelledby="catalog-tab-rules">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <h2 className="text-base font-semibold text-slate-950">Amount & Target Rules</h2>
+                <h2 className="text-[length:var(--amafh-text-section)] font-semibold text-slate-950">Amount & Target Rules</h2>
                 <p className="mt-1 text-sm text-slate-500">{tabs[3].description}</p>
               </div>
               {ruleDraft && !sameRuleDraft(ruleDraft, ruleInitial) ? <Badge tone="amber">Unsaved changes</Badge> : null}
@@ -1172,7 +1172,7 @@ function MasterCatalogTab({
         <div className="px-4 py-4 sm:px-5">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h2 className="text-base font-semibold text-slate-950">{title}</h2>
+              <h2 className="text-[length:var(--amafh-text-section)] font-semibold text-slate-950">{title}</h2>
               <p className="mt-1 text-sm text-slate-500">{description}</p>
             </div>
             <Badge>{totalItems} total</Badge>
@@ -1363,7 +1363,7 @@ function ProductVariantsTab({
         <div className="px-4 py-4 sm:px-5">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h2 className="text-base font-semibold text-slate-950">Product Variants</h2>
+              <h2 className="text-[length:var(--amafh-text-section)] font-semibold text-slate-950">Product Variants</h2>
               <p className="mt-1 text-sm text-slate-500">
                 Select a Bank and Product Category, then manage its actual Product Variants.
               </p>
@@ -1582,7 +1582,7 @@ function MappingTab({
         <div className="px-4 py-4 sm:px-5">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h2 className="text-base font-semibold text-slate-950">Bank–Product Mapping</h2>
+              <h2 className="text-[length:var(--amafh-text-section)] font-semibold text-slate-950">Bank–Product Mapping</h2>
               <p className="mt-1 text-sm text-slate-500">Choose which products are available for each bank.</p>
             </div>
             <Badge>{totalItems} total</Badge>

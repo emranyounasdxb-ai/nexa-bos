@@ -718,7 +718,7 @@ export default function UserTypeDetailPage() {
               <IconArrowBack className="size-4" />
               Back to User Types
             </ButtonLink>
-            <h2 className="text-lg font-semibold tracking-tight text-slate-950 sm:text-xl">
+            <h2 className="text-[length:var(--amafh-text-section)] font-semibold tracking-tight text-slate-950 sm:text-xl">
               {item.name} <span className="font-medium text-slate-500">({item.code})</span>
             </h2>
             <p className="mt-1 max-w-4xl text-sm leading-5 text-slate-600">
@@ -923,7 +923,7 @@ export default function UserTypeDetailPage() {
                   <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
-                        <h3 id="active-permission-module" className="text-base font-semibold text-slate-950">
+                        <h3 id="active-permission-module" className="text-lg font-semibold text-slate-950">
                           {activeGroup.label}
                         </h3>
                         {(() => {

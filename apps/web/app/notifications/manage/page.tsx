@@ -309,7 +309,7 @@ export default function NotificationManagementPage() {
       {manageRules && options ? (
         <Card>
           <form className="space-y-4" onSubmit={(event) => void saveRule(event)}>
-            <h3 className="font-semibold text-slate-900">{editingId ? "Edit notification rule" : "New notification rule"}</h3>
+            <h3 className="text-lg font-semibold text-slate-900">{editingId ? "Edit notification rule" : "New notification rule"}</h3>
             <div className="grid gap-3 md:grid-cols-2">
               <Field label="Rule name"><TextInput required maxLength={120} value={ruleDraft.name} onChange={(event) => setRuleDraft({ ...ruleDraft, name: event.target.value })} /></Field>
               <Field label="Source event">
@@ -340,7 +340,7 @@ export default function NotificationManagementPage() {
 
       {manageRules ? (
         <div className="space-y-3">
-          <h3 className="font-semibold text-slate-900">Notification rules</h3>
+          <h3 className="text-lg font-semibold text-slate-900">Notification rules</h3>
           {rules.length === 0 ? <Card><EmptyState>No notification rules have been configured.</EmptyState></Card> : (
             <><TableShell className="rounded-b-none"><TableHead><tr><Th>Name</Th><Th>Event</Th><Th>Category</Th><Th>Severity</Th><Th>Status</Th><Th>Actions</Th></tr></TableHead><tbody>
               {rulesPagination.pagedItems.map((rule) => <tr key={rule.id} className="border-t border-slate-100"><Td>{rule.name}</Td><Td>{friendly(rule.eventType)}</Td><Td>{friendly(rule.category)}</Td><Td><Badge>{friendly(rule.severity)}</Badge></Td><Td><Badge>{friendly(rule.status)}</Badge></Td><Td><div className="flex gap-1.5"><Button type="button" variant="secondary" size="compact" onClick={() => editRule(rule)}>Edit</Button><Button type="button" variant="secondary" size="compact" onClick={() => void changeStatus(rule)}>{rule.status === "active" ? "Deactivate" : "Activate"}</Button></div></Td></tr>)}
@@ -353,7 +353,7 @@ export default function NotificationManagementPage() {
       {sendUrgent && options ? (
         <Card>
           <form className="space-y-4" onSubmit={(event) => void submitUrgent(event)}>
-            <h3 className="font-semibold text-slate-900">Send urgent in-app notification</h3>
+            <h3 className="text-lg font-semibold text-slate-900">Send urgent in-app notification</h3>
             <div className="grid gap-3 md:grid-cols-2">
               <Field label="Urgent category"><Select value={urgentDraft.category} onChange={(event) => setUrgentDraft({ ...urgentDraft, category: event.target.value })}>{options.categories.map((item) => <option key={item} value={item}>{friendly(item)}</option>)}</Select></Field>
               <Field label="Urgent title"><TextInput required maxLength={200} value={urgentDraft.title} onChange={(event) => setUrgentDraft({ ...urgentDraft, title: event.target.value })} /></Field>
@@ -368,7 +368,7 @@ export default function NotificationManagementPage() {
 
       {viewAudit ? (
         <div className="space-y-3">
-          <h3 className="font-semibold text-slate-900">Notification audit</h3>
+          <h3 className="text-lg font-semibold text-slate-900">Notification audit</h3>
           {audit.length === 0 ? <Card><EmptyState>No notification administration audit events are available.</EmptyState></Card> : (
             <TableShell><TableHead><tr><Th>Timestamp</Th><Th>Action</Th><Th>Entity</Th><Th>Note</Th></tr></TableHead><tbody>
               {audit.map((item) => <tr key={item.id} className="border-t border-slate-100"><Td>{new Date(item.createdAt).toLocaleString()}</Td><Td>{item.action}</Td><Td>{item.entityType} · {item.entityId}</Td><Td>{item.note ?? "—"}</Td></tr>)}

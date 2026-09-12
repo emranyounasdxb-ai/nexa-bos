@@ -188,7 +188,7 @@ function CustomersDirectory() {
       <Card className="!p-0">
         <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 border-b border-brand-border px-3 py-2 sm:px-4">
           <div className="min-w-0">
-            <h2 className="text-sm font-semibold text-text-primary">Customers in scope</h2>
+            <h2 className="text-[length:var(--amafh-text-section)] font-semibold text-text-primary">Customers in scope</h2>
             <p className="text-xs text-text-secondary">
               {loading ? "Refreshing…" : `${total.toLocaleString()} authorized record${total === 1 ? "" : "s"}`}
             </p>

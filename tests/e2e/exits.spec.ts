@@ -1,4 +1,7 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { preserveBuiltInRoleConfiguration } from "./helpers/role-configuration";
+
+preserveBuiltInRoleConfiguration();
 import { selectBrandedOption } from "./helpers/select";
 
 const api = `http://127.0.0.1:${process.env.PLAYWRIGHT_API_PORT ?? "8010"}`;
@@ -16,10 +19,13 @@ async function signOut(page: Page, width: number) {
   if (width < 1024) await page.getByRole("button", { name: "Open navigation" }).click();
   await page.getByRole("button", { name: "Open user menu" }).focus(); await expect(page.getByRole("button", { name: "Open user menu" })).toBeFocused(); await page.keyboard.press("Enter"); await expect(page.getByRole("menuitem", { name: "Sign out" })).toBeVisible(); await page.getByRole("menuitem", { name: "Sign out" }).click(); await expect(page).toHaveURL(/\/login/);
 }
-async function closeDetails(page: Page) {
+async function closeDetails(page: Page, restoredAction = "Prepare exit") {
   await expect(page.getByRole("button", { name: "Refresh", exact: true })).toBeEnabled();
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).toHaveCount(0);
+  // The existing dialog restores focus on the next animation frame. Assert its
+  // actual destination before another keyboard action can race that restoration.
+  await expect(page.getByRole("button", { name: restoredAction, exact: true })).toBeFocused();
 }
 async function setup(request: APIRequestContext) {
   if ((await (await request.get(`${api}/api/v1/auth/bootstrap-status`)).json()).available) {
@@ -59,7 +65,7 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
     const response = page.waitForResponse(r => r.url().endsWith("/api/v1/exits") && r.request().method() === "POST"); await page.getByRole("button", { name: "Save exit" }).click(); const saved = await (await response).json();
     await page.getByRole("button", { name: "Submit exit", exact: true }).click(); await page.getByLabel("Reason / comment *").fill("Request reviewed by employee"); await page.getByRole("button", { name: "Confirm decision" }).click(); await expect(page.getByRole("dialog").getByText("Submitted", { exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Complete exit", exact: true })).toHaveCount(0);
-    await closeDetails(page); await signOut(page, viewport.width);
+    await closeDetails(page, "Request resignation"); await signOut(page, viewport.width);
     await signIn(page, hr.email, password); await page.goto("/exits?status=Submitted"); await page.getByRole("row").filter({ hasText: employee.employeeCode }).getByRole("button", { name: "View exit" }).click();
     for (const name of ["Confirm notice period", "Start clearance"]) { await page.getByRole("button", { name, exact: true }).click(); await page.getByLabel("Reason / comment *").fill("Independent HR processing"); await page.getByRole("button", { name: "Confirm decision" }).click(); }
     await expect(page.getByRole("dialog").getByText("Clearance in Progress", { exact: true })).toBeVisible();

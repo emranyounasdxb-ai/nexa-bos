@@ -122,7 +122,7 @@ export default function AssetCategoriesPage() {
         description="Configure future individually tracked Asset types without changing the custody model."
       />
       <Card>
-        <h3 className="font-semibold text-slate-900">New category</h3>
+        <h3 className="text-lg font-semibold text-slate-900">New category</h3>
         <form className="mt-4 space-y-4" onSubmit={createCategory}>
           <div className="grid gap-4 md:grid-cols-3">
             <Field label="Code"><TextInput aria-label="Category code" required value={code} onChange={(event) => setCode(event.target.value)} /></Field>

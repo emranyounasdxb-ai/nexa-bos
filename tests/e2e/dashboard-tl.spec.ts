@@ -1,4 +1,7 @@
 import { expect, test, type APIRequestContext, type Locator, type Page, type TestInfo } from "@playwright/test";
+import { preserveBuiltInRoleConfiguration } from "./helpers/role-configuration";
+
+preserveBuiltInRoleConfiguration();
 import { selectBrandedOption } from "./helpers/select";
 
 const api = `http://127.0.0.1:${process.env.PLAYWRIGHT_API_PORT ?? "8010"}`;

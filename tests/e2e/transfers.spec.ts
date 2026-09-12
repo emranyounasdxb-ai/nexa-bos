@@ -1,4 +1,7 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { preserveBuiltInRoleConfiguration } from "./helpers/role-configuration";
+
+preserveBuiltInRoleConfiguration();
 import { selectBrandedOption } from "./helpers/select";
 
 const api = `http://127.0.0.1:${process.env.PLAYWRIGHT_API_PORT ?? "8010"}`;
@@ -79,6 +82,7 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
     const current = await (await request.get(`${api}/api/v1/transfers/${saved.id}`)).json();
     const reviewed = await request.post(`${api}/api/v1/transfers/${saved.id}/action`, { headers, data: { action: "review", lock_version: current.lockVersion, comment: "Independent HR review" } }); expect(reviewed.ok(), await reviewed.text()).toBeTruthy();
     await page.keyboard.press("Escape");
+    await expect(trigger).toBeFocused();
     if (viewport.width < 1024) await page.getByRole("button", { name: "Open navigation" }).click();
     // Exercise the ordinary keyboard path; Next dev's footer overlay intercepts the pointer.
     await page.getByRole("button", { name: "Open user menu" }).focus();

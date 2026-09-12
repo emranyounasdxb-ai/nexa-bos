@@ -587,7 +587,7 @@ export default function CustomerDetailPage() {
       {confirmation ? (
         <div className="fixed inset-0 z-[70] grid place-items-center bg-slate-950/40 p-4" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) closeConfirmation(); }}>
           <section ref={confirmationRef} role="alertdialog" aria-modal="true" aria-labelledby="customer-confirm-title" aria-describedby="customer-confirm-description" className="w-full max-w-md rounded-[10px] border border-brand-border bg-surface p-4 shadow-2xl" onKeyDown={trapConfirmationFocus}>
-            <h2 id="customer-confirm-title" className="text-base font-semibold text-text-primary">{confirmation.title}</h2>
+            <h2 id="customer-confirm-title" className="text-[length:var(--amafh-text-section)] font-semibold text-text-primary">{confirmation.title}</h2>
             <p id="customer-confirm-description" className="mt-2 text-sm leading-6 text-text-secondary">{confirmation.description}</p>
             {confirmationError ? <div className="mt-3"><ErrorText>{confirmationError}</ErrorText></div> : null}
             <div className="mt-4 flex flex-wrap justify-end gap-2">
@@ -602,7 +602,7 @@ export default function CustomerDetailPage() {
 }
 
 function SectionHeader({ title, description }: { title: string; description: string }) {
-  return <div><h2 className="text-base font-semibold text-text-primary">{title}</h2><p className="mt-1 text-sm text-text-secondary">{description}</p></div>;
+  return <div><h2 className="text-[length:var(--amafh-text-section)] font-semibold text-text-primary">{title}</h2><p className="mt-1 text-sm text-text-secondary">{description}</p></div>;
 }
 
 function InputField({ label, value, onChange, disabled, placeholder }: { label: string; value: string; onChange: (value: string) => void; disabled?: boolean; placeholder?: string }) {

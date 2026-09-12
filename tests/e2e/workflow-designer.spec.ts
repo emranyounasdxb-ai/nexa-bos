@@ -261,17 +261,14 @@ test("Workflow Designer presents dependent branded selectors, drawers, branching
 test("Branded required selects preserve form validation", async ({ page, request }) => {
   await ensureOwner(request);
   await signIn(page, request);
-  await page.goto("/users/new");
-
-  await page.getByLabel("Full name").fill("Select validation check");
-  await page.getByLabel("Employee code").fill("SELECT-VALIDATION");
-  await page.getByLabel("Email").fill("select-validation@example.invalid");
-  await page.getByLabel("Mobile number").fill("0500000000");
-  await page.getByLabel("Joining date").fill("2026-09-03");
-  await page.getByRole("button", { name: "Create", exact: true }).click();
-
-  const designation = page.getByRole("combobox", { name: "Designation" });
-  await expect(page).toHaveURL(/\/users\/new$/);
-  await expect(designation).toHaveAttribute("aria-invalid", "true");
-  await expect(designation).toBeFocused();
+  // Basic user creation no longer contains organizational selects. Exercise the
+  // same required BrandedSelect contract in the existing schedule form instead.
+  await page.goto("/attendance/schedules");
+  const office = page.getByRole("combobox", { name: "Schedule office" });
+  await expect(office).toHaveAttribute("aria-required", "true");
+  await expect(office).toHaveAttribute("value", "");
+  await page.getByRole("button", { name: "Save schedule", exact: true }).click();
+  await expect(page).toHaveURL(/\/attendance\/schedules$/);
+  await expect(office).toHaveAttribute("aria-invalid", "true");
+  await expect(office).toBeFocused();
 });

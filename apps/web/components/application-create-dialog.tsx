@@ -753,7 +753,7 @@ export function ApplicationCreateDialog({
           >
             <header className="flex min-w-0 items-start justify-between gap-3 border-b border-brand-border px-4 py-3 sm:px-5">
               <div className="min-w-0">
-                <h2 id="customer-match-details-title" className="text-base font-semibold text-text-primary">
+                <h2 id="customer-match-details-title" className="text-[length:var(--amafh-text-section)] font-semibold text-text-primary">
                   Customer match details
                 </h2>
                 <p className="mt-1 text-sm text-text-secondary">
@@ -781,7 +781,7 @@ export function ApplicationCreateDialog({
                 ))}
               </dl>
 
-              <h3 className="mt-4 text-sm font-semibold text-text-primary">Previous products and cases</h3>
+              <h3 className="mt-4 text-lg font-semibold text-text-primary">Previous products and cases</h3>
               {match.history.length ? (
                 <ul className="mt-2 divide-y divide-brand-border rounded-[10px] border border-brand-border">
                   {match.history.map((item) => (

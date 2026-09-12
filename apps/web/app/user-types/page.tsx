@@ -51,24 +51,24 @@ export default function UserTypesPage() {
       />
       <ErrorText>{error}</ErrorText>
       {can("UserTypes.Create") ? (
-        <form onSubmit={(event) => void createType(event)} className="grid gap-2 rounded-xl border border-slate-200 bg-white p-4 md:grid-cols-4">
-          <TextInput
+        <form onSubmit={(event) => void createType(event)} className="grid min-w-0 gap-4 rounded-lg border border-brand-border bg-surface p-4 md:grid-cols-3 sm:p-5">
+          <label className="min-w-0 text-sm">Name <span aria-hidden="true">*</span><TextInput
             placeholder="Name"
             value={form.name}
             onChange={(event) => setForm({ ...form, name: event.target.value })}
             required
-          />
-          <TextInput
+          /></label>
+          <label className="min-w-0 text-sm">Unique code <span aria-hidden="true">*</span><TextInput
             placeholder="Unique code"
             value={form.code}
             onChange={(event) => setForm({ ...form, code: event.target.value })}
             required
-          />
-          <TextInput
+          /></label>
+          <label className="min-w-0 text-sm">Description<TextInput
             placeholder="Description"
             value={form.description}
             onChange={(event) => setForm({ ...form, description: event.target.value })}
-          />
+          /></label>
           <label className="flex items-center gap-2 text-sm">
             <input
               type="checkbox"
@@ -77,7 +77,7 @@ export default function UserTypesPage() {
             />
             Can be reporting manager
           </label>
-          <Button type="submit">Create custom type</Button>
+          <div className="flex justify-end md:col-span-2"><Button type="submit">Create custom type</Button></div>
         </form>
       ) : null}
       <TableShell className="rounded-b-none">

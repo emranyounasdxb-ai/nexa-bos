@@ -555,7 +555,7 @@ export default function UserProfilePage() {
         <div className="fixed inset-0 z-[70] grid place-items-center bg-slate-950/40 p-4" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) closeConfirmation(); }}>
           <section ref={confirmationRef} role="dialog" aria-modal="true" aria-labelledby="profile-confirm-title" aria-describedby="profile-confirm-description" className="w-full max-w-md rounded-[10px] border border-brand-border bg-surface p-4 shadow-2xl" onKeyDown={trapConfirmationFocus}>
             <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0"><h2 id="profile-confirm-title" className="text-base font-semibold text-text-primary">{confirmation.title}</h2><p id="profile-confirm-description" className="mt-2 text-sm text-text-secondary">{confirmation.description}</p></div>
+              <div className="min-w-0"><h2 id="profile-confirm-title" className="text-[length:var(--amafh-text-section)] font-semibold text-text-primary">{confirmation.title}</h2><p id="profile-confirm-description" className="mt-2 text-sm text-text-secondary">{confirmation.description}</p></div>
               <Button type="button" variant="ghost" size="icon" aria-label="Close confirmation" disabled={actionLoading} onClick={closeConfirmation}><IconX className="size-4" /></Button>
             </div>
             {confirmation.requiresReason ? <div className="mt-3">
@@ -634,8 +634,8 @@ function AssetSection({ title, description, items, empty, current = false }: { t
 
 function AuditList({ events }: { events: AuditEvent[] }) {
   return <>
-    <div className="hidden min-w-0 md:block"><TableShell><TableHead><tr><Th>Date</Th><Th>Action</Th><Th>Recorded change</Th></tr></TableHead><tbody>{events.map((event) => <tr key={event.id}><Td className="whitespace-nowrap">{formatDateTime(event.createdAt)}</Td><Td><span className="font-medium">{friendly(event.action)}</span><span className="mt-0.5 block font-mono text-[11px] text-text-disabled">{event.action}</span></Td><Td className="max-w-xl"><AuditChange event={event} /></Td></tr>)}</tbody></TableShell></div>
-    <div className="grid min-w-0 gap-2 md:hidden" data-testid="audit-event-cards">{events.map((event) => <Card key={event.id} className="!p-3"><div className="flex min-w-0 flex-wrap items-start justify-between gap-2"><p className="font-medium text-text-primary">{friendly(event.action)}</p><time className="text-xs text-text-secondary">{formatDateTime(event.createdAt)}</time></div><p className="mt-1 break-all font-mono text-[11px] text-text-disabled">{event.action}</p><div className="mt-3 border-t border-brand-border pt-3"><AuditChange event={event} /></div></Card>)}</div>
+    <div className="hidden min-w-0 md:block"><TableShell><TableHead><tr><Th>Date</Th><Th>Action</Th><Th>Recorded change</Th></tr></TableHead><tbody>{events.map((event) => <tr key={event.id}><Td className="whitespace-nowrap">{formatDateTime(event.createdAt)}</Td><Td><span className="font-medium">{friendly(event.action)}</span><span className="mt-0.5 block font-mono text-xs text-text-disabled">{event.action}</span></Td><Td className="max-w-xl"><AuditChange event={event} /></Td></tr>)}</tbody></TableShell></div>
+    <div className="grid min-w-0 gap-2 md:hidden" data-testid="audit-event-cards">{events.map((event) => <Card key={event.id} className="!p-3"><div className="flex min-w-0 flex-wrap items-start justify-between gap-2"><p className="font-medium text-text-primary">{friendly(event.action)}</p><time className="text-xs text-text-secondary">{formatDateTime(event.createdAt)}</time></div><p className="mt-1 break-all font-mono text-xs text-text-disabled">{event.action}</p><div className="mt-3 border-t border-brand-border pt-3"><AuditChange event={event} /></div></Card>)}</div>
   </>;
 }
 

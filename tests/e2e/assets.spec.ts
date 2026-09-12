@@ -49,14 +49,14 @@ async function signIn(
 }
 
 async function ensureAssetsMenuOpen(page: Page) {
-  const assetsLink = page.getByRole("link", { name: "Assets", exact: true });
+  const assetsLink = page.getByRole("complementary", { name: "Application sidebar" }).getByRole("link", { name: "Assets", exact: true });
   if (!(await assetsLink.isVisible())) {
     await expect(page.getByRole("button", { name: "Assets menu" })).toBeVisible({
       timeout: 30_000,
     });
     await page.getByRole("button", { name: "Assets menu" }).click();
   }
-  await expect(page.getByRole("link", { name: "Assets", exact: true })).toBeVisible({
+  await expect(page.getByRole("complementary", { name: "Application sidebar" }).getByRole("link", { name: "Assets", exact: true })).toBeVisible({
     timeout: 5_000,
   });
 }
@@ -125,7 +125,7 @@ test("owner completes tracked Asset creation, custody, profile, offboarding, ret
   const suffix = `${Date.now()}`.slice(-8);
 
   await signIn(page, request);
-  await page.getByRole("link", { name: "Assets", exact: true }).click();
+  await page.getByRole("complementary", { name: "Application sidebar" }).getByRole("link", { name: "Assets", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Asset Register" })).toBeVisible();
 
   await page.getByRole("button", { name: "Add asset" }).click();
@@ -212,7 +212,7 @@ test("owner completes tracked Asset creation, custody, profile, offboarding, ret
   await expect(page.getByText("CSV", { exact: true })).toHaveCount(0);
 
   await ensureAssetsMenuOpen(page);
-  await page.getByRole("link", { name: "Assets", exact: true }).click();
+  await page.getByRole("complementary", { name: "Application sidebar" }).getByRole("link", { name: "Assets", exact: true }).click();
   await page.getByRole("row").filter({ hasText: assetCode }).getByRole("link").click();
   await page.getByRole("tab", { name: "Custody" }).click();
   await selectBrandedOption(page.getByLabel("Return Condition"), "Fair");
@@ -335,7 +335,7 @@ test("Assets.View-only user sees own custody without privileged controls or muta
 
   await signIn(page, request, viewer.email, "UserPass1!");
   await expect(page.getByRole("link", { name: "Asset categories" })).toHaveCount(0);
-  await page.getByRole("link", { name: "Assets", exact: true }).click();
+  await page.getByRole("complementary", { name: "Application sidebar" }).getByRole("link", { name: "Assets", exact: true }).click();
   await expect(page.getByRole("row").filter({ hasText: asset.assetCode })).toBeVisible();
   await expect(page.getByRole("button", { name: "Add asset" })).toHaveCount(0);
   await page.getByRole("link", { name: asset.assetCode }).click();

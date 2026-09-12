@@ -147,7 +147,7 @@ export default function SchedulesPage() {
       <ErrorText>{error}</ErrorText>
       {message ? <p className="text-sm text-slate-600">{message}</p> : null}
       <section className="space-y-3 rounded-xl border border-slate-200 bg-white p-4">
-        <h3 className="text-sm font-semibold">Company working days</h3>
+        <h3 className="text-lg font-semibold">Company working days</h3>
         <div className="flex flex-wrap gap-3">
           {WEEKDAYS.map((day) => (
             <label key={day.value} className="text-sm">
@@ -364,7 +364,7 @@ function ImpactRules({ canManage }: { canManage: boolean }) {
 
   return (
     <section className="space-y-3">
-      <h3 className="text-sm font-semibold">Attendance impact rules</h3>
+      <h3 className="text-lg font-semibold">Attendance impact rules</h3>
       <p className="text-sm text-slate-600">
         Points or percentage deductions apply to Attendance Score only. They never change business performance
         metrics.

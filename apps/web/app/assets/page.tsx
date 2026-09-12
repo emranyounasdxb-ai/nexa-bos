@@ -365,7 +365,7 @@ export default function AssetsPage() {
       <Card className="!p-0">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-brand-border px-3 py-2 sm:px-4">
           <div>
-            <h2 className="text-sm font-semibold text-text-primary">Assets in scope</h2>
+            <h2 className="text-[length:var(--amafh-text-section)] font-semibold text-text-primary">Assets in scope</h2>
             <p className="text-xs text-text-secondary">{loading ? "Refreshing…" : `${total.toLocaleString()} authorized record${total === 1 ? "" : "s"}`}</p>
           </div>
           {loading && assets.length > 0 ? <span role="status" className="text-xs text-text-secondary">Updating results…</span> : null}
@@ -430,7 +430,7 @@ export default function AssetsPage() {
           >
             <div className="flex items-start justify-between gap-3 border-b border-brand-border px-4 py-3 sm:px-5">
               <div className="min-w-0">
-                <h2 id="asset-drawer-title" className="text-lg font-semibold text-text-primary">Add asset</h2>
+                <h2 id="asset-drawer-title" className="text-[length:var(--amafh-text-section)] font-semibold text-text-primary">Add asset</h2>
                 <p id="asset-drawer-description" className="mt-0.5 text-sm text-text-secondary">
                   Record stock identity and its initial Office custody. The Asset Code is generated and immutable.
                 </p>
@@ -496,7 +496,7 @@ export default function AssetsPage() {
       {discardConfirmOpen ? (
         <div className="fixed inset-0 z-[80] grid place-items-center bg-slate-950/40 p-4" role="presentation">
           <section role="alertdialog" aria-modal="true" aria-labelledby="asset-discard-title" aria-describedby="asset-discard-description" className="w-full max-w-md rounded-[10px] border border-brand-border bg-surface p-4 shadow-2xl">
-            <h2 id="asset-discard-title" className="text-base font-semibold text-text-primary">Discard unsaved asset?</h2>
+            <h2 id="asset-discard-title" className="text-[length:var(--amafh-text-section)] font-semibold text-text-primary">Discard unsaved asset?</h2>
             <p id="asset-discard-description" className="mt-2 text-sm text-text-secondary">The asset has not been created. Your staged details will be lost.</p>
             <div className="mt-4 flex justify-end gap-2">
               <Button type="button" variant="secondary" autoFocus onClick={() => setDiscardConfirmOpen(false)}>Keep editing</Button>
