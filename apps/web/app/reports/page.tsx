@@ -12,6 +12,7 @@ import {
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { DateRangePicker } from "@/components/date-picker";
+import { EmployeeDashboard } from "@/components/employee-dashboard";
 import { DonutChart, TimeSeriesChart } from "@/components/charts";
 import {
   IconArrowBack,
@@ -69,6 +70,7 @@ import { PersonalPerformanceAttendance } from "./personal-dashboard";
 import { CodDashboard } from "./cod-dashboard";
 import { TlDashboard } from "./tl-dashboard";
 import { SeDashboard } from "./se-dashboard";
+import { RoleWorkspace } from "./role-workspace";
 
 const comparisonPeriodFor: Partial<Record<string, string>> = {
   mtd: "month",
@@ -380,10 +382,11 @@ export function DashboardInner() {
   }
 
   return (
-    <section className="space-y-4">
+    <section className="space-y-6">
+      <RoleWorkspace />
       <PageHeader
         title="Dashboard"
-        description="Review application performance, pipeline movement, target progress, and items that may need attention."
+        description={data && !data.reportingScope ? "Your permitted work areas, personal performance and read-only attendance." : "Review application performance, pipeline movement, target progress, and items that may need attention."}
       />
       <div data-testid="dashboard-filters" className="rounded-[10px] border border-slate-200/90 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.035)]">
         <div className="flex min-w-0 flex-col gap-3 px-4 py-3 sm:px-5 md:flex-row md:items-center md:justify-between">
@@ -627,7 +630,17 @@ export function DashboardInner() {
 
       <ErrorText>{error}</ErrorText>
       {loading && !data ? <DashboardSkeleton /> : null}
-      {data ? (
+      {data && ((user?.userType?.code === "HR" && can("UserProfiles.HR.View")) || (user?.userType?.code === "PRO" && can("UserProfiles.PRO.View"))) ? (
+        <div className="space-y-6">
+          <EmployeeDashboard mode={user.userType.code === "HR" ? "hr" : "pro"} />
+          <PersonalPerformanceAttendance performance={data.personalPerformance} attendance={data.personalAttendance} />
+        </div>
+      ) : data && !data.reportingScope ? (
+        <div className="space-y-6" data-testid="personal-only-dashboard">
+          <p className="text-sm text-slate-600">Reporting scope is not assigned. Organization sales metrics are unavailable for this account.</p>
+          <PersonalPerformanceAttendance performance={data.personalPerformance} attendance={data.personalAttendance} />
+        </div>
+      ) : data ? (
         <div data-testid="dashboard-overview" className="space-y-4">
           <div data-testid="dashboard-kpi-charts" className="space-y-4">
             <div data-testid="dashboard-kpi-grid" className="grid grid-cols-2 gap-3 xl:grid-cols-4">

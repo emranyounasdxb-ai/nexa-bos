@@ -1,9 +1,11 @@
 "use client";
 
+import { DashboardBreakdown } from "./dashboard-visuals";
+
 import Link from "next/link";
 import { useMemo } from "react";
 
-import { BosChart, RankedBarChart, type BosChartOption } from "@/components/charts";
+import { BosChart, type BosChartOption } from "@/components/charts";
 import {
   chartAnimation,
   chartAxisText,
@@ -26,13 +28,13 @@ function SummaryCard({ label, count, value, href }: { label: string; count?: num
     <Link
       href={href}
       aria-label={`${label} summary`}
-      className="group min-w-0 rounded-[10px] border border-slate-200 bg-white p-3.5 shadow-[0_1px_2px_rgba(15,23,42,0.035)] transition hover:border-blue-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary"
+      className="group min-w-0 rounded-[10px] border border-slate-200 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.035)] transition hover:border-blue-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary"
     >
       <div className="flex items-center justify-between gap-2">
-        <p className="truncate text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">{label}</p>
+        <p className="text-sm font-semibold text-slate-700">{label}</p>
         <IconArrowUpRight className="size-4 shrink-0 text-slate-300 group-hover:text-brand-primary" />
       </div>
-      <p className="mt-2 text-2xl font-semibold tabular-nums text-slate-950">{count?.toLocaleString("en-AE") ?? value ?? "—"}</p>
+      <p className="mt-2 text-[32px] font-semibold tabular-nums text-slate-950">{count?.toLocaleString("en-AE") ?? value ?? "—"}</p>
       {count !== undefined && value ? <p className="mt-1 truncate text-xs font-medium tabular-nums text-slate-500">{value}</p> : null}
     </Link>
   );
@@ -75,7 +77,7 @@ function ApplicationTrend({ rows }: { rows: SeDashboardWorkspace["trend"] }) {
 
 function ApplicationRow({ item, reasons }: { item: SeApplicationSummary; reasons?: string[] }) {
   return (
-    <li className="min-w-0 rounded-lg border border-slate-200 bg-white p-3">
+    <li className="min-w-0 border-b border-slate-200 bg-white py-4">
       <div className="flex min-w-0 flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           <Link className="font-semibold text-brand-link hover:underline" href={`/applications/${item.id}`}>{item.localFileNumber}</Link>
@@ -97,8 +99,8 @@ function ApplicationRow({ item, reasons }: { item: SeApplicationSummary; reasons
 export function SeDashboard({ data, period }: { data: SeDashboardWorkspace; period: string }) {
   const target = data.targetProgress;
   return (
-    <div data-testid="se-dashboard" className="space-y-4">
-      <div className="grid min-w-0 grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6" data-testid="se-summary-cards">
+    <div data-testid="se-dashboard" className="space-y-6">
+      <div className="grid min-w-0 grid-cols-2 gap-3 lg:grid-cols-3" data-testid="se-summary-cards">
         <SummaryCard label="My Applications" count={data.kpis.applications.count} href={dashboardApplicationsHref("applications", period)} />
         <SummaryCard label="Submitted" count={data.kpis.submitted.count} value={formatAed(data.kpis.submitted.value)} href={dashboardApplicationsHref("submitted", period)} />
         <SummaryCard label="Approved" count={data.kpis.approved.count} value={formatAed(data.kpis.approved.value)} href={dashboardApplicationsHref("approved", period)} />
@@ -109,16 +111,26 @@ export function SeDashboard({ data, period }: { data: SeDashboardWorkspace; peri
 
       <div className="grid min-w-0 gap-4 xl:grid-cols-2">
         <Card className="min-w-0 p-4">
+          <SectionHeader title="Action Required" description="Your own cases that may need attention." actions={data.actionRequired.length ? <Badge tone="amber">{data.actionRequired.length}</Badge> : null} />
+          {data.actionRequired.length ? <ul className="mt-3 grid gap-0">{data.actionRequired.map((item) => <ApplicationRow key={item.id} item={item} reasons={item.reasons} />)}</ul> : <p className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-4 text-sm text-slate-500">No own cases currently require action.</p>}
+        </Card>
+        <Card className="min-w-0 p-4">
+          <SectionHeader title="Recent Applications" description="Your latest own Application records." actions={data.recentApplications.length ? <Badge>{data.recentApplications.length}</Badge> : null} />
+          {data.recentApplications.length ? <ul className="mt-3 grid gap-0">{data.recentApplications.map((item) => <ApplicationRow key={item.id} item={item} />)}</ul> : <p className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-4 text-sm text-slate-500">No Applications are available in your own scope.</p>}
+        </Card>
+      </div>
+      <div className="grid min-w-0 gap-4 xl:grid-cols-2">
+        <Card className="min-w-0 p-4">
           <SectionHeader title="My Application Trend" description="Created, submitted, approved and funded over the last six months." />
           <ApplicationTrend rows={data.trend} />
         </Card>
         <Card className="min-w-0 p-4">
           <SectionHeader title="My Cases by Stage" description="Your open cases across configured Workflow stages." />
-          <div className="mt-3"><RankedBarChart rows={data.stages.map((stage) => ({ id: stage.stageId, label: stage.name, value: stage.count }))} accessibleDescription="Own open cases across configured Workflow stages." limit={10} testId="se-stage-chart" /></div>
+          <div className="mt-3"><DashboardBreakdown rows={data.stages.map((stage) => ({ id: stage.stageId, label: stage.name, value: stage.count }))} description="Own open cases across configured Workflow stages." testId="se-stage-chart" /></div>
         </Card>
         <Card className="min-w-0 p-4">
           <SectionHeader title="My Product Mix" description="Your Applications by configured Product." />
-          <div className="mt-3"><RankedBarChart rows={data.products.map((product) => ({ id: product.code, label: `${product.code} · ${product.name}`, value: product.count }))} accessibleDescription="Own Applications split by configured Product." limit={10} testId="se-product-chart" /></div>
+          <div className="mt-3"><DashboardBreakdown rows={data.products.map((product) => ({ id: product.code, label: `${product.code} · ${product.name}`, value: product.count }))} description="Own Applications split by configured Product." testId="se-product-chart" /></div>
         </Card>
         <Card className="min-w-0 p-4" >
           <SectionHeader title="My Target Progress" description="Assigned, achieved and remaining target for the selected period." actions={<Badge>{formatPct(target.achievementPct)}</Badge>} />
@@ -135,16 +147,7 @@ export function SeDashboard({ data, period }: { data: SeDashboardWorkspace; peri
         </Card>
       </div>
 
-      <div className="grid min-w-0 gap-4 xl:grid-cols-2">
-        <Card className="min-w-0 p-4">
-          <SectionHeader title="Action Required" description="Your own cases that may need attention." actions={data.actionRequired.length ? <Badge tone="amber">{data.actionRequired.length}</Badge> : null} />
-          {data.actionRequired.length ? <ul className="mt-3 grid gap-2">{data.actionRequired.map((item) => <ApplicationRow key={item.id} item={item} reasons={item.reasons} />)}</ul> : <p className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-4 text-sm text-slate-500">No own cases currently require action.</p>}
-        </Card>
-        <Card className="min-w-0 p-4">
-          <SectionHeader title="Recent Applications" description="Your latest own Application records." actions={data.recentApplications.length ? <Badge>{data.recentApplications.length}</Badge> : null} />
-          {data.recentApplications.length ? <ul className="mt-3 grid gap-2">{data.recentApplications.map((item) => <ApplicationRow key={item.id} item={item} />)}</ul> : <p className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-4 text-sm text-slate-500">No Applications are available in your own scope.</p>}
-        </Card>
-      </div>
+
     </div>
   );
 }

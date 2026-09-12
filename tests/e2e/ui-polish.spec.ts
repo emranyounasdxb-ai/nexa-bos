@@ -767,7 +767,7 @@ test("shared shell supports breadcrumbs, auto expansion, user menu, and mobile n
   await operationsMenu.click();
   await expect(operationsMenu).toHaveAttribute("aria-expanded", "true");
   await expect(sidebar).toHaveAttribute("data-expanded", "true");
-  await page.getByRole("link", { name: "Applications", exact: true }).click();
+  await sidebar.getByRole("link", { name: "Applications", exact: true }).click();
   await expect(sidebar).toHaveAttribute("data-expanded", "false");
   await expect(sidebar).toHaveCSS("width", "80px");
   await expect(breadcrumb.getByRole("link", { name: "Dashboard", exact: true })).toHaveAttribute("href", "/reports");

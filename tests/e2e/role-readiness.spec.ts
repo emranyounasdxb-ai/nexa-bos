@@ -756,6 +756,31 @@ test.describe("shared sidebar role regression matrix", () => {
       await page.setViewportSize({ width: 390, height: 844 });
       await signIn(page, role);
 
+      const verifyDashboard = async (width: number) => {
+        const surface = page.getByTestId(code === "TL" ? "tl-dashboard" : code === "SE" ? "se-dashboard" : code === "COD" ? "cod-dashboard" : "role-workspace");
+        await expect(surface).toBeVisible();
+        if (!["TL", "SE", "COD"].includes(code)) {
+          const links = page.getByRole("navigation", { name: "Permitted work areas" });
+          for (const [permission, label] of [["Applications.View", "Applications"], ["Users.View", "Users"], ["Finance.View", "Finance"], ["Assets.View", "Assets"]]) {
+            await expect(links.getByRole("link", { name: label, exact: true })).toHaveCount(code === "OWNER" || role.permissions.includes(permission) ? 1 : 0);
+          }
+          if (role.reporting === null && code !== "OWNER") {
+            await expect(page.getByTestId("personal-only-dashboard")).toBeVisible();
+            await expect(page.getByTestId("dashboard-kpi-grid")).toHaveCount(0);
+          }
+        }
+        await expect(page.getByTestId("dashboard-loading-skeleton")).toHaveCount(0);
+        await expect.poll(() => page.getByLabel("Application sidebar").evaluate((element, viewportWidth) => {
+          const box = element.getBoundingClientRect();
+          return viewportWidth === 390
+            ? box.right <= 0
+            : box.width === (element.getAttribute("data-expanded") === "true" ? 224 : 80);
+        }, width)).toBe(true);
+        expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
+        await page.screenshot({ path: testInfo.outputPath(`dashboard-${code}-${width}.png`), fullPage: false });
+      };
+      await verifyDashboard(390);
+
       const sidebar = page.locator('aside[aria-label="Application sidebar"]');
       const navigation = sidebar.getByRole("navigation", { name: "Primary" });
       const trigger = page.getByRole("button", { name: "Open navigation" });
@@ -967,6 +992,7 @@ test.describe("shared sidebar role regression matrix", () => {
 
       await page.setViewportSize({ width: 1440, height: 900 });
       await expect(sidebar).toHaveJSProperty("inert", false);
+      await verifyDashboard(1440);
       await expect(page.locator("body")).toHaveCSS("font-size", "15px");
       await expect(page.getByTestId("page-header")).toHaveCSS("padding-top", "16px");
       if (code === "TL") await expect(page.getByTestId("tl-dashboard")).toHaveCSS("padding-top", "16px");

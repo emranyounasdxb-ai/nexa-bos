@@ -21,9 +21,9 @@ adds roles, changes scope or introduces business data.
 | Navigation | Existing application | Preserve 3D icon identity, authorization, routes and keyboard controls |
 | Tables | 01/05/09 | 15px rows, 13px headers, contained mobile scrolling |
 
-Part 1 changes shared visual primitives, tokens and shell only. Parts 2 and 3 adapt
-existing role dashboards after inspecting their real data contracts. Part 4 covers
-remaining page-specific styles and regression hardening. Each part has a separate
+Part 1 changes shared visual primitives, tokens and shell only. The continuation
+assigns all role dashboards to Part 2, remaining page families to Part 3, and complete
+visual/functional QA to Part 4. Each part has a separate
 branch, PR and required automatic CI boundary. No VPS deployment is included.
 
 ## Token ownership
@@ -66,13 +66,39 @@ clipped; focusing Dashboard restores the first item and Workspace caption togeth
 | Existing family | Shared foundation | Page-specific review |
 | --- | --- | --- |
 | Reports and role dashboards | Shell, controls, cards, chart labels, tabs | Parts 2 and 3 |
-| Applications and customers | Tables, filters, dialogs, typography | Part 4; no workflow changes |
-| Users and employee profiles | Shell, controls, sections, dialogs | Part 4; existing Basic/HR/PRO boundaries |
-| Organization and catalogues | Tabs, tables, drawers, controls | Part 4; existing hierarchy and image rules |
+| Applications and customers | Tables, filters, dialogs, typography | Parts 3 and 4; no workflow changes |
+| Users and employee profiles | Shell, controls, sections, dialogs | Parts 3 and 4; existing Basic/HR/PRO boundaries |
+| Organization and catalogues | Tabs, tables, drawers, controls | Parts 3 and 4; existing hierarchy and image rules |
 | Attendance and HR lifecycle pages | Cards, forms, tables, calendars | Parts 3 and 4; existing operations only |
-| Assets, Finance and approvals | Tables, forms, status badges, dialogs | Part 4; no new actions |
-| Administration, security and notifications | Shell, lists, forms, empty states | Part 4; permission decisions unchanged |
-| Account and public authentication/status | Typography, controls, surfaces | Part 4; authentication unchanged |
+| Assets, Finance and approvals | Tables, forms, status badges, dialogs | Parts 3 and 4; no new actions |
+| Administration, security and notifications | Shell, lists, forms, empty states | Parts 3 and 4; permission decisions unchanged |
+| Account and public authentication/status | Typography, controls, surfaces | Parts 3 and 4; authentication unchanged |
 
 Shared inheritance is not a claim that every populated, empty, error or permission
 state has been visually verified. Each delivery part records its actual coverage.
+
+## Part 2: role dashboard adaptation
+
+The existing authenticated dashboard response is authoritative. Role names choose
+presentation labels only; `can(...)` controls work links and `reportingScope` controls
+whether aggregate reporting data is available. A null scope is not displayed as a
+successful zero sales dashboard. No API, permission default or reporting filter changes.
+
+| Roles | Existing contract and presentation |
+| --- | --- |
+| OWNER / GM | Organization / management overview; permitted approval, workforce and operational links; existing scoped reporting |
+| SM / BDM | Sales team / business development workspace; existing server-derived reporting scope, not a new assumed department boundary |
+| OM | Office operations and permitted attendance/assets work; existing reporting where assigned |
+| FIN | Finance entry point and existing authorized reporting/personal information |
+| ITM | Technology/assets and user work; personal-only when reporting scope is absent |
+| AUDITOR | Review/assurance links; existing read permissions remain authoritative |
+| HR / PRO | Existing employee dashboard when its explicit profile permission exists; otherwise permitted work and personal information |
+| TL | Existing four URL-backed tabs, queues and exact progress geometry; shared readable typography |
+| SE | Own action-required/recent lists before the primary trend; category counts as supporting lists |
+| COD | Existing operational queues; four-column desktop summary; one primary trend and supporting workload/outcome lists |
+
+References 01/05/15 establish queue priority; 04/08 establish a primary trend with
+supporting breakdowns; 03/12 establish workforce grouping. No screenshot values,
+new workflows, invented role permissions or unavailable business statistics are used.
+Historical test IDs containing `chart` remain stable for category breakdowns that now
+render accessible definition lists; they do not imply a canvas/chart implementation.
