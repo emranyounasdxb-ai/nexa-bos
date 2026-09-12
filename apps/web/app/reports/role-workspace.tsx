@@ -29,7 +29,9 @@ const work = [
 
 export function RoleWorkspace() {
   const { user, can } = useAuth();
-  const links = work.filter(([permission]) => can(permission));
+  const links = work.filter(([permission]) =>
+    can(permission) || (permission === "Finance.View" && can("Finance.ViewCommissionRules")),
+  );
   return (
     <section data-testid="role-workspace" className="min-w-0 border-b border-slate-200 pb-4">
       <h2 className="text-xl font-semibold text-slate-950">{focus[user?.userType?.code ?? ""] ?? "Personal workspace"}</h2>
