@@ -134,7 +134,7 @@ test("Targets workspace keeps URL tabs, compact filters, results, and drawer foc
 
   await expect(page).toHaveURL(/\/targets\?tab=targets$/);
   await expect(page.getByRole("heading", { name: "Targets", exact: true })).toBeVisible();
-  await expect(page.getByRole("link", { name: "KPI scorecards" })).toBeVisible();
+  await expect(page.getByRole("main").getByRole("link", { name: "KPI scorecards", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Create target", exact: true })).toHaveCount(1);
   const tabs = page.getByRole("tablist", { name: "Target workspaces" });
   const targetsTab = tabs.getByRole("tab", { name: "Targets", exact: true });
@@ -148,8 +148,14 @@ test("Targets workspace keeps URL tabs, compact filters, results, and drawer foc
   for (const control of [level, resultPeriod, targetMonth, refresh]) {
     expect((await control.boundingBox())?.height).toBe(32);
   }
-  const controlTops = await Promise.all([level, resultPeriod, targetMonth, refresh].map(async (control) => Math.round((await control.boundingBox())?.y ?? -1)));
-  expect(new Set(controlTops).size).toBe(1);
+  // The approved desktop layout places filters in a context column beside results.
+  const boxes = await Promise.all([level, resultPeriod, targetMonth, refresh].map(control => control.boundingBox()));
+  for (let index = 1; index < boxes.length; index++) {
+    expect(boxes[index]!.y).toBeGreaterThanOrEqual(boxes[index - 1]!.y + boxes[index - 1]!.height);
+  }
+  const results = await page.getByTestId("target-results").boundingBox();
+  const filterBox = await toolbar.boundingBox();
+  expect(results!.x).toBeGreaterThanOrEqual(filterBox!.x + filterBox!.width);
 
   await targetMonth.fill(emptyMonth);
   await targetMonth.press("Enter");

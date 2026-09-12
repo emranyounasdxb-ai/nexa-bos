@@ -1,0 +1,33 @@
+/* One editable record tree: mobile presentation does not duplicate form controls. */
+.reportMetrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.reportMetrics > :global([data-amafh-card]) { padding: 16px; border-radius: 16px; background: var(--amafh-subtle); }
+@media (max-width: 639px) {
+  .reportMetrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .reportMetrics > :global([data-amafh-card]) { padding: 12px; }
+  .reportRecords { border: 0; overflow: visible; }
+  .reportRecords table, .reportRecords tbody { display: block; width: 100%; }
+  .reportRecords thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .reportRecords tbody tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-bottom: 12px; padding: 12px; border: 0; border-radius: 16px; background: var(--amafh-subtle); }
+  .reportRecords tbody td { display: block; min-width: 0; padding: 0; }
+  .reportRecords tbody td:nth-child(2) { grid-column: 1 / -1; grid-row: 1; padding-bottom: 8px; border-bottom: 1px solid var(--amafh-border); font-weight: 500; }
+  .reportRecords tbody td::before { display: block; font-size: 11px; color: var(--amafh-text-secondary); }
+  .reportRecords tbody td:nth-child(1)::before { content: "Date"; }
+  .reportRecords tbody td:nth-child(3)::before { content: "Status"; }
+  .reportRecords tbody td:nth-child(4)::before { content: "Time in"; }
+  .reportRecords tbody td:nth-child(5)::before { content: "Time out"; }
+  .reportRecords tbody td:nth-child(6) { grid-column: 1 / -1; }
+  .reportRecords tbody td:nth-child(6)::before { content: "Flags"; }
+  .reportRecords tbody td[colspan] { grid-column: 1 / -1; }
+  .reportRecords tbody td[colspan]::before { content: none; }
+}
+@media (max-width: 639px) {
+  .register { border: 0; border-radius: 0; overflow: visible; }
+  .register table, .register tbody { display: block; width: 100%; }
+  .register thead { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .register tbody tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-bottom: 12px; padding: 12px; border: 0; border-radius: 16px; background: var(--amafh-subtle); }
+  .register tbody td { display: block; min-width: 0; padding: 0; }
+  .register tbody td:first-child, .register tbody td:nth-child(2), .register tbody td:nth-child(5), .register tbody td:nth-child(6) { grid-column: 1 / -1; }
+  .register tbody td:first-child { padding-bottom: 8px; border-bottom: 1px solid var(--amafh-border); font-weight: 500; }
+  .register tbody td:last-child { grid-column: 2; }
+  .register tbody td[colspan] { grid-column: 1 / -1; }
+}

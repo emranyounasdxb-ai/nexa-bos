@@ -1,6 +1,7 @@
 "use client";
 
 import { DashboardBreakdown } from "./dashboard-visuals";
+import styles from "./overview.module.css";
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
@@ -63,7 +64,7 @@ function SummaryCard({
     <Link
       href={applicationsHref(metric, period)}
       aria-label={`${label} queue`}
-      className="group min-w-0 rounded-[10px] border border-slate-200 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.035)] transition hover:border-blue-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary"
+      className={`group ${styles.metric} ${styles.queueMetric}`}
     >
       <div className="flex items-center justify-between gap-2">
         <p className="min-w-0 text-sm font-semibold text-slate-700">{label}</p>
@@ -117,7 +118,7 @@ function TrendChart({ rows }: { rows: CodDashboardWorkspace["charts"]["trend"] }
 
 function QueueRow({ item }: { item: CodApplicationSummary }) {
   return (
-    <li className="min-w-0 border-b border-slate-200 bg-white py-4">
+    <li className="min-w-0 border-b border-slate-200 bg-surface py-4">
       <div className="flex min-w-0 flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           <Link className="font-semibold text-brand-link hover:underline" href={`/applications/${item.id}`}>{item.localFileNumber}</Link>
@@ -161,7 +162,7 @@ function QueueWorkspace({ data }: { data: CodDashboardWorkspace["queues"] }) {
             aria-selected={active === key}
             aria-controls="cod-queue-panel"
             tabIndex={active === key ? 0 : -1}
-            className={`min-h-8 shrink-0 rounded-md px-2.5 text-xs font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary ${active === key ? "bg-white text-brand-primary shadow-sm" : "text-slate-600 hover:bg-white/70"}`}
+            className={`min-h-8 shrink-0 rounded-md px-2.5 text-xs font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary ${active === key ? "bg-surface text-brand-primary shadow-sm" : "text-slate-600 hover:bg-surface/70"}`}
             onClick={() => setActive(key)}
             onKeyDown={(event) => {
               if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
@@ -189,8 +190,9 @@ function QueueWorkspace({ data }: { data: CodDashboardWorkspace["queues"] }) {
 
 export function CodDashboard({ data, period }: { data: CodDashboardWorkspace; period: string }) {
   return (
-    <div data-testid="cod-dashboard" className="space-y-6">
-      <div className="grid min-w-0 grid-cols-2 gap-3 md:grid-cols-4" data-testid="cod-summary-cards">
+    <div data-testid="cod-dashboard" className="space-y-4">
+      <div className={styles.queueWorkspace}>
+      <section tabIndex={0} aria-label="Office queue counts" className={`${styles.metrics} ${styles.queueMetrics} ${styles.compactMetrics}`} data-testid="cod-summary-cards">
         <SummaryCard label="New Cases" count={data.kpis.newCases} metric={cardMetric.newCases} period={period} />
         <SummaryCard label="Awaiting Submission" count={data.kpis.awaitingSubmission} metric={cardMetric.awaitingSubmission} period={period} />
         <SummaryCard label="Missing Bank Number" count={data.kpis.missingBankNumber} metric={cardMetric.missingBankNumber} period={period} />
@@ -199,13 +201,14 @@ export function CodDashboard({ data, period }: { data: CodDashboardWorkspace; pe
         <SummaryCard label="Delayed" count={data.kpis.delayed} metric={cardMetric.delayed} period={period} />
         <SummaryCard label="Approved" count={data.kpis.approved} metric={cardMetric.approved} period={period} />
         <SummaryCard label="Completed / Funded" count={data.kpis.completedFunded} metric={cardMetric.completedFunded} period={period} />
-      </div>
+      </section>
 
       <QueueWorkspace data={data.queues} />
+        <Card className="min-w-0 p-4"><SectionHeader title="Created vs Submitted" description="Authorized office activity over the last six months." /><div className="mt-3"><TrendChart rows={data.charts.trend} /></div></Card>
+      </div>
 
       <section aria-label="COD operational charts" className="grid min-w-0 gap-4 xl:grid-cols-2">
         <Card className="min-w-0 p-4"><SectionHeader title="Workflow pipeline" description="Open office cases across configured Workflow stages." /><div className="mt-3"><RankedBarChart rows={data.charts.pipeline.map((row) => ({ id: row.stageId, label: row.name, value: row.count }))} accessibleDescription="Open authorized office cases by configured Workflow stage." testId="cod-pipeline-chart" /></div></Card>
-        <Card className="min-w-0 p-4"><SectionHeader title="Created vs Submitted" description="Authorized office activity over the last six months." /><div className="mt-3"><TrendChart rows={data.charts.trend} /></div></Card>
         <Card className="min-w-0 p-4"><SectionHeader title="Outcomes" description="Approved, funded and terminal outcomes in the selected period." /><div className="mt-3"><DashboardBreakdown rows={data.charts.outcomes.map((row) => ({ id: row.name, label: row.name, value: row.count }))} description="Authorized office outcomes for the selected period." testId="cod-outcomes-chart" /></div></Card>
         <Card className="min-w-0 p-4"><SectionHeader title="Bank / Product workload" description="Current open office workload by Bank and Product." /><div className="mt-3"><DashboardBreakdown rows={data.charts.workload.map((row) => ({ id: row.name, label: row.name, value: row.count }))} description="Current authorized office workload grouped by Bank and Product." testId="cod-workload-chart" /></div></Card>
         <Card className="min-w-0 p-4"><SectionHeader title="On-time vs delayed TAT" description="Current open cases using recorded delay state." /><div className="mt-3"><DashboardBreakdown rows={data.charts.tat.map((row) => ({ id: row.name, label: row.name, value: row.count }))} description="Current open authorized office cases split by recorded delay state." testId="cod-tat-chart" /></div></Card>
@@ -219,7 +222,7 @@ export function CodDashboard({ data, period }: { data: CodDashboardWorkspace; pe
             <ul className="mt-3 grid min-w-0 gap-2 sm:grid-cols-2 xl:grid-cols-3">
               {data.staff.map((person) => (
                 <li key={person.id} className="min-w-0 rounded-lg border border-slate-200 bg-slate-50/50 p-3">
-                  <div className="flex min-w-0 items-start justify-between gap-2"><div className="min-w-0"><p className="truncate text-sm font-semibold text-slate-950">{person.name}</p><p className="truncate text-xs text-slate-500">{person.role}{person.team ? ` · ${person.team}` : ""}</p></div>{person.downline ? <Badge tone="blue">Downline</Badge> : <Badge>Office</Badge>}</div>
+                  <div className="flex min-w-0 items-start justify-between gap-2"><div className="min-w-0"><p className="break-words text-sm font-semibold text-slate-950">{person.name}</p><p className="break-words text-xs text-slate-500">{person.role}{person.team ? ` · ${person.team}` : ""}</p></div>{person.downline ? <Badge tone="blue">Downline</Badge> : <Badge>Office</Badge>}</div>
                   <dl className="mt-2 grid grid-cols-2 gap-2 text-xs"><div><dt className="text-slate-500">Open cases</dt><dd className="font-semibold tabular-nums text-slate-900">{person.openCases}</dd></div><div><dt className="text-slate-500">Delayed</dt><dd className="font-semibold tabular-nums text-slate-900">{person.delayedCases}</dd></div></dl>
                 </li>
               ))}
@@ -232,10 +235,11 @@ export function CodDashboard({ data, period }: { data: CodDashboardWorkspace; pe
         <Card className="min-w-0 p-4">
           <SectionHeader title="My operational activity" description="Immutable Application events recorded for the selected period." />
           <dl className="mt-3 grid grid-cols-3 gap-2">
-            <div className="rounded-lg bg-slate-50 p-3"><dt className="text-xs text-slate-500">Cases reviewed</dt><dd className="mt-1 text-xl font-semibold tabular-nums text-slate-950">{data.activity.reviewed}</dd><p className="mt-1 text-xs text-slate-500">Distinct cases with a recorded COD operation</p></div>
+            <div className="rounded-lg bg-slate-50 p-3"><dt className="text-xs text-slate-500">Cases reviewed</dt><dd className="mt-1 text-xl font-semibold tabular-nums text-slate-950">{data.activity.reviewed}</dd></div>
             <div className="rounded-lg bg-slate-50 p-3"><dt className="text-xs text-slate-500">Submitted</dt><dd className="mt-1 text-xl font-semibold tabular-nums text-slate-950">{data.activity.submitted}</dd></div>
             <div className="rounded-lg bg-slate-50 p-3"><dt className="text-xs text-slate-500">Stage updates</dt><dd className="mt-1 text-xl font-semibold tabular-nums text-slate-950">{data.activity.stageUpdates}</dd></div>
           </dl>
+          <p className="mt-2 text-xs text-slate-500">Cases reviewed: Distinct cases with a recorded COD operation</p>
         </Card>
       </div>
     </div>

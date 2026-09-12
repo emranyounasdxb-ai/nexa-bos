@@ -1,4 +1,5 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { captureViewportPair } from "./helpers/viewport-capture";
 
 const apiOrigin = `http://127.0.0.1:${process.env.PLAYWRIGHT_API_PORT ?? "8010"}`;
 const secret = process.env.BOOTSTRAP_SECRET ?? "nexa-test-bootstrap-secret";
@@ -38,7 +39,8 @@ async function signIn(page: Page) {
   await expect(page).not.toHaveURL(/\/login$/, { timeout: 30_000 });
 }
 
-test("contract register has URL tabs and a keyboard-safe preparation dialog", async ({ page, request }) => {
+test("contract register has URL tabs and a keyboard-safe preparation dialog", async ({ page, request }, testInfo) => {
+  test.setTimeout(180_000);
   const headers = await ownerHeaders(request);
   const existing = await request.get(`${apiOrigin}/api/v1/contracts/types?include_inactive=true`);
   expect(existing.ok(), await existing.text()).toBeTruthy();
@@ -58,6 +60,7 @@ test("contract register has URL tabs and a keyboard-safe preparation dialog", as
   await expect(page.getByRole("heading", { name: "Employment contracts" })).toBeVisible();
   await expect(page.getByRole("tab", { name: "Contract types" })).toHaveAttribute("aria-selected", "true");
   await expect(page.getByText("Fixed term", { exact: true })).toBeVisible();
+  await captureViewportPair(page, testInfo, "contract-types");
   await page.reload();
   await expect(page.getByRole("tab", { name: "Contract types" })).toHaveAttribute("aria-selected", "true");
 
@@ -66,6 +69,7 @@ test("contract register has URL tabs and a keyboard-safe preparation dialog", as
   const dialog = page.getByRole("dialog", { name: "Prepare employment contract" });
   await expect(dialog).toBeVisible();
   await expect(page.getByLabel("Employee")).toBeFocused();
+  await captureViewportPair(page, testInfo, "contract-preparation");
   await page.keyboard.press("Escape");
   await expect(dialog).toBeHidden();
   await expect(trigger).toBeFocused();

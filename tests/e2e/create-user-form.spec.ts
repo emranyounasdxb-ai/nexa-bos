@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { captureViewportThemes } from "./helpers/viewport-capture";
 
 const apiOrigin = `http://127.0.0.1:${process.env.PLAYWRIGHT_API_PORT ?? "8010"}`;
 
@@ -96,7 +97,7 @@ for (const width of [1440, 390]) {
     await noOverflow(page);
     await expect(submit).toBeInViewport();
     await expect(page.getByRole("button", { name: "Close Create User" })).toBeInViewport();
-    await page.screenshot({ path: testInfo.outputPath(`create-user-${width}.png`), fullPage: false });
+    await captureViewportThemes(page, testInfo.outputPath(`create-user-${width}.png`));
     const creation = page.waitForResponse(response => response.url().endsWith("/api/v1/users") && response.request().method() === "POST");
     await submit.click();
     const response = await creation;

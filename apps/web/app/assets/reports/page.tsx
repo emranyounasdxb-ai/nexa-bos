@@ -1,5 +1,8 @@
 "use client";
 
+import { ListWorkspace } from "@/components/page-patterns";
+import styles from "./asset-reports.module.css";
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
@@ -163,6 +166,7 @@ export default function AssetReportsPage() {
         }
       />
 
+      <ListWorkspace title="Asset analysis" filters={
       <FilterBar>
         <Field label="Report">
           <Select aria-label="Asset report" value={report} onChange={(event) => {
@@ -204,18 +208,19 @@ export default function AssetReportsPage() {
           <Button type="button" onClick={() => void load(1, pageSize)}>Run report</Button>
         </div>
       </FilterBar>
+      }>
 
       {error ? <ErrorText>{error}</ErrorText> : null}
       {loading && !data ? <p className="text-sm text-slate-500">Loading report…</p> : null}
       {!loading && data && data.items.length === 0 ? <EmptyState>No rows match the authorized filters.</EmptyState> : null}
       {data && data.items.length ? (
         <div className={loading ? "opacity-60" : undefined} aria-busy={loading}>
-        <TableShell>
+        <TableShell className={styles.records}>
           <TableHead><tr>{columns.map((column) => <Th key={column}>{column}</Th>)}</tr></TableHead>
           <tbody>
             {data.items.map((row, index) => (
               <tr key={`${report}-${index}`} className="border-t border-slate-100">
-                {columns.map((column) => <Td key={column}>{String(row[column] ?? "—")}</Td>)}
+                {columns.map((column) => <Td key={column}><span className={styles.mobileLabel} aria-hidden="true">{column}</span><span>{String(row[column] ?? "—")}</span></Td>)}
               </tr>
             ))}
           </tbody>
@@ -235,6 +240,7 @@ export default function AssetReportsPage() {
           }
         />
       ) : null}
+      </ListWorkspace>
     </section>
   );
 }

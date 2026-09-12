@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import type { ComposeOption, EChartsType } from "echarts/core";
 import type { BarSeriesOption, LineSeriesOption, PieSeriesOption } from "echarts/charts";
@@ -12,6 +12,8 @@ import type {
 } from "echarts/components";
 
 import { EmptyState, LoadingState, cx } from "@/components/ui";
+import { useTheme } from "@/components/theme-controls";
+import { withChartTheme } from "./chart-theme";
 
 type EChartsRuntime = typeof import("./echarts-runtime");
 
@@ -50,7 +52,7 @@ type BosChartProps = {
 };
 
 export function BosChart({
-  option,
+  option: suppliedOption,
   accessibleDescription,
   className,
   height = 280,
@@ -60,6 +62,8 @@ export function BosChart({
   emptyMessage = "No chart data is available.",
   testId,
 }: BosChartProps) {
+  const theme = useTheme();
+  const option = useMemo(() => withChartTheme(suppliedOption, theme), [suppliedOption, theme]);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<EChartsType | null>(null);
   const optionRef = useRef(option);

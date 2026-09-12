@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+from nexa_bos_api.attendance.enums import BUSINESS_TZ
 from nexa_bos_api.identity.enums import EmploymentStatus
 from nexa_bos_api.identity.schemas import AccountEmail
 
@@ -101,7 +102,7 @@ class HRProfileUpdate(BaseModel):
     @field_validator("date_of_birth")
     @classmethod
     def birth_date_not_future(cls, value: date | None) -> date | None:
-        if value and value >= date.today():
+        if value and value >= datetime.now(BUSINESS_TZ).date():
             raise ValueError("Date of birth must be before today")
         return value
 

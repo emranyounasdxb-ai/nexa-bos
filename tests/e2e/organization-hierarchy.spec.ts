@@ -1,5 +1,6 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { brandedOptionValues, selectBrandedOption } from "./helpers/select";
+import { captureViewportPair } from "./helpers/viewport-capture";
 
 const apiOrigin = `http://127.0.0.1:${process.env.PLAYWRIGHT_API_PORT ?? "8010"}`;
 const secret = process.env.BOOTSTRAP_SECRET ?? "nexa-test-bootstrap-secret";
@@ -239,10 +240,7 @@ test("company hierarchy filters, locates, expands, inspects, and refreshes repor
       () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
     ),
   ).toBeTruthy();
-  await page.screenshot({
-    path: testInfo.outputPath("task16-5-centered-hierarchy.png"),
-    fullPage: true,
-  });
+  await captureViewportPair(page, testInfo, "expanded-hierarchy", reportingTree);
   await page
     .getByRole("button", { name: `Collapse branch for ${firstManager.fullName}` })
     .click();

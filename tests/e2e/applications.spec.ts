@@ -1,6 +1,6 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { preserveBuiltInRoleConfiguration } from "./helpers/role-configuration";
-import { captureViewportPair } from "./helpers/viewport-capture";
+import { captureViewportPair, captureViewportThemes } from "./helpers/viewport-capture";
 
 preserveBuiltInRoleConfiguration();
 import { selectBrandedOption } from "./helpers/select";
@@ -376,6 +376,7 @@ test("owner can create an application and filter the list", async ({ page, reque
   await expect(createDialog.getByText(/Initial Case Owner:.*Platform Owner/)).toBeVisible();
   await createDialog.getByLabel("Requested amount").fill("15000");
   await captureViewportPair(page, testInfo, "application-create-dialog");
+  await captureViewportPair(page, testInfo, "application-create-product-fields", page.getByRole("dialog").getByLabel("Bank", { exact: true }));
   const originalViewport = page.viewportSize()!;
   await page.setViewportSize({ width: 390, height: 844 });
   const customerTypeLabel = createDialog.getByRole("radio", { name: "Company / Business" }).locator("..").locator("span");
@@ -469,6 +470,7 @@ test("owner can create an application and filter the list", async ({ page, reque
   await page.getByLabel("Submitted data correction reason").fill("Correct Variant classification");
   await page.getByRole("button", { name: "Correct submitted data" }).click();
   await expect(page.getByRole("alertdialog", { name: "Correct submitted application data?" })).toBeVisible();
+  await captureViewportPair(page, testInfo, "application-submitted-data-confirmation");
   await page.getByRole("button", { name: "Confirm correction" }).click();
   await expect(page.getByRole("status")).toContainText("Submitted data correction recorded");
   await page.getByRole("tab", { name: "Overview" }).click();
@@ -556,19 +558,13 @@ test("owner can create an application and filter the list", async ({ page, reque
   expect(initialTableState.scrollLeft).toBe(0);
   expect(initialTableState.touchAction).toContain("pan-x");
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBeTruthy();
-  await page.screenshot({
-    path: testInfo.outputPath("applications-mobile-scroll-initial.png"),
-    fullPage: false,
-  });
+  await captureViewportThemes(page, testInfo.outputPath("applications-mobile-scroll-initial.png"), tableScroller);
   await tableScroller.focus();
   await expect(tableScroller).toBeFocused();
   for (let index = 0; index < 8; index += 1) await page.keyboard.press("ArrowRight");
   await expect.poll(() => tableScroller.evaluate((element) => element.scrollLeft)).toBeGreaterThan(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBeTruthy();
-  await page.screenshot({
-    path: testInfo.outputPath("applications-mobile-scroll-keyboard.png"),
-    fullPage: false,
-  });
+  await captureViewportThemes(page, testInfo.outputPath("applications-mobile-scroll-keyboard.png"), tableScroller);
 });
 
 test("application detail sections, confirmations, timeline filters, permissions, and responsive layout", async ({ page, request }, testInfo) => {
@@ -592,12 +588,13 @@ test("application detail sections, confirmations, timeline filters, permissions,
   await captureViewportPair(page, testInfo, "application-timeline-direct");
   await page.getByRole("tabpanel", { name: "Timeline", exact: true }).evaluate(element => element.scrollIntoView({ block: "start", behavior: "instant" }));
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
-  await page.screenshot({ path: testInfo.outputPath("application-timeline-mobile-panel.png"), fullPage: false });
+  await captureViewportThemes(page, testInfo.outputPath("application-timeline-mobile-panel.png"), page.getByRole("tabpanel", { name: "Timeline", exact: true }));
   await page.setViewportSize({ width: 1440, height: 900 });
   await selectBrandedOption(page.getByLabel("Filter timeline by event type"), "application_created");
   await expect(page.getByText(/1 of \d+ events/)).toBeVisible();
   await page.getByLabel("Search timeline").fill("no matching lifecycle event");
   await expect(page.getByText("No timeline events match the current filters.")).toBeVisible();
+  await captureViewportPair(page, testInfo, "application-timeline-empty", page.getByRole("tabpanel", { name: "Timeline", exact: true }));
   await page.getByRole("button", { name: "Clear timeline filters" }).click();
 
   const timelineTab = page.getByRole("tab", { name: "Timeline" });
@@ -611,6 +608,7 @@ test("application detail sections, confirmations, timeline filters, permissions,
   await page.getByLabel("Case number correction reason").fill("Verify confirmation only");
   await caseCorrection.click();
   await expect(page.getByRole("alertdialog", { name: "Correct submitted case number?" })).toBeVisible();
+  await captureViewportPair(page, testInfo, "application-case-number-confirmation");
   await expect(page.getByRole("button", { name: "Cancel" })).toBeFocused();
   await page.keyboard.press("Escape");
   await expect(caseCorrection).toBeFocused();
@@ -627,6 +625,7 @@ test("application detail sections, confirmations, timeline filters, permissions,
   const stageCorrection = page.getByRole("button", { name: "Append correction" });
   await stageCorrection.click();
   await expect(page.getByRole("alertdialog", { name: "Append stage correction?" })).toBeVisible();
+  await captureViewportPair(page, testInfo, "application-stage-confirmation");
   await page.keyboard.press("Escape");
   await expect(stageCorrection).toBeFocused();
 
@@ -634,6 +633,7 @@ test("application detail sections, confirmations, timeline filters, permissions,
   const reassign = page.getByRole("button", { name: "Reassign", exact: true });
   await reassign.click();
   await expect(page.getByRole("alertdialog", { name: "Reassign Case Owner?" })).toBeVisible();
+  await captureViewportPair(page, testInfo, "application-owner-confirmation");
   await page.keyboard.press("Escape");
   await expect(reassign).toBeFocused();
 
@@ -643,6 +643,7 @@ test("application detail sections, confirmations, timeline filters, permissions,
   const migrate = page.getByRole("button", { name: "Migrate this application" });
   await migrate.click();
   await expect(page.getByRole("alertdialog", { name: "Migrate workflow version?" })).toBeVisible();
+  await captureViewportPair(page, testInfo, "application-workflow-confirmation");
   await page.keyboard.press("Escape");
   await expect(migrate).toBeFocused();
 
@@ -650,6 +651,7 @@ test("application detail sections, confirmations, timeline filters, permissions,
   const close = page.getByRole("button", { name: "Close application" });
   await close.click();
   await expect(page.getByRole("alertdialog", { name: "Close application as Final Rejected?" })).toBeVisible();
+  await captureViewportPair(page, testInfo, "application-close-confirmation");
   await page.keyboard.press("Escape");
   await expect(close).toBeFocused();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBeTruthy();
@@ -660,8 +662,7 @@ test("application detail sections, confirmations, timeline filters, permissions,
   await captureViewportPair(page, testInfo, "application-detail");
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBeTruthy();
 
-  await page.getByRole("button", { name: "Open navigation" }).click();
-  await page.getByTestId("sidebar-footer").getByLabel("Open user menu").click();
+  await page.getByTestId("account-actions").getByLabel("Open user menu").click();
   await page.getByRole("menu", { name: "User account" }).getByRole("menuitem", { name: "Sign out" }).click();
   await expect(page).toHaveURL(/\/login/, { timeout: 30_000 });
   await signIn(page, viewer.email, "UserPass1!");

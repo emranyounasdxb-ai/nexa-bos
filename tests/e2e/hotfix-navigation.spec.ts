@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { captureViewportThemes } from "./helpers/viewport-capture";
 
 const api = `http://127.0.0.1:${process.env.PLAYWRIGHT_API_PORT ?? "8010"}`;
 
@@ -123,6 +124,9 @@ for (const permissions of [[], ["Finance.View"], ["Finance.ViewCommissionRules"]
     await page.goto("/reports");
     await expect(page.getByTestId("dashboard-loading-skeleton")).toBeHidden();
     const shortcut = page.getByTestId("role-workspace").getByRole("link", { name: "Finance", exact: true });
+    if (permissions.length) {
+      await page.getByTestId("role-workspace").getByText("Work areas", { exact: true }).click();
+    }
     for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
       await page.setViewportSize(viewport);
       if (permissions.length) {
@@ -132,7 +136,7 @@ for (const permissions of [[], ["Finance.View"], ["Finance.ViewCommissionRules"]
         await expect(shortcut).toBeFocused();
       } else await expect(shortcut).toHaveCount(0);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBeTruthy();
-      await page.screenshot({ path: testInfo.outputPath(`finance-${viewport.width}.png`), fullPage: false });
+      await captureViewportThemes(page, testInfo.outputPath(`finance-${viewport.width}.png`));
     }
     if (permissions.length) {
       await shortcut.press("Enter");

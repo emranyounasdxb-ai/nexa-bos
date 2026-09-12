@@ -1,5 +1,5 @@
 import { expect, test, type APIRequestContext } from "@playwright/test";
-import { captureViewport } from "./helpers/viewport-capture";
+import { captureViewportThemes } from "./helpers/viewport-capture";
 import { brandedOptionValues, selectBrandedOption } from "./helpers/select";
 
 const apiOrigin = `http://127.0.0.1:${process.env.PLAYWRIGHT_API_PORT ?? "8010"}`;
@@ -126,11 +126,23 @@ test("edit user office department team selectors do not silently clear invalid v
     await page.setViewportSize(viewport);
     const fields = page.locator("main form");
     const columns = await fields.evaluate(element => getComputedStyle(element).gridTemplateColumns.split(" ").length);
-    expect(columns).toBe(viewport.width === 1440 ? 2 : 1);
+    expect(columns).toBe(1);
+    for (const name of ["Identity and contact", "Role and joining", "Organization assignment", "Employment and reporting"]) {
+      const group = page.getByRole("group", { name, exact: true });
+      await expect(group).toBeVisible();
+      // Fieldsets expose unresolved repeat() in Chromium's computed style.
+      // Count rendered child positions instead of splitting that CSS expression.
+      const fieldColumns = await group.evaluate(element => new Set(
+        Array.from(element.children)
+          .filter(child => child.tagName !== "LEGEND")
+          .map(child => Math.round(child.getBoundingClientRect().left)),
+      ).size);
+      expect(fieldColumns).toBe(name === "Identity and contact" && viewport.width === 390 ? 1 : 2);
+    }
     await expect(page.getByLabel("Office", { exact: true })).toHaveAttribute("id", "edit-office");
     await expect(page.getByLabel("Department", { exact: true })).toHaveAttribute("id", "edit-department");
     expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
-    await captureViewport(page, testInfo.outputPath(`employee-edit-${viewport.width}.png`));
+    await captureViewportThemes(page, testInfo.outputPath(`employee-edit-${viewport.width}.png`));
   }
   await page.setViewportSize({ width: 1440, height: 900 });
   expect(await brandedOptionValues(department)).not.toContain(auhDeptId);

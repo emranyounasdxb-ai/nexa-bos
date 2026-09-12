@@ -35,6 +35,7 @@ import {
 import { ApiClientError, apiGet, apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { getBrowserApiUrl } from "@/lib/env";
+import { RecordFrame } from "@/components/page-patterns";
 import { canReadOrganization } from "@/lib/role-access";
 import type { ManagerOption, OrgRef } from "@/lib/types";
 
@@ -476,13 +477,14 @@ export default function OrganizationPage() {
       {loading ? (
         <LoadingState>Loading organization masters…</LoadingState>
       ) : (
-        <>
-          <div className="grid min-w-0 grid-cols-2 gap-2 lg:grid-cols-5" aria-label="Organization master summary">
+        <RecordFrame summary={<section className="space-y-3 rounded-[20px] bg-surface p-3">
+          <h2 className="px-2 py-1 text-[17px] font-medium">Organization</h2>
+          <div className="grid min-w-0 grid-flow-col auto-cols-[130px] gap-2 overflow-x-auto xl:grid-flow-row xl:auto-cols-auto xl:grid-cols-1" aria-label="Organization master summary" tabIndex={0}>
             {MASTER_TABS.map((kind) => {
               const items = itemsByTab[kind];
               const activeCount = items.filter((item) => normalizedStatus(item) === "active").length;
               return (
-                <Card key={kind} className="!p-3">
+                <Card key={kind} className="border-0 bg-surface-subtle !p-3">
                   <p className="text-xs font-medium text-text-secondary">{MASTER_CONFIG[kind].label}</p>
                   <div className="mt-1 flex items-end justify-between gap-2">
                     <p className="text-xl font-semibold tabular-nums text-text-primary">{items.length}</p>
@@ -492,7 +494,7 @@ export default function OrganizationPage() {
               );
             })}
           </div>
-
+        </section>}>
           <div
             role="tablist"
             aria-label="Organization masters"
@@ -509,7 +511,7 @@ export default function OrganizationPage() {
                 className={cx(
                   "h-8 min-w-0 rounded-md px-3 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary sm:flex-1",
                   activeTab === kind
-                    ? "bg-brand-primary text-white"
+                    ? "bg-brand-fill text-white"
                     : "text-text-secondary hover:bg-brand-soft hover:text-brand-primary",
                 )}
                 onClick={() => selectTab(kind)}
@@ -617,7 +619,7 @@ export default function OrganizationPage() {
               onPageSizeChange={pagination.setPageSize}
             />
           </section>
-        </>
+        </RecordFrame>
       )}
 
       {deleteTarget ? <OrganizationDeleteDialog endpoint={MASTER_CONFIG[deleteTarget.kind].endpoint} api={api} item={deleteTarget.item} trigger={deleteTarget.trigger} onClose={() => setDeleteTarget(null)} onDeleted={async () => {
@@ -627,7 +629,7 @@ export default function OrganizationPage() {
 
       {drawer && drawerConfig ? (
         <div
-          className="fixed inset-0 z-50 flex justify-end bg-slate-950/40"
+          className="fixed inset-0 z-50 flex justify-end bg-black/40 p-3 backdrop-blur-sm"
           role="presentation"
           onMouseDown={(event) => {
             if (event.currentTarget === event.target) requestDrawerClose();
@@ -639,7 +641,7 @@ export default function OrganizationPage() {
             aria-modal="true"
             aria-labelledby="organization-drawer-title"
             aria-describedby="organization-drawer-description"
-            className="flex h-full w-full min-w-0 flex-col bg-surface shadow-2xl sm:max-w-xl"
+            className="flex h-full w-full min-w-0 flex-col overflow-hidden rounded-[24px] bg-surface shadow-2xl sm:max-w-xl"
             onKeyDown={trapDrawerFocus}
           >
             <div className="flex items-start justify-between gap-3 border-b border-brand-border px-4 py-3 sm:px-5">

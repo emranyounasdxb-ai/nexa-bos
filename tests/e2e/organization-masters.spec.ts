@@ -1,5 +1,6 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { preserveBuiltInRoleConfiguration } from "./helpers/role-configuration";
+import { captureViewportThemes } from "./helpers/viewport-capture";
 
 preserveBuiltInRoleConfiguration();
 
@@ -232,7 +233,7 @@ test("Organization masters use URL tabs, filters, dependent drawers, and accessi
   await expectNoPageOverflow(page);
 });
 
-test("Organization masters use readable mobile cards and a full-screen drawer without overflow", async ({
+test("Organization masters use readable mobile cards and an inset drawer without overflow", async ({
   page,
   request,
 }) => {
@@ -250,8 +251,8 @@ test("Organization masters use readable mobile cards and a full-screen drawer wi
   await addTeam.click();
   const drawer = page.getByRole("dialog", { name: "Add team" });
   const drawerBox = await drawer.boundingBox();
-  expect(drawerBox?.x).toBe(0);
-  expect(drawerBox?.width).toBe(390);
+  expect(drawerBox?.x).toBe(12);
+  expect(drawerBox?.width).toBe(366);
   await expect(drawer.getByRole("combobox", { name: "Office", exact: true })).toBeFocused();
   await expect(drawer.getByRole("combobox", { name: "Office", exact: true })).toHaveAttribute("value", "");
   await expect(drawer.getByRole("combobox", { name: "Department", exact: true })).toBeDisabled();
@@ -312,14 +313,15 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
     await page.keyboard.press("Shift+Tab");
     await expect(dialog.getByRole("button", { name: "Delete", exact: true })).toBeFocused();
     await expectNoPageOverflow(page);
-    await page.screenshot({ path: testInfo.outputPath(`org-delete-${viewport.width}.png`), fullPage: false });
+    await captureViewportThemes(page, testInfo.outputPath(`org-delete-${viewport.width}.png`));
     await dialog.getByRole("button", { name: "Delete", exact: true }).click();
     await expect(dialog).toHaveCount(0);
     await expect(region.getByRole("button", { name: /Delete/ })).toHaveCount(0);
     await expect(tabs.getByRole("tab", { name: "Business Units" })).toBeFocused();
     await page.getByLabel("Search business units").fill("");
     await page.evaluate(() => window.scrollTo(0, 0));
-    await page.screenshot({ path: testInfo.outputPath(`org-business-units-${viewport.width}.png`), fullPage: false });
+    await captureViewportThemes(page, testInfo.outputPath(`org-business-units-${viewport.width}.png`));
+    if (viewport.width === 390) await captureViewportThemes(page, testInfo.outputPath(`org-business-unit-records-${viewport.width}.png`), page.getByTestId("organization-mobile-list"));
     await expectNoPageOverflow(page);
     await page.getByLabel("Search business units").fill(`BU${seeded.teamA.code}`);
     const usedRemove = region.getByRole("button", { name: /Delete/ });

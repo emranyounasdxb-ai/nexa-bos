@@ -1,5 +1,8 @@
 "use client";
 
+import { ConfigurationWorkspace } from "@/components/page-patterns";
+import styles from "./catalog.module.css";
+
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Suspense,
@@ -782,7 +785,7 @@ function CatalogInner() {
                 </div>
 
                 {ruleDraft ? (
-                  <div className="min-w-0 rounded-lg border border-slate-200 bg-white p-3 sm:p-4">
+                  <div className="min-w-0 rounded-lg border border-slate-200 bg-surface p-3 sm:p-4">
                     <fieldset disabled={ruleSaving}>
                       <legend className="text-sm font-semibold text-slate-900">Application stages included</legend>
                       <p className="mt-1 text-xs leading-5 text-slate-500">
@@ -837,7 +840,7 @@ function CatalogInner() {
                               "flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium",
                               ruleDraft.targetMeasurement === measurement
                                 ? "border-brand-primary bg-brand-soft text-brand-primary"
-                                : "border-slate-200 bg-white text-slate-700",
+                                : "border-slate-200 bg-surface text-slate-700",
                             )}
                           >
                             <input
@@ -1085,7 +1088,7 @@ function CatalogInner() {
           <label className="mt-4 block text-sm font-medium text-text-primary">
             PNG, JPEG, or WebP image
             <input
-              className={cx("mt-1 block w-full rounded-lg border border-brand-border bg-white px-3 py-2 text-sm", focusRing)}
+              className={cx("mt-1 block w-full rounded-lg border border-brand-border bg-surface px-3 py-2 text-sm", focusRing)}
               type="file"
               accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"
               disabled={dialogSaving}
@@ -1169,7 +1172,7 @@ function MasterCatalogTab({
   return (
     <Card className="min-w-0 p-0">
       <div id={panelId} role="tabpanel" aria-labelledby={`catalog-tab-${kind === "bank" ? "banks" : "products"}`}>
-        <div className="px-4 py-4 sm:px-5">
+        <ConfigurationWorkspace controls={<div className={styles.context}>
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h2 className="text-[length:var(--amafh-text-section)] font-semibold text-slate-950">{title}</h2>
@@ -1214,9 +1217,9 @@ function MasterCatalogTab({
               </>
             }
           />
-        </div>
+        </div>}>
 
-        <TableShell className="rounded-none border-x-0 border-b-0 shadow-none">
+        <TableShell className={`${styles.records} rounded-none border-x-0 border-b-0 shadow-none`}>
           <TableHead>
             <tr>
               <Th>Full name</Th>
@@ -1237,8 +1240,8 @@ function MasterCatalogTab({
                       <span className="font-medium text-slate-900">{item.name}</span>
                     </div>
                   </Td>
-                  <Td><code className="text-xs text-slate-600">{item.code}</code></Td>
-                  <Td><StatusBadge value={item.status} /></Td>
+                  <Td><span className={styles.mobileLabel} aria-hidden="true">Code</span><code className="text-xs text-slate-600">{item.code}</code></Td>
+                  <Td><span className={styles.mobileLabel} aria-hidden="true">Status</span><StatusBadge value={item.status} /></Td>
                   <Td>
                     <div className="flex flex-wrap items-center justify-end gap-1">
                       {canEdit ? (
@@ -1290,6 +1293,7 @@ function MasterCatalogTab({
             onPageSizeChange={pagination.setPageSize}
           />
         ) : null}
+        </ConfigurationWorkspace>
       </div>
     </Card>
   );
@@ -1360,7 +1364,7 @@ function ProductVariantsTab({
   return (
     <Card className="min-w-0 p-0">
       <div id={panelId} role="tabpanel" aria-labelledby="catalog-tab-variants">
-        <div className="px-4 py-4 sm:px-5">
+        <ConfigurationWorkspace controls={<div className={styles.context}>
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h2 className="text-[length:var(--amafh-text-section)] font-semibold text-slate-950">Product Variants</h2>
@@ -1434,9 +1438,9 @@ function ProductVariantsTab({
               </label>
             }
           />
-        </div>
+        </div>}>
 
-        <TableShell className="rounded-none border-x-0 border-b-0 shadow-none">
+        <TableShell className={`${styles.records} rounded-none border-x-0 border-b-0 shadow-none`}>
           <TableHead>
             <tr>
               <Th>Product Variant</Th>
@@ -1463,14 +1467,16 @@ function ProductVariantsTab({
                     </div>
                   </Td>
                   <Td>
+                    <span className={styles.mobileLabel} aria-hidden="true">Bank</span>
                     <span className="block text-slate-900">{item.bank?.name ?? "Unavailable bank"}</span>
                     <code className="text-xs text-slate-500">{item.bank?.code ?? "—"}</code>
                   </Td>
                   <Td>
+                    <span className={styles.mobileLabel} aria-hidden="true">Product Category</span>
                     <span className="block text-slate-900">{item.product?.name ?? "Unavailable product"}</span>
                     <code className="text-xs text-slate-500">{item.product?.code ?? "—"}</code>
                   </Td>
-                  <Td><StatusBadge value={item.status} /></Td>
+                  <Td><span className={styles.mobileLabel} aria-hidden="true">Status</span><StatusBadge value={item.status} /></Td>
                   <Td>
                     <div className="flex flex-wrap items-center justify-end gap-1">
                       {canEdit ? (
@@ -1527,6 +1533,7 @@ function ProductVariantsTab({
             onPageSizeChange={pagination.setPageSize}
           />
         ) : null}
+        </ConfigurationWorkspace>
       </div>
     </Card>
   );
@@ -1643,7 +1650,7 @@ function MappingTab({
           />
         </div>
 
-        <TableShell className="rounded-none border-x-0 border-b-0 shadow-none">
+        <TableShell className={`${styles.records} rounded-none border-x-0 border-b-0 shadow-none`}>
           <TableHead>
             <tr>
               <Th>Bank</Th>
@@ -1662,21 +1669,23 @@ function MappingTab({
                     <div className="flex items-center gap-2.5">
                       {item.bank ? <CatalogueImage item={item.bank} api={getBrowserApiUrl()} /> : null}
                       <span>
+                        <span className={styles.mobileLabel} aria-hidden="true">Bank</span>
                         <span className="block font-medium text-slate-900">{item.bank?.name ?? "Unavailable bank"}</span>
                         <code className="text-xs text-slate-500">{item.bank?.code ?? "—"}</code>
                       </span>
                     </div>
                   </Td>
-                  <Td>
+                  <Td className={styles.mappingProduct}>
                     <div className="flex items-center gap-2.5">
                       {item.product ? <CatalogueImage item={item.product} api={getBrowserApiUrl()} /> : null}
                       <span>
+                        <span className={styles.mobileLabel} aria-hidden="true">Product</span>
                         <span className="block font-medium text-slate-900">{item.product?.name ?? "Unavailable product"}</span>
                         <code className="text-xs text-slate-500">{item.product?.code ?? "—"}</code>
                       </span>
                     </div>
                   </Td>
-                  <Td><StatusBadge value={item.status} /></Td>
+                  <Td><span className={styles.mobileLabel} aria-hidden="true">Status</span><StatusBadge value={item.status} /></Td>
                   <Td>
                     <div className="flex justify-end">
                       {canChangeStatus ? (

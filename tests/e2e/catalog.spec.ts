@@ -7,6 +7,7 @@ import {
   type Page,
 } from "@playwright/test";
 import { selectBrandedOption } from "./helpers/select";
+import { captureViewportThemes } from "./helpers/viewport-capture";
 
 const apiOrigin = `http://127.0.0.1:${process.env.PLAYWRIGHT_API_PORT ?? "8010"}`;
 const secret = process.env.BOOTSTRAP_SECRET ?? "nexa-test-bootstrap-secret";
@@ -145,8 +146,8 @@ async function signIn(page: Page, request: APIRequestContext) {
   await expect(page.getByRole("heading", { name: "Dashboard", exact: true })).toBeVisible({ timeout: 30_000 });
 }
 
-test("catalog uses task tabs, modal editing, explicit rule saves, and mapping validation", async ({ page, request }) => {
-  test.setTimeout(120_000);
+test("catalog uses task tabs, modal editing, explicit rule saves, and mapping validation", async ({ page, request }, testInfo) => {
+  test.setTimeout(180_000);
   await signIn(page, request);
   const suffix = Date.now().toString(36).slice(-7).toUpperCase();
   const bankCode = `B${suffix}`;
@@ -383,12 +384,28 @@ test("catalog uses task tabs, modal editing, explicit rule saves, and mapping va
   for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
     await page.setViewportSize(viewport);
 
+    async function inspectRecord(row: Locator, name: string) {
+      await row.scrollIntoViewIfNeeded();
+      const actions = row.getByRole("button");
+      expect(await actions.count()).toBeGreaterThan(0);
+      if (viewport.width === 390) {
+        for (const action of await actions.all()) {
+          const bounds = await action.boundingBox();
+          expect(bounds).not.toBeNull();
+          expect(bounds!.x).toBeGreaterThanOrEqual(0);
+          expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(viewport.width);
+        }
+      }
+      await captureViewportThemes(page, testInfo.outputPath(`catalog-${name}-${viewport.width}.png`), row);
+    }
+
     await page.goto("/catalog?tab=banks");
     await page.getByLabel("Search banks").fill(bankCode);
     await expectUnframedCatalogueImage(
       page.getByRole("row").filter({ hasText: bankCode }).getByRole("img", { name: `${renamedBank} image` }),
       2,
     );
+    await inspectRecord(page.getByRole("row").filter({ hasText: bankCode }), "bank-record");
 
     await page.goto("/catalog?tab=products");
     await page.getByLabel("Search products").fill(productCode);
@@ -396,12 +413,14 @@ test("catalog uses task tabs, modal editing, explicit rule saves, and mapping va
       page.getByRole("row").filter({ hasText: productCode }).getByRole("img", { name: `${productName} image` }),
       2,
     );
+    await inspectRecord(page.getByRole("row").filter({ hasText: productCode }), "product-record");
 
     await page.goto("/catalog?tab=mappings");
     await page.getByLabel("Search mappings").fill(bankCode);
     const responsiveMappingRow = page.getByRole("row").filter({ hasText: bankCode }).filter({ hasText: productCode });
     await expectUnframedCatalogueImage(responsiveMappingRow.getByRole("img", { name: `${renamedBank} image` }), 2);
     await expectUnframedCatalogueImage(responsiveMappingRow.getByRole("img", { name: `${productName} image` }), 2);
+    await inspectRecord(responsiveMappingRow, "mapping-record");
 
     await page.goto("/catalog?tab=variants");
     await selectBrandedOption(page.getByLabel("Variant bank"), { label: `${renamedBank} (${bankCode})` });
@@ -411,6 +430,7 @@ test("catalog uses task tabs, modal editing, explicit rule saves, and mapping va
       page.getByRole("row").filter({ hasText: variantCode }).getByRole("img", { name: `${renamedVariant} image` }),
       0.6,
     );
+    await inspectRecord(page.getByRole("row").filter({ hasText: variantCode }), "variant-record");
 
     await page.goto("/applications");
     await page.getByRole("button", { name: "Create application" }).click();

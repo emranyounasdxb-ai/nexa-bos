@@ -17,6 +17,7 @@ import {
 } from "@/components/ui";
 import { apiGet } from "@/lib/api";
 import { getBrowserApiUrl } from "@/lib/env";
+import { ConfigurationWorkspace } from "@/components/page-patterns";
 import type { HierarchyNode, HierarchyPayload } from "@/lib/types";
 
 export default function OrganizationHierarchyPage() {
@@ -127,7 +128,7 @@ export default function OrganizationHierarchyPage() {
       />
       <ErrorText>{error}</ErrorText>
 
-      <Card className="space-y-4">
+      <ConfigurationWorkspace controls={<Card className="space-y-4">
         <div className="grid gap-3 md:grid-cols-4">
           <Field label="Company / Office" htmlFor="hierarchy-office">
             <Select
@@ -207,7 +208,7 @@ export default function OrganizationHierarchyPage() {
           </label>
         </div>
         <form className="flex flex-wrap items-end gap-2" onSubmit={submitSearch}>
-          <Field label="Employee search" htmlFor="hierarchy-search" className="min-w-72 flex-1">
+          <Field label="Employee search" htmlFor="hierarchy-search" className="min-w-0 basis-full">
             <TextInput
               id="hierarchy-search"
               aria-label="Employee search"
@@ -234,7 +235,7 @@ export default function OrganizationHierarchyPage() {
             )}
           </div>
         ) : null}
-      </Card>
+      </Card>}>
 
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-slate-600">
@@ -250,7 +251,7 @@ export default function OrganizationHierarchyPage() {
         </div>
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_20rem]">
+      <div className="grid min-w-0 gap-4 2xl:grid-cols-[minmax(0,1fr)_18rem]">
         <div data-testid="hierarchy-canvas" className="min-w-0">
           <Card className="min-w-0 overflow-x-auto p-3">
             {data?.rootIds.length ? (
@@ -277,6 +278,7 @@ export default function OrganizationHierarchyPage() {
         </div>
         <SelectedContext node={selected} payload={data} nodes={nodes} />
       </div>
+      </ConfigurationWorkspace>
     </section>
   );
 }
@@ -333,7 +335,7 @@ function HierarchyBranch({
         data-testid={`hierarchy-node-${node.id}`}
         data-highlighted={selectedId === node.id ? "true" : "false"}
         className={cx(
-          "flex w-52 items-center gap-1.5 rounded-md border bg-white px-2 py-2 shadow-[0_1px_2px_rgba(15,23,42,0.05)]",
+          "flex w-52 items-center gap-1.5 rounded-md border bg-surface px-2 py-2 shadow-[0_1px_2px_rgba(15,23,42,0.05)]",
           selectedId === node.id
             ? "border-brand-primary bg-brand-soft ring-2 ring-brand-primary/20"
             : "border-slate-200",

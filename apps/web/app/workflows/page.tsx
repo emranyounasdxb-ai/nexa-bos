@@ -1,5 +1,7 @@
 "use client";
 
+import { ConfigurationWorkspace } from "@/components/page-patterns";
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
@@ -445,6 +447,7 @@ export default function WorkflowsPage() {
         ))}
       </div>
 
+      <ConfigurationWorkspace controls={
       <Card className="p-3 sm:p-3">
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
           <Field label="Bank" htmlFor="workflow-bank">
@@ -473,6 +476,7 @@ export default function WorkflowsPage() {
         </div>
       </Card>
 
+      }>
       <div aria-live="polite" className="space-y-2">
         <ErrorText>{error}</ErrorText>
         {message ? <p className="rounded-md border border-success-soft bg-success-soft px-3 py-2 text-sm text-text-primary">{message}</p> : null}
@@ -580,36 +584,37 @@ export default function WorkflowsPage() {
           ) : null}
         </>
       ) : <Card><EmptyState>Select a bank, product, and workflow version to configure its workflow.</EmptyState></Card>}
+      </ConfigurationWorkspace>
 
       {drawer ? (
-        <div className="fixed inset-0 z-50 flex justify-end bg-black/40" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) requestDrawerClose(); }}>
-          <aside ref={drawerRef} role="dialog" aria-modal="true" aria-labelledby="workflow-drawer-title" className="flex h-full w-full flex-col bg-surface shadow-2xl sm:max-w-xl" onKeyDown={trapDrawerFocus}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-3 backdrop-blur-sm" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) requestDrawerClose(); }}>
+          <aside ref={drawerRef} role="dialog" aria-modal="true" aria-labelledby="workflow-drawer-title" className="flex max-h-[calc(100dvh_-_24px)] w-full min-w-0 flex-col overflow-hidden rounded-[24px] border border-brand-border bg-surface shadow-2xl sm:max-w-xl" onKeyDown={trapDrawerFocus}>
             <div className="flex items-start justify-between gap-3 border-b border-brand-border px-4 py-3 sm:px-5">
               <div className="min-w-0"><h2 id="workflow-drawer-title" className="text-[length:var(--amafh-text-section)] font-semibold text-text-primary">{drawer === "create-version" ? "Create workflow version" : drawer === "add-stage" ? "Add stage" : drawer === "edit-stage" ? "Edit stage" : "Add transition"}</h2><p className="mt-0.5 text-sm text-text-secondary">{drawer === "create-version" ? "Choose an active Bank–Product mapping." : drawer === "add-transition" ? "Add one allowed movement without replacing existing transitions." : "Configure the stage label and its order in this version."}</p></div>
               <Button type="button" variant="ghost" size="icon" aria-label="Close workflow drawer" onClick={requestDrawerClose}><IconX className="size-4" /></Button>
             </div>
-            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-5">
+            <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-5">
               {drawer === "create-version" ? (
-                <>
+                <fieldset className="grid content-start gap-4 rounded-2xl bg-surface-subtle p-4 sm:grid-cols-2"><legend className="px-1 text-sm font-medium">Bank and product mapping</legend>
                   <Field label="Bank" htmlFor="create-workflow-bank"><Select id="create-workflow-bank" autoFocus required value={createBankId} onChange={(event) => { setCreateBankId(event.target.value); setCreateProductId(""); setDrawerDirty(true); }}><option value="">Select Bank</option>{banks.filter((bank) => bank.status === "active").map((bank) => <option key={bank.id} value={bank.id}>{bank.name} ({bank.code})</option>)}</Select></Field>
                   <Field label="Product" htmlFor="create-workflow-product" help="Only Products in an active Bank–Product mapping are available."><Select id="create-workflow-product" required disabled={!createBankId} value={createProductId} onChange={(event) => { setCreateProductId(event.target.value); setDrawerDirty(true); }}><option value="">{createBankId ? "Select Product" : "Select Bank first"}</option>{createProductOptions.map((product) => <option key={product.id} value={product.id}>{product.name} ({product.code})</option>)}</Select></Field>
                   {createBankId && !createProductOptions.length ? <p className="rounded-md bg-information-soft px-3 py-2 text-sm text-text-primary">No active Product mapping is available for this Bank.</p> : null}
-                  <div className="rounded-lg border border-information-soft bg-information-soft p-3 text-sm text-text-primary">Creating a version activates it immediately and deactivates the previous active version for the same Bank and Product. Existing versions remain available for history.</div>
-                </>
+                  <div className="rounded-xl border border-information-soft bg-information-soft p-3 text-sm text-text-primary sm:col-span-2">Creating a version activates it immediately and deactivates the previous active version for the same Bank and Product. Existing versions remain available for history.</div>
+                </fieldset>
               ) : drawer === "add-stage" || drawer === "edit-stage" ? (
-                <>
-                  <Field label="Stage name" htmlFor="workflow-stage-name"><TextInput id="workflow-stage-name" autoFocus required value={stageName} onChange={(event) => { setStageName(event.target.value); setDrawerDirty(true); }} /></Field>
+                <fieldset className="grid content-start gap-4 rounded-2xl bg-surface-subtle p-4 sm:grid-cols-2"><legend className="px-1 text-sm font-medium">Stage identity and sequence</legend>
+                  <Field label="Stage name" htmlFor="workflow-stage-name" className="sm:col-span-2"><TextInput id="workflow-stage-name" autoFocus required value={stageName} onChange={(event) => { setStageName(event.target.value); setDrawerDirty(true); }} /></Field>
                   <Field label="Stage code" htmlFor="workflow-stage-code" help="The technical stage code cannot be changed after this stage is created."><TextInput id="workflow-stage-code" required disabled={Boolean(editingStage)} value={stageCode} onChange={(event) => { setStageCode(event.target.value); setDrawerDirty(true); }} /></Field>
                   <Field label="Sort order" htmlFor="workflow-stage-order" help="Lower numbers appear earlier in the workflow stage sequence."><TextInput id="workflow-stage-order" type="number" min={1} max={10000} required value={stageOrder} onChange={(event) => { setStageOrder(event.target.value); setDrawerDirty(true); }} /></Field>
                   {editingStage ? <p className="rounded-md bg-information-soft px-3 py-2 text-sm text-text-primary">The immutable code remains <span className="font-mono font-semibold">{editingStage.code}</span>.</p> : null}
-                </>
+                </fieldset>
               ) : (
-                <>
+                <fieldset className="grid content-start gap-4 rounded-2xl bg-surface-subtle p-4 sm:grid-cols-2"><legend className="px-1 text-sm font-medium">Transition direction</legend>
                   <Field label="From stage" htmlFor="transition-from"><Select id="transition-from" autoFocus required value={fromStage} onChange={(event) => { setFromStage(event.target.value); setDrawerDirty(true); }}><option value="">Select From stage</option>{stages.map((stage) => <option key={stage.id} value={stage.id}>{stage.name} ({stage.code})</option>)}</Select></Field>
                   <Field label="To stage" htmlFor="transition-to"><Select id="transition-to" required value={toStage} onChange={(event) => { setToStage(event.target.value); setDrawerDirty(true); }}><option value="">Select To stage</option>{stages.map((stage) => <option key={stage.id} value={stage.id}>{stage.name} ({stage.code})</option>)}</Select></Field>
-                  {(fromStage || toStage) && transitionError ? <ErrorText>{transitionError}</ErrorText> : null}
-                  {!transitionError ? <p className="flex items-center gap-2 rounded-md bg-success-soft px-3 py-2 text-sm text-text-primary"><IconGitBranch className="size-4 text-success" /> This direction is available to add.</p> : null}
-                </>
+                  {(fromStage || toStage) && transitionError ? <div className="sm:col-span-2"><ErrorText>{transitionError}</ErrorText></div> : null}
+                  {!transitionError ? <p className="flex items-center gap-2 rounded-md bg-success-soft px-3 py-2 text-sm text-text-primary sm:col-span-2"><IconGitBranch className="size-4 text-success" /> This direction is available to add.</p> : null}
+                </fieldset>
               )}
             </div>
             <div className="sticky bottom-0 flex flex-wrap items-center justify-end gap-2 border-t border-brand-border bg-surface px-4 py-3 sm:px-5">
@@ -621,8 +626,8 @@ export default function WorkflowsPage() {
       ) : null}
 
       {confirmation ? (
-        <div className="fixed inset-0 z-[80] grid place-items-center bg-black/40 p-4" role="presentation">
-          <div role="alertdialog" aria-modal="true" aria-labelledby="workflow-confirm-title" aria-describedby="workflow-confirm-description" className="w-full max-w-md rounded-xl border border-brand-border bg-surface p-4 shadow-2xl">
+        <div className="fixed inset-0 z-[80] grid place-items-center bg-black/40 p-4 backdrop-blur-sm" role="presentation">
+          <div role="alertdialog" aria-modal="true" aria-labelledby="workflow-confirm-title" aria-describedby="workflow-confirm-description" className="w-full max-w-md rounded-[24px] border border-brand-border bg-surface p-5 shadow-2xl">
             <h2 id="workflow-confirm-title" className="text-[length:var(--amafh-text-section)] font-semibold text-text-primary">{confirmation.title}</h2>
             <p id="workflow-confirm-description" className="mt-2 text-sm leading-6 text-text-secondary">{confirmation.description}</p>
             <div className="mt-4 flex justify-end gap-2"><Button type="button" variant="secondary" disabled={saving} onClick={() => setConfirmation(null)}>Cancel</Button><Button type="button" variant={confirmation.actionLabel.startsWith("Deactivate") ? "danger" : "primary"} disabled={saving} onClick={() => void confirmation.run()}>{saving ? "Working…" : confirmation.actionLabel}</Button></div>

@@ -1,5 +1,8 @@
 "use client";
 
+import { RecordFrame } from "@/components/page-patterns";
+import styles from "./contracts.module.css";
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
@@ -411,7 +414,7 @@ export default function ContractsPage() {
   }
 
   const renderSummary = (item: Contract) => (
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="grid grid-cols-2 gap-3 rounded-2xl bg-surface-subtle p-3 [&>div]:min-w-0 [&>div]:break-words">
       <div><p className="text-xs text-text-secondary">Employee</p><p className="font-medium">{item.employee}</p></div>
       <div><p className="text-xs text-text-secondary">Contract</p><p className="font-medium">{item.contractNumber}</p></div>
       <div><p className="text-xs text-text-secondary">Type</p><p className="font-medium">{item.contractType.name}</p></div>
@@ -460,24 +463,24 @@ export default function ContractsPage() {
 
       {!loading && activeTab === "mine" ? (
         ownContract ? (
-          <Card className="space-y-4">
+          <RecordFrame summary={<Card className="space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 className="text-[length:var(--amafh-text-section)] font-semibold">My active contract</h2>
               <StatusBadge value={ownContract.status} />
             </div>
-            {renderSummary(ownContract)}
+            <p className="text-sm text-text-secondary">Your current versioned employment record. Signed documents remain private.</p>
             {ownContract.attachments.filter((item) => item.isActive).map((file) => (
               <Button key={file.id} variant="secondary" onClick={() => void download(ownContract, file)}>
                 Download signed contract
               </Button>
             ))}
-          </Card>
+          </Card>}><Card>{renderSummary(ownContract)}</Card></RecordFrame>
         ) : <EmptyState>No active employment contract is available.</EmptyState>
       ) : null}
 
       {!loading && activeTab === "register" ? (
         contracts.length ? (
-          <TableShell aria-label="Employment contract register">
+          <TableShell className={styles.register} aria-label="Employment contract register">
             <TableHead><tr><Th>Contract</Th><Th>Employee</Th><Th>Type</Th><Th>Dates</Th><Th>Status</Th><Th>Action</Th></tr></TableHead>
             <tbody>
               {contracts.map((item) => (
@@ -534,19 +537,23 @@ export default function ContractsPage() {
       {creating || editing ? (
         <DialogPanel title={editing ? "Edit draft contract" : "Prepare employment contract"} description="A renewal creates a new version; existing evidence is never overwritten." onClose={editing ? closeEdit : closeDialog}>
           <form className="space-y-4" onSubmit={saveContract}>
-            <div className="grid gap-3 sm:grid-cols-2">
+            <fieldset className="grid min-w-0 gap-3 rounded-xl bg-surface-subtle p-3 sm:grid-cols-2">
+              <legend className="px-1 text-sm font-semibold">Employee and contract</legend>
               <Field label="Employee"><Select required disabled={Boolean(editing)} value={draft.employeeId} onChange={(event) => setDraft((value) => ({ ...value, employeeId: event.target.value }))}><option value="">Select employee</option>{employees.map((item) => <option key={item.id} value={item.id}>{item.fullName} · {item.employeeCode}</option>)}</Select></Field>
               <Field label="Contract type"><Select required value={draft.contractTypeId} onChange={(event) => setDraft((value) => ({ ...value, contractTypeId: event.target.value }))}><option value="">Select type</option>{types.filter((item) => item.isActive).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</Select></Field>
               <Field label="Contract number"><TextInput required readOnly={Boolean(editing)} value={draft.contractNumber} onChange={(event) => setDraft((value) => ({ ...value, contractNumber: event.target.value }))} /></Field>
               <Field label="Job title snapshot"><TextInput required value={draft.jobTitleSnapshot} onChange={(event) => setDraft((value) => ({ ...value, jobTitleSnapshot: event.target.value }))} /></Field>
+              <Field label="Renewal of" className="sm:col-span-2"><Select disabled={Boolean(editing)} value={draft.parentContractId} onChange={(event) => setDraft((value) => ({ ...value, parentContractId: event.target.value }))}><option value="">New contract</option>{contracts.map((item) => <option key={item.id} value={item.id}>{item.contractNumber} · {item.employee}</option>)}</Select></Field>
+            </fieldset>
+            <fieldset className="grid min-w-0 grid-cols-2 gap-3 rounded-xl bg-surface-subtle p-3">
+              <legend className="px-1 text-sm font-semibold">Term and compensation</legend>
               <Field label="Start date"><TextInput type="date" required value={draft.startDate} onChange={(event) => setDraft((value) => ({ ...value, startDate: event.target.value }))} /></Field>
               <Field label="End date"><TextInput type="date" value={draft.endDate} onChange={(event) => setDraft((value) => ({ ...value, endDate: event.target.value }))} /></Field>
-              <Field label="Currency"><TextInput required maxLength={3} value={draft.currency} onChange={(event) => setDraft((value) => ({ ...value, currency: event.target.value.toUpperCase() }))} /></Field>
+              <Field label="Currency" className="col-span-2"><TextInput required maxLength={3} value={draft.currency} onChange={(event) => setDraft((value) => ({ ...value, currency: event.target.value.toUpperCase() }))} /></Field>
               <Field label="Basic salary"><TextInput type="number" min="0" step="0.01" required value={draft.basicSalary} onChange={(event) => setDraft((value) => ({ ...value, basicSalary: event.target.value }))} /></Field>
               <Field label="Allowances total"><TextInput type="number" min="0" step="0.01" required value={draft.allowancesTotal} onChange={(event) => setDraft((value) => ({ ...value, allowancesTotal: event.target.value }))} /></Field>
-              <Field label="Renewal of"><Select disabled={Boolean(editing)} value={draft.parentContractId} onChange={(event) => setDraft((value) => ({ ...value, parentContractId: event.target.value }))}><option value="">New contract</option>{contracts.map((item) => <option key={item.id} value={item.id}>{item.contractNumber} · {item.employee}</option>)}</Select></Field>
-              <Field label="Notes" className="sm:col-span-2"><Textarea value={draft.notes} onChange={(event) => setDraft((value) => ({ ...value, notes: event.target.value }))} /></Field>
-            </div>
+            </fieldset>
+            <Field label="Notes"><Textarea value={draft.notes} onChange={(event) => setDraft((value) => ({ ...value, notes: event.target.value }))} /></Field>
             <div className="flex justify-end gap-2"><Button type="button" variant="secondary" onClick={editing ? closeEdit : closeDialog}>Cancel</Button><Button type="submit">{editing ? "Save changes" : "Save draft"}</Button></div>
           </form>
         </DialogPanel>

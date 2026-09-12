@@ -181,7 +181,9 @@ function ApplicationsPageInner() {
           </Button>
         </div>
       ) : null}
+      <div data-amafh-list-surface="">
       <SearchActionBar
+        className="p-4"
         search={
           <TextInput
             className="mt-0"
@@ -217,7 +219,7 @@ function ApplicationsPageInner() {
       ) : null}
       <form
         data-testid="application-filters"
-        className="grid min-w-0 grid-cols-1 gap-x-3 gap-y-3 rounded-xl border border-slate-200 bg-white p-3 sm:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(12rem,1.35fr)_auto] xl:items-end"
+        className="grid min-w-0 grid-cols-2 gap-x-3 gap-y-3 rounded-xl border border-slate-200 bg-surface p-3 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(12rem,1.35fr)_auto] xl:items-end"
         onSubmit={(event) => {
           event.preventDefault();
           setPage(1);
@@ -280,7 +282,7 @@ function ApplicationsPageInner() {
             ))}
           </Select>
         </Field>
-        <Field label="Created Date" className="min-w-0">
+        <Field label="Created Date" className="col-span-2 min-w-0 xl:col-span-1">
           <DateRangePicker
             aria-label="Created Date"
             from={filters.created_from}
@@ -290,7 +292,7 @@ function ApplicationsPageInner() {
             }
           />
         </Field>
-        <div className="flex flex-wrap items-center justify-end gap-2 self-end sm:col-span-2 xl:col-span-1 xl:flex-nowrap">
+        <div className="col-span-2 flex flex-wrap items-center justify-end gap-2 self-end xl:col-span-1 xl:flex-nowrap">
           <Button type="submit">Apply filters</Button>
           <Button
             variant="secondary"
@@ -397,6 +399,7 @@ function ApplicationsPageInner() {
           if (value !== "all") setPageSize(value);
         }}
       />
+      </div>
       <ApplicationCreateDialog
         open={createOpen}
         onClose={closeCreate}

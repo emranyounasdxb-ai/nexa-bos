@@ -1,5 +1,7 @@
 "use client";
 
+import { RecordFrame } from "@/components/page-patterns";
+
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import {
@@ -485,7 +487,7 @@ export default function ApplicationDetailPage() {
     can("Applications.SetOutcome");
 
   return (
-    <section className="min-w-0 space-y-4">
+    <section className="min-w-0 space-y-4" aria-busy={loading}>
       <PageHeader
         title={item.applicationCode}
         description="Application classification, workflow progress, controlled corrections, and immutable lifecycle history."
@@ -503,6 +505,7 @@ export default function ApplicationDetailPage() {
         }
       />
 
+      <RecordFrame summary={
       <Card>
         <div className="flex min-w-0 flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0">
@@ -526,6 +529,7 @@ export default function ApplicationDetailPage() {
           </dl>
         </div>
       </Card>
+      }>
 
       {review && <ApplicationInternalReview applicationId={item.id} state={review} requestedAmount={item.requestedAmount} onSaved={async text => { setMessage(text); await refresh(); }} />}
 
@@ -558,9 +562,9 @@ export default function ApplicationDetailPage() {
                   className={cx(
                     "min-w-0 rounded-[10px] border p-3",
                     stage.current
-                      ? "border-brand-primary bg-brand-primary text-white shadow-sm"
+                      ? "border-brand-primary bg-brand-fill text-white shadow-sm"
                       : completed
-                        ? "border-emerald-200 bg-emerald-50 text-emerald-950"
+                        ? "border-success-soft bg-success-soft text-success"
                         : "border-brand-border bg-surface text-text-secondary",
                   )}
                 >
@@ -596,7 +600,7 @@ export default function ApplicationDetailPage() {
             className={cx(
               "min-h-8 rounded-md px-2 py-1 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary",
               activeTab === tab.id
-                ? "bg-brand-primary text-white"
+                ? "bg-brand-fill text-white"
                 : "text-text-secondary hover:bg-brand-soft hover:text-brand-primary",
             )}
             onClick={() => selectTab(tab.id)}
@@ -998,6 +1002,7 @@ export default function ApplicationDetailPage() {
           </section>
         </div>
       ) : null}
+      </RecordFrame>
     </section>
   );
 }

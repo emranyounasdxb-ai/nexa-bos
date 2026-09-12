@@ -1,6 +1,7 @@
 "use client";
 
 import { DashboardBreakdown } from "./dashboard-visuals";
+import styles from "./overview.module.css";
 
 import Link from "next/link";
 import { useMemo } from "react";
@@ -28,7 +29,7 @@ function SummaryCard({ label, count, value, href }: { label: string; count?: num
     <Link
       href={href}
       aria-label={`${label} summary`}
-      className="group min-w-0 rounded-[10px] border border-slate-200 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.035)] transition hover:border-blue-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary"
+      className={`group ${styles.metric}`}
     >
       <div className="flex items-center justify-between gap-2">
         <p className="text-sm font-semibold text-slate-700">{label}</p>
@@ -77,7 +78,7 @@ function ApplicationTrend({ rows }: { rows: SeDashboardWorkspace["trend"] }) {
 
 function ApplicationRow({ item, reasons }: { item: SeApplicationSummary; reasons?: string[] }) {
   return (
-    <li className="min-w-0 border-b border-slate-200 bg-white py-4">
+    <li className="min-w-0 border-b border-slate-200 bg-surface py-4">
       <div className="flex min-w-0 flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           <Link className="font-semibold text-brand-link hover:underline" href={`/applications/${item.id}`}>{item.localFileNumber}</Link>
@@ -99,14 +100,20 @@ function ApplicationRow({ item, reasons }: { item: SeApplicationSummary; reasons
 export function SeDashboard({ data, period }: { data: SeDashboardWorkspace; period: string }) {
   const target = data.targetProgress;
   return (
-    <div data-testid="se-dashboard" className="space-y-6">
-      <div className="grid min-w-0 grid-cols-2 gap-3 lg:grid-cols-3" data-testid="se-summary-cards">
+    <div data-testid="se-dashboard" className="space-y-4">
+      <div className={styles.summary}>
+      <div className={`${styles.metrics} ${styles.compactMetrics}`} data-testid="se-summary-cards">
         <SummaryCard label="My Applications" count={data.kpis.applications.count} href={dashboardApplicationsHref("applications", period)} />
         <SummaryCard label="Submitted" count={data.kpis.submitted.count} value={formatAed(data.kpis.submitted.value)} href={dashboardApplicationsHref("submitted", period)} />
         <SummaryCard label="Approved" count={data.kpis.approved.count} value={formatAed(data.kpis.approved.value)} href={dashboardApplicationsHref("approved", period)} />
         <SummaryCard label="Funded" count={data.kpis.funded.count} value={formatAed(data.kpis.funded.value)} href={dashboardApplicationsHref("funded", period)} />
         <SummaryCard label="In Progress" count={data.kpis.inProgress.count} href={dashboardApplicationsHref("in_progress", period)} />
         <SummaryCard label="Target Achievement" value={formatPct(data.kpis.targetAchievementPct)} href={dashboardApplicationsHref("applications", period)} />
+      </div>
+        <Card className="min-w-0 flex flex-col">
+          <SectionHeader title="My Application Trend" description="Created, submitted, approved and funded over the last six months." />
+          <ApplicationTrend rows={data.trend} />
+        </Card>
       </div>
 
       <div className="grid min-w-0 gap-4 xl:grid-cols-2">
@@ -120,10 +127,6 @@ export function SeDashboard({ data, period }: { data: SeDashboardWorkspace; peri
         </Card>
       </div>
       <div className="grid min-w-0 gap-4 xl:grid-cols-2">
-        <Card className="min-w-0 p-4">
-          <SectionHeader title="My Application Trend" description="Created, submitted, approved and funded over the last six months." />
-          <ApplicationTrend rows={data.trend} />
-        </Card>
         <Card className="min-w-0 p-4">
           <SectionHeader title="My Cases by Stage" description="Your open cases across configured Workflow stages." />
           <div className="mt-3"><DashboardBreakdown rows={data.stages.map((stage) => ({ id: stage.stageId, label: stage.name, value: stage.count }))} description="Own open cases across configured Workflow stages." testId="se-stage-chart" /></div>

@@ -1,5 +1,7 @@
 "use client";
 
+import { RegisterWorkspace } from "@/components/page-patterns";
+
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
@@ -50,7 +52,7 @@ export default function UserTypesPage() {
         description="Review and manage the existing role templates and their configured visibility scopes."
       />
       <ErrorText>{error}</ErrorText>
-      {can("UserTypes.Create") ? (
+      <RegisterWorkspace editor={can("UserTypes.Create") ? (
         <form onSubmit={(event) => void createType(event)} className="grid min-w-0 gap-4 rounded-lg border border-brand-border bg-surface p-4 md:grid-cols-3 sm:p-5">
           <label className="min-w-0 text-sm">Name <span aria-hidden="true">*</span><TextInput
             placeholder="Name"
@@ -79,7 +81,7 @@ export default function UserTypesPage() {
           </label>
           <div className="flex justify-end md:col-span-2"><Button type="submit">Create custom type</Button></div>
         </form>
-      ) : null}
+      ) : null}>
       <TableShell className="rounded-b-none">
         <TableHead>
           <tr>
@@ -117,6 +119,7 @@ export default function UserTypesPage() {
         onPageChange={pagination.setPage}
         onPageSizeChange={pagination.setPageSize}
       />
+      </RegisterWorkspace>
     </section>
   );
 }

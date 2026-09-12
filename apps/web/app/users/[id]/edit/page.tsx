@@ -1,5 +1,7 @@
 "use client";
 
+import { FormFrame } from "@/components/page-patterns";
+
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 
@@ -180,9 +182,12 @@ export default function EditUserPage() {
   }
 
   return (
-    <section className="min-w-0 max-w-5xl space-y-6">
+    <section className="min-w-0 space-y-4">
       <PageHeader title="Edit user" />
-      <form onSubmit={(event) => void onSubmit(event)} className="grid min-w-0 gap-4 rounded-lg border border-brand-border bg-surface p-4 sm:grid-cols-2 sm:p-5">
+      <FormFrame title="Employee details" description="Update the employee profile and organization assignment. Office, department and team selections must remain consistent.">
+      <form onSubmit={(event) => void onSubmit(event)} className="grid min-w-0 gap-4 rounded-lg border border-brand-border bg-surface p-4 sm:p-5">
+        <fieldset className="grid min-w-0 gap-3 rounded-2xl bg-surface-subtle p-3 sm:grid-cols-2">
+        <legend className="px-1 text-[17px] font-medium">Identity and contact</legend>
         <label className="block text-sm">Full Name<TextInput value={form.full_name} required maxLength={200} onChange={(event) => setForm({ ...form, full_name: event.target.value })} /></label>
         {["personal_email", "personal_mobile"].map((name) => (
           <label key={name} className="block text-sm">
@@ -193,7 +198,10 @@ export default function EditUserPage() {
             />
           </label>
         ))}
-        <label className="block text-sm">
+        </fieldset>
+        <fieldset className="grid min-w-0 grid-cols-2 gap-3 rounded-2xl bg-surface-subtle p-3">
+        <legend className="px-1 text-[17px] font-medium">Role and joining</legend>
+        <label className="block min-w-0 text-sm">
           Designation
           <Select
             value={form.designation_id}
@@ -214,6 +222,9 @@ export default function EditUserPage() {
             aria-label="Joining date"
           />
         </label>
+        </fieldset>
+        <fieldset className="grid min-w-0 grid-cols-2 gap-3 rounded-2xl bg-surface-subtle p-3">
+        <legend className="px-1 text-[17px] font-medium">Organization assignment</legend>
         <div className="min-w-0"><label className="block text-sm" htmlFor="edit-office">
           Office
         </label>
@@ -286,7 +297,10 @@ export default function EditUserPage() {
           ))}
         </Select>
         </div>
-        <label className="block text-sm">
+        </fieldset>
+        <fieldset className="grid min-w-0 grid-cols-2 gap-3 rounded-2xl bg-surface-subtle p-3">
+        <legend className="px-1 text-[17px] font-medium">Employment and reporting</legend>
+        <label className="block min-w-0 text-sm">
           Employment status
           <Select
             className={`${controlClass} mt-1`}
@@ -324,18 +338,20 @@ export default function EditUserPage() {
             </Select>
           </label>
         )}
+        </fieldset>
         {assignmentIssues.length ? (
-          <ul className="list-disc space-y-1 pl-5 text-sm text-red-700 sm:col-span-2" data-testid="org-assignment-error">
+          <ul className="list-disc space-y-1 pl-5 text-sm text-red-700" data-testid="org-assignment-error">
             {assignmentIssues.map((issue) => (
               <li key={issue}>{issue}</li>
             ))}
           </ul>
         ) : null}
-        {error ? <div className="sm:col-span-2"><ErrorText>{error}</ErrorText></div> : null}
-        <div className="flex justify-end border-t border-brand-border pt-4 sm:col-span-2"><Button type="submit" disabled={assignmentIssues.length > 0}>
+        {error ? <div><ErrorText>{error}</ErrorText></div> : null}
+        <div className="flex justify-end border-t border-brand-border pt-4"><Button type="submit" disabled={assignmentIssues.length > 0}>
           Save
         </Button></div>
       </form>
+      </FormFrame>
     </section>
   );
 }

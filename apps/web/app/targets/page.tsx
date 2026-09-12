@@ -39,6 +39,7 @@ import {
 import { apiGet, apiRequest, ApiClientError } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { getBrowserApiUrl } from "@/lib/env";
+import { ConfigurationWorkspace } from "@/components/page-patterns";
 import { formatAed, formatPct } from "@/lib/reports";
 
 type Named = {
@@ -464,9 +465,9 @@ export default function TargetsPage() {
 
         {activeView === "targets" ? (
           <div id="targets-panel" role="tabpanel" aria-labelledby="targets-tab" className="space-y-3 p-3 sm:p-4">
-            <div
+            <ConfigurationWorkspace controls={<div
               data-testid="target-filter-toolbar"
-              className="grid min-w-0 gap-3 rounded-[10px] border border-brand-border bg-surface-subtle p-3 sm:grid-cols-2 lg:grid-cols-[minmax(8rem,0.8fr)_minmax(9rem,0.9fr)_minmax(13rem,1.15fr)_auto_minmax(9rem,auto)] lg:items-end"
+              className="grid min-w-0 grid-cols-2 gap-3 rounded-[18px] bg-surface-subtle p-3 sm:p-4 xl:grid-cols-1"
             >
               <Field label="Level" className="min-w-0">
                 <Select aria-label="Filter level" value={filterLevel} onChange={(event) => { setFilterLevel(event.target.value); setPage(1); }}>
@@ -486,7 +487,7 @@ export default function TargetsPage() {
               </Field>
               <Field
                 label="Month"
-                className="min-w-0 [&>div]:grid [&>div]:grid-cols-[minmax(0,1fr)_auto] [&>div]:items-center [&>div]:gap-2 [&>div>button]:mt-0 [&>div>button]:h-8 [&>div>button]:rounded-md [&>div>button]:border [&>div>button]:border-brand-border [&>div>button]:px-2.5 [&>div>button]:text-xs [&>div>button]:no-underline"
+                className="col-span-2 min-w-0 xl:col-span-1 [&>div]:grid [&>div]:grid-cols-[minmax(0,1fr)_auto] [&>div]:items-center [&>div]:gap-2 [&>div>button]:mt-0 [&>div>button]:h-8 [&>div>button]:rounded-md [&>div>button]:border [&>div>button]:border-brand-border [&>div>button]:px-2.5 [&>div>button]:text-xs [&>div>button]:no-underline"
               >
                 <DatePicker
                   aria-label="Target month filter"
@@ -497,16 +498,15 @@ export default function TargetsPage() {
                   }}
                 />
               </Field>
-              <Button type="button" variant="secondary" disabled={loading} onClick={() => void load()}>
+              <Button className="col-span-2 xl:col-span-1" type="button" variant="secondary" disabled={loading} onClick={() => void load()}>
                 <IconRefresh className={cx("size-4", loading && "animate-spin")} />
                 Refresh results
               </Button>
-              <div className="flex min-h-8 items-center justify-between gap-2 rounded-md border border-brand-border bg-surface px-3 text-xs text-text-secondary sm:col-span-2 lg:col-span-1">
+              <div className="col-span-2 flex min-h-8 flex-wrap items-center justify-between gap-2 rounded-xl bg-surface p-2 text-xs text-text-secondary xl:col-span-1">
                 <span>Filters apply automatically</span>
                 <strong className="whitespace-nowrap font-semibold text-text-primary">{total.toLocaleString()} in scope</strong>
               </div>
-            </div>
-
+            </div>}>
             <ErrorText>{error}</ErrorText>
             {message ? <p role="status" className="rounded-md border border-success-soft bg-success-soft px-3 py-2 text-sm text-text-primary">{message}</p> : null}
             <div data-testid="target-results" aria-busy={loading}>
@@ -578,6 +578,7 @@ export default function TargetsPage() {
               )}
             </div>
             <Pagination page={page} pageSize={pageSize} total={total} totalPages={totalPages} pageSizeOptions={SERVER_PAGE_SIZE_OPTIONS} onPageChange={setPage} onPageSizeChange={(value) => { if (value !== "all") setPageSize(value); }} />
+            </ConfigurationWorkspace>
           </div>
         ) : (
           <div id="periods-panel" role="tabpanel" aria-labelledby="periods-tab" className="space-y-3 p-3 sm:p-4">
@@ -617,8 +618,8 @@ export default function TargetsPage() {
 
       {createOpen ? (
         <div className="fixed inset-0 z-50" role="presentation">
-          <button type="button" className="absolute inset-0 bg-slate-950/40" aria-label="Close create target drawer" onClick={() => !createSaving && closeCreateDrawer()} />
-          <aside role="dialog" aria-modal="true" aria-labelledby="create-target-title" className="absolute inset-y-0 right-0 flex w-full flex-col overflow-hidden border-l border-slate-200 bg-white shadow-2xl sm:max-w-2xl">
+          <button type="button" className="absolute inset-0 bg-black/40 backdrop-blur-sm" aria-label="Close create target drawer" onClick={() => !createSaving && closeCreateDrawer()} />
+          <aside role="dialog" aria-modal="true" aria-labelledby="create-target-title" className="absolute inset-y-3 right-3 flex w-[calc(100%-24px)] flex-col overflow-hidden rounded-[24px] border border-brand-border bg-surface shadow-2xl sm:max-w-2xl">
             <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-4 py-4 sm:px-6">
               <div><h2 id="create-target-title" className="text-[length:var(--amafh-text-section)] font-semibold text-slate-900">Create target</h2><p className="mt-1 text-sm text-slate-600">Define who owns the target, its monthly period, and how results are measured.</p></div>
               <Button type="button" variant="ghost" size="icon" aria-label="Close drawer" disabled={createSaving} onClick={closeCreateDrawer}><IconX className="size-4" /></Button>
@@ -663,7 +664,7 @@ export default function TargetsPage() {
               </div>
               <ErrorText>{error}</ErrorText>
             </div>
-            <div className="flex items-center justify-end gap-2 border-t border-slate-200 bg-white px-4 py-3 sm:px-6"><Button type="button" variant="secondary" disabled={createSaving} onClick={closeCreateDrawer}>Cancel</Button><Button type="button" disabled={createSaving || !canSubmitTarget || isPeriodLocked} onClick={() => void createTarget()}>{createSaving ? "Saving…" : "Save target"}</Button></div>
+            <div className="flex items-center justify-end gap-2 border-t border-slate-200 bg-surface px-4 py-3 sm:px-6"><Button type="button" variant="secondary" disabled={createSaving} onClick={closeCreateDrawer}>Cancel</Button><Button type="button" disabled={createSaving || !canSubmitTarget || isPeriodLocked} onClick={() => void createTarget()}>{createSaving ? "Saving…" : "Save target"}</Button></div>
           </aside>
         </div>
       ) : null}

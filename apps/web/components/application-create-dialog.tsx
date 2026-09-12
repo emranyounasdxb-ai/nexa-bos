@@ -364,7 +364,7 @@ export function ApplicationCreateDialog({
 
   return (
     <div
-      className="fixed inset-0 z-[70] flex items-end justify-center bg-slate-950/45 sm:items-center sm:p-4"
+      className="fixed inset-0 z-[70] flex items-center justify-center bg-[#17101f]/45 p-3 backdrop-blur-sm sm:p-4"
       role="presentation"
       onMouseDown={(event) => {
         if (event.currentTarget === event.target && !saving) onClose();
@@ -376,7 +376,7 @@ export function ApplicationCreateDialog({
         aria-modal="true"
         aria-labelledby="create-application-title"
         aria-describedby="create-application-description"
-        className="flex h-full max-h-full w-full min-w-0 flex-col bg-surface shadow-2xl sm:h-auto sm:max-h-[calc(100vh-2rem)] sm:max-w-4xl sm:rounded-[10px] sm:border sm:border-brand-border"
+        className="flex max-h-[calc(100dvh-2rem)] w-full min-w-0 flex-col overflow-hidden rounded-[24px] border border-brand-border bg-surface shadow-2xl sm:max-w-4xl"
       >
         <header className="flex min-w-0 items-start justify-between gap-3 border-b border-brand-border px-4 py-3 sm:px-5">
           <div className="min-w-0">
@@ -399,7 +399,7 @@ export function ApplicationCreateDialog({
             void submit();
           }}
         >
-          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-5">
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto bg-surface-subtle px-4 py-4 sm:px-5">
             {error ? <ErrorText>{error}</ErrorText> : null}
             <fieldset className="min-w-0 rounded-[10px] border border-brand-border p-3 sm:p-4">
               <legend className="px-1 text-sm font-semibold text-text-primary">Customer</legend>

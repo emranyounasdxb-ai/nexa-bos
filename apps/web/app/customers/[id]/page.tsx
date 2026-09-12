@@ -1,5 +1,7 @@
 "use client";
 
+import { RecordFrame } from "@/components/page-patterns";
+
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -359,6 +361,7 @@ export default function CustomerDetailPage() {
         actions={<Link className="text-sm font-medium text-brand-link underline" href="/customers">Back to Customers</Link>}
       />
 
+      <RecordFrame summary={
       <Card>
         <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
@@ -406,6 +409,7 @@ export default function CustomerDetailPage() {
           </div>
         </div>
       </Card>
+      }>
 
       {message ? <p role="status" className="rounded-[10px] border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">{message}</p> : null}
       {error ? <ErrorText>{error}</ErrorText> : null}
@@ -597,6 +601,7 @@ export default function CustomerDetailPage() {
           </section>
         </div>
       ) : null}
+      </RecordFrame>
     </section>
   );
 }

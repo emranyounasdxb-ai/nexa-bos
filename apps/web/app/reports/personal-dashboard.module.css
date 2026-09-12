@@ -1,0 +1,13 @@
+.metric { min-width: 0; padding: 12px; border-radius: 12px; background: var(--amafh-subtle); }
+.targetMetrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 16px; }
+.targetMetrics .metric:first-child { background: var(--amafh-action); }
+.targetMetrics .metric:first-child dt, .targetMetrics .metric:first-child dd { color: var(--amafh-action-text); }
+.attendanceSection { margin-top: 20px; }
+.label { font-size: 13px; font-weight: 500; color: var(--amafh-text-secondary); }
+@media (max-width: 639px) {
+  .metric { padding: 10px; }
+  .metric dt { font-size: 12px; }
+  .targetMetrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .targetMetrics .metric:first-child { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  .targetMetrics .metric:first-child dd { margin-top: 0; }
+}

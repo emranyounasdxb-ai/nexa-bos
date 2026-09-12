@@ -1,6 +1,6 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { preserveBuiltInRoleConfiguration } from "./helpers/role-configuration";
-import { captureViewport, captureViewportPair } from "./helpers/viewport-capture";
+import { captureViewport, captureViewportPair, captureViewportThemes } from "./helpers/viewport-capture";
 
 preserveBuiltInRoleConfiguration();
 
@@ -92,10 +92,11 @@ test("owner can create a customer and view bank product catalog", async ({ page,
     const b = (await mobile.boundingBox())!;
     expect(a.height).toBe(32);
     expect(b.height).toBe(32);
-    if (viewport.width === 1440) { expect(Math.abs(a.y - b.y)).toBeLessThanOrEqual(1); expect(b.x).toBeGreaterThan(a.x + a.width); }
-    else { expect(Math.abs(a.x - b.x)).toBeLessThanOrEqual(1); expect(b.y).toBeGreaterThan(a.y + a.height); }
+    expect(Math.abs(a.x - b.x)).toBeLessThanOrEqual(1);
+    expect(b.y).toBeGreaterThan(a.y + a.height);
+    expect(a.width).toBeGreaterThan(b.width);
     expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
-    await captureViewport(page, testInfo.outputPath(`customer-create-${viewport.width}.png`));
+    await captureViewportThemes(page, testInfo.outputPath(`customer-create-${viewport.width}.png`));
   }
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.getByLabel("Full name").fill(`Playwright Customer ${suffix}`);
@@ -182,7 +183,7 @@ test("GM retains Customer directory and management access on desktop and mobile"
   await page.setViewportSize({ width: 1440, height: 900 });
   await signIn(page, gm.email, "UserPass1!");
   await page.getByRole("button", { name: "Operations menu" }).click();
-  await expect(page.getByRole("navigation", { name: "Primary" }).getByLabel("Customers")).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Operations", exact: true }).getByRole("link", { name: "Customers", exact: true })).toBeVisible();
   const me = await page.request.get(`${apiOrigin}/api/v1/auth/me`);
   const csrf = ((await me.json()) as { csrfToken: string }).csrfToken;
   const createdCustomer = await page.request.post(`${apiOrigin}/api/v1/customers`, {
@@ -202,7 +203,7 @@ test("GM retains Customer directory and management access on desktop and mobile"
   await page.reload();
   await page.getByRole("button", { name: "Open navigation" }).click();
   await page.getByLabel("Application sidebar").getByRole("button", { name: "Operations menu" }).click();
-  await expect(page.getByLabel("Application sidebar").getByLabel("Customers")).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Operations", exact: true }).getByRole("link", { name: "Customers", exact: true })).toBeVisible();
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
@@ -291,6 +292,7 @@ test("customer detail preserves history and confirms status and irreversible mer
   await expect(page.getByRole("heading", { name: `Corrected Source ${suffix}` })).toBeVisible();
   await expect(page.getByRole("button", { name: "Activate", exact: true })).toBeVisible();
   await captureViewportPair(page, testInfo, "customer-detail");
+  await captureViewportPair(page, testInfo, "customer-detail-form-actions", page.getByRole("button", { name: "Save corrections", exact: true }));
 
   const overviewTab = page.getByRole("tab", { name: "Overview" });
   await overviewTab.focus();
@@ -302,6 +304,8 @@ test("customer detail preserves history and confirms status and irreversible mer
   await expect(page.getByRole("heading", { name: "Field history" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Identifier history" })).toBeVisible();
   await expect(page.getByText("Previous", { exact: true }).first()).toBeVisible();
+  await captureViewportPair(page, testInfo, "customer-field-history", page.getByRole("heading", { name: "Field history", exact: true }));
+  await captureViewportPair(page, testInfo, "customer-identifier-history", page.getByRole("heading", { name: "Identifier history", exact: true }));
   await page.reload();
   await expect(page.getByRole("tab", { name: "History" })).toHaveAttribute("aria-selected", "true");
 
@@ -309,6 +313,7 @@ test("customer detail preserves history and confirms status and irreversible mer
   const activate = page.getByRole("button", { name: "Activate", exact: true });
   await activate.click();
   await expect(page.getByRole("alertdialog")).toContainText("return to active use");
+  await captureViewportPair(page, testInfo, "customer-activate-confirmation");
   await page.keyboard.press("Escape");
   await expect(page.getByRole("alertdialog")).toHaveCount(0);
   await expect(activate).toBeFocused();
@@ -319,6 +324,7 @@ test("customer detail preserves history and confirms status and irreversible mer
 
   await deactivate.click();
   await expect(page.getByRole("alertdialog")).toContainText("blocked if an active application");
+  await captureViewportPair(page, testInfo, "customer-deactivate-confirmation");
   await page.getByRole("alertdialog").getByRole("button", { name: "Cancel" }).click();
   await expect(deactivate).toBeFocused();
   await deactivate.click();
@@ -329,8 +335,10 @@ test("customer detail preserves history and confirms status and irreversible mer
   await expect(page).toHaveURL(/\?tab=merge$/);
   await selectBrandedOption(page.getByRole("combobox", { name: "Primary customer" }), primary.id);
   const reviewMerge = page.getByRole("button", { name: "Review permanent merge" });
+  await captureViewportPair(page, testInfo, "customer-merge-form", page.getByRole("tabpanel", { name: "Merge", exact: true }));
   await reviewMerge.click();
   await expect(page.getByRole("alertdialog")).toContainText("cannot be undone");
+  await captureViewportPair(page, testInfo, "customer-merge-confirmation");
   await page.keyboard.press("Escape");
   await expect(reviewMerge).toBeFocused();
   await reviewMerge.click();
@@ -341,6 +349,7 @@ test("customer detail preserves history and confirms status and irreversible mer
   await page.getByRole("tab", { name: "History" }).click();
   await expect(page.getByRole("heading", { name: "Merge history" })).toBeVisible();
   await expect(page.getByText(`${source.customerCode} merged into primary record`)).toBeVisible();
+  await captureViewportPair(page, testInfo, "customer-merge-history", page.getByRole("heading", { name: "Merge history", exact: true }));
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBeTruthy();
 
   await page.setViewportSize({ width: 390, height: 844 });
@@ -388,7 +397,13 @@ test("Customers.View alone cannot bypass the OWNER and GM directory gate", async
   await page.setViewportSize({ width: 390, height: 844 });
   await signIn(page, viewer.email, "UserPass1!");
   await page.getByRole("button", { name: "Open navigation" }).click();
-  await expect(page.getByLabel("Application sidebar").getByRole("link", { name: "Customers" })).toHaveCount(0);
+  const operations = page.getByLabel("Application sidebar").getByRole("button", { name: "Operations menu", exact: true });
+  if (await operations.count()) {
+    await operations.click();
+    await expect(page.getByRole("dialog", { name: "Operations", exact: true }).getByRole("link", { name: "Customers", exact: true })).toHaveCount(0);
+    await page.keyboard.press("Escape");
+  }
+  await expect(page.getByRole("navigation", { name: "Workspace pages" }).getByRole("link", { name: "Customers", exact: true })).toHaveCount(0);
   await page.getByLabel("Application sidebar").getByLabel("Close navigation").click();
 
   const directory = await page.request.get(`${apiOrigin}/api/v1/customers`);

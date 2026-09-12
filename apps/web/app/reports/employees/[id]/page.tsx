@@ -1,5 +1,8 @@
 "use client";
 
+import { RecordFrame } from "@/components/page-patterns";
+import styles from "./employee-report.module.css";
+
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useState } from "react";
@@ -186,8 +189,10 @@ function ProfileInner() {
       </div>
       <ErrorText>{error}</ErrorText>
       {data ? (
-        <>
-          <dl className="grid gap-3 rounded-xl border border-slate-200 bg-white p-5 text-sm md:grid-cols-3">
+        <RecordFrame summary={<Card>
+          <h2 className="text-[18px] font-medium">{data.employee.fullName}</h2>
+          <p className="mt-1 text-xs text-text-secondary">{data.employee.employeeCode} · {data.employee.userCode}</p>
+          <dl className="mt-4 grid gap-3 text-sm">
             <div>
               <dt className="text-slate-500">Designation</dt>
               <dd>{data.employee.designation ?? "—"}</dd>
@@ -221,10 +226,11 @@ function ProfileInner() {
               <dd>{data.ranking ? `#${data.ranking.rank}` : "—"}</dd>
             </div>
           </dl>
+        </Card>}>
           {data.attendanceSummary ? (
             <Card>
               <h3 className="text-lg font-semibold">Attendance summary</h3>
-              <dl className="mt-3 grid gap-3 text-sm md:grid-cols-3">
+              <dl className="mt-3 grid grid-cols-2 gap-3 text-sm md:grid-cols-3">
                 <div>
                   <dt className="text-slate-500">Present</dt>
                   <dd>{data.attendanceSummary.presentCount}</dd>
@@ -274,7 +280,7 @@ function ProfileInner() {
               </dl>
             </Card>
           ) : null}
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 rounded-[20px] bg-surface p-3 2xl:grid-cols-3 [&>[data-amafh-card]]:border-0 [&>[data-amafh-card]]:!bg-surface-subtle">
             <Card>
               <p className="text-xs uppercase text-slate-500">Submitted</p>
               <p className="mt-2 text-xl font-semibold">{data.kpis.submitted.count}</p>
@@ -315,9 +321,11 @@ function ProfileInner() {
           </div>
           <Card>
             <h3 className="text-lg font-semibold">Conversions</h3>
-            <p className="mt-2 text-sm">Submitted → Approved {formatPct(data.conversions.submittedToApproved)}</p>
-            <p className="text-sm">Approved → Booked {formatPct(data.conversions.approvedToBooked)}</p>
-            <p className="text-sm">Booked → Funded {formatPct(data.conversions.bookedToFunded)}</p>
+            <dl className={styles.conversions}>
+              <div><dt>Submitted → Approved</dt><dd>{formatPct(data.conversions.submittedToApproved)}</dd></div>
+              <div><dt>Approved → Booked</dt><dd>{formatPct(data.conversions.approvedToBooked)}</dd></div>
+              <div><dt>Booked → Funded</dt><dd>{formatPct(data.conversions.bookedToFunded)}</dd></div>
+            </dl>
           </Card>
           {data.targetsKpi ? (
             <Card>
@@ -325,17 +333,17 @@ function ProfileInner() {
               {data.targetsKpi.targets.length === 0 ? (
                 <EmptyState>No active targets for this period.</EmptyState>
               ) : (
-                <ul className="mt-3 space-y-2 text-sm">
+                <ul className={styles.results}>
                   {data.targetsKpi.targets.map((item) => (
                     <li key={item.id}>
-                      {item.productCode}
-                      {item.bankCode ? ` / ${item.bankCode}` : " overall"} · {item.milestone} · target{" "}
-                      {item.measurement === "amount"
-                        ? formatAed(item.result?.effectiveTarget)
-                        : item.result?.effectiveTarget}{" "}
-                      · actual {item.measurement === "amount" ? formatAed(item.result?.actual) : item.result?.actual} ·
-                      achievement {formatPct(item.result?.achievementPct)} · gap {item.result?.gap} · daily run-rate{" "}
-                      {item.result?.dailyRequiredRunRate ?? "—"}
+                      <h4>{item.productCode}{item.bankCode ? ` / ${item.bankCode}` : " overall"} · {item.milestone}</h4>
+                      <dl>
+                        <div><dt>Target</dt><dd>{item.measurement === "amount" ? formatAed(item.result?.effectiveTarget) : item.result?.effectiveTarget}</dd></div>
+                        <div><dt>Actual</dt><dd>{item.measurement === "amount" ? formatAed(item.result?.actual) : item.result?.actual}</dd></div>
+                        <div><dt>Achievement</dt><dd>{formatPct(item.result?.achievementPct)}</dd></div>
+                        <div><dt>Gap</dt><dd>{item.result?.gap}</dd></div>
+                        <div><dt>Daily run-rate</dt><dd>{item.result?.dailyRequiredRunRate ?? "—"}</dd></div>
+                      </dl>
                     </li>
                   ))}
                 </ul>
@@ -345,11 +353,16 @@ function ProfileInner() {
                   <p className="font-semibold">
                     KPI score {data.targetsKpi.kpi.score} ({data.targetsKpi.kpi.scorecardName})
                   </p>
-                  <ul className="mt-2 space-y-1">
+                  <ul className={styles.results}>
                     {data.targetsKpi.kpi.components.map((row) => (
                       <li key={row.metric}>
-                        {row.label}: actual {row.actual ?? "—"} · achievement {formatPct(row.achievementPct)} · weight{" "}
-                        {row.weightPercent}% · contribution {row.weightedContribution}
+                        <h4>{row.label}:</h4>
+                        <dl>
+                          <div><dt>Actual</dt><dd>{row.actual ?? "—"}</dd></div>
+                          <div><dt>Achievement</dt><dd>{formatPct(row.achievementPct)}</dd></div>
+                          <div><dt>Weight</dt><dd>{row.weightPercent}%</dd></div>
+                          <div><dt>Contribution</dt><dd>{row.weightedContribution}</dd></div>
+                        </dl>
                       </li>
                     ))}
                   </ul>
@@ -362,16 +375,16 @@ function ProfileInner() {
             {data.stageBreakdown.length === 0 ? (
               <EmptyState>No pending applications.</EmptyState>
             ) : (
-              <ul className="mt-2 text-sm">
+              <ul className={styles.stages}>
                 {data.stageBreakdown.map((row, index) => (
                   <li key={`${row.name}-${index}`}>
-                    {row.name}: {row.count}
+                    <span>{row.name}</span><strong>{row.count}</strong>
                   </li>
                 ))}
               </ul>
             )}
           </Card>
-          <TableShell>
+          <TableShell className={styles.records}>
             <TableHead>
               <tr>
                 <Th>Application</Th>
@@ -395,7 +408,7 @@ function ProfileInner() {
               ))}
             </tbody>
           </TableShell>
-        </>
+        </RecordFrame>
       ) : null}
     </section>
   );

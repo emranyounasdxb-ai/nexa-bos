@@ -1,5 +1,7 @@
 "use client";
 
+import { RegisterWorkspace } from "@/components/page-patterns";
+
 import { useCallback, useEffect, useState } from "react";
 
 import { DatePicker } from "@/components/date-picker";
@@ -116,9 +118,10 @@ export default function HolidaysPage() {
       />
       <ErrorText>{error}</ErrorText>
       {message ? <p className="text-sm text-slate-600">{message}</p> : null}
-      {canManage ? (
+      <RegisterWorkspace editor={
+      canManage ? (
         <form
-          className="grid gap-3 rounded-xl border border-slate-200 bg-white p-4 md:grid-cols-4"
+          className="grid gap-3 rounded-xl border border-slate-200 bg-surface p-4 md:grid-cols-4"
           onSubmit={(event) => {
             event.preventDefault();
             void createHoliday();
@@ -140,7 +143,8 @@ export default function HolidaysPage() {
             <Button type="submit">Add Official Holiday</Button>
           </div>
         </form>
-      ) : null}
+      ) : null
+      }>
       <TableShell className="rounded-b-none">
         <TableHead>
           <tr>
@@ -249,6 +253,7 @@ export default function HolidaysPage() {
         onPageChange={pagination.setPage}
         onPageSizeChange={pagination.setPageSize}
       />
+      </RegisterWorkspace>
     </section>
   );
 }

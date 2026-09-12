@@ -1,5 +1,7 @@
 "use client";
 
+import { FormFrame } from "@/components/page-patterns";
+
 import { useEffect, useState } from "react";
 
 import { Button, Card, PageHeader, TextInput } from "@/components/ui";
@@ -55,10 +57,11 @@ export default function SecurityPage() {
   }
 
   return (
-    <section className="max-w-lg space-y-4">
+    <section className="min-w-0 space-y-4">
       <PageHeader title="Security settings" />
+      <FormFrame title="Session and account controls" description="These OWNER-only settings apply immediately. Review link expiry and session limits before saving; the failed-login limit remains fixed.">
       <Card>
-        <form onSubmit={(event) => void save(event)} className="grid gap-3">
+        <form onSubmit={(event) => void save(event)} className="grid gap-4 sm:grid-cols-2">
           <label className="text-sm">
             Setup/reset link expiry (hours)
             <TextInput
@@ -103,11 +106,12 @@ export default function SecurityPage() {
               }
             />
           </label>
-          <p className="text-xs text-slate-500">Failed login limit is fixed at {settings.failedLoginLimit}.</p>
+          <p className="text-xs text-slate-500 sm:col-span-2">Failed login limit is fixed at {settings.failedLoginLimit}.</p>
           <Button type="submit">Save</Button>
           {message ? <p className="text-sm text-slate-700">{message}</p> : null}
         </form>
       </Card>
+      </FormFrame>
     </section>
   );
 }

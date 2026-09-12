@@ -18,7 +18,7 @@ export function CatalogueImage({
       <span
         className={cx(
           placeholderDimensions,
-          "flex items-center justify-center rounded-lg border border-dashed border-brand-border bg-white text-xs font-medium text-text-secondary",
+          "flex items-center justify-center rounded-lg border border-dashed border-brand-border bg-surface text-xs font-medium text-text-secondary",
         )}
         aria-label={`No image for ${item.name}`}
       >

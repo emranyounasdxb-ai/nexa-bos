@@ -1,0 +1,17 @@
+.dialog { max-width: 760px; }
+.detail > dl { display: grid; gap: 12px; }
+.detail > dl > div { margin: 0; padding: 12px; border-radius: 16px; background: var(--amafh-subtle); }
+.detail > dl dt { margin-bottom: 8px; }
+.detail > section { border-top: 1px solid var(--amafh-border); padding-top: 16px; }
+@media (min-width: 640px) { .detail > dl { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 639px) {
+  .register { border: 0; overflow: visible; }
+  .register table, .register tbody { display: block; width: 100%; min-width: 0 !important; }
+  .register thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .register tbody tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding: 12px; margin-bottom: 12px; border: 0; border-radius: 16px; background: var(--amafh-subtle); }
+  .register tbody td { display: block; min-width: 0; padding: 0; }
+  .register tbody td:first-child { grid-column: 1 / -1; }
+  .register tbody td:nth-child(2)::before { content: "Requested"; display: block; font-size: 12px; color: var(--amafh-text-secondary); }
+  .register tbody td:nth-child(3)::before { content: "Effective"; display: block; font-size: 12px; color: var(--amafh-text-secondary); }
+  .register tbody td:last-child { justify-self: end; }
+}

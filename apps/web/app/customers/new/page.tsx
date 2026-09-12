@@ -1,5 +1,7 @@
 "use client";
 
+import { FormFrame } from "@/components/page-patterns";
+
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -77,16 +79,17 @@ export default function CreateCustomerPage() {
   }
 
   return (
-    <section className="min-w-0 max-w-5xl space-y-6">
+    <section className="min-w-0 space-y-4">
       <PageHeader title="Create customer" />
+      <FormFrame title="Customer identity" description="Choose the customer type, then enter their identity and contact details. Customer type cannot be changed after creation.">
       <form
         onSubmit={(event) => {
           event.preventDefault();
           void submit(false);
         }}
-        className="grid min-w-0 gap-4 rounded-lg border border-brand-border bg-surface p-4 sm:grid-cols-2 sm:p-5"
+        className="grid min-w-0 grid-cols-2 gap-3 rounded-lg border border-brand-border bg-surface p-4 sm:gap-4 sm:p-5"
       >
-        <fieldset className="space-y-2 text-sm sm:col-span-2">
+        <fieldset className="col-span-2 space-y-2 rounded-xl bg-surface-subtle p-3 text-sm">
           <legend className="font-medium">Customer type</legend>
           <label className="mr-4">
             <input
@@ -116,6 +119,7 @@ export default function CreateCustomerPage() {
           <>
             <Field
               label="Full name"
+              className="col-span-2"
               value={form.full_name}
               onChange={(value) => setForm({ ...form, full_name: value })}
               required
@@ -152,6 +156,7 @@ export default function CreateCustomerPage() {
           <>
             <Field
               label="Company name"
+              className="col-span-2"
               value={form.company_name}
               onChange={(value) => setForm({ ...form, company_name: value })}
               required
@@ -181,9 +186,9 @@ export default function CreateCustomerPage() {
             />
           </>
         )}
-        {error ? <div className="sm:col-span-2"><ErrorText>{error}</ErrorText></div> : null}
+        {error ? <div className="col-span-2"><ErrorText>{error}</ErrorText></div> : null}
         {duplicates.length > 0 ? (
-          <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm sm:col-span-2">
+          <div className="col-span-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm">
             <p className="font-medium">Possible duplicates</p>
             <ul className="mt-2 list-disc pl-5">
               {duplicates.map((row) => (
@@ -197,8 +202,9 @@ export default function CreateCustomerPage() {
             </button>
           </div>
         ) : null}
-        <div className="flex justify-end border-t border-brand-border pt-4 sm:col-span-2"><Button type="submit">Create customer</Button></div>
+        <div className="col-span-2 flex justify-end border-t border-brand-border pt-4"><Button type="submit">Create customer</Button></div>
       </form>
+      </FormFrame>
     </section>
   );
 }
@@ -208,16 +214,18 @@ function Field({
   value,
   onChange,
   required,
+  className = "",
   type = "text",
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   required?: boolean;
+  className?: string;
   type?: string;
 }) {
   return (
-    <label className="block text-sm">
+    <label className={`block min-w-0 text-sm ${className}`}>
       {label}
       <TextInput
         type={type}
