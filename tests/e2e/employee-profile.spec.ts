@@ -1,5 +1,6 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { preserveBuiltInRoleConfiguration } from "./helpers/role-configuration";
+import { captureViewport, captureViewportPair } from "./helpers/viewport-capture";
 
 preserveBuiltInRoleConfiguration();
 
@@ -198,7 +199,7 @@ test("employee profile organizes identity, access, assets, and filtered audit hi
   browser,
   page,
   request,
-}) => {
+}, testInfo) => {
   test.setTimeout(120_000);
   const seeded = await seedProfile(request);
   const hrOperator = await seedProfileOperator(request, "HR");
@@ -213,6 +214,7 @@ test("employee profile organizes identity, access, assets, and filtered audit hi
   await expect(page.getByRole("link", { name: "Edit profile" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Performance profile" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Contact details" })).toBeVisible();
+  await captureViewportPair(page, testInfo, "employee-overview");
   await expect(page.getByRole("heading", { name: "Organization assignment" })).toHaveCount(0);
 
   const tabs = page.getByRole("tablist", { name: "Employee profile" });
@@ -501,8 +503,7 @@ test("HR and PRO dashboards expose only implemented profile work", async ({ brow
           await expect(target.getByRole("button", { name: "Open navigation" })).toHaveAttribute("aria-expanded", "false");
           await expect.poll(() => target.getByLabel("Application sidebar").evaluate(element => element.getBoundingClientRect().right)).toBeLessThanOrEqual(0);
         }
-        await target.evaluate(() => window.scrollTo(0, 0));
-        await target.screenshot({ path: testInfo.outputPath(`${mode}-dashboard-${viewport.width}.png`), fullPage: false });
+        await captureViewport(target, testInfo.outputPath(`${mode}-dashboard-${viewport.width}.png`));
       }
     }
   } finally {

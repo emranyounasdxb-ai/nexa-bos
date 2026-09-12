@@ -411,7 +411,7 @@ export function ApplicationCreateDialog({
                   <div
                     role="radiogroup"
                     aria-labelledby="customer-type-label"
-                    className="mt-1.5 grid min-w-0 grid-cols-2 gap-2 sm:max-w-md"
+                    className="mt-1.5 grid min-w-0 grid-cols-1 gap-2 min-[375px]:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)] sm:max-w-md sm:grid-cols-2"
                   >
                     {([
                       ["individual", "Individual"],

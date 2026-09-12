@@ -1,5 +1,6 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { selectBrandedOption } from "./helpers/select";
+import { captureViewport, captureViewportPair } from "./helpers/viewport-capture";
 
 const apiOrigin = `http://127.0.0.1:${process.env.PLAYWRIGHT_API_PORT ?? "8010"}`;
 const secret = process.env.BOOTSTRAP_SECRET ?? "nexa-test-bootstrap-secret";
@@ -45,6 +46,49 @@ function deferred() {
   });
   return { promise, resolve };
 }
+
+test("complete breadcrumb labels remain reachable without moving the mobile page", async ({ page, request }, testInfo) => {
+  await signIn(page, request);
+  await page.goto("/");
+  await expect(page).toHaveURL(/\/reports(?:\?|$)/);
+  for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
+    await page.setViewportSize(viewport);
+    await page.goto("/customers/new");
+    const breadcrumb = page.getByRole("navigation", { name: "Breadcrumb" });
+    const current = breadcrumb.getByRole("heading", { name: "Create customer", exact: true });
+    await expect(current).toBeVisible();
+    await expect(current).toHaveCSS("text-overflow", "clip");
+    await expect.poll(() => current.evaluate(element => {
+      const label = element.getBoundingClientRect();
+      const strip = element.closest("nav")!.getBoundingClientRect();
+      return label.left >= strip.left - 1 && label.right <= strip.right + 1;
+    })).toBe(true);
+    await captureViewport(page, testInfo.outputPath(`breadcrumb-current-${viewport.width}.png`));
+    const mainTop = (await page.locator("main").boundingBox())!.y;
+    const dashboard = breadcrumb.getByRole("link", { name: "Dashboard", exact: true });
+    await dashboard.focus();
+    await expect(dashboard).toBeFocused();
+    await expect(dashboard).toHaveCSS("outline-width", "2px");
+    await expect.poll(() => dashboard.evaluate(element => {
+      const label = element.getBoundingClientRect();
+      const strip = element.closest("nav")!.getBoundingClientRect();
+      return label.left >= strip.left - 1 && label.right <= strip.right + 1;
+    })).toBe(true);
+    await page.keyboard.press("Tab");
+    await expect(breadcrumb.getByRole("link", { name: "Customers", exact: true })).toBeFocused();
+    expect((await page.locator("main").boundingBox())!.y).toBe(mainTop);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
+  }
+});
+
+test("public account entry surfaces retain exact responsive viewports", async ({ page, request }, testInfo) => {
+  await ensureOwner(request);
+  for (const [path, heading] of [["/login", "Sign in to AMAFH CORE"], ["/bootstrap", "First-time OWNER setup"], ["/setup", "Set your password"], ["/reset", "Reset your password"], ["/status", "Foundation smoke page"]]) {
+    await page.goto(path);
+    await expect(page.getByRole("heading", { name: heading, exact: true })).toBeVisible();
+    await captureViewportPair(page, testInfo, `public-${path.slice(1)}-unsubmitted`);
+  }
+});
 
 test("dashboard presents a compact executive summary with bounded detail", async ({
   page,
@@ -343,7 +387,7 @@ test("holiday reminders are absent and dashboard action panels remain accessible
 test("dashboard loads primary data independently and preserves it during refreshes", async ({
   page,
   request,
-}) => {
+}, testInfo) => {
   test.setTimeout(120_000);
   await signIn(page, request);
   await expect(page.getByTestId("dashboard-kpi-grid")).toBeVisible({ timeout: 30_000 });
@@ -363,6 +407,7 @@ test("dashboard loads primary data independently and preserves it during refresh
   type LoadMode = "initial" | "refresh" | "filter" | "failure";
   let mode: LoadMode = "initial";
   const initialComparison = deferred();
+  const initialDashboard = deferred();
   let dashboardGate = deferred();
   dashboardGate.resolve();
   const starts: { endpoint: string; at: number; mode: LoadMode }[] = [];
@@ -374,7 +419,7 @@ test("dashboard loads primary data independently and preserves it during refresh
   await page.route(`${apiOrigin}/api/v1/reports/dashboard**`, async (route) => {
     starts.push({ endpoint: "dashboard", at: Date.now(), mode });
     if (mode === "initial") {
-      await new Promise((resolve) => setTimeout(resolve, 250));
+      await initialDashboard.promise;
     } else {
       await dashboardGate.promise;
     }
@@ -399,6 +444,8 @@ test("dashboard loads primary data independently and preserves it during refresh
   const initialStarts = starts.filter((entry) => entry.mode === "initial");
   expect(Math.max(...initialStarts.map((entry) => entry.at)) - Math.min(...initialStarts.map((entry) => entry.at)))
     .toBeLessThan(150);
+  await captureViewportPair(page, testInfo, "dashboard-controlled-loading");
+  initialDashboard.resolve();
   await expect(page.getByTestId("dashboard-kpi-grid")).toBeVisible();
   await expect(page.getByTestId("dashboard-loading-skeleton")).toHaveCount(0);
   await expect(page.getByText("Loading dashboard metrics…", { exact: true })).toBeHidden();
@@ -436,6 +483,10 @@ test("dashboard loads primary data independently and preserves it during refresh
   await expect(page.getByText("Temporary dashboard failure", { exact: true })).toBeVisible();
   await expect(page.getByTestId("dashboard-kpi-grid")).toBeVisible();
   await expect(page.getByRole("button", { name: "Refresh", exact: true })).toBeVisible();
+  await captureViewportPair(page, testInfo, "dashboard-simulated-error-retained-data");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByText("Temporary dashboard failure", { exact: true }).scrollIntoViewIfNeeded();
+  await page.screenshot({ path: testInfo.outputPath("dashboard-simulated-error-mobile-panel.png"), fullPage: false });
 
   await page.unrouteAll({ behavior: "wait" });
 });
@@ -857,17 +908,16 @@ test("shared application layout stays compact, aligned, and overflow-free across
     "/workflows",
     "/security",
     "/account",
+    "/hr",
+    "/pro",
+    "/leave",
+    "/contracts",
+    "/transfers",
+    "/exits",
+    "/approvals",
   ];
 
-  const screenshotRoutes = new Set([
-    "/reports",
-    "/applications",
-    "/users",
-    "/organization",
-    "/finance",
-    "/assets",
-    "/workflows",
-  ]);
+  const screenshotRoutes = new Set(routes);
 
   for (const viewport of [
     { width: 1440, height: 900, expectedHeaderPaddingTop: "16px", label: "desktop" },
@@ -923,6 +973,9 @@ test("shared application layout stays compact, aligned, and overflow-free across
         await expect(card).toHaveCSS("border-color", "rgb(229, 231, 235)");
         await expect(card).toHaveCSS("border-radius", "8px");
       }
+      for (const tableShell of await page.locator("main [data-amafh-table-shell]").all()) {
+        await expect(tableShell).toHaveCSS("position", "relative");
+      }
 
       const sectionHeading = page.locator("main [data-amafh-section-header] h2:visible").first();
       if (await sectionHeading.count()) {
@@ -963,10 +1016,12 @@ test("shared application layout stays compact, aligned, and overflow-free across
       }
 
       if (screenshotRoutes.has(route)) {
-        await page.screenshot({
-          path: testInfo.outputPath(`app-wide-${viewport.label}-${route.slice(1).replaceAll("/", "-")}.png`),
-          fullPage: false,
-        });
+        await expect(page.locator('main').getByText(/^Loading(?:\b|…)/)).toHaveCount(0);
+        if (route === "/reports/compare") {
+          await page.getByRole("button", { name: "Compare", exact: true }).click();
+          await expect(page.locator("dt").getByText("Current", { exact: true })).toBeVisible();
+        }
+        await captureViewport(page, testInfo.outputPath(`app-wide-${viewport.label}-${route.slice(1).replaceAll("/", "-")}.png`));
       }
     }
 
@@ -977,5 +1032,35 @@ test("shared application layout stays compact, aligned, and overflow-free across
     await expect(publicSurface).toHaveCSS("border-color", "rgb(229, 231, 235)");
     await expect(publicSurface).toHaveCSS("border-radius", "8px");
     expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
+  }
+});
+
+test("empty table messages remain readable inside mobile horizontal scrollers", async ({ page, request }, testInfo) => {
+  await signIn(page, request);
+  for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
+    await page.setViewportSize(viewport);
+    await page.goto("/attendance/reports");
+    // This is the existing initial report placeholder, not a submitted empty report.
+    const message = page.getByText("No attendance rows for the selected filters.", { exact: true });
+    const shell = page.locator("[data-amafh-table-shell]").filter({ has: message });
+    await expect(message).toBeVisible();
+    await message.scrollIntoViewIfNeeded();
+    await shell.evaluate(element => { element.scrollLeft = 0; });
+    await page.screenshot({ path: testInfo.outputPath(`empty-table-${viewport.width}-initial.png`), fullPage: false });
+    const isContained = () => message.evaluate(element => {
+      const content = element.getBoundingClientRect();
+      const container = element.closest("[data-amafh-table-shell]")!.getBoundingClientRect();
+      return content.left >= container.left - 1 && content.right <= container.right + 1;
+    });
+    await expect.poll(isContained, { message: "Complete empty message must fit the visible table scroller" }).toBe(true);
+    if (viewport.width === 390) {
+      await shell.evaluate(element => { element.scrollLeft = element.scrollWidth; });
+      await expect.poll(() => shell.evaluate(element => element.scrollLeft)).toBeGreaterThan(0);
+      await expect.poll(isContained).toBe(true);
+      await page.screenshot({ path: testInfo.outputPath("empty-table-390-scrolled.png"), fullPage: false });
+    } else {
+      await expect(message).toHaveCSS("position", "static");
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
   }
 });

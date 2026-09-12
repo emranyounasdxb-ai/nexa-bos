@@ -224,6 +224,20 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   box-shadow: var(--amafh-shadow-elevated);
 }
 
+/* An empty table message belongs to the visible scroller, not the combined
+   width of all columns. Populated rows retain their horizontal scrolling. */
+@media (max-width: 767px) {
+  [data-amafh-table-shell] { container-type: inline-size; }
+  [data-amafh-table-shell] td[colspan]:has(> [data-amafh-empty-state]) { padding-inline: 0; }
+  [data-amafh-table-shell] td[colspan] > [data-amafh-empty-state] {
+    position: sticky;
+    left: 0;
+    width: 100cqw;
+    max-width: 100%;
+    white-space: normal;
+  }
+}
+
 [data-amafh-workspace] [class~="rounded-[10px]"][class*="border"],
 [data-amafh-workspace] [class~="rounded-xl"][class*="border"] {
   border-radius: var(--amafh-radius-card);

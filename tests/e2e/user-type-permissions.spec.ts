@@ -1,6 +1,6 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { selectBrandedOption } from "./helpers/select";
-import { captureViewport } from "./helpers/viewport-capture";
+import { captureViewport, captureViewportPair } from "./helpers/viewport-capture";
 
 const apiOrigin = `http://127.0.0.1:${process.env.PLAYWRIGHT_API_PORT ?? "8010"}`;
 const secret = process.env.BOOTSTRAP_SECRET ?? "nexa-test-bootstrap-secret";
@@ -77,6 +77,7 @@ test("User Type editor groups permissions and saves existing settings without ch
   await expect(page.getByRole("link", { name: "Back to User Types" })).toBeVisible();
   await expect(page.getByText(/^inactive$/i).first()).toBeVisible();
   await expect(page.getByText("This User Type currently grants no system access.")).toBeVisible();
+  await captureViewportPair(page, testInfo, "user-type-detail");
   await expect(page.getByRole("button", { name: "Activate", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Deactivate", exact: true })).toHaveCount(0);
   await page.getByRole("button", { name: "Activate", exact: true }).click();

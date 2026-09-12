@@ -3,6 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
+import { observeSelectedTabVisibility } from "@/lib/tab-visibility";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
 
 import {
@@ -210,6 +211,8 @@ function Shell({ children }: { children: ReactNode }) {
   const mobileMenuTriggerRef = useRef<HTMLButtonElement>(null);
   const mobileMenuCloseRef = useRef<HTMLButtonElement>(null);
   const sidebarRef = useRef<HTMLElement>(null);
+  const breadcrumbRef = useRef<HTMLElement>(null);
+  const workspaceRef = useRef<HTMLElement>(null);
   const accountTriggerRef = useRef<HTMLButtonElement>(null);
   const accountMenuRef = useRef<HTMLDivElement>(null);
   const accountInitialFocus = useRef<"first" | "last">("first");
@@ -230,6 +233,23 @@ function Shell({ children }: { children: ReactNode }) {
     setMobileNavOpen(false);
     setAccountMenuOpen(false);
   }, [pathname]);
+
+  useEffect(() => {
+    const workspace = workspaceRef.current;
+    if (workspace) return observeSelectedTabVisibility(workspace);
+  }, []);
+
+  useEffect(() => {
+    const breadcrumb = breadcrumbRef.current;
+    if (!breadcrumb || isTlDashboard) return;
+    const revealCurrentPage = () => {
+      if (!breadcrumb.contains(document.activeElement)) breadcrumb.scrollLeft = breadcrumb.scrollWidth;
+    };
+    revealCurrentPage();
+    const observer = new ResizeObserver(revealCurrentPage);
+    observer.observe(breadcrumb);
+    return () => observer.disconnect();
+  }, [context.title, isTlDashboard, pathname]);
 
   const closeAccountMenu = useCallback((restoreFocus = true) => {
     setAccountMenuOpen(false);
@@ -764,15 +784,17 @@ function Shell({ children }: { children: ReactNode }) {
               <IconMenu2 className="size-5" />
             </button>
             <nav
+              ref={breadcrumbRef}
               aria-label="Breadcrumb"
-              className={isTlDashboard ? "sr-only" : "flex min-w-0 flex-nowrap items-center gap-2 whitespace-nowrap text-sm"}
+              className={isTlDashboard ? "sr-only" : styles.breadcrumb}
             >
-              {breadcrumbAncestors.map((ancestor) => <span key={ancestor.href} className="contents"><Link href={ancestor.href} className={cx(focusRing, "truncate rounded-sm font-medium text-slate-500 hover:text-brand-primary hover:underline")}>{ancestor.label}</Link><IconChevronRight aria-hidden="true" className="size-4 shrink-0 text-slate-400" /></span>)}
-              <h1 aria-current="page" className={cx("text-slate-900 sm:text-base", isTlDashboard ? "sr-only" : "truncate font-semibold")}>{context.title}</h1>
+              {breadcrumbAncestors.map((ancestor) => <span key={ancestor.href} className="contents"><Link href={ancestor.href} className="shrink-0 rounded-sm font-medium text-slate-500 hover:text-brand-primary hover:underline">{ancestor.label}</Link><IconChevronRight aria-hidden="true" className="size-4 shrink-0 text-slate-400" /></span>)}
+              <h1 aria-current="page" className={cx("text-slate-900 sm:text-base", isTlDashboard ? "sr-only" : "shrink-0 font-semibold")}>{context.title}</h1>
             </nav>
           </div>
         </header>
         <main
+          ref={workspaceRef}
           data-amafh-workspace=""
           data-testid="page-main"
           className={styles.pageMain}

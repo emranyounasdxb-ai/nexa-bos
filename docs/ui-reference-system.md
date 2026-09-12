@@ -122,3 +122,35 @@ original permissions/scopes through the existing authenticated APIs and verify t
 restoration. This isolates test fixtures without changing the role contracts or
 weakening deny assertions. Exact viewport screenshots wait for sidebar geometry
 and page scroll settlement; capture count is not a claim that every state was reviewed.
+
+## Part 4: visual and functional closure
+
+Breadcrumb labels no longer shrink into ellipses on narrow screens. The contained
+strip keeps the current page visible on navigation/resizing and retains all
+keyboard-accessible ancestor links without adding an empty navigation tab stop.
+The links' focus outline is inset so scrolling does
+not clip the indicator. TL's screen-reader-only dashboard title remains unchanged.
+
+Horizontal tab strips reveal their selected tab on mounting, resizing and selection
+changes without moving the page, selecting another tab or changing keyboard focus.
+Subsequent manual strip scrolling remains available. Existing tab keyboard/URL
+handlers and TL's navigation controls are retained.
+
+The public status screen renders its existing page title itself because it has no
+authenticated shell heading. Its health checks are unchanged.
+
+Mobile empty-table messages fit the visible scroll container and remain readable
+when its columns are scrolled. This does not collapse, hide or reorder populated
+columns; desktop table sizing is unchanged.
+Table scrollers establish a positioning context so visually hidden absolute table
+headings remain inside their scroll container instead of extending the page width.
+The application dialog's customer-type choices retain 32px controls; the longer
+Company / Business label receives more mobile width and stacks on smaller screens
+instead of wrapping outside its control. Desktop choices remain equal-width.
+
+The route sweep covers every static authenticated route family; record-based tests
+capture real disposable detail records at both review sizes. Role captures settle
+sidebar geometry and page scroll. Public account screens without a submitted valid
+token, controlled loading, and simulated refresh errors are labelled as those states,
+not successful live account operations. See the external Part 4 capture/coverage
+index for direct visual review versus shared inheritance and state limitations.

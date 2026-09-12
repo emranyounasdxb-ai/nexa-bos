@@ -1,5 +1,6 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { selectBrandedOption } from "./helpers/select";
+import { captureViewportPair } from "./helpers/viewport-capture";
 
 const apiOrigin = `http://127.0.0.1:${process.env.PLAYWRIGHT_API_PORT ?? "8010"}`;
 const secret = process.env.BOOTSTRAP_SECRET ?? "nexa-test-bootstrap-secret";
@@ -364,7 +365,7 @@ test("Assets.View-only user sees own custody without privileged controls or muta
 test("Asset drawer and custody workspace preserve keyboard focus and avoid viewport overflow", async ({
   page,
   request,
-}) => {
+}, testInfo) => {
   test.setTimeout(150_000);
   const { headers, office } = await masterData(request);
   const categories = (await (await request.get(`${apiOrigin}/api/v1/assets/categories`)).json()) as {
@@ -419,6 +420,7 @@ test("Asset drawer and custody workspace preserve keyboard focus and avoid viewp
 
   await page.goto(`/assets/${asset.id}`);
   await expect(page.getByRole("tab", { name: "Master" })).toHaveAttribute("aria-selected", "true");
+  await captureViewportPair(page, testInfo, "asset-detail");
   await page.getByRole("tab", { name: "Custody" }).click();
   await expect(page).toHaveURL(/tab=custody/);
   await page.reload();

@@ -1,5 +1,6 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { preserveBuiltInRoleConfiguration } from "./helpers/role-configuration";
+import { captureViewport } from "./helpers/viewport-capture";
 
 preserveBuiltInRoleConfiguration();
 
@@ -773,6 +774,7 @@ test.describe("shared sidebar role regression matrix", () => {
           }
         }
         await expect(page.getByTestId("dashboard-loading-skeleton")).toHaveCount(0);
+        await expect(page.locator("main").getByText(/^Loading(?:\b|…)/)).toHaveCount(0);
         await expect.poll(() => page.getByLabel("Application sidebar").evaluate((element, viewportWidth) => {
           const box = element.getBoundingClientRect();
           return viewportWidth === 390
@@ -780,7 +782,7 @@ test.describe("shared sidebar role regression matrix", () => {
             : box.width === (element.getAttribute("data-expanded") === "true" ? 224 : 80);
         }, width)).toBe(true);
         expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
-        await page.screenshot({ path: testInfo.outputPath(`dashboard-${code}-${width}.png`), fullPage: false });
+        await captureViewport(page, testInfo.outputPath(`dashboard-${code}-${width}.png`));
       };
       await verifyDashboard(390);
 
