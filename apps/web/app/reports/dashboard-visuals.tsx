@@ -25,7 +25,13 @@ export const metricToneClasses: Record<MetricTone, { icon: string }> = {
 };
 
 export function CompactEmpty({ children }: { children: ReactNode }) {
-  return <p className="mt-4 rounded-lg border border-slate-200 bg-slate-50 px-3 py-4 text-sm text-slate-500">{children}</p>;
+  return <p className="mt-4 border-t border-slate-100 py-4 text-sm text-slate-500">{children}</p>;
+}
+
+export function DashboardBreakdown({ rows, description, testId }: { rows: { id: string; label: string; value: number }[]; description: string; testId: string }) {
+  return <div data-testid={testId} aria-label={description} className="min-w-0">
+    {rows.length ? <dl className="divide-y divide-slate-100">{rows.map(row => <div key={row.id} className="flex min-w-0 items-start justify-between gap-4 py-3 text-sm"><dt className="min-w-0 break-words text-slate-700">{row.label}</dt><dd className="shrink-0 font-semibold tabular-nums text-slate-950">{row.value.toLocaleString("en-AE")}</dd></div>)}</dl> : <CompactEmpty>No records in the selected scope and period.</CompactEmpty>}
+  </div>;
 }
 
 function formatCurrencyValue(value: string | number | null | undefined) {
@@ -91,19 +97,19 @@ export function KpiCard({
     <Link
       href={href}
       aria-label={`${label} KPI`}
-      className="group flex min-h-32 flex-col rounded-[10px] border border-slate-200/90 bg-white p-3.5 shadow-[0_1px_2px_rgba(15,23,42,0.035)] transition hover:border-slate-300 hover:shadow-[0_3px_8px_rgba(15,23,42,0.07)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary"
+      className="group flex min-h-32 flex-col rounded-[10px] border border-slate-200/90 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.035)] transition hover:border-slate-300 hover:shadow-[0_3px_8px_rgba(15,23,42,0.07)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary"
     >
       <div className="flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2.5">
           <span data-amafh-icon-tile="" className={`inline-flex size-8 shrink-0 items-center justify-center rounded-md ${metricToneClasses[tone].icon}`}>
             <MetricIcon className="size-5" />
           </span>
-          <p className="truncate text-[11px] font-semibold uppercase tracking-[0.1em] text-slate-500">{label}</p>
+          <p className="text-sm font-semibold text-slate-700">{label}</p>
         </div>
         <IconArrowUpRight className="size-4 shrink-0 text-slate-300 transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-slate-500" />
       </div>
-      <div className="mt-2.5 flex min-w-0 items-end justify-between gap-3">
-        <p className="text-3xl font-semibold leading-none tracking-tight text-slate-950">{count.toLocaleString()}</p>
+      <div className="mt-3 flex min-w-0 flex-wrap items-end justify-between gap-2">
+        <p className="text-[32px] font-semibold leading-none tracking-tight text-slate-950">{count.toLocaleString()}</p>
         {value !== undefined ? <p className="truncate text-right text-xs font-medium tabular-nums text-slate-500">{formatCurrencyValue(value)}</p> : null}
       </div>
       <div className="mt-auto border-t border-slate-100 pt-2.5">{context ?? <span className="text-xs text-slate-500">Selected period</span>}</div>
@@ -137,7 +143,7 @@ export function PipelineMetric({
         <MetricIcon className="size-4" />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-xs font-semibold text-slate-600">{label}</span>
+        <span className="block text-sm font-semibold text-slate-600">{label}</span>
         {value !== undefined ? <span className="block truncate text-xs text-slate-500">{formatCurrencyValue(value)}</span> : null}
       </span>
       <span className="text-base font-semibold tabular-nums text-slate-950">{count.toLocaleString()}</span>
@@ -246,13 +252,13 @@ export function RankingList({ title, rows, metric, hrefFor }: { title: string; r
         : row.value
       : formatCurrencyValue(row.value);
   return (
-    <section className="min-w-0 rounded-lg border border-slate-200 bg-slate-50/40">
+    <section className="min-w-0 border-t border-slate-200">
       <div className="flex items-center justify-between border-b border-slate-200 px-3 py-2.5"><h3 className="text-sm font-semibold text-slate-950">{title}</h3>{rows.length > 0 ? <Badge>{Math.min(rows.length, 8)} shown</Badge> : null}</div>
       {rows.length === 0 ? <p className="px-3 py-4 text-sm text-slate-500">No ranking rows for the selected period.</p> : (
         <div className="max-h-56 divide-y divide-slate-100 overflow-y-auto px-1.5 py-1">
           {rows.slice(0, 8).map((row) => (
             <Link key={row.id} href={hrefFor(row)} className="group flex items-center gap-2 rounded-md px-2 py-2 hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary">
-              <span className={`inline-flex size-7 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${row.rank <= 3 ? "bg-blue-50 text-blue-700" : "bg-slate-100 text-slate-600"}`}>{row.rank}</span>
+              <span className={`inline-flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-bold ${row.rank <= 3 ? "bg-blue-50 text-blue-700" : "bg-slate-100 text-slate-600"}`}>{row.rank}</span>
               <span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold text-slate-800 group-hover:text-brand-link">{row.name}</span>{row.count !== null && row.count !== undefined ? <span className="block text-xs text-slate-500">{row.count.toLocaleString()} cases</span> : null}</span>
               <span className="shrink-0 text-right text-xs font-semibold tabular-nums text-slate-950">{formatValue(row)}</span>
             </Link>

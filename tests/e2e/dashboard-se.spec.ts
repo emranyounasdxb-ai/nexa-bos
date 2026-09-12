@@ -123,7 +123,7 @@ async function signIn(page: Page, email: string) {
   await expect(page.getByRole("heading", { name: "My Dashboard" })).toBeVisible({ timeout: 30_000 });
 }
 
-test("SE dashboard is own-scoped, actionable, accessible and responsive", async ({ page, request }) => {
+test("SE dashboard is own-scoped, actionable, accessible and responsive", async ({ page, request }, testInfo) => {
   test.setTimeout(180_000);
   let headers = await ownerLogin(request);
   const userTypes = (await (await request.get(`${apiOrigin}/api/v1/user-types`)).json()) as { items: Array<{ id: string; code: string }> };
@@ -160,6 +160,17 @@ test("SE dashboard is own-scoped, actionable, accessible and responsive", async 
   await expect(page.getByRole("heading", { name: "Recent Applications" })).toBeVisible();
   await expect(page.getByTestId("my-performance")).toContainText("Assigned target");
   await expect(page.getByTestId("my-attendance")).toContainText("Present");
+  for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
+    await page.setViewportSize(viewport);
+    if (viewport.width === 390) {
+      await expect(page.getByRole("button", { name: "Open navigation" })).toHaveAttribute("aria-expanded", "false");
+      await expect.poll(() => page.getByLabel("Application sidebar").evaluate(element => element.getBoundingClientRect().right)).toBeLessThanOrEqual(0);
+    }
+    await page.evaluate(() => window.scrollTo(0, 0));
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
+    await page.screenshot({ path: testInfo.outputPath(`se-populated-${viewport.width}.png`), fullPage: false });
+  }
+  await page.setViewportSize({ width: 1440, height: 900 });
   await expect(page.getByText("Top employees")).toHaveCount(0);
   await expect(page.getByText("All permitted records")).toHaveCount(0);
   await expect(page.getByRole("button", { name: /Export|Print/ })).toHaveCount(0);

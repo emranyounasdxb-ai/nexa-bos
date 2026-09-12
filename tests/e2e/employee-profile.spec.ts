@@ -458,7 +458,7 @@ for (const width of [1440, 390]) {
   });
 }
 
-test("HR and PRO dashboards expose only implemented profile work", async ({ browser, page, request }) => {
+test("HR and PRO dashboards expose only implemented profile work", async ({ browser, page, request }, testInfo) => {
   test.setTimeout(120_000);
   const hrOperator = await seedProfileOperator(request, "HR");
   const proOperator = await seedProfileOperator(request, "PRO");
@@ -490,6 +490,18 @@ test("HR and PRO dashboards expose only implemented profile work", async ({ brow
     await expect(proPage.getByRole("heading", { name: "PRO Dashboard" })).toBeVisible();
     await expect(proPage.getByText("Pending Documents")).toBeVisible();
     await expectNoHorizontalOverflow(proPage);
+    for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
+      for (const [mode, target] of [["hr", page], ["pro", proPage]] as const) {
+        await target.setViewportSize(viewport);
+        await expectNoHorizontalOverflow(target);
+        if (viewport.width === 390) {
+          await expect(target.getByRole("button", { name: "Open navigation" })).toHaveAttribute("aria-expanded", "false");
+          await expect.poll(() => target.getByLabel("Application sidebar").evaluate(element => element.getBoundingClientRect().right)).toBeLessThanOrEqual(0);
+        }
+        await target.evaluate(() => window.scrollTo(0, 0));
+        await target.screenshot({ path: testInfo.outputPath(`${mode}-dashboard-${viewport.width}.png`), fullPage: false });
+      }
+    }
   } finally {
     await proContext.close();
   }

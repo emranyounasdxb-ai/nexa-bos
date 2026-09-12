@@ -16,9 +16,9 @@ function minutes(value: number | null) {
 
 function MiniMetric({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="min-w-0 rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2.5">
-      <dt className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">{label}</dt>
-      <dd className="mt-1 truncate text-base font-semibold tabular-nums text-slate-950">{value}</dd>
+    <div className="min-w-0 border-b border-slate-200 py-3">
+      <dt className="text-sm font-medium text-slate-600">{label}</dt>
+      <dd className="mt-1 break-words text-base font-semibold tabular-nums text-slate-950">{value}</dd>
     </div>
   );
 }

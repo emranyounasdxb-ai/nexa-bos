@@ -156,7 +156,7 @@ async function signOut(page: Page) {
   await expect(page).toHaveURL(/\/login$/, { timeout: 20_000 });
 }
 
-test("COD Operations Dashboard is office-scoped, actionable, keyboard accessible and responsive", async ({ page, request }) => {
+test("COD Operations Dashboard is office-scoped, actionable, keyboard accessible and responsive", async ({ page, request }, testInfo) => {
   test.setTimeout(240_000);
   let headers = await ownerLogin(request);
   const codType = await configureType(request, headers, "COD", ["Dashboard.View", "Applications.View", "Applications.Submit", "Applications.UpdateStage", "Applications.MarkDelay"], "office", "office");
@@ -221,6 +221,17 @@ test("COD Operations Dashboard is office-scoped, actionable, keyboard accessible
   await expect(page.getByTestId("cod-workload-chart")).toBeVisible();
   await expect(page.getByTestId("cod-tat-chart")).toBeVisible();
   await expect(page.getByTestId("cod-requirement-chart")).toBeVisible();
+  for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
+    await page.setViewportSize(viewport);
+    if (viewport.width === 390) {
+      await expect(page.getByRole("button", { name: "Open navigation" })).toHaveAttribute("aria-expanded", "false");
+      await expect.poll(() => page.getByLabel("Application sidebar").evaluate(element => element.getBoundingClientRect().right)).toBeLessThanOrEqual(0);
+    }
+    await page.evaluate(() => window.scrollTo(0, 0));
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
+    await page.screenshot({ path: testInfo.outputPath(`cod-populated-${viewport.width}.png`), fullPage: false });
+  }
+  await page.setViewportSize({ width: 1440, height: 900 });
   await expect(page.getByTestId("cod-staff-workload")).toContainText(dxbTl.fullName);
   await expect(page.getByTestId("cod-staff-workload")).toContainText(dxbSe.fullName);
   await expect(page.getByTestId("cod-staff-workload")).not.toContainText(auhTl.fullName);
