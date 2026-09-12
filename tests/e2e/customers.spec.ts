@@ -1,6 +1,6 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { preserveBuiltInRoleConfiguration } from "./helpers/role-configuration";
-import { captureViewport } from "./helpers/viewport-capture";
+import { captureViewport, captureViewportPair } from "./helpers/viewport-capture";
 
 preserveBuiltInRoleConfiguration();
 
@@ -266,7 +266,7 @@ test("customer directory search, status, and pagination persist in the URL", asy
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBeTruthy();
 });
 
-test("customer detail preserves history and confirms status and irreversible merge actions", async ({ page, request }) => {
+test("customer detail preserves history and confirms status and irreversible merge actions", async ({ page, request }, testInfo) => {
   test.setTimeout(180_000);
   const headers = await ownerHeaders(request);
   const suffix = Date.now().toString().slice(-7);
@@ -290,6 +290,7 @@ test("customer detail preserves history and confirms status and irreversible mer
   await page.goto(`/customers/${source.id}`);
   await expect(page.getByRole("heading", { name: `Corrected Source ${suffix}` })).toBeVisible();
   await expect(page.getByRole("button", { name: "Activate", exact: true })).toBeVisible();
+  await captureViewportPair(page, testInfo, "customer-detail");
 
   const overviewTab = page.getByRole("tab", { name: "Overview" });
   await overviewTab.focus();

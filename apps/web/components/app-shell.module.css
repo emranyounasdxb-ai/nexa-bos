@@ -1,5 +1,7 @@
 .pageHeader { display: flex; min-width: 0; min-height: 0; align-items: center; padding: 12px 16px 4px; background: var(--amafh-background); }
 .pageHeader > div { width: 100%; }
+.breadcrumb { display: flex; flex: 1; min-width: 0; flex-wrap: nowrap; align-items: center; gap: 8px; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; white-space: nowrap; font-size: 14px; }
+.breadcrumb:focus-visible, .breadcrumb a:focus-visible { outline: 2px solid var(--amafh-primary); outline-offset: -2px; }
 .tlPageHeader { min-height: 0; padding-block: 0; }
 @media (max-width: 1023px) { .tlPageHeader { padding-block: 4px; } }
 .pageMain { width: 100%; min-width: 0; max-width: 100%; padding: 0 16px 20px; }

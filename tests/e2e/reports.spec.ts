@@ -1,5 +1,6 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { preserveBuiltInRoleConfiguration } from "./helpers/role-configuration";
+import { captureViewportPair } from "./helpers/viewport-capture";
 
 preserveBuiltInRoleConfiguration();
 import { selectBrandedOption } from "./helpers/select";
@@ -61,7 +62,7 @@ async function openDashboardFilters(page: Page) {
 test("owner dashboard periods, drill-down, profile, ranking, comparison, delay, and refresh", async ({
   page,
   request,
-}) => {
+}, testInfo) => {
   test.setTimeout(180_000);
   const headers = await ownerHeaders(request);
   const types = (
@@ -189,6 +190,7 @@ test("owner dashboard periods, drill-down, profile, ranking, comparison, delay, 
   await selectBrandedOption(page.getByLabel("Reporting period"), "since_joining");
   await page.getByRole("button", { name: "Apply" }).click();
   await expect(page.getByLabel("Reporting period")).toHaveAttribute("value", "since_joining");
+  await captureViewportPair(page, testInfo, "employee-report");
   await page.goto("/reports");
   await expect(page.getByRole("heading", { name: "Top employees" })).toBeVisible({
     timeout: 30_000,

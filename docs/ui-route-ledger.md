@@ -28,7 +28,7 @@ actual captures and state limitations in its external evidence index.
 | `/reports/drill-down` | Dashboard.View or Reports.View, reporting scope | Shared reporting table |
 | `/reports/employees/[id]` | Existing scoped employee reporting access | Refined section headings; existing metrics |
 | `/applications` | Applications.View and case scope | Shared queue/table/filter/create dialog |
-| `/applications/new` | Existing Applications.Create gate | Shared application form/dialog |
+| `/applications/new` | Authenticated compatibility redirect to `/applications` | No independent form; workspace Create action retains its existing permission gate and dialog |
 | `/applications/[id]` | Applications.View and record scope | Refined detail headings/timeline metadata |
 | `/customers` | Existing OWNER/GM master access | Refined directory heading; shared table |
 | `/customers/new` | Existing OWNER/GM master access | Refined two-column desktop/single-column mobile form |

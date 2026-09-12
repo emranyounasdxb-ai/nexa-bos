@@ -1,5 +1,6 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { preserveBuiltInRoleConfiguration } from "./helpers/role-configuration";
+import { captureViewportPair } from "./helpers/viewport-capture";
 
 preserveBuiltInRoleConfiguration();
 import { selectBrandedOption } from "./helpers/select";
@@ -374,6 +375,18 @@ test("owner can create an application and filter the list", async ({ page, reque
   await selectBrandedOption(createDialog.getByLabel("Product Variant", { exact: true }), { label: `${prerequisites.variant.name} (${prerequisites.variant.code})` });
   await expect(createDialog.getByText(/Initial Case Owner:.*Platform Owner/)).toBeVisible();
   await createDialog.getByLabel("Requested amount").fill("15000");
+  await captureViewportPair(page, testInfo, "application-create-dialog");
+  const originalViewport = page.viewportSize()!;
+  await page.setViewportSize({ width: 390, height: 844 });
+  const customerTypeLabel = createDialog.getByRole("radio", { name: "Company / Business" }).locator("..").locator("span");
+  await expect.poll(() => customerTypeLabel.evaluate((element) => {
+    const range = document.createRange();
+    range.selectNodeContents(element);
+    const text = range.getBoundingClientRect();
+    const control = element.getBoundingClientRect();
+    return text.top >= control.top && text.bottom <= control.bottom && text.left >= control.left && text.right <= control.right;
+  }), { message: "The mobile customer-type label must fit inside its control" }).toBe(true);
+  await page.setViewportSize(originalViewport);
   await createDialog.getByRole("button", { name: "Create application" }).click();
   await expect(createDialog).toHaveCount(0, { timeout: 30_000 });
   const createdRow = page.getByRole("row").filter({ hasText: `App Customer ${suffix}` });
@@ -558,7 +571,7 @@ test("owner can create an application and filter the list", async ({ page, reque
   });
 });
 
-test("application detail sections, confirmations, timeline filters, permissions, and responsive layout", async ({ page, request }) => {
+test("application detail sections, confirmations, timeline filters, permissions, and responsive layout", async ({ page, request }, testInfo) => {
   test.setTimeout(180_000);
   const suffix = Date.now().toString().slice(-7);
   const { application, migrationTarget } = await createApplicationFixture(request, suffix);
@@ -572,6 +585,15 @@ test("application detail sections, confirmations, timeline filters, permissions,
   await page.reload();
   await expect(page.getByRole("tab", { name: "Timeline" })).toHaveAttribute("aria-selected", "true");
   await expect(page.getByText("Application Created", { exact: true }).first()).toBeVisible();
+  await captureViewportPair(page, testInfo, "application-timeline");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.reload();
+  await expect(page.getByRole("tab", { name: "Timeline" })).toHaveAttribute("aria-selected", "true");
+  await captureViewportPair(page, testInfo, "application-timeline-direct");
+  await page.getByRole("tabpanel", { name: "Timeline", exact: true }).evaluate(element => element.scrollIntoView({ block: "start", behavior: "instant" }));
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
+  await page.screenshot({ path: testInfo.outputPath("application-timeline-mobile-panel.png"), fullPage: false });
+  await page.setViewportSize({ width: 1440, height: 900 });
   await selectBrandedOption(page.getByLabel("Filter timeline by event type"), "application_created");
   await expect(page.getByText(/1 of \d+ events/)).toBeVisible();
   await page.getByLabel("Search timeline").fill("no matching lifecycle event");
@@ -635,6 +657,7 @@ test("application detail sections, confirmations, timeline filters, permissions,
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole("tab", { name: "Overview" }).click();
   await expect(page.getByRole("heading", { name: application.applicationCode })).toBeVisible();
+  await captureViewportPair(page, testInfo, "application-detail");
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBeTruthy();
 
   await page.getByRole("button", { name: "Open navigation" }).click();

@@ -342,7 +342,7 @@ export function LoadingState({ children = "Loading…" }: { children?: ReactNode
 
 export function EmptyState({ children }: { children: ReactNode }) {
   return (
-    <div className="flex min-h-20 flex-col items-center justify-center px-4 py-4 text-center text-sm text-text-secondary">
+    <div data-amafh-empty-state="" className="flex min-h-20 flex-col items-center justify-center px-4 py-4 text-center text-sm text-text-secondary">
       <IconInfoCircle className="mb-2 size-6 text-text-disabled" />
       {children}
     </div>
@@ -357,7 +357,7 @@ export function TableShell({
   return (
     <div
       className={cx(
-        "max-w-full overflow-x-auto overscroll-x-contain rounded-lg border border-brand-border bg-surface shadow-[var(--amafh-shadow-surface)]",
+        "relative max-w-full overflow-x-auto overscroll-x-contain rounded-lg border border-brand-border bg-surface shadow-[var(--amafh-shadow-surface)]",
         className,
       )}
       data-amafh-table-shell=""
