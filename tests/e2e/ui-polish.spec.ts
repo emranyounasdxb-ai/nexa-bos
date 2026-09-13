@@ -630,11 +630,11 @@ test("sidebar groups open permission-backed popup cards on desktop and mobile", 
   await signIn(page, request);
   const sidebar = page.locator('aside[aria-label="Application sidebar"]');
   const groups = [
-    { label: "Operations", firstItem: "Customers" },
-    { label: "People", firstItem: "Users" },
-    { label: "Performance", firstItem: "Targets" },
-    { label: "Assets", firstItem: "Assets" },
-    { label: "Administration", firstItem: "Banks & products" },
+    { label: "Operations", items: [["Customers", "/customers"], ["Applications", "/applications"], ["Workflows", "/workflows"]] },
+    { label: "People", items: [["Users", "/users"], ["HR Dashboard", "/hr"], ["PRO Dashboard", "/pro"], ["Organization", "/organization"], ["Hierarchy", "/organization/hierarchy"], ["Attendance", "/attendance"], ["Leave", "/leave"], ["Contracts", "/contracts"], ["Transfers", "/transfers"], ["Exit and offboarding", "/exits"], ["Approval Centre", "/approvals"], ["Attendance reports", "/attendance/reports"]] },
+    { label: "Performance", items: [["Targets", "/targets"], ["KPI scorecards", "/targets/kpi"], ["Reports", "/reports/compare"]] },
+    { label: "Assets", items: [["Assets", "/assets"], ["Asset categories", "/assets/categories"], ["Asset reports", "/assets/reports"]] },
+    { label: "Administration", items: [["Banks & products", "/catalog"], ["User types", "/user-types"], ["Security", "/security"]] },
   ];
   const dashboard = sidebar.getByRole("link", { name: "Dashboard", exact: true });
   await expect(dashboard).toHaveAttribute("aria-current", "page");
@@ -659,14 +659,28 @@ test("sidebar groups open permission-backed popup cards on desktop and mobile", 
       await parent.focus();
       await parent.press("Enter");
       const popup = page.getByRole("dialog", { name: group.label, exact: true });
+      const links = popup.getByRole("link");
       await expect(parent).toHaveAttribute("aria-expanded", "true");
-      await expect(popup.getByRole("link", { name: group.firstItem, exact: true })).toBeVisible();
+      await expect(links).toHaveCount(group.items.length);
+      for (const [index, [label, href]] of group.items.entries()) {
+        const link = links.nth(index);
+        await expect(link).toHaveAccessibleName(label);
+        await expect(link).toHaveAttribute("href", href);
+        await expect(link.locator('[data-submenu-item-icon]')).toHaveCount(1);
+        await expect(link.locator('[data-submenu-item-icon]')).toBeVisible();
+        expect(await link.locator(":scope > span").evaluate(element => Array.from(element.children, child => child.tagName.toLowerCase()))).toEqual(["svg", "span"]);
+      }
       await expect(popup).toBeInViewport({ ratio: 1 });
       await expect(popup.locator('a:not([href]), a[href="#"]')).toHaveCount(0);
       await page.emulateMedia({ reducedMotion: "reduce" });
       await expect(popup).toHaveCSS("animation-name", "none");
       for (const theme of ["light", "dark"] as const) {
         await setVisualTheme(page, theme);
+        for (const icon of await popup.locator('[data-submenu-item-icon]').all()) {
+          await expect(icon).toBeVisible();
+          await expect(icon).toHaveCSS("width", "18px");
+          await expect(icon).toHaveCSS("height", "18px");
+        }
         await captureViewport(page, testInfo.outputPath(`approved-${group.label.toLowerCase()}-popup-${theme}-${viewport.width}.png`));
       }
       await page.keyboard.press("Escape");

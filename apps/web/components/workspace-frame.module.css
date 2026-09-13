@@ -46,7 +46,10 @@
 .submenuDescription span { padding: 3px 8px; border-radius: 12px; background: var(--amafh-subtle); font-size: 10px; }
 .submenuList { display: flex; flex-direction: column; gap: 7px; max-height: calc(100dvh - 235px); padding: 2px; overflow-y: auto; overscroll-behavior: contain; }
 .submenuLink { display: flex; flex-shrink: 0; align-items: center; justify-content: space-between; gap: 15px; min-height: 40px; padding: 10px 12px; border-radius: 11px; background: var(--amafh-subtle); font-size: 12px; }
+.submenuLinkLabel { display: flex; min-width: 0; align-items: center; gap: 10px; }
+.submenuItemIcon { width: 18px; height: 18px; flex-shrink: 0; color: var(--amafh-text-secondary); }
 .submenuLink:hover, .submenuLink:focus-visible, .submenuLink[aria-current="page"] { background: var(--amafh-brand-soft); color: var(--amafh-primary); }
+.submenuLink:hover .submenuItemIcon, .submenuLink:focus-visible .submenuItemIcon, .submenuLink[aria-current="page"] .submenuItemIcon { color: currentColor; }
 .submenu :is(a,button):focus-visible { outline: 2px solid var(--amafh-primary); outline-offset: -2px; }
 .mobileTrigger, .mobileClose { display: none; }
 @media (min-width: 1280px) { .topbar, .pageHeader, .workspace { padding-inline: 32px; } }

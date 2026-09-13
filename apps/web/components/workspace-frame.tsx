@@ -49,7 +49,13 @@ function NavigationPopup({ group, onClose, onNavigate, isActive, fallbackFocus }
     <div className={styles.submenuHeader}><h2 id="workspace-submenu-title">{group.label}</h2><button type="button" className={styles.iconButton} aria-label="Close submenu" onClick={onClose}><IconX className="size-4" /></button></div>
     <p className={styles.submenuDescription}>Choose a page <span>{group.items.length} pages</span></p>
     <nav className={styles.submenuList} aria-label={`${group.label} pages`}>
-      {group.items.map(item => <Link key={item.href} href={item.href} aria-label={item.label} aria-current={isActive(item.href) ? "page" : undefined} onNavigate={onNavigate} className={styles.submenuLink}><span>{item.label}</span><IconChevronRight className="size-4" /></Link>)}
+      {group.items.map(item => {
+        const ItemIcon = item.icon;
+        return <Link key={item.href} href={item.href} aria-label={item.label} aria-current={isActive(item.href) ? "page" : undefined} onNavigate={onNavigate} className={styles.submenuLink}>
+          <span className={styles.submenuLinkLabel}><ItemIcon data-submenu-item-icon="" className={styles.submenuItemIcon} /><span>{item.label}</span></span>
+          <IconChevronRight className="size-4" />
+        </Link>;
+      })}
     </nav>
   </dialog>;
 }
