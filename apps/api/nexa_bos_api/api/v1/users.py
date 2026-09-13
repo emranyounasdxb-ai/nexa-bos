@@ -4,16 +4,24 @@ from pathlib import Path
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, Query, UploadFile
+from fastapi import APIRouter, Depends, File, Query, Response, UploadFile
 from fastapi.responses import FileResponse
 
 from nexa_bos_api.api.v1.deps import CurrentUser, require_permission
 from nexa_bos_api.api.v1.pagination import PaginationDep
 from nexa_bos_api.core.exceptions import AppError
 from nexa_bos_api.db.session import SessionDep
-from nexa_bos_api.identity.access import has_permission
+from nexa_bos_api.identity.access import has_permission, is_owner
 from nexa_bos_api.identity.auth_service import public_user
+from nexa_bos_api.identity.bulk_upload import (
+    MAX_CSV_BYTES,
+    field_schema,
+    import_staff_csv,
+    sample_csv,
+    validate_staff_csv,
+)
 from nexa_bos_api.identity.enums import AccountStatus
+from nexa_bos_api.identity.models import User
 from nexa_bos_api.identity.permissions import (
     APPLICATIONS_CREATE,
     APPLICATIONS_REASSIGN_CASE_OWNER,
@@ -62,6 +70,42 @@ _PHOTO_TYPES = {
     "image/webp": ".webp",
 }
 PhotoFile = Annotated[UploadFile, File()]
+CsvFile = Annotated[UploadFile, File()]
+_CSV_CONTENT_TYPES = {
+    "application/csv",
+    "application/vnd.ms-excel",
+    "application/octet-stream",
+    "text/csv",
+    "text/plain",
+}
+
+
+def _require_owner(actor: User) -> None:
+    if not is_owner(actor):
+        raise AppError(
+            status_code=403,
+            code="OWNER_REQUIRED",
+            message="Only OWNER can bulk upload staff",
+        )
+
+
+async def _read_csv(file: UploadFile) -> bytes:
+    filename = Path((file.filename or "").replace("\\", "/")).name
+    content_type = (file.content_type or "").split(";", 1)[0].strip().lower()
+    if not filename.lower().endswith(".csv") or content_type not in _CSV_CONTENT_TYPES:
+        raise AppError(
+            status_code=422,
+            code="CSV_FILE_TYPE_INVALID",
+            message="Upload a CSV file with a .csv filename",
+        )
+    payload = await file.read(MAX_CSV_BYTES + 1)
+    if len(payload) > MAX_CSV_BYTES:
+        raise AppError(
+            status_code=422,
+            code="CSV_FILE_TOO_LARGE",
+            message=f"CSV file must be {MAX_CSV_BYTES // 1024 // 1024} MB or smaller",
+        )
+    return payload
 
 
 @router.get("")
@@ -158,6 +202,46 @@ async def case_owners(
             for user in users
         ]
     }
+
+
+@router.get("/bulk-upload/schema")
+async def bulk_upload_schema(actor: CurrentUser) -> dict[str, object]:
+    _require_owner(actor)
+    return field_schema()
+
+
+@router.get("/bulk-upload/sample")
+async def bulk_upload_sample(actor: CurrentUser) -> Response:
+    _require_owner(actor)
+    return Response(
+        content=sample_csv(),
+        media_type="text/csv; charset=utf-8",
+        headers={
+            "Content-Disposition": 'attachment; filename="nexa-bos-staff-bulk-upload-sample.csv"'
+        },
+    )
+
+
+@router.post("/bulk-upload/validate")
+async def validate_bulk_upload(
+    session: SessionDep,
+    actor: CurrentUser,
+    file: CsvFile,
+) -> dict[str, object]:
+    _require_owner(actor)
+    result = await validate_staff_csv(session, await _read_csv(file))
+    return {key: value for key, value in result.items() if key != "rows"}
+
+
+@router.post("/bulk-upload/import")
+async def import_bulk_upload(
+    session: SessionDep,
+    actor: CurrentUser,
+    file: CsvFile,
+) -> dict[str, object]:
+    _require_owner(actor)
+    imported = await import_staff_csv(session, actor, await _read_csv(file))
+    return {"status": "ok", "importedCount": imported}
 
 
 @router.post("/code-reservations")
