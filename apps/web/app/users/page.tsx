@@ -31,6 +31,7 @@ import {
   TextInput,
   Th,
 } from "@/components/ui";
+import { StaffBulkUploadDialog } from "@/components/staff-bulk-upload-dialog";
 import { apiGet, ApiClientError } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { getBrowserApiUrl } from "@/lib/env";
@@ -85,7 +86,7 @@ function initials(name: string): string {
 }
 
 function UsersDirectory() {
-  const { can } = useAuth();
+  const { can, user: currentUser } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const api = getBrowserApiUrl();
@@ -227,8 +228,11 @@ function UsersDirectory() {
             <TextInput aria-label="Search users" className="pl-9" placeholder="Name, email, code, mobile, office or department" value={searchDraft} onChange={(event) => setSearchDraft(event.target.value)} />
           </div>
         </Field>
-      } actions={can("Users.Create") ? (
-        <Link href="/users/new" className={primaryButtonClass} onClick={() => window.dispatchEvent(new Event("nexa:create-user-modal"))}>Create user</Link>
+      } actions={currentUser?.userType?.code === "OWNER" || can("Users.Create") ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <StaffBulkUploadDialog onImported={() => setRequestVersion((value) => value + 1)} />
+          {can("Users.Create") ? <Link href="/users/new" className={primaryButtonClass} onClick={() => window.dispatchEvent(new Event("nexa:create-user-modal"))}>Create user</Link> : null}
+        </div>
       ) : null} />
       <ResponsiveFilterPanel activeFilters={[
         query ? { label: "Search", value: query } : null,
