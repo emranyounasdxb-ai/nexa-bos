@@ -1,8 +1,8 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type ReactNode, type RefObject } from "react";
+import { createPortal } from "react-dom";
 import { IconBell, IconChevronDown, IconChevronRight, IconLogout, IconMenu2, IconUserCircle, IconX, type IconComponent } from "@/components/icons";
 import { ThemeControls } from "@/components/theme-controls";
 import { BrandLogo } from "@/components/ui";
@@ -73,12 +73,15 @@ export function WorkspaceFrame({ children, user, groups, context, pathname, home
   const [mobileOpen, setMobileOpen] = useState(false);
   const [groupName, setGroupName] = useState<string | null>(null);
   const [accountOpen, setAccountOpen] = useState(false);
+  const [railTooltip, setRailTooltip] = useState<{ label: string; left: number; top: number } | null>(null);
   const menuTrigger = useRef<HTMLButtonElement>(null);
   const menuClose = useRef<HTMLButtonElement>(null);
   const sidebar = useRef<HTMLElement>(null);
   const accountTrigger = useRef<HTMLButtonElement>(null);
   const accountMenu = useRef<HTMLDivElement>(null);
   const accountInitial = useRef<"first" | "last">("first");
+  const tooltipTarget = useRef<HTMLElement | null>(null);
+  const tooltipPreviousDescription = useRef<string | null>(null);
   const topNav = useRef<HTMLElement>(null);
   const workspace = useRef<HTMLElement>(null);
   const breadcrumb = useRef<HTMLElement>(null);
@@ -94,6 +97,37 @@ export function WorkspaceFrame({ children, user, groups, context, pathname, home
   const tlDashboard = pathname === "/reports" && user?.userType?.code === "TL";
   const initials = (user?.fullName ?? "AMAFH User").split(/\s+/).slice(0, 2).map(part => part.charAt(0).toUpperCase()).join("");
   const closeGroup = useCallback(() => setGroupName(null), []);
+  const hideRailTooltip = useCallback(() => {
+    const target = tooltipTarget.current;
+    if (target) {
+      if (tooltipPreviousDescription.current === null) target.removeAttribute("aria-describedby");
+      else target.setAttribute("aria-describedby", tooltipPreviousDescription.current);
+    }
+    tooltipTarget.current = null;
+    tooltipPreviousDescription.current = null;
+    setRailTooltip(null);
+  }, []);
+  const showRailTooltip = useCallback((target: HTMLElement) => {
+    const label = target.getAttribute("aria-label");
+    if (!label) return;
+    if (tooltipTarget.current !== target) {
+      const previous = tooltipTarget.current;
+      if (previous) {
+        if (tooltipPreviousDescription.current === null) previous.removeAttribute("aria-describedby");
+        else previous.setAttribute("aria-describedby", tooltipPreviousDescription.current);
+      }
+      tooltipTarget.current = target;
+      tooltipPreviousDescription.current = target.getAttribute("aria-describedby");
+      target.setAttribute("aria-describedby", "application-sidebar-tooltip");
+    }
+    const rect = target.getBoundingClientRect();
+    setRailTooltip({
+      label: label.replace(/ menu$/, ""),
+      left: Math.min(rect.right + 10, window.innerWidth - 120),
+      top: Math.max(24, Math.min(rect.top + rect.height / 2, window.innerHeight - 24)),
+    });
+  }, []);
+  useEffect(() => hideRailTooltip, [hideRailTooltip]);
   useEffect(() => {
     if (!navigationModalOpen) return;
     const previous = document.body.style.overflow;
@@ -190,17 +224,20 @@ export function WorkspaceFrame({ children, user, groups, context, pathname, home
       </div>
     </header>
     {mobileOpen && !desktop && <button type="button" tabIndex={-1} aria-label="Close navigation backdrop" className={styles.mobileBackdrop} onClick={() => setMobileOpen(false)} />}
-    <aside ref={sidebar} id="application-sidebar" aria-label="Application sidebar" role={!desktop && mobileOpen ? "dialog" : undefined} aria-modal={!desktop && mobileOpen ? true : undefined} inert={!desktop && !mobileOpen} className={styles.rail} data-mobile-open={mobileOpen}>
+    <aside ref={sidebar} id="application-sidebar" aria-label="Application sidebar" role={!desktop && mobileOpen ? "dialog" : undefined} aria-modal={!desktop && mobileOpen ? true : undefined} inert={!desktop && !mobileOpen} className={styles.rail} data-mobile-open={mobileOpen}
+      onPointerOver={event => { const target = (event.target as Element).closest<HTMLElement>("a[aria-label],button[aria-label]"); if (target && !target.contains(event.relatedTarget as Node | null)) showRailTooltip(target); }}
+      onPointerOut={event => { const target = (event.target as Element).closest<HTMLElement>("a[aria-label],button[aria-label]"); if (target && !target.contains(event.relatedTarget as Node | null) && document.activeElement !== target) hideRailTooltip(); }}
+      onFocusCapture={event => { const target = (event.target as Element).closest<HTMLElement>("a[aria-label],button[aria-label]"); if (target) showRailTooltip(target); }}
+      onBlurCapture={event => { const target = (event.target as Element).closest<HTMLElement>("a[aria-label],button[aria-label]"); if (target && !target.contains(event.relatedTarget as Node | null) && !target.matches(":hover")) hideRailTooltip(); }}>
       <button ref={menuClose} type="button" aria-label="Close navigation" className={`${styles.iconButton} ${styles.mobileClose}`} onClick={() => setMobileOpen(false)}><IconX className="size-4" /></button>
-      <Link href={home} aria-label="AMAFH CORE sidebar home" className={styles.railBrand} onNavigate={() => setMobileOpen(false)}><Image src="/brand/amafh-core-mark-exact.svg" alt="" width={801} height={908} unoptimized /></Link>
       <ThemeControls className={styles.railTheme} />
       <nav className={styles.mainCapsule} aria-label="Primary">{groups.map(group => {
         const direct = ["Workspace", "Finance"].includes(group.label);
         const MainIcon = group.icon;
         const active = context.group === group.label;
-        return direct ? <Link key={group.label} href={group.items[0].href} onNavigate={() => setMobileOpen(false)} aria-label={group.items[0].label} title={group.items[0].label} aria-current={isActive(group.items[0].href) ? "page" : undefined} className={styles.railButton}><MainIcon className="size-5" /></Link> : <button key={group.label} type="button" aria-label={`${group.label} menu`} title={group.label} aria-haspopup="dialog" aria-expanded={groupName === group.label} aria-controls={groupName === group.label ? "workspace-submenu" : undefined} data-active={active} className={styles.railButton} onClick={() => setGroupName(group.label)}><MainIcon className="size-5" /></button>;
+        return direct ? <Link key={group.label} href={group.items[0].href} onNavigate={() => setMobileOpen(false)} aria-label={group.items[0].label} aria-current={isActive(group.items[0].href) ? "page" : undefined} className={styles.railButton}><MainIcon className="size-5" /></Link> : <button key={group.label} type="button" aria-label={`${group.label} menu`} aria-haspopup="dialog" aria-expanded={groupName === group.label} aria-controls={groupName === group.label ? "workspace-submenu" : undefined} data-active={active} className={styles.railButton} onClick={() => setGroupName(group.label)}><MainIcon className="size-5" /></button>;
       })}</nav>
-      <div className={styles.utilityCapsule}><Link href="/account" aria-label="My profile" title="My profile" className={styles.railButton}><IconUserCircle className="size-5" /></Link><button type="button" aria-label="Sign out" title="Sign out" className={styles.railButton} onClick={() => void onLogout()}><IconLogout className="size-5" /></button></div>
+      <div className={styles.utilityCapsule}><Link href="/account" aria-label="My profile" className={styles.railButton}><IconUserCircle className="size-5" /></Link><button type="button" aria-label="Sign out" className={styles.railButton} onClick={() => void onLogout()}><IconLogout className="size-5" /></button></div>
     </aside>
     <div data-testid="authenticated-content" data-portal-role={user?.userType?.code === "TL" ? "TL" : undefined} className={styles.content} inert={!desktop && mobileOpen}>
       <div data-testid="page-header" className={styles.pageHeader} data-compact={tlDashboard}>
@@ -210,5 +247,6 @@ export function WorkspaceFrame({ children, user, groups, context, pathname, home
       <main ref={workspace} data-amafh-workspace="" data-testid="page-main" className={styles.workspace}>{children}</main>
     </div>
     {popupGroup && <NavigationPopup key={popupGroup.label} group={popupGroup} onClose={closeGroup} onNavigate={() => { setGroupName(null); setMobileOpen(false); }} isActive={isActive} fallbackFocus={menuTrigger} />}
+    {railTooltip && createPortal(<span id="application-sidebar-tooltip" role="tooltip" className={styles.railTooltip} style={{ left: railTooltip.left, top: railTooltip.top }}>{railTooltip.label}</span>, document.body)}
   </div></div>;
 }
