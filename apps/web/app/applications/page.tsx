@@ -19,6 +19,7 @@ import {
   ErrorText,
   Field,
   PageHeader,
+  ResponsiveFilterPanel,
   SearchActionBar,
   Select,
   TableHead,
@@ -217,6 +218,13 @@ function ApplicationsPageInner() {
           {message}
         </p>
       ) : null}
+      <ResponsiveFilterPanel activeFilters={[
+        applied.bank_id ? { label: "Bank", value: banks.find((item) => item.id === applied.bank_id)?.name ?? applied.bank_id } : null,
+        applied.product_id ? { label: "Product", value: products.find((item) => item.id === applied.product_id)?.name ?? applied.product_id } : null,
+        applied.current_stage_id ? { label: "Stage", value: stages.find((item) => item.id === applied.current_stage_id)?.name ?? applied.current_stage_id } : null,
+        applied.terminal_outcome ? { label: "Outcome", value: applied.terminal_outcome } : null,
+        applied.created_from || applied.created_to ? { label: "Created", value: `${applied.created_from || "Any"} – ${applied.created_to || "Any"}` } : null,
+      ].filter((item): item is { label: string; value: string } => Boolean(item))}>
       <form
         data-testid="application-filters"
         className="grid min-w-0 grid-cols-2 gap-x-3 gap-y-3 rounded-xl border border-slate-200 bg-surface p-3 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(12rem,1.35fr)_auto] xl:items-end"
@@ -307,6 +315,7 @@ function ApplicationsPageInner() {
           </Button>
         </div>
       </form>
+      </ResponsiveFilterPanel>
       <ErrorText>{error}</ErrorText>
       <p className="applications-table-scroll-hint">
         Swipe horizontally or use the arrow keys to view every application column.

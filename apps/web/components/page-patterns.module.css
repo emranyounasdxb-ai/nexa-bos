@@ -37,7 +37,7 @@
 .listHeader { padding: 8px 8px 16px; }
 .listHeader h2 { font-size: 17px; font-weight: 500; }
 .listFilters { padding: 16px; border-radius: 14px; background: var(--amafh-subtle); }
-.listFilters > :global([data-amafh-card]), .listFilters > :global([data-amafh-filter-bar]) { padding: 0; border: 0; background: transparent; }
+.listFilters > :global([data-amafh-card]), .listFilters > :global([data-amafh-filter-bar]) { padding: 0; border: 0; background: transparent !important; }
 .listBody { display: flex; flex-direction: column; gap: 12px; min-width: 0; padding-top: 16px; }
 .listBody > :global([data-amafh-card]) { padding: 0; border: 0; }
 .publicFrame { display: grid; grid-template-columns: minmax(230px, .8fr) minmax(0, 1fr); width: 100%; max-width: 960px; gap: 12px; padding: 12px; border-radius: 28px; background: var(--amafh-background); }

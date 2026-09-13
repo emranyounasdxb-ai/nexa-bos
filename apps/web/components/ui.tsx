@@ -125,6 +125,8 @@ export function SearchActionBar({
   );
 }
 
+export { ResponsiveFilterPanel } from "./responsive-filter-panel";
+
 export function Card({ children, className }: { children: ReactNode; className?: string }) {
   return (
     <div
@@ -344,8 +346,8 @@ export function LoadingState({ children = "Loading…" }: { children?: ReactNode
 
 export function EmptyState({ children }: { children: ReactNode }) {
   return (
-    <div data-amafh-empty-state="" className="flex min-h-36 flex-col items-center justify-center gap-3 px-5 py-6 text-center text-sm text-text-secondary">
-      <span className="flex size-11 items-center justify-center rounded-2xl bg-surface-subtle"><IconInfoCircle className="size-5 text-text-secondary" /></span>
+    <div data-amafh-empty-state="" className="flex min-h-20 items-center justify-center gap-3 px-4 py-4 text-left text-sm text-text-secondary">
+      <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-surface-subtle"><IconInfoCircle className="size-4 text-text-secondary" /></span>
       <div className="max-w-md">{children}</div>
     </div>
   );
@@ -373,7 +375,7 @@ export function TableShell({
 }
 
 export function TableHead({ children }: { children: ReactNode }) {
-  return <thead className="bg-surface-subtle text-xs text-text-secondary">{children}</thead>;
+  return <thead className="sticky top-0 z-10 bg-surface-subtle text-xs text-text-secondary">{children}</thead>;
 }
 
 export function Th({ children, className }: { children: ReactNode; className?: string }) {
