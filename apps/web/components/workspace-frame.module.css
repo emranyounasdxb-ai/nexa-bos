@@ -1,11 +1,9 @@
 .canvas { width: 100%; min-height: 100dvh; background: var(--amafh-background); }
-.frame { display: grid; grid-template-columns: 44px minmax(0, 1fr); grid-template-rows: auto 1fr; column-gap: 20px; width: 100%; min-height: 100dvh; background: var(--amafh-background); }
+.frame { display: grid; grid-template-columns: 60px minmax(0, 1fr); grid-template-rows: auto 1fr; column-gap: 20px; width: 100%; min-height: 100dvh; background: var(--amafh-background); }
 .frame :is(a,button):focus-visible { outline: 2px solid var(--amafh-primary); outline-offset: 2px; }
 .topbar { grid-column: 1 / -1; display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 20px; padding: 12px 24px; border-bottom: 1px solid var(--amafh-border); }
-.brand { display: flex; align-items: center; flex-shrink: 0; padding: 5px 12px; border-radius: 28px; background: var(--amafh-surface); }
+.brand { display: flex; align-items: center; flex-shrink: 0; }
 .brand img { width: auto; height: 32px; max-width: 100%; object-fit: contain; }
-.railBrand { display: flex; flex-shrink: 0; justify-content: center; margin-bottom: 10px; }
-.railBrand img { width: 28px; height: auto; object-fit: contain; }
 .topNav { display: flex; min-width: 0; max-width: 650px; gap: 4px; padding: 5px; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: thin; border-radius: 28px; background: var(--amafh-surface); }
 .topNav:empty { display: none; }
 .topNav a { display: flex; flex-shrink: 0; height: 32px; align-items: center; justify-content: center; padding: 0 16px; border-radius: 24px; color: var(--amafh-text-secondary); font-size: 12px; white-space: nowrap; }
@@ -15,11 +13,12 @@
 .iconButton, .railButton { position: relative; display: inline-flex; flex: 0 0 32px; width: 32px; height: 32px; align-items: center; justify-content: center; border-radius: 50%; color: var(--amafh-text-secondary); }
 .iconButton:hover, .railButton:hover { background: var(--amafh-subtle); color: var(--amafh-text); }
 .railButton[aria-current="page"], .railButton[data-active="true"] { background: var(--amafh-action); color: var(--amafh-action-text); }
-.rail { grid-column: 1; grid-row: 2; position: sticky; top: 16px; display: flex; flex-direction: column; align-items: center; align-self: start; width: 44px; height: calc(100dvh - 92px); min-height: 500px; margin-block: 16px; }
+.rail { grid-column: 1; grid-row: 2; position: sticky; top: 16px; display: flex; flex-direction: column; align-items: center; align-self: start; width: 44px; height: calc(100dvh - 92px); min-height: 500px; margin-block: 16px; margin-left: 16px; }
 .railTheme { flex-direction: column; }
 .mainCapsule, .utilityCapsule { display: flex; flex-direction: column; align-items: center; gap: 7px; width: 44px; padding: 6px; border-radius: 30px; background: var(--amafh-surface); }
 .mainCapsule { margin-top: 62px; }
 .utilityCapsule { margin-top: auto; }
+.railTooltip { position: fixed; z-index: 80; max-width: min(220px, calc(100vw - 16px)); padding: 6px 9px; transform: translateY(-50%); border: 1px solid var(--amafh-border-strong); border-radius: 8px; background: var(--amafh-text); color: var(--amafh-background); box-shadow: var(--amafh-shadow-elevated); font-size: 12px; font-weight: 600; line-height: 1.2; pointer-events: none; white-space: nowrap; }
 .unreadBadge { position: absolute; right: -4px; top: -3px; min-width: 15px; padding: 0 3px; border-radius: 10px; background: var(--amafh-brand-fill); color: white; font-size: 9px; line-height: 15px; text-align: center; }
 .accountAnchor { position: relative; }
 .accountTrigger { display: flex; align-items: center; gap: 9px; max-width: 210px; padding: 5px 10px 5px 5px; border-radius: 28px; background: var(--amafh-surface); text-align: left; }
@@ -61,7 +60,7 @@
   .accountTrigger { padding: 3px; background: none; }
   .mobileTrigger, .mobileClose { display: inline-flex; }
   .rail { display: none; }
-  .rail[data-mobile-open="true"] { position: fixed; z-index: 50; top: 20px; bottom: 20px; left: 20px; display: flex; width: 56px; height: auto; min-height: 0; max-height: calc(100dvh - 40px); padding: 6px; overflow-y: auto; border-radius: 30px; background: var(--amafh-background); box-shadow: var(--amafh-shadow-elevated); }
+  .rail[data-mobile-open="true"] { position: fixed; z-index: 50; top: 20px; bottom: 20px; left: 20px; display: flex; width: 56px; height: auto; min-height: 0; max-height: calc(100dvh - 40px); margin: 0; padding: 6px; overflow-y: auto; border-radius: 30px; background: var(--amafh-background); box-shadow: var(--amafh-shadow-elevated); }
   .mainCapsule { margin-top: 24px; }
   .utilityCapsule { margin-top: 24px; }
   .mobileBackdrop { position: fixed; z-index: 40; inset: 0; background: #17101f60; backdrop-filter: blur(3px); }

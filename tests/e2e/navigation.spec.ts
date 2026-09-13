@@ -165,8 +165,14 @@ test("sidebar keyboard focus remains usable across desktop and mobile breakpoint
   const trigger = page.getByRole("button", { name: "Open navigation" });
   await expect(sidebar).toHaveJSProperty("inert", false);
   await expect(sidebar).toHaveCSS("width", "44px");
+  expect((await sidebar.boundingBox())!.x).toBe(16);
+  await dashboard.hover();
+  await expect(page.getByRole("tooltip", { name: "Dashboard", exact: true })).toBeVisible();
+  await expect(page.getByRole("tooltip", { name: "Dashboard", exact: true })).toBeInViewport({ ratio: 1 });
+  await expect(dashboard).toHaveAttribute("aria-describedby", "application-sidebar-tooltip");
   await dashboard.focus();
   await expect(dashboard).toBeFocused();
+  await expect(page.getByRole("tooltip", { name: "Dashboard", exact: true })).toBeVisible();
   await expect(sidebar).toHaveCSS("width", "44px");
   await page.keyboard.press("Escape");
   await expect(dashboard).toBeFocused();
@@ -179,6 +185,8 @@ test("sidebar keyboard focus remains usable across desktop and mobile breakpoint
   await trigger.focus();
   await page.keyboard.press("Enter");
   await expect(sidebar.getByRole("button", { name: "Close navigation" })).toBeFocused();
+  expect((await sidebar.boundingBox())!.x).toBe(20);
+  await expect(page.getByRole("tooltip", { name: "Close navigation", exact: true })).toBeInViewport({ ratio: 1 });
   await page.keyboard.press("Escape");
   await expect(trigger).toBeFocused();
   await expect(sidebar).toHaveJSProperty("inert", true);
@@ -190,6 +198,8 @@ test("sidebar keyboard focus remains usable across desktop and mobile breakpoint
   await expect(dashboard).toBeFocused();
   await page.keyboard.press("Tab");
   await expect(sidebar.getByRole("button", { name: "Operations menu" })).toBeFocused();
+  await expect(page.getByRole("tooltip", { name: "Operations", exact: true })).toBeInViewport({ ratio: 1 });
+  await expect(sidebar.getByRole("button", { name: "Operations menu" })).toHaveAttribute("aria-describedby", "application-sidebar-tooltip");
   await expect(trigger).toBeHidden();
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
 });
@@ -364,7 +374,6 @@ test("approved AMAFH CORE branding is used across public and responsive authenti
   expect(appleHref).toContain("/apple-icon.png");
   for (const assetUrl of [
     "/brand/amafh-core-full-logo-exact.svg",
-    "/brand/amafh-core-mark-exact.svg",
     ...iconHrefs,
     appleHref!,
   ]) {
@@ -388,7 +397,7 @@ test("approved AMAFH CORE branding is used across public and responsive authenti
         const box = await logo.boundingBox();
         expect(box).not.toBeNull();
         expect(box!.width / box!.height).toBeCloseTo(1551 / 479, 1);
-        if (surface === "workspace") await expect(page.getByLabel("Application sidebar").locator('img[src="/brand/amafh-core-mark-exact.svg"]')).toBeVisible();
+        if (surface === "workspace") await expect(page.getByLabel("Application sidebar").locator("img")).toHaveCount(0);
         expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
         await page.screenshot({ path: testInfo.outputPath(`brand-${surface}-${theme}-${viewport.width}.png`), animations: "disabled" });
         if (surface === "workspace" && viewport.width === 390) {
@@ -407,7 +416,9 @@ test("approved AMAFH CORE branding is used across public and responsive authenti
   const sidebar = page.getByLabel("Application sidebar");
   const home = page.getByRole("link", { name: "AMAFH CORE home" });
   await expect(sidebar).toHaveCSS("width", "44px");
-  await expect(sidebar.locator('img[src="/brand/amafh-core-mark-exact.svg"]')).toBeVisible();
+  await expect(sidebar.locator("img")).toHaveCount(0);
+  await expect(home).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+  await expect(home.locator("img:visible")).toHaveCount(1);
   await expect(home.locator('img:visible')).toBeVisible();
 
   await sidebar.hover();
@@ -416,13 +427,13 @@ test("approved AMAFH CORE branding is used across public and responsive authenti
 
   await page.mouse.move(1200, 700);
   await expect(sidebar).toHaveCSS("width", "44px");
-  await expect(sidebar.locator('img[src="/brand/amafh-core-mark-exact.svg"]')).toBeVisible();
+  await expect(sidebar.locator("img")).toHaveCount(0);
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole("button", { name: "Open navigation" }).click();
   await expect(sidebar).toBeVisible();
   await expect(sidebar).toHaveCSS("width", "56px");
-  await expect(sidebar.locator('img[src="/brand/amafh-core-mark-exact.svg"]')).toBeVisible();
+  await expect(sidebar.locator("img")).toHaveCount(0);
   await expect(home.locator('img:visible')).toBeVisible();
   await page.keyboard.press("Escape");
   await verifyLogoThemes("workspace");
