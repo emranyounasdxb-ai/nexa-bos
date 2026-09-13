@@ -39,6 +39,13 @@ MASTERS = {
     "designation": (Designation, DesignationNameHistory, "designation_id"),
 }
 
+# Department audit and assignment rows are immutable historical evidence, not
+# live usage. Current operational relationships remain authoritative through
+# their relational columns on users, business units, teams, and other tables.
+NON_BLOCKING_EVIDENCE_TABLES = {
+    "department": frozenset({"audit_events", "user_assignment_history"}),
+}
+
 
 async def require_owner(session: AsyncSession, actor: User) -> None:
     current = await session.scalar(
@@ -75,12 +82,17 @@ def _reference_queries(kind: str, record_id: UUID):
     """Include both relational references and immutable JSON/string snapshots.
 
     Initial creation/rename audit and the master's own name history are evidence,
-    not usage. Every other exact ID reference fails closed, including past usage.
+    not usage. Per-kind evidence exclusions cover immutable records that remain
+    readable without a live master; every other exact ID reference fails closed.
     Identifiers come exclusively from trusted SQLAlchemy metadata, never request input.
     """
     model, history, _ = MASTERS[kind]
+    evidence_tables = NON_BLOCKING_EVIDENCE_TABLES.get(kind, frozenset())
     for table in sorted(Base.metadata.tables.values(), key=lambda item: item.name):
-        if table.name in {model.__tablename__, history.__tablename__}:
+        if (
+            table.name in {model.__tablename__, history.__tablename__}
+            or table.name in evidence_tables
+        ):
             continue
         predicates = []
         for column in table.c:

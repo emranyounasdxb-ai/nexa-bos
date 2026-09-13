@@ -3,8 +3,16 @@ from uuid import UUID
 import pytest
 from helpers import authenticate, create_activated_user, owner_client, spawned_client, unique_tag
 from httpx import AsyncClient
-from nexa_bos_api.identity.models import OfficeNameHistory, OrganizationMasterDeletion
-from sqlalchemy import select, text
+from nexa_bos_api.identity.enums import AssignmentField
+from nexa_bos_api.identity.models import (
+    AuditEvent,
+    Department,
+    DepartmentNameHistory,
+    OfficeNameHistory,
+    OrganizationMasterDeletion,
+    UserAssignmentHistory,
+)
+from sqlalchemy import String, cast, func, or_, select, text
 from sqlalchemy.exc import DBAPIError
 
 
@@ -317,6 +325,196 @@ async def test_employee_assignment_and_past_assignment_both_block_team_deletion(
         item["type"] == "user_assignment_history" for item in historical.json()["error"]["details"]
     )
     assert (await owner.get(f"{path}/deletion-preview")).status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_department_delete_is_owner_only_and_current_dependencies_still_block(client):
+    owner, _ = await owner_client(client)
+    department = await master_fixture(owner, "departments")
+    employee = await create_activated_user(
+        owner,
+        office_id=department["officeId"],
+        department_id=department["id"],
+    )
+    unit = await owner.post(
+        "/api/v1/business-units",
+        json={
+            "name": "Current department unit",
+            "code": f"DU{unique_tag().upper()}",
+            "office_id": department["officeId"],
+            "department_id": department["id"],
+        },
+    )
+    assert unit.status_code == 200, unit.text
+    team = await owner.post(
+        "/api/v1/teams",
+        json={
+            "name": "Current department team",
+            "code": f"DT{unique_tag().upper()}",
+            "office_id": department["officeId"],
+            "department_id": department["id"],
+            "business_unit_id": unit.json()["id"],
+        },
+    )
+    assert team.status_code == 200, team.text
+    path = f"/api/v1/departments/{department['id']}"
+
+    non_owner = await create_activated_user(owner, user_type_code="GM")
+    async with await spawned_client() as restricted:
+        await authenticate(restricted, non_owner["email"], "UserPass1!")
+        assert (await restricted.get(f"{path}/deletion-preview")).status_code == 403
+        denied = await restricted.request(
+            "DELETE",
+            path,
+            json={"confirmation": "DELETE", "reason": "Not allowed"},
+        )
+        assert denied.status_code == 403
+        assert denied.json()["error"]["code"] == "OWNER_REQUIRED"
+
+    preview = await owner.get(f"{path}/deletion-preview")
+    assert preview.status_code == 200, preview.text
+    dependencies = {item["type"] for item in preview.json()["dependencies"]}
+    assert {"users", "business_units", "teams"} <= dependencies
+    blocked = await owner.request(
+        "DELETE",
+        path,
+        json={"confirmation": "DELETE", "reason": "Current dependencies must block"},
+    )
+    assert blocked.status_code == 409
+    assert blocked.json()["error"]["code"] == "MASTER_IN_USE"
+    assert (await owner.get(f"/api/v1/users/{employee['id']}")).status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_department_history_only_deletion_preserves_readable_evidence(client):
+    owner, _ = await owner_client(client)
+    department = await master_fixture(owner, "departments")
+    renamed = await owner.patch(
+        f"/api/v1/departments/{department['id']}",
+        json={"name": "Historical department name"},
+    )
+    assert renamed.status_code == 200, renamed.text
+    employee = await create_activated_user(
+        owner,
+        office_id=department["officeId"],
+        department_id=department["id"],
+    )
+    cleared = await owner.patch(
+        f"/api/v1/users/{employee['id']}",
+        json={
+            "office_id": None,
+            "department_id": None,
+            "business_unit_id": None,
+            "team_id": None,
+        },
+    )
+    assert cleared.status_code == 200, cleared.text
+    path = f"/api/v1/departments/{department['id']}"
+    preview = await owner.get(f"{path}/deletion-preview")
+    assert preview.status_code == 200, preview.text
+    assert preview.json()["dependencies"] == []
+
+    deleted = await owner.request(
+        "DELETE",
+        path,
+        json={"confirmation": "DELETE", "reason": "No current department usage"},
+    )
+    assert deleted.status_code == 200, deleted.text
+    assert (await owner.get(f"{path}/deletion-preview")).status_code == 404
+
+    from nexa_bos_api.main import app
+
+    async with app.state.session_factory() as session:
+        assert await session.get(Department, UUID(department["id"])) is None
+        histories = list(
+            await session.scalars(
+                select(DepartmentNameHistory).where(
+                    DepartmentNameHistory.original_record_id == UUID(department["id"])
+                )
+            )
+        )
+        assert {row.name for row in histories} == {
+            department["name"],
+            "Historical department name",
+        }
+        assert all(row.department_id is None for row in histories)
+        assignment = await session.scalar(
+            select(UserAssignmentHistory).where(
+                UserAssignmentHistory.user_id == UUID(employee["id"]),
+                UserAssignmentHistory.field == AssignmentField.DEPARTMENT,
+                UserAssignmentHistory.value_id == department["id"],
+            )
+        )
+        assert assignment is not None
+        assert assignment.value_label == "Historical department name"
+        assert assignment.effective_to is not None
+        evidence = await session.scalar(
+            select(OrganizationMasterDeletion).where(
+                OrganizationMasterDeletion.record_id == UUID(department["id"])
+            )
+        )
+        assert evidence is not None
+        assert evidence.snapshot["id"] == department["id"]
+        assert evidence.code == department["code"]
+        assert len(evidence.name_history) == 2
+        audit_count = await session.scalar(
+            select(func.count())
+            .select_from(AuditEvent)
+            .where(
+                or_(
+                    AuditEvent.entity_id == department["id"],
+                    cast(AuditEvent.old_values, String).contains(department["id"]),
+                    cast(AuditEvent.new_values, String).contains(department["id"]),
+                )
+            )
+        )
+        assert audit_count and audit_count >= 3
+
+    readable = await owner.get(f"/api/v1/users/{employee['id']}/history")
+    assert readable.status_code == 200, readable.text
+    assert any(
+        row["field"] == AssignmentField.DEPARTMENT
+        and row["valueId"] == department["id"]
+        and row["valueLabel"] == "Historical department name"
+        for row in readable.json()["assignments"]
+    )
+
+
+@pytest.mark.asyncio
+async def test_department_history_detach_and_archive_roll_back_together(client, monkeypatch):
+    owner, _ = await owner_client(client)
+    department = await master_fixture(owner, "departments")
+    from nexa_bos_api.identity import org_deletion
+    from nexa_bos_api.main import app
+
+    async def fail_audit(*args, **kwargs):
+        raise RuntimeError("Injected department audit failure")
+
+    monkeypatch.setattr(org_deletion, "record_audit", fail_audit)
+    with pytest.raises(RuntimeError, match="Injected department audit failure"):
+        await owner.request(
+            "DELETE",
+            f"/api/v1/departments/{department['id']}",
+            json={"confirmation": "DELETE", "reason": "Rollback department deletion"},
+        )
+
+    async with app.state.session_factory() as session:
+        assert await session.get(Department, UUID(department["id"])) is not None
+        history = await session.scalar(
+            select(DepartmentNameHistory).where(
+                DepartmentNameHistory.original_record_id == UUID(department["id"])
+            )
+        )
+        assert history is not None
+        assert history.department_id == UUID(department["id"])
+        assert (
+            await session.scalar(
+                select(OrganizationMasterDeletion).where(
+                    OrganizationMasterDeletion.record_id == UUID(department["id"])
+                )
+            )
+            is None
+        )
 
 
 @pytest.mark.asyncio
