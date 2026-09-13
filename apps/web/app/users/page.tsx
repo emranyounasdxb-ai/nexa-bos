@@ -21,6 +21,8 @@ import {
   LoadingState,
   PageHeader,
   primaryButtonClass,
+  ResponsiveFilterPanel,
+  SearchActionBar,
   Select,
   StatusBadge,
   TableHead,
@@ -215,25 +217,28 @@ function UsersDirectory() {
       <PageHeader
         title="Users"
         description="Find employees by organization, employment state, account state, or User Type and open the profile actions allowed by your permissions."
-        actions={can("Users.Create") ? (
-          <Link
-            href="/users/new"
-            className={primaryButtonClass}
-            onClick={() => window.dispatchEvent(new Event("nexa:create-user-modal"))}
-          >
-            Create user
-          </Link>
-        ) : null}
       />
 
       <div data-amafh-list-surface="">
-      <FilterBar className="grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-        <Field label="Search users" className="col-span-2 lg:col-span-3 xl:col-span-2">
+      <SearchActionBar className="p-3 sm:p-4" search={
+        <Field label="Search users">
           <div className="relative">
             <span aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-disabled">⌕</span>
             <TextInput aria-label="Search users" className="pl-9" placeholder="Name, email, code, mobile, office or department" value={searchDraft} onChange={(event) => setSearchDraft(event.target.value)} />
           </div>
         </Field>
+      } actions={can("Users.Create") ? (
+        <Link href="/users/new" className={primaryButtonClass} onClick={() => window.dispatchEvent(new Event("nexa:create-user-modal"))}>Create user</Link>
+      ) : null} />
+      <ResponsiveFilterPanel activeFilters={[
+        query ? { label: "Search", value: query } : null,
+        employmentStatus ? { label: "Employment", value: employmentStatus } : null,
+        accountStatus ? { label: "Account", value: accountStatus } : null,
+        officeId ? { label: "Office", value: options.offices.find((item) => item.id === officeId)?.name ?? officeId } : null,
+        departmentId ? { label: "Department", value: options.departments.find((item) => item.id === departmentId)?.name ?? departmentId } : null,
+        userTypeId ? { label: "User type", value: options.userTypes.find((item) => item.id === userTypeId)?.name ?? userTypeId } : null,
+      ].filter((item): item is { label: string; value: string } => Boolean(item))}>
+      <FilterBar className="grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <Field label="Employment status" className="col-span-2 sm:col-span-1">
           <Select aria-label="Employment status" value={employmentStatus} onChange={(event) => updateUrl({ employmentStatus: event.target.value || null, page: null })}>
             <option value="">All employment states</option>
@@ -268,6 +273,7 @@ function UsersDirectory() {
           <Button type="button" variant="secondary" className="w-full" disabled={!hasFilters} onClick={() => router.push("/users", { scroll: false })}>Clear filters</Button>
         </div>
       </FilterBar>
+      </ResponsiveFilterPanel>
 
       {optionsError ? <ErrorText>{optionsError}</ErrorText> : null}
       {error ? <Card><ErrorText>{error}</ErrorText><Button type="button" variant="secondary" className="mt-3" onClick={() => setRequestVersion((value) => value + 1)}>Retry</Button></Card> : null}

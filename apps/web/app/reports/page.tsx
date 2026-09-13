@@ -384,7 +384,6 @@ function DashboardInner() {
 
   return (
     <section className={`${overview.dashboard} space-y-4`}>
-      <RoleWorkspace />
       <PageHeader
         title="Dashboard"
         description={data && !data.reportingScope ? "Your permitted work areas, personal performance and read-only attendance." : "Review application performance, pipeline movement, target progress, and items that may need attention."}
@@ -740,6 +739,7 @@ function DashboardInner() {
           <PersonalPerformanceAttendance performance={data.personalPerformance} attendance={data.personalAttendance} />
         </div>
       ) : null}
+      <RoleWorkspace />
     </section>
   );
 }

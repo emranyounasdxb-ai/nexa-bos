@@ -278,6 +278,12 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 [data-amafh-list-surface] > [role="alert"] { margin-block: 12px; }
 @media (max-width: 639px) { [data-amafh-list-surface] { padding: 6px; } }
 
+[data-amafh-responsive-filters] { border: 1px solid var(--amafh-border); border-radius: 12px; background: var(--amafh-subtle); }
+[data-amafh-responsive-filters] [data-amafh-filter-bar] { padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+@media (min-width: 640px) {
+  [data-amafh-responsive-filters] [data-amafh-filter-toggle] svg:last-child { display: none; }
+}
+
 /* An empty table message belongs to the visible scroller, not the combined
    width of all columns. Populated rows retain their horizontal scrolling. */
 @media (max-width: 767px) {
@@ -313,6 +319,10 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   box-shadow: none !important;
   scrollbar-width: thin;
 }
+
+[data-amafh-table-shell] thead { box-shadow: inset 0 -1px var(--amafh-border); }
+[data-amafh-table-shell] th { min-width: max-content; font-size: 13px; line-height: 1.25rem; }
+[data-amafh-table-shell] td { font-size: 14px; }
 
 [data-amafh-workspace] [role="tablist"] > div {
   gap: 4px !important;

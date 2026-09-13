@@ -115,6 +115,7 @@ test("approved themes persist and popup navigation retains keyboard access", asy
     const dashboard = sidebar.getByRole("link", { name: "Dashboard", exact: true });
     await expect(dashboard).toBeVisible();
     await dashboard.click();
+    await expect(page).toHaveURL(/\/reports(?:\?|$)/);
     await expect(sidebar).toHaveJSProperty("inert", true);
     await expect(page.locator("body")).not.toHaveCSS("overflow", "hidden");
   }

@@ -194,6 +194,7 @@ test("Users.View-only access keeps privileged directory controls unavailable on 
   await signIn(page, viewer.email, "UserPass1!");
   await expect(page).toHaveURL(/\/users/);
   await expect(page.getByRole("link", { name: "Create user" })).toHaveCount(0);
+  await page.getByRole("button", { name: /^Filters/ }).click();
   await expect(page.getByRole("combobox", { name: "User Type" })).toBeDisabled();
   await selectBrandedOption(page.getByRole("combobox", { name: "Employment status" }), "Active");
   await page.getByLabel("Search users").fill(viewer.userCode);

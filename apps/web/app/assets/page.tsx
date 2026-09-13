@@ -29,6 +29,8 @@ import {
   FilterBar,
   LoadingState,
   PageHeader,
+  ResponsiveFilterPanel,
+  SearchActionBar,
   Select,
   TableHead,
   TableShell,
@@ -320,16 +322,12 @@ export default function AssetsPage() {
       <PageHeader
         title="Asset Register"
         description="Track company Assets, current Office custody, and employee assignments."
-        actions={can("Assets.ManageStock") ? (
-          <Button type="button" disabled={!options} onClick={(event) => openDrawer(event.currentTarget)}>
-            Add asset
-          </Button>
-        ) : null}
       />
 
       <ListWorkspace title="Asset records" filters={
-      <FilterBar className="sm:grid-cols-2 lg:grid-cols-[minmax(14rem,1.5fr)_repeat(3,minmax(9rem,1fr))_auto]">
-        <Field label="Search">
+      <>
+      <SearchActionBar search={
+        <Field label="Search assets">
           <TextInput
             aria-label="Search Assets"
             value={q}
@@ -340,6 +338,14 @@ export default function AssetsPage() {
             }}
           />
         </Field>
+      } actions={can("Assets.ManageStock") ? <Button type="button" disabled={!options} onClick={(event) => openDrawer(event.currentTarget)}>Add asset</Button> : null} />
+      <ResponsiveFilterPanel activeFilters={[
+        q ? { label: "Search", value: q } : null,
+        status ? { label: "Status", value: status } : null,
+        office ? { label: "Office", value: options?.offices.find((item) => item.id === office)?.name ?? office } : null,
+        category ? { label: "Category", value: options?.categories.find((item) => item.id === category)?.name ?? category } : null,
+      ].filter((item): item is { label: string; value: string } => Boolean(item))}>
+      <FilterBar className="sm:grid-cols-2 lg:grid-cols-[repeat(3,minmax(9rem,1fr))_auto]">
         <Field label="Status">
           <Select aria-label="Asset status filter" value={status} onChange={(event) => { setStatus(event.target.value); setPage(1); }}>
             <option value="">All statuses</option>
@@ -362,6 +368,8 @@ export default function AssetsPage() {
           <Button type="button" onClick={() => void refresh()}>Apply filters</Button>
         </div>
       </FilterBar>
+      </ResponsiveFilterPanel>
+      </>
       }>
 
       {pageError ? <ErrorText>{pageError}</ErrorText> : null}

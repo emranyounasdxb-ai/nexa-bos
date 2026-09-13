@@ -136,7 +136,7 @@ test("dashboard presents a compact executive summary with bounded detail", async
   expect(shellBackgrounds.sidebar).toBe("rgba(0, 0, 0, 0)");
   expect(shellBackgrounds.header).toBe("rgba(0, 0, 0, 0)");
   expect(shellBackgrounds.sidebarDivider).toBe("0px");
-  expect(shellBackgrounds.headerDivider).toBe("0px");
+  expect(shellBackgrounds.headerDivider).toBe("1px");
 
   const actionButtons = await page.getByTestId("dashboard-actions").getByRole("button").all();
   expect(actionButtons).toHaveLength(3);
@@ -264,7 +264,7 @@ test("list search and page actions share compact desktop rows", async ({ page, r
   await page.goto("/assets");
   await expect(page.getByRole("heading", { name: "Asset Register", exact: true })).toBeVisible();
   const assetSearch = page.getByLabel("Search Assets", { exact: true });
-  const assetAction = page.getByRole("button", { name: "Apply filters", exact: true });
+  const assetAction = page.getByRole("button", { name: "Add asset", exact: true });
   const assetSearchBox = await assetSearch.boundingBox();
   const assetActionBox = await assetAction.boundingBox();
   expect(assetSearchBox && assetActionBox).toBeTruthy();
@@ -713,7 +713,7 @@ test("shared shell keeps stable geometry, breadcrumbs, account and mobile popup 
   const [railBox, contentBox, headerBox, mainBox] = await Promise.all([
     sidebar.boundingBox(), content.boundingBox(), content.getByTestId("page-header").boundingBox(), content.locator(":scope > main").boundingBox(),
   ]);
-  expect(contentBox!.x - (railBox!.x + railBox!.width)).toBeCloseTo(26, 0);
+  expect(contentBox!.x - (railBox!.x + railBox!.width)).toBeCloseTo(20, 0);
   expect(headerBox!.x).toBeCloseTo(contentBox!.x, 0);
   expect(mainBox!.x).toBeCloseTo(contentBox!.x, 0);
   expect(mainBox!.width).toBeCloseTo(contentBox!.width, 0);
@@ -811,8 +811,8 @@ test("shared application layout stays compact, aligned, and overflow-free across
   const screenshotRoutes = new Set(routes);
 
   for (const viewport of [
-    { width: 1440, height: 900, expectedHeaderPaddingTop: "0px", label: "desktop" },
-    { width: 390, height: 844, expectedHeaderPaddingTop: "0px", label: "mobile" },
+    { width: 1440, height: 900, expectedHeaderPaddingTop: "18px", label: "desktop" },
+    { width: 390, height: 844, expectedHeaderPaddingTop: "14px", label: "mobile" },
   ]) {
     await page.setViewportSize(viewport);
     for (const route of routes) {

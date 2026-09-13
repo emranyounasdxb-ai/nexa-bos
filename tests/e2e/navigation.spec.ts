@@ -464,7 +464,7 @@ test("AMAFH CORE semantic colors drive primary actions, focus, navigation, and s
     "--amafh-link": "#6f0d83",
     "--amafh-brand-soft": "#f5edf9",
     "--amafh-background": "#f6f5f8",
-    "--amafh-surface": "#ffffff",
+    "--amafh-surface": "#fff",
     "--amafh-border": "#ece9ef",
     "--amafh-text": "#27242d",
     "--amafh-text-secondary": "#6e6976",

@@ -21,6 +21,7 @@ import {
   ErrorText,
   FilterBar,
   PageHeader,
+  ResponsiveFilterPanel,
   Select,
   TableHead,
   TableShell,
@@ -273,6 +274,11 @@ export default function AttendancePage() {
         }
       />
       <ListWorkspace title="Daily register" filters={
+      <ResponsiveFilterPanel activeFilters={[
+        { label: "Date", value: date },
+        officeId ? { label: "Office", value: offices.find((item) => item.id === officeId)?.name ?? officeId } : null,
+        departmentId ? { label: "Department", value: departments.find((item) => item.id === departmentId)?.name ?? departmentId } : null,
+      ].filter((item): item is { label: string; value: string } => Boolean(item))}>
       <FilterBar className="!grid-cols-2 sm:!grid-cols-3">
         <label className="col-span-2 text-sm sm:col-span-1">
           Date
@@ -309,6 +315,7 @@ export default function AttendancePage() {
           </Select>
         </label>
       </FilterBar>
+      </ResponsiveFilterPanel>
       }>
       {holiday ? <p className="text-sm font-medium text-slate-800">Official Holiday: {holiday.name}</p> : null}
       {weeklyOff ? <p className="text-sm font-medium text-slate-800">Weekly Off</p> : null}
