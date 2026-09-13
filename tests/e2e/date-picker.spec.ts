@@ -218,6 +218,14 @@ test("application filters use the compact responsive grid without resizing contr
 
   for (const layout of layouts) {
     await page.setViewportSize({ width: layout.width, height: layout.height });
+    const toggle = page.getByRole("button", { name: /^Filters/ });
+    if (layout.width < 640) {
+      await expect(toggle).toHaveAttribute("aria-expanded", "false");
+      await expect(filters).toBeHidden();
+      await toggle.click();
+    }
+    await expect(toggle).toHaveAttribute("aria-expanded", "true");
+    await expect(filters).toBeVisible();
     await expect
       .poll(() =>
         filters.evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(" ").length),

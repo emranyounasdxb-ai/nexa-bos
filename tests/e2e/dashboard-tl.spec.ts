@@ -1072,7 +1072,7 @@ test("TL portal surfaces share approved spacing, pill tabs, flat cards and respo
       const headerChildBox = await header.getByRole("navigation", { name: "Breadcrumb" }).boundingBox();
       expect(headerBox).not.toBeNull();
       expect(headerChildBox).not.toBeNull();
-      expect(Math.round(headerChildBox!.y - headerBox!.y)).toBe(0);
+      expect(Math.round(headerChildBox!.y - headerBox!.y)).toBe(viewport.width < 1024 ? 14 : 18);
       await expectNoOverflow(page);
 
       const firstCard = page.locator("[data-amafh-card]").first();

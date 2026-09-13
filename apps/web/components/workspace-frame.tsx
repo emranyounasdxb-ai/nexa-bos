@@ -135,6 +135,23 @@ export function WorkspaceFrame({ children, user, groups, context, pathname, home
   }, []);
   useEffect(() => hideRailTooltip, [hideRailTooltip]);
   useEffect(() => {
+    const dismissOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") hideRailTooltip();
+    };
+    // Dismiss the label without consuming the menu's own keyboard handling.
+    document.addEventListener("keydown", dismissOnEscape, true);
+    window.addEventListener("resize", hideRailTooltip);
+    window.addEventListener("scroll", hideRailTooltip, true);
+    return () => {
+      document.removeEventListener("keydown", dismissOnEscape, true);
+      window.removeEventListener("resize", hideRailTooltip);
+      window.removeEventListener("scroll", hideRailTooltip, true);
+    };
+  }, [hideRailTooltip]);
+  useEffect(() => {
+    hideRailTooltip();
+  }, [desktop, mobileOpen, groupName, pathname, hideRailTooltip]);
+  useEffect(() => {
     if (!navigationModalOpen) return;
     const previous = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -231,6 +248,7 @@ export function WorkspaceFrame({ children, user, groups, context, pathname, home
     </header>
     {mobileOpen && !desktop && <button type="button" tabIndex={-1} aria-label="Close navigation backdrop" className={styles.mobileBackdrop} onClick={() => setMobileOpen(false)} />}
     <aside ref={sidebar} id="application-sidebar" aria-label="Application sidebar" role={!desktop && mobileOpen ? "dialog" : undefined} aria-modal={!desktop && mobileOpen ? true : undefined} inert={!desktop && !mobileOpen} className={styles.rail} data-mobile-open={mobileOpen}
+      onClickCapture={hideRailTooltip}
       onPointerOver={event => { const target = (event.target as Element).closest<HTMLElement>("a[aria-label],button[aria-label]"); if (target && !target.contains(event.relatedTarget as Node | null)) showRailTooltip(target); }}
       onPointerOut={event => { const target = (event.target as Element).closest<HTMLElement>("a[aria-label],button[aria-label]"); if (target && !target.contains(event.relatedTarget as Node | null) && document.activeElement !== target) hideRailTooltip(); }}
       onFocusCapture={event => { const target = (event.target as Element).closest<HTMLElement>("a[aria-label],button[aria-label]"); if (target) showRailTooltip(target); }}

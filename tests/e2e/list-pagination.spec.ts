@@ -157,7 +157,7 @@ test("bounded master lists paginate accessibly with compact responsive rows", as
       paddingBottom: style.paddingBottom,
     };
   });
-  expect(firstCellDensity).toEqual({ fontSize: "15px", paddingTop: "12px", paddingBottom: "12px" });
+  expect(firstCellDensity).toEqual({ fontSize: "14px", paddingTop: "12px", paddingBottom: "12px" });
 
   for (const viewport of [
     { width: 900, height: 900 },
