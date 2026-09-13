@@ -773,11 +773,16 @@ test.describe("shared sidebar role regression matrix", () => {
       const verifyDashboard = async (width: number) => {
         const surface = page.getByTestId(code === "TL" ? "tl-dashboard" : code === "SE" ? "se-dashboard" : code === "COD" ? "cod-dashboard" : "role-workspace");
         await expect(surface).toBeVisible();
+        await expect(page.getByTestId("dashboard-loading-skeleton")).toHaveCount(0);
+        await expect(page.locator("main").getByText(/^Loading(?:\b|…)/)).toHaveCount(0);
         if (!["TL", "SE", "COD"].includes(code)) {
           const workAreas = surface.getByText("Work areas", { exact: true });
           if (await workAreas.count()) await workAreas.click();
           const links = page.getByRole("navigation", { name: "Permitted work areas" });
-          if (await workAreas.count()) await expect(links).toBeInViewport({ ratio: 1 });
+          if (await workAreas.count()) {
+            await page.screenshot({ path: testInfo.outputPath(`work-areas-${code}-${width}.png`), fullPage: false, animations: "disabled" });
+            await expect(links).toBeInViewport({ ratio: 1 });
+          }
           for (const [permission, label] of [["Applications.View", "Applications"], ["Users.View", "Users"], ["Finance.View", "Finance"], ["Assets.View", "Assets"]]) {
             await expect(links.getByRole("link", { name: label, exact: true })).toHaveCount(code === "OWNER" || role.permissions.includes(permission) ? 1 : 0);
           }
@@ -787,8 +792,6 @@ test.describe("shared sidebar role regression matrix", () => {
             await expect(page.getByTestId("dashboard-kpi-grid")).toHaveCount(0);
           }
         }
-        await expect(page.getByTestId("dashboard-loading-skeleton")).toHaveCount(0);
-        await expect(page.locator("main").getByText(/^Loading(?:\b|…)/)).toHaveCount(0);
         await expect.poll(() => page.getByLabel("Application sidebar").evaluate((element, viewportWidth) => {
           const box = element.getBoundingClientRect();
           return viewportWidth === 390
@@ -894,7 +897,7 @@ test.describe("shared sidebar role regression matrix", () => {
         await page.keyboard.press("Tab");
         await expect(accountMenu).toHaveCount(0);
         if (page.viewportSize()!.width < 1024) await expect(trigger).toBeFocused();
-        else await expect(sidebar.getByLabel("AMAFH CORE sidebar home", { exact: true })).toBeFocused();
+        else await expect(sidebar.getByRole("button", { name: "Light theme", exact: true })).toBeFocused();
       };
       await trigger.focus();
       await expectClosed();
