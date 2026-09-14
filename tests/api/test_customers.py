@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 import pytest
-from httpx import AsyncClient
-
 from helpers import owner_client, unique_tag
+from httpx import AsyncClient
 
 
 async def create_individual(
@@ -65,6 +64,45 @@ async def test_company_required_fields_and_search(client: AsyncClient) -> None:
     assert created.status_code == 200, created.text
     found = await authed.get(f"/api/v1/customers?q=TL-{tag}")
     assert found.json()["items"][0]["id"] == created.json()["id"]
+
+
+@pytest.mark.asyncio
+async def test_customer_list_returns_all_saved_directory_fields(client: AsyncClient) -> None:
+    authed, _owner = await owner_client(client)
+    tag = unique_tag().upper()
+    individual = await create_individual(
+        authed,
+        full_name=f"Complete Person {tag}",
+        email=f"complete-{tag.lower()}@example.com",
+        emirates_id=f"784-{tag}",
+        passport=f"P{tag}",
+        employer=f"Employer {tag}",
+    )
+    assert individual.status_code == 200, individual.text
+    company = await authed.post(
+        "/api/v1/customers",
+        json={
+            "customer_type": "company",
+            "company_name": f"Complete Company {tag}",
+            "contact_person": f"Contact {tag}",
+            "mobile": f"+97155{tag[:8]}",
+            "email": f"company-{tag.lower()}@example.com",
+            "trade_license": f"TL-{tag}",
+        },
+    )
+    assert company.status_code == 200, company.text
+
+    individual_list = await authed.get(
+        "/api/v1/customers", params={"q": individual.json()["customerCode"]}
+    )
+    assert individual_list.status_code == 200, individual_list.text
+    assert individual_list.json()["items"] == [individual.json()]
+
+    company_list = await authed.get(
+        "/api/v1/customers", params={"q": company.json()["customerCode"]}
+    )
+    assert company_list.status_code == 200, company_list.text
+    assert company_list.json()["items"] == [company.json()]
 
 
 @pytest.mark.asyncio
@@ -130,9 +168,9 @@ async def test_merge_retires_code_and_is_irreversible(client: AsyncClient) -> No
     assert edit.status_code == 422
     codes = {
         item["customerCode"]
-        for item in (
-            await authed.get("/api/v1/customers", params={"q": source_code})
-        ).json()["items"]
+        for item in (await authed.get("/api/v1/customers", params={"q": source_code})).json()[
+            "items"
+        ]
     }
     assert source_code in codes
     newest = await create_individual(authed)

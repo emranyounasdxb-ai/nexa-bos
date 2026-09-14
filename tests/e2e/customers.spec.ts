@@ -1,6 +1,11 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { preserveBuiltInRoleConfiguration } from "./helpers/role-configuration";
-import { captureViewport, captureViewportPair, captureViewportThemes } from "./helpers/viewport-capture";
+import {
+  captureViewport,
+  captureViewportPair,
+  captureViewportThemes,
+  setVisualTheme,
+} from "./helpers/viewport-capture";
 
 preserveBuiltInRoleConfiguration();
 
@@ -10,7 +15,22 @@ const apiOrigin = `http://127.0.0.1:${process.env.PLAYWRIGHT_API_PORT ?? "8010"}
 const secret = process.env.BOOTSTRAP_SECRET ?? "nexa-test-bootstrap-secret";
 
 type Ref = { id: string; code: string; name: string };
-type Customer = { id: string; customerCode: string; fullName: string; mobile: string; status: string };
+type Customer = {
+  id: string;
+  customerCode: string;
+  customerType: "individual" | "company";
+  customerTypeLabel: string;
+  fullName: string | null;
+  companyName: string | null;
+  contactPerson: string | null;
+  mobile: string;
+  email: string | null;
+  emiratesId: string | null;
+  passport: string | null;
+  employer: string | null;
+  tradeLicense: string | null;
+  status: string;
+};
 
 async function ensureOwner(request: APIRequestContext) {
   const status = await request.get(`${apiOrigin}/api/v1/auth/bootstrap-status`);
@@ -265,6 +285,86 @@ test("customer directory search, status, and pagination persist in the URL", asy
   await page.reload();
   await expect(page.locator("article").first()).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBeTruthy();
+});
+
+test("customer directory shows every saved individual and company field without page overflow", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const headers = await ownerHeaders(request);
+  const suffix = Date.now().toString().slice(-7);
+  const individual = await createCustomer(request, headers, `LIST${suffix}`, {
+    full_name: `Directory Person ${suffix}`,
+    emirates_id: `784-LIST-${suffix}`,
+    passport: `PLIST${suffix}`,
+    employer: `Directory Employer ${suffix}`,
+  });
+  const companyResponse = await request.post(`${apiOrigin}/api/v1/customers`, {
+    headers,
+    data: {
+      customer_type: "company",
+      company_name: `Directory Company ${suffix}`,
+      contact_person: `Directory Contact ${suffix}`,
+      mobile: `+97157${suffix}`,
+      email: `directory-company-${suffix}@example.com`,
+      trade_license: `TL-LIST-${suffix}`,
+    },
+  });
+  expect(companyResponse.ok(), await companyResponse.text()).toBeTruthy();
+  const company = (await companyResponse.json()) as Customer;
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await signIn(page);
+  await setVisualTheme(page, "light");
+  await page.goto(`/customers?q=${individual.customerCode}`);
+  const table = page.getByRole("table");
+  for (const heading of [
+    "Customer Code",
+    "Customer Type",
+    "Full Name / Company Name",
+    "Contact Person",
+    "Mobile",
+    "Email",
+    "Emirates ID",
+    "Passport",
+    "Employer",
+    "Trade License",
+    "Customer Status",
+    "Actions",
+  ]) {
+    await expect(table.getByRole("columnheader", { name: heading })).toBeVisible();
+  }
+  const individualRow = table.getByRole("row").filter({ hasText: individual.customerCode });
+  await expect(individualRow).toContainText(`Directory Person ${suffix}`);
+  await expect(individualRow).toContainText("—");
+  await expect(individualRow).toContainText(`784-LIST-${suffix}`);
+  await expect(individualRow).toContainText(`PLIST${suffix}`);
+  await expect(individualRow).toContainText(`Directory Employer ${suffix}`);
+  await expect(individualRow.getByRole("link", { name: "View", exact: true })).toBeVisible();
+
+  await page.goto(`/customers?q=${company.customerCode}`);
+  const companyRow = page.getByRole("table").getByRole("row").filter({ hasText: company.customerCode });
+  await expect(companyRow).toContainText(`Directory Company ${suffix}`);
+  await expect(companyRow).toContainText(`Directory Contact ${suffix}`);
+  await expect(companyRow).toContainText(`TL-LIST-${suffix}`);
+  await expect(companyRow).toContainText("—");
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await setVisualTheme(page, "dark");
+  await page.reload();
+  const card = page.locator("article").filter({ hasText: company.customerCode });
+  await expect(card).toContainText("Contact Person");
+  await expect(card).toContainText(`Directory Contact ${suffix}`);
+  await expect(card).toContainText("Emirates ID");
+  await expect(card).toContainText("—");
+  await expect(card).toContainText(`TL-LIST-${suffix}`);
+  await expect(card.getByRole("link", { name: "View customer" })).toBeVisible();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+    ),
+  ).toBeTruthy();
 });
 
 test("customer detail preserves history and confirms status and irreversible merge actions", async ({ page, request }, testInfo) => {

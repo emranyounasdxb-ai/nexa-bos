@@ -56,7 +56,13 @@ function statusValue(value: string | null): (typeof CUSTOMER_STATUSES)[number] |
 }
 
 function displayName(customer: CustomerRecord): string {
-  return customer.companyName || customer.fullName || "Unnamed customer";
+  return customer.customerType === "company"
+    ? displayValue(customer.companyName)
+    : displayValue(customer.fullName);
+}
+
+function displayValue(value: string | null | undefined): string {
+  return value?.trim() || "—";
 }
 
 function CustomersDirectory() {
@@ -203,21 +209,23 @@ function CustomersDirectory() {
         {items.length > 0 ? (
           <>
             <div className="hidden sm:block">
-              <TableShell className={loading ? "rounded-none border-0 opacity-70 shadow-none" : "rounded-none border-0 shadow-none"}>
-                <TableHead><tr><Th>Customer</Th><Th>Type</Th><Th>Contact</Th><Th>Status</Th></tr></TableHead>
+              <TableShell className={loading ? "rounded-none border-0 opacity-70 shadow-none [&_table]:min-w-[1800px]" : "rounded-none border-0 shadow-none [&_table]:min-w-[1800px]"}>
+                <TableHead><tr><Th>Customer Code</Th><Th>Customer Type</Th><Th>Full Name / Company Name</Th><Th>Contact Person</Th><Th>Mobile</Th><Th>Email</Th><Th>Emirates ID</Th><Th>Passport</Th><Th>Employer</Th><Th>Trade License</Th><Th>Customer Status</Th><Th>Actions</Th></tr></TableHead>
                 <tbody>
                   {items.map((customer) => (
                     <tr key={customer.id} className="border-t border-brand-border">
-                      <Td>
-                        <Link className="font-medium text-brand-link underline" href={`/customers/${customer.id}`}>{customer.customerCode}</Link>
-                        <span className="block max-w-80 truncate font-medium text-text-primary">{displayName(customer)}</span>
-                      </Td>
-                      <Td>{customer.customerTypeLabel}</Td>
-                      <Td>
-                        <span className="block whitespace-nowrap">{customer.mobile}</span>
-                        <span className="block max-w-72 truncate text-xs text-text-secondary">{customer.email ?? "No email"}</span>
-                      </Td>
-                      <Td><StatusBadge value={customer.status} /></Td>
+                      <Td className="whitespace-nowrap"><Link className="font-medium text-brand-link underline" href={`/customers/${customer.id}`}>{customer.customerCode}</Link></Td>
+                      <Td className="whitespace-nowrap">{customer.customerTypeLabel}</Td>
+                      <Td className="min-w-56 max-w-72 break-words font-medium">{displayName(customer)}</Td>
+                      <Td className="min-w-44 max-w-64 break-words">{displayValue(customer.contactPerson)}</Td>
+                      <Td className="whitespace-nowrap">{displayValue(customer.mobile)}</Td>
+                      <Td className="min-w-52 max-w-72 break-all">{displayValue(customer.email)}</Td>
+                      <Td className="min-w-44 whitespace-nowrap">{displayValue(customer.emiratesId)}</Td>
+                      <Td className="min-w-36 whitespace-nowrap">{displayValue(customer.passport)}</Td>
+                      <Td className="min-w-48 max-w-64 break-words">{displayValue(customer.employer)}</Td>
+                      <Td className="min-w-40 whitespace-nowrap">{displayValue(customer.tradeLicense)}</Td>
+                      <Td className="whitespace-nowrap"><StatusBadge value={customer.status} /></Td>
+                      <Td className="whitespace-nowrap"><Link className="font-medium text-brand-link underline" href={`/customers/${customer.id}`}>View</Link></Td>
                     </tr>
                   ))}
                 </tbody>
@@ -236,9 +244,15 @@ function CustomersDirectory() {
                     <StatusBadge value={customer.status} />
                   </div>
                   <dl className="mt-3 grid min-w-0 gap-2 text-xs">
-                    <div><dt className="text-text-secondary">Mobile</dt><dd className="break-words text-text-primary">{customer.mobile}</dd></div>
-                    <div><dt className="text-text-secondary">Email</dt><dd className="break-words text-text-primary">{customer.email ?? "No email"}</dd></div>
+                    <div><dt className="text-text-secondary">Contact Person</dt><dd className="break-all text-text-primary">{displayValue(customer.contactPerson)}</dd></div>
+                    <div><dt className="text-text-secondary">Mobile</dt><dd className="break-all text-text-primary">{displayValue(customer.mobile)}</dd></div>
+                    <div><dt className="text-text-secondary">Email</dt><dd className="break-all text-text-primary">{displayValue(customer.email)}</dd></div>
+                    <div><dt className="text-text-secondary">Emirates ID</dt><dd className="break-all text-text-primary">{displayValue(customer.emiratesId)}</dd></div>
+                    <div><dt className="text-text-secondary">Passport</dt><dd className="break-all text-text-primary">{displayValue(customer.passport)}</dd></div>
+                    <div><dt className="text-text-secondary">Employer</dt><dd className="break-all text-text-primary">{displayValue(customer.employer)}</dd></div>
+                    <div><dt className="text-text-secondary">Trade License</dt><dd className="break-all text-text-primary">{displayValue(customer.tradeLicense)}</dd></div>
                   </dl>
+                  <Link className="mt-3 inline-flex font-medium text-brand-link underline" href={`/customers/${customer.id}`}>View customer</Link>
                 </article>
               ))}
             </div>
