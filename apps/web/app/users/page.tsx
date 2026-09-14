@@ -323,15 +323,15 @@ function UsersDirectory() {
                 <tbody>
                   {items.map((user) => (
                     <tr key={user.id}>
-                      <Td className="overflow-hidden whitespace-nowrap px-2 py-2.5 [padding-right:4px]"><DirectoryValue value={user.employeeCode} className="w-full" /></Td>
-                      <Td className="overflow-hidden whitespace-nowrap px-2 py-2.5 [padding-left:4px]"><div className="flex w-full min-w-0 items-center gap-2"><span aria-hidden="true" className="inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-brand-soft text-xs font-semibold text-brand-primary">{initials(user.fullName)}</span><Link className="min-w-0 flex-1 truncate font-medium text-brand-link underline" title={user.fullName} href={`/users/${user.id}`}>{user.fullName}</Link></div></Td>
-                      <Td className="overflow-hidden whitespace-nowrap px-2 py-2.5"><DirectoryValue value={user.designation?.name} className="w-full" /></Td>
-                      <Td className="overflow-hidden whitespace-nowrap px-2 py-2.5"><DirectoryValue value={user.mobile} className="w-full" /></Td>
-                      <Td className="overflow-hidden whitespace-nowrap px-2 py-2.5"><DirectoryValue value={user.email} className="w-full" /></Td>
-                      <Td className="overflow-hidden whitespace-nowrap px-2 py-2.5"><DirectoryValue value={user.office?.name} className="w-full" /></Td>
-                      <Td className="overflow-hidden whitespace-nowrap px-2 py-2.5"><DirectoryValue value={user.department?.name} className="w-full" /></Td>
-                      <Td className="overflow-hidden whitespace-nowrap px-2 py-2.5"><DirectoryValue value={user.nationality} className="w-full" /></Td>
-                      <Td className="overflow-hidden whitespace-nowrap px-2 py-2.5"><DirectoryValue value={user.joiningDate} className="w-full" /></Td>
+                      <Td className="overflow-hidden whitespace-nowrap px-2 !py-1.5 [padding-right:4px]"><DirectoryValue value={user.employeeCode} className="w-full" /></Td>
+                      <Td className="overflow-hidden whitespace-nowrap px-2 !py-1.5 [padding-left:4px]"><div className="flex w-full min-w-0 items-center gap-2"><span aria-hidden="true" className="inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-brand-soft text-xs font-semibold text-brand-primary">{initials(user.fullName)}</span><Link className="min-w-0 flex-1 truncate font-medium text-brand-link underline" title={user.fullName} href={`/users/${user.id}`}>{user.fullName}</Link></div></Td>
+                      <Td className="overflow-hidden whitespace-nowrap px-2 !py-1.5"><DirectoryValue value={user.designation?.name} className="w-full" /></Td>
+                      <Td className="overflow-hidden whitespace-nowrap px-2 !py-1.5"><DirectoryValue value={user.mobile} className="w-full" /></Td>
+                      <Td className="overflow-hidden whitespace-nowrap px-2 !py-1.5"><DirectoryValue value={user.email} className="w-full" /></Td>
+                      <Td className="overflow-hidden whitespace-nowrap px-2 !py-1.5"><DirectoryValue value={user.office?.name} className="w-full" /></Td>
+                      <Td className="overflow-hidden whitespace-nowrap px-2 !py-1.5"><DirectoryValue value={user.department?.name} className="w-full" /></Td>
+                      <Td className="overflow-hidden whitespace-nowrap px-2 !py-1.5"><DirectoryValue value={user.nationality} className="w-full" /></Td>
+                      <Td className="overflow-hidden whitespace-nowrap px-2 !py-1.5"><DirectoryValue value={user.joiningDate} className="w-full" /></Td>
                     </tr>
                   ))}
                 </tbody>

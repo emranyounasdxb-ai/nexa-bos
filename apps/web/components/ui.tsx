@@ -371,7 +371,7 @@ export function TableShell({
       data-amafh-table-shell=""
       {...props}
     >
-      <table className="w-full min-w-full text-left text-sm leading-6 [&_tbody_tr]:border-t [&_tbody_tr]:border-brand-border [&_tbody_tr]:transition-colors [&_tbody_tr:hover]:bg-surface-subtle">
+      <table className="w-full min-w-full text-left text-sm leading-5 [&_tbody_tr]:border-t [&_tbody_tr]:border-brand-border [&_tbody_tr]:transition-colors [&_tbody_tr:hover]:bg-surface-subtle">
         {children}
       </table>
     </div>
@@ -383,11 +383,11 @@ export function TableHead({ children }: { children: ReactNode }) {
 }
 
 export function Th({ children, className }: { children: ReactNode; className?: string }) {
-  return <th className={cx("whitespace-nowrap px-4 py-3 font-semibold", className)}>{children}</th>;
+  return <th className={cx("whitespace-nowrap px-4 py-2.5 font-semibold leading-5", className)}>{children}</th>;
 }
 
 export function Td({ children, className }: { children: ReactNode; className?: string }) {
-  return <td className={cx("px-4 py-3 align-middle text-text-primary", className)}>{children}</td>;
+  return <td className={cx("px-4 py-2 align-middle leading-5 text-text-primary", className)}>{children}</td>;
 }
 
 export function DialogPanel({

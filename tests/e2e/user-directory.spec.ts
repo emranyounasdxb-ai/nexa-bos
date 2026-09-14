@@ -1,7 +1,7 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 
 import { selectBrandedOption } from "./helpers/select";
-import { captureViewportPair } from "./helpers/viewport-capture";
+import { captureViewportPair, setVisualTheme } from "./helpers/viewport-capture";
 
 const apiOrigin = `http://127.0.0.1:${process.env.PLAYWRIGHT_API_PORT ?? "8010"}`;
 const secret = process.env.BOOTSTRAP_SECRET ?? "nexa-test-bootstrap-secret";
@@ -149,7 +149,17 @@ test("User Directory filters and pagination persist in the URL across refresh an
   ]);
   await expect(topbar).toHaveCSS("position", "sticky");
   await expect(topbar).toHaveCSS("top", "0px");
-  expect(await topbar.evaluate((element) => getComputedStyle(element).backgroundColor)).not.toBe("rgba(0, 0, 0, 0)");
+  for (const theme of ["light", "dark"] as const) {
+    await setVisualTheme(page, theme);
+    await expect(topNavigation).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+    await expect(topNavigation).toHaveCSS("border-top-width", "0px");
+    await expect(topNavigation).toHaveCSS("border-radius", "0px");
+    await expect(topNavigation).toHaveCSS("box-shadow", "none");
+    await expect(topNavigation.getByRole("link", { name: "HR Dashboard", exact: true })).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+    expect(await topNavigation.getByRole("link", { name: "Users", exact: true }).evaluate((element) => getComputedStyle(element).backgroundColor)).not.toBe("rgba(0, 0, 0, 0)");
+    expect(await topbar.evaluate((element) => getComputedStyle(element).backgroundColor)).not.toBe("rgba(0, 0, 0, 0)");
+  }
+  await setVisualTheme(page, "light");
   for (const width of [1440, 1280, 1024]) {
     await page.setViewportSize({ width, height: 900 });
     expect(await topNavigation.evaluate((element) => ({
@@ -221,6 +231,16 @@ test("User Directory filters and pagination persist in the URL across refresh an
   await expect(targetRow.getByTitle(target.fullName)).toBeVisible();
   await expect(targetRow.getByTitle(target.email)).toBeVisible();
   expect(await targetRow.getByRole("cell").evaluateAll((cells) => cells.every((cell) => getComputedStyle(cell).whiteSpace === "nowrap"))).toBeTruthy();
+  expect(await targetRow.getByRole("cell").first().evaluate((cell) => {
+    const style = getComputedStyle(cell);
+    return {
+      lineHeight: style.lineHeight,
+      paddingBottom: style.paddingBottom,
+      paddingTop: style.paddingTop,
+      verticalAlign: style.verticalAlign,
+    };
+  })).toEqual({ lineHeight: "20px", paddingBottom: "6px", paddingTop: "6px", verticalAlign: "middle" });
+  expect((await targetRow.boundingBox())!.height).toBeLessThanOrEqual(45);
   expect(await directoryTable.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBeTruthy();
   expect(await targetRow.getByRole("link", { name: target.fullName }).evaluate((element) => element.scrollWidth <= element.clientWidth)).toBeTruthy();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBeTruthy();
@@ -264,6 +284,20 @@ test("User Directory filters and pagination persist in the URL across refresh an
   await page.reload();
   await expect(page.locator("article").first()).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBeTruthy();
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/user-types");
+  const sharedTableCell = page.locator("[data-amafh-table-shell] tbody td").first();
+  await expect(sharedTableCell).toBeVisible();
+  expect(await sharedTableCell.evaluate((cell) => {
+    const style = getComputedStyle(cell);
+    return {
+      lineHeight: style.lineHeight,
+      paddingBottom: style.paddingBottom,
+      paddingTop: style.paddingTop,
+      verticalAlign: style.verticalAlign,
+    };
+  })).toEqual({ lineHeight: "20px", paddingBottom: "8px", paddingTop: "8px", verticalAlign: "middle" });
 });
 
 test("Users.View-only access keeps privileged directory controls unavailable on mobile", async ({ page, request }) => {
