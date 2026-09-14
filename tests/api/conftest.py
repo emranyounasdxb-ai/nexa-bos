@@ -84,7 +84,7 @@ async def isolate_finance_period_chains(
     yield
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def client() -> AsyncGenerator[AsyncClient]:
     async with app.router.lifespan_context(app):
         transport = ASGITransport(app=app)
