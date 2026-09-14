@@ -5,9 +5,10 @@ import {
   type CDPSession,
   type Locator,
   type Page,
+  type TestInfo,
 } from "@playwright/test";
 import { selectBrandedOption } from "./helpers/select";
-import { captureViewportThemes } from "./helpers/viewport-capture";
+import { captureViewportPair, captureViewportThemes } from "./helpers/viewport-capture";
 
 const apiOrigin = `http://127.0.0.1:${process.env.PLAYWRIGHT_API_PORT ?? "8010"}`;
 const secret = process.env.BOOTSTRAP_SECRET ?? "nexa-test-bootstrap-secret";
@@ -97,6 +98,7 @@ async function uploadCatalogueImage(
   row: Locator,
   name: string,
   file: { buffer: Buffer; extension: "png" | "webp"; mimeType: "image/png" | "image/webp"; ratio: number },
+  testInfo?: TestInfo,
 ) {
   await row.getByRole("button", { name: `Manage image for ${name}` }).click();
   const dialog = page.getByRole("dialog", { name: "Add image" });
@@ -106,6 +108,11 @@ async function uploadCatalogueImage(
     mimeType: file.mimeType,
     buffer: file.buffer,
   });
+  const picker = dialog.locator('[data-file-picker]');
+  await expect(picker.getByText(`transparent-catalogue.${file.extension}`, { exact: true })).toBeVisible();
+  await expect(picker.getByRole("img", { name: `Selected preview for transparent-catalogue.${file.extension}` })).toBeVisible();
+  await expect(picker.getByRole("button", { name: "Change", exact: true })).toBeVisible();
+  if (testInfo) await captureViewportPair(page, testInfo, "catalog-image-picker", dialog);
   await dialog.getByRole("button", { name: "Upload image" }).click();
   await expect(dialog).toHaveCount(0);
   await expectUnframedCatalogueImage(row.getByRole("img", { name: `${name} image` }), file.ratio);
@@ -191,7 +198,7 @@ test("catalog uses task tabs, modal editing, explicit rule saves, and mapping va
     extension: "png",
     mimeType: "image/png",
     ratio: 2,
-  });
+  }, testInfo);
 
   await bankRow.getByRole("button", { name: `Deactivate ${renamedBank}` }).click();
   const deactivateDialog = page.getByRole("dialog", { name: "Confirm deactivation" });

@@ -3,9 +3,10 @@
 import { RecordFrame } from "@/components/page-patterns";
 
 import { useState } from "react";
+import { FilePicker } from "@/components/file-picker";
 import { HrWorkflowSummary } from "@/components/hr-workflow-summary";
 
-import { Button, ButtonLink, Card, PageHeader, TextInput, focusRing } from "@/components/ui";
+import { Button, ButtonLink, Card, ErrorText, PageHeader, TextInput } from "@/components/ui";
 import { apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { getBrowserApiUrl } from "@/lib/env";
@@ -14,6 +15,9 @@ export default function AccountPage() {
   const { user, setUser } = useAuth();
   const [mobile, setMobile] = useState(user?.mobile ?? "");
   const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoSaving, setPhotoSaving] = useState(false);
   const api = getBrowserApiUrl();
 
   if (!user) {
@@ -30,19 +34,26 @@ export default function AccountPage() {
     setMessage("Mobile number updated");
   }
 
-  async function uploadPhoto(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    if (!file) {
-      return;
-    }
+  async function uploadPhoto() {
+    if (!photoFile) return;
+    setPhotoSaving(true);
+    setError("");
+    setMessage("");
     const body = new FormData();
-    body.append("file", file);
-    const updated = await apiRequest<typeof user>("/api/v1/users/me/photo", api, {
-      method: "POST",
-      body,
-    });
-    setUser(updated);
-    setMessage("Photo updated");
+    body.append("file", photoFile);
+    try {
+      const updated = await apiRequest<typeof user>("/api/v1/users/me/photo", api, {
+        method: "POST",
+        body,
+      });
+      setUser(updated);
+      setPhotoFile(null);
+      setMessage("Photo updated");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Photo could not be updated");
+    } finally {
+      setPhotoSaving(false);
+    }
   }
 
   return (
@@ -70,16 +81,30 @@ export default function AccountPage() {
           <Button type="submit">Save mobile</Button>
         </form>
       </Card>
-      <label className="block rounded-xl border border-slate-200 bg-surface p-5 text-sm">
-        Profile photo
-        <input
-          className={`mt-2 block max-w-full ${focusRing}`}
-          type="file"
-          accept="image/png,image/jpeg,image/webp"
-          onChange={(event) => void uploadPhoto(event)}
+      <Card className="space-y-3">
+        <FilePicker
+          id="profile-photo"
+          label="Profile photo"
+          chooseLabel="Choose image"
+          accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"
+          guidance="PNG, JPEG, or WebP. Maximum 2 MB."
+          file={photoFile}
+          imagePreview
+          busy={photoSaving}
+          onChange={(file) => {
+            setPhotoFile(file);
+            setError("");
+            setMessage("");
+          }}
         />
-      </label>
-      {message ? <p className="text-sm text-slate-700">{message}</p> : null}
+        <div className="flex justify-end">
+          <Button type="button" disabled={!photoFile || photoSaving} onClick={() => void uploadPhoto()}>
+            {photoSaving ? "Uploading…" : "Upload photo"}
+          </Button>
+        </div>
+      </Card>
+      {error ? <ErrorText>{error}</ErrorText> : null}
+      {message ? <p role="status" className="text-sm text-success">{message}</p> : null}
       </RecordFrame>
       <HrWorkflowSummary personal />
     </section>
