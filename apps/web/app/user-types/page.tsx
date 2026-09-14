@@ -15,7 +15,7 @@ import type { UserTypeSummary } from "@/lib/types";
 export default function UserTypesPage() {
   const { can } = useAuth();
   const [items, setItems] = useState<UserTypeSummary[]>([]);
-  const [form, setForm] = useState({ name: "", code: "", description: "" });
+  const [form, setForm] = useState({ name: "", description: "" });
   const [canManage, setCanManage] = useState(false);
   const [error, setError] = useState("");
   const api = getBrowserApiUrl();
@@ -37,7 +37,7 @@ export default function UserTypesPage() {
         method: "POST",
         body: JSON.stringify({ ...form, can_be_reporting_manager: canManage }),
       });
-      setForm({ name: "", code: "", description: "" });
+      setForm({ name: "", description: "" });
       setCanManage(false);
       await refresh();
     } catch (err) {
@@ -60,12 +60,6 @@ export default function UserTypesPage() {
             onChange={(event) => setForm({ ...form, name: event.target.value })}
             required
           /></label>
-          <label className="min-w-0 text-sm">Unique code <span aria-hidden="true">*</span><TextInput
-            placeholder="Unique code"
-            value={form.code}
-            onChange={(event) => setForm({ ...form, code: event.target.value })}
-            required
-          /></label>
           <label className="min-w-0 text-sm">Description<TextInput
             placeholder="Description"
             value={form.description}
@@ -85,7 +79,6 @@ export default function UserTypesPage() {
       <TableShell className="rounded-b-none">
         <TableHead>
           <tr>
-            <Th>Code</Th>
             <Th>Name</Th>
             <Th>Status</Th>
             <Th>User directory scope</Th>
@@ -96,12 +89,7 @@ export default function UserTypesPage() {
         <tbody>
           {pagination.pagedItems.map((item) => (
             <tr key={item.id}>
-              <Td>
-                <Link className="font-medium" href={`/user-types/${item.id}`}>
-                  {item.code}
-                </Link>
-              </Td>
-              <Td>{item.name}</Td>
+              <Td><Link className="font-medium" href={`/user-types/${item.id}`}>{item.name}</Link></Td>
               <Td><StatusBadge value={item.status} /></Td>
               <Td>{item.visibilityScope ?? "none"}</Td>
               <Td>{item.customerVisibilityScope ?? "none"}</Td>

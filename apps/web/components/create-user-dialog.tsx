@@ -39,7 +39,7 @@ export function CreateUserDialog() {
     let cancelled = false;
     reservation.current ??= apiRequest<{ userCode: string }>("/api/v1/users/code-reservations", getBrowserApiUrl(), { method: "POST" });
     void reservation.current.then((data) => { if (!cancelled) setUserCode(data.userCode); })
-      .catch((caught) => { if (!cancelled) setError(caught instanceof Error ? caught.message : "User Code could not be reserved."); });
+      .catch((caught) => { if (!cancelled) setError(caught instanceof Error ? caught.message : "The user record could not be prepared."); });
     return () => { cancelled = true; };
   }, [visible]);
 
@@ -81,7 +81,7 @@ export function CreateUserDialog() {
     setErrors(invalid); setError("");
     const first = FIELDS.find((field) => invalid[field.name]);
     if (first) { document.getElementById(first.name.replaceAll("_", "-"))?.focus(); return; }
-    if (!userCode) { setError("Wait for a server-issued User Code before creating the user."); return; }
+    if (!userCode) { setError("Wait for the user record to finish preparing before creating it."); return; }
     pending.current = true; setSubmitting(true);
     try {
       const created = await apiRequest<{ id: string }>("/api/v1/users", getBrowserApiUrl(), {
@@ -115,7 +115,6 @@ export function CreateUserDialog() {
                 {errors[name] ? <p id={`${id}-error`} role="alert" className="mt-1 text-xs text-danger">{errors[name]}</p> : null}
               </div>;
             })}
-            <div className="min-w-0 rounded-xl bg-surface-subtle p-3 sm:col-span-2"><label htmlFor="user-code" className="block text-sm font-medium">User Code</label><TextInput id="user-code" readOnly value={userCode} placeholder="Reserving…" aria-busy={!userCode} /></div>
           </div>
           {error ? <div className="px-4 pb-3"><ErrorText>{error}</ErrorText></div> : null}
           <footer className="flex shrink-0 justify-end gap-2 border-t border-brand-border px-4 py-3">

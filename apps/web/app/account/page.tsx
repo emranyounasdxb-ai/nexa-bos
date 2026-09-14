@@ -55,7 +55,7 @@ export default function AccountPage() {
       <RecordFrame summary={
       <Card className="text-sm space-y-2">
         <p>
-          <strong>{user.fullName}</strong> · {user.userCode}
+          <strong>{user.fullName}</strong>
         </p>
         <p>{user.email}</p>
         <p>{user.userType?.name ?? "No user type"}</p>

@@ -223,7 +223,7 @@ export function TargetProgress({ summary }: { summary: NonNullable<DashboardPayl
         return (
           <div key={item.id} className="min-w-0 rounded-lg border border-slate-200 bg-slate-50/50 p-3">
             <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0"><div className="flex items-center gap-2"><Badge>{item.level}</Badge><p className="truncate text-sm font-semibold text-slate-900">{item.entityName ?? "Company"}</p></div><p className="mt-1 truncate text-xs text-slate-500">{[item.bankCode, item.productCode].filter(Boolean).join(" / ") || "All products"}</p></div>
+              <div className="min-w-0"><div className="flex items-center gap-2"><Badge>{item.level}</Badge><p className="truncate text-sm font-semibold text-slate-900">{item.entityName ?? "Company"}</p></div><p className="mt-1 truncate text-xs text-slate-500">{[item.bankName, item.productName].filter(Boolean).join(" / ") || "All products"}</p></div>
               <span className="shrink-0 text-sm font-semibold tabular-nums text-brand-primary">{formatPct(achievement)}</span>
             </div>
             <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-200"><div className="h-full rounded-full bg-blue-600" style={{ width: `${bounded}%` }} /></div>

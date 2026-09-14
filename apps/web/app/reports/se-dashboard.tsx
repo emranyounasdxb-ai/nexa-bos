@@ -133,7 +133,7 @@ export function SeDashboard({ data, period }: { data: SeDashboardWorkspace; peri
         </Card>
         <Card className="min-w-0 p-4">
           <SectionHeader title="My Product Mix" description="Your Applications by configured Product." />
-          <div className="mt-3"><DashboardBreakdown rows={data.products.map((product) => ({ id: product.code, label: `${product.code} · ${product.name}`, value: product.count }))} description="Own Applications split by configured Product." testId="se-product-chart" /></div>
+          <div className="mt-3"><DashboardBreakdown rows={data.products.map((product) => ({ id: product.code, label: product.name, value: product.count }))} description="Own Applications split by configured Product." testId="se-product-chart" /></div>
         </Card>
         <Card className="min-w-0 p-4" >
           <SectionHeader title="My Target Progress" description="Assigned, achieved and remaining target for the selected period." actions={<Badge>{formatPct(target.achievementPct)}</Badge>} />

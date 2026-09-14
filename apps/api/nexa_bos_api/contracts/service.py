@@ -31,6 +31,7 @@ from nexa_bos_api.contracts.schemas import (
 )
 from nexa_bos_api.core.config import get_settings
 from nexa_bos_api.core.exceptions import AppError
+from nexa_bos_api.core.master_codes import generate_master_code
 from nexa_bos_api.employee_profiles.service import validate_document_upload
 from nexa_bos_api.identity.access import has_permission, is_owner
 from nexa_bos_api.identity.audit import record_audit
@@ -88,7 +89,17 @@ async def create_type(
 ) -> dict[str, object]:
     row = ContractType(
         id=new_uuid(),
-        code=payload.code.strip().upper(),
+        code=(
+            payload.code.strip().upper()
+            if payload.code
+            else await generate_master_code(
+                session,
+                ContractType,
+                name=payload.name,
+                fallback="contract_type",
+                max_length=40,
+            )
+        ),
         name=payload.name.strip(),
         description=payload.description,
         is_active=True,

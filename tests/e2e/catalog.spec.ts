@@ -150,8 +150,8 @@ test("catalog uses task tabs, modal editing, explicit rule saves, and mapping va
   test.setTimeout(180_000);
   await signIn(page, request);
   const suffix = Date.now().toString(36).slice(-7).toUpperCase();
-  const bankCode = `B${suffix}`;
-  const productCode = `P${suffix}`;
+  let bankCode = "";
+  let productCode = "";
   const bankName = `Playwright Bank ${suffix}`;
   const renamedBank = `${bankName} Updated`;
   const productName = `Playwright Product ${suffix}`;
@@ -168,20 +168,21 @@ test("catalog uses task tabs, modal editing, explicit rule saves, and mapping va
   await page.getByRole("button", { name: "Add bank", exact: true }).click();
   const addBankDialog = page.getByRole("dialog", { name: "Add bank" });
   await expect(addBankDialog).toBeVisible();
-  await expect(addBankDialog.getByText("cannot be changed after creation", { exact: false })).toBeVisible();
+  await expect(addBankDialog.getByLabel("Bank code")).toHaveCount(0);
   await addBankDialog.getByLabel("Bank name").fill(bankName);
-  await addBankDialog.getByLabel("Bank code").fill(bankCode);
+  const bankCreateResponse = page.waitForResponse((response) => response.url().endsWith("/api/v1/banks") && response.request().method() === "POST");
   await addBankDialog.getByRole("button", { name: "Add bank", exact: true }).click();
+  bankCode = ((await (await bankCreateResponse).json()) as { code: string }).code;
   await expect(page.getByRole("status")).toContainText("Bank created successfully");
 
   await page.getByLabel("Search banks").fill(bankCode);
-  const bankRow = page.getByRole("row").filter({ hasText: bankCode });
+  const bankRow = page.getByRole("row").filter({ hasText: bankName });
   await expect(bankRow).toContainText(bankName);
+  await expect(bankRow).not.toContainText(bankCode);
   await expect(bankRow.getByRole("textbox")).toHaveCount(0);
   await bankRow.getByRole("button", { name: `Edit ${bankName}` }).click();
   const editBankDialog = page.getByRole("dialog", { name: "Edit bank" });
-  await expect(editBankDialog.getByLabel("Bank code")).toBeDisabled();
-  await expect(editBankDialog.getByLabel("Bank code")).toHaveValue(bankCode);
+  await expect(editBankDialog.getByLabel("Bank code")).toHaveCount(0);
   await editBankDialog.getByLabel("Bank name").fill(renamedBank);
   await editBankDialog.getByRole("button", { name: "Save changes" }).click();
   await expect(bankRow).toContainText(renamedBank);
@@ -210,11 +211,13 @@ test("catalog uses task tabs, modal editing, explicit rule saves, and mapping va
   await page.getByRole("button", { name: "Add product", exact: true }).click();
   const addProductDialog = page.getByRole("dialog", { name: "Add product" });
   await addProductDialog.getByLabel("Product name").fill(productName);
-  await addProductDialog.getByLabel("Product code").fill(productCode);
+  const productCreateResponse = page.waitForResponse((response) => response.url().endsWith("/api/v1/products") && response.request().method() === "POST");
   await addProductDialog.getByRole("button", { name: "Add product", exact: true }).click();
+  productCode = ((await (await productCreateResponse).json()) as { code: string }).code;
   await page.getByLabel("Search products").fill(productCode);
-  const productRow = page.getByRole("row").filter({ hasText: productCode });
+  const productRow = page.getByRole("row").filter({ hasText: productName });
   await expect(productRow).toContainText(productName);
+  await expect(productRow).not.toContainText(productCode);
   await uploadCatalogueImage(page, productRow, productName, {
     buffer: transparentPng,
     extension: "png",
@@ -224,12 +227,12 @@ test("catalog uses task tabs, modal editing, explicit rule saves, and mapping va
 
   await tabs.getByRole("tab", { name: "Product Variants", exact: true }).click();
   await page.getByLabel("Variant bank").click();
-  await expect(page.getByRole("listbox").getByRole("option", { name: `${renamedBank} (${bankCode})` })).toHaveCount(0);
+  await expect(page.getByRole("listbox").getByRole("option", { name: renamedBank, exact: true })).toHaveCount(0);
   await page.keyboard.press("Escape");
 
   await tabs.getByRole("tab", { name: "Amount & Target Rules", exact: true }).click();
   await expect(page).toHaveURL(/tab=rules/);
-  await selectBrandedOption(page.getByLabel("Rule product"), { label: `${productName} (${productCode})` });
+  await selectBrandedOption(page.getByLabel("Rule product"), { label: productName });
   const requestedRule = page.getByLabel("Requested amount required");
   await expect(requestedRule).not.toBeChecked();
   await page.getByRole("button", { name: "About Requested amount rule" }).focus();
@@ -247,12 +250,12 @@ test("catalog uses task tabs, modal editing, explicit rule saves, and mapping va
 
   await tabs.getByRole("tab", { name: "Bank–Product Mapping", exact: true }).click();
   await expect(page).toHaveURL(/tab=mappings/);
-  await selectBrandedOption(page.getByLabel("Mapping bank"), { label: `${renamedBank} (${bankCode})` });
-  await selectBrandedOption(page.getByLabel("Mapping product"), { label: `${productName} (${productCode})` });
+  await selectBrandedOption(page.getByLabel("Mapping bank"), { label: renamedBank });
+  await selectBrandedOption(page.getByLabel("Mapping product"), { label: productName });
   await page.getByRole("button", { name: "Add mapping", exact: true }).click();
   await expect(page.getByRole("status")).toContainText("mapping added successfully");
   await page.getByLabel("Search mappings").fill(bankCode);
-  const mappingRow = page.getByRole("row").filter({ hasText: `${bankCode}` }).filter({ hasText: productCode });
+  const mappingRow = page.getByRole("row").filter({ hasText: renamedBank }).filter({ hasText: productName });
   await expect(mappingRow).toContainText(renamedBank);
   await expect(mappingRow).toContainText(productName);
 
@@ -280,34 +283,38 @@ test("catalog uses task tabs, modal editing, explicit rule saves, and mapping va
   const otherBank = availableBanks.find((item) => item.code === "DIB");
   expect(otherBank).toBeTruthy();
   await selectBrandedOption(page.getByLabel("Variant bank"), {
-    label: `${otherBank!.name} (${otherBank!.code})`,
+    label: otherBank!.name,
   });
   await page.getByLabel("Variant product category").click();
-  await expect(page.getByRole("listbox").getByRole("option", { name: `${productName} (${productCode})` })).toHaveCount(0);
+  await expect(page.getByRole("listbox").getByRole("option", { name: productName, exact: true })).toHaveCount(0);
   await page.keyboard.press("Escape");
-  await selectBrandedOption(page.getByLabel("Variant bank"), { label: `${renamedBank} (${bankCode})` });
-  await selectBrandedOption(page.getByLabel("Variant product category"), { label: `${productName} (${productCode})` });
+  await selectBrandedOption(page.getByLabel("Variant bank"), { label: renamedBank });
+  await selectBrandedOption(page.getByLabel("Variant product category"), { label: productName });
   await page.getByRole("button", { name: "Add Product Variant", exact: true }).click();
   const variantName = `Cashback Variant ${suffix}`;
   const renamedVariant = `${variantName} Updated`;
-  const variantCode = `V${suffix}`;
+  let variantCode = "";
   const addVariantDialog = page.getByRole("dialog", { name: "Add Product Variant" });
-  await expect(addVariantDialog).toContainText(`${renamedBank} (${bankCode})`);
-  await expect(addVariantDialog).toContainText(`${productName} (${productCode})`);
+  await expect(addVariantDialog).toContainText(renamedBank);
+  await expect(addVariantDialog).not.toContainText(bankCode);
+  await expect(addVariantDialog).toContainText(productName);
+  await expect(addVariantDialog).not.toContainText(productCode);
   await addVariantDialog.getByLabel("Variant name").fill(variantName);
-  await addVariantDialog.getByLabel("Variant code").fill(variantCode);
   await addVariantDialog.getByLabel("Variant description").fill("Real mapped Product Variant");
+  const variantCreateResponse = page.waitForResponse((response) => response.url().endsWith("/api/v1/product-variants") && response.request().method() === "POST");
   await addVariantDialog.getByRole("button", { name: "Add Product Variant", exact: true }).click();
+  variantCode = ((await (await variantCreateResponse).json()) as { code: string }).code;
   await expect(page.getByRole("status")).toContainText("Product Variant created successfully");
   await page.getByLabel("Search Product Variants").fill(variantCode);
-  const variantRow = page.getByRole("row").filter({ hasText: variantCode });
+  const variantRow = page.getByRole("row").filter({ hasText: variantName });
   await expect(variantRow).toContainText(variantName);
+  await expect(variantRow).not.toContainText(variantCode);
   await expect(variantRow).toContainText(renamedBank);
   await expect(variantRow).toContainText(productName);
 
   await variantRow.getByRole("button", { name: `Edit ${variantName}` }).click();
   const editVariantDialog = page.getByRole("dialog", { name: "Edit Product Variant" });
-  await expect(editVariantDialog.getByLabel("Variant code")).toBeDisabled();
+  await expect(editVariantDialog.getByLabel("Variant code")).toHaveCount(0);
   await editVariantDialog.getByLabel("Variant name").fill(renamedVariant);
   await editVariantDialog.getByRole("button", { name: "Save changes" }).click();
   await expect(variantRow).toContainText(renamedVariant);
@@ -323,7 +330,7 @@ test("catalog uses task tabs, modal editing, explicit rule saves, and mapping va
   imageTraffic.clear();
   await page.goto("/catalog?tab=mappings");
   await page.getByLabel("Search mappings").fill(bankCode);
-  const coldMappingRow = page.getByRole("row").filter({ hasText: bankCode }).filter({ hasText: productCode });
+  const coldMappingRow = page.getByRole("row").filter({ hasText: renamedBank }).filter({ hasText: productName });
   await expectUnframedCatalogueImage(coldMappingRow.getByRole("img", { name: `${renamedBank} image` }), 2);
   await expectUnframedCatalogueImage(coldMappingRow.getByRole("img", { name: `${productName} image` }), 2);
   const coldImages = imageTraffic.records();
@@ -337,7 +344,7 @@ test("catalog uses task tabs, modal editing, explicit rule saves, and mapping va
   imageTraffic.clear();
   await page.reload();
   await page.getByLabel("Search mappings").fill(bankCode);
-  const warmMappingRow = page.getByRole("row").filter({ hasText: bankCode }).filter({ hasText: productCode });
+  const warmMappingRow = page.getByRole("row").filter({ hasText: renamedBank }).filter({ hasText: productName });
   await expectUnframedCatalogueImage(warmMappingRow.getByRole("img", { name: `${renamedBank} image` }), 2);
   await expectUnframedCatalogueImage(warmMappingRow.getByRole("img", { name: `${productName} image` }), 2);
   const warmImages = imageTraffic.records();
@@ -346,7 +353,7 @@ test("catalog uses task tabs, modal editing, explicit rule saves, and mapping va
 
   await page.goto("/catalog?tab=banks");
   await page.getByLabel("Search banks").fill(bankCode);
-  const replacementBankRow = page.getByRole("row").filter({ hasText: bankCode });
+  const replacementBankRow = page.getByRole("row").filter({ hasText: renamedBank });
   const replacementBankImage = replacementBankRow.getByRole("img", { name: `${renamedBank} image` });
   await expectUnframedCatalogueImage(replacementBankImage, 2);
   const previousImageSource = await replacementBankImage.getAttribute("src");
@@ -373,9 +380,9 @@ test("catalog uses task tabs, modal editing, explicit rule saves, and mapping va
   await page.goto("/applications");
   await page.getByRole("button", { name: "Create application" }).click();
   const applicationDialog = page.getByRole("dialog", { name: "Create application" });
-  await selectBrandedOption(applicationDialog.getByLabel("Bank", { exact: true }), { label: `${renamedBank} (${bankCode})` });
-  await selectBrandedOption(applicationDialog.getByLabel("Product", { exact: true }), { label: `${productName} (${productCode})` });
-  await selectBrandedOption(applicationDialog.getByLabel("Product Variant", { exact: true }), { label: `${renamedVariant} (${variantCode})` });
+  await selectBrandedOption(applicationDialog.getByLabel("Bank", { exact: true }), { label: renamedBank });
+  await selectBrandedOption(applicationDialog.getByLabel("Product", { exact: true }), { label: productName });
+  await selectBrandedOption(applicationDialog.getByLabel("Product Variant", { exact: true }), { label: renamedVariant });
   await expectUnframedCatalogueImage(applicationDialog.getByRole("img", { name: `${renamedBank} image` }), 2);
   await expectUnframedCatalogueImage(applicationDialog.getByRole("img", { name: `${productName} image` }), 2);
   await expectUnframedCatalogueImage(applicationDialog.getByRole("img", { name: `${renamedVariant} image` }), 0.6);
@@ -402,42 +409,42 @@ test("catalog uses task tabs, modal editing, explicit rule saves, and mapping va
     await page.goto("/catalog?tab=banks");
     await page.getByLabel("Search banks").fill(bankCode);
     await expectUnframedCatalogueImage(
-      page.getByRole("row").filter({ hasText: bankCode }).getByRole("img", { name: `${renamedBank} image` }),
+      page.getByRole("row").filter({ hasText: renamedBank }).getByRole("img", { name: `${renamedBank} image` }),
       2,
     );
-    await inspectRecord(page.getByRole("row").filter({ hasText: bankCode }), "bank-record");
+    await inspectRecord(page.getByRole("row").filter({ hasText: renamedBank }), "bank-record");
 
     await page.goto("/catalog?tab=products");
     await page.getByLabel("Search products").fill(productCode);
     await expectUnframedCatalogueImage(
-      page.getByRole("row").filter({ hasText: productCode }).getByRole("img", { name: `${productName} image` }),
+      page.getByRole("row").filter({ hasText: productName }).getByRole("img", { name: `${productName} image` }),
       2,
     );
-    await inspectRecord(page.getByRole("row").filter({ hasText: productCode }), "product-record");
+    await inspectRecord(page.getByRole("row").filter({ hasText: productName }), "product-record");
 
     await page.goto("/catalog?tab=mappings");
     await page.getByLabel("Search mappings").fill(bankCode);
-    const responsiveMappingRow = page.getByRole("row").filter({ hasText: bankCode }).filter({ hasText: productCode });
+    const responsiveMappingRow = page.getByRole("row").filter({ hasText: renamedBank }).filter({ hasText: productName });
     await expectUnframedCatalogueImage(responsiveMappingRow.getByRole("img", { name: `${renamedBank} image` }), 2);
     await expectUnframedCatalogueImage(responsiveMappingRow.getByRole("img", { name: `${productName} image` }), 2);
     await inspectRecord(responsiveMappingRow, "mapping-record");
 
     await page.goto("/catalog?tab=variants");
-    await selectBrandedOption(page.getByLabel("Variant bank"), { label: `${renamedBank} (${bankCode})` });
-    await selectBrandedOption(page.getByLabel("Variant product category"), { label: `${productName} (${productCode})` });
+    await selectBrandedOption(page.getByLabel("Variant bank"), { label: renamedBank });
+    await selectBrandedOption(page.getByLabel("Variant product category"), { label: productName });
     await page.getByLabel("Search Product Variants").fill(variantCode);
     await expectUnframedCatalogueImage(
-      page.getByRole("row").filter({ hasText: variantCode }).getByRole("img", { name: `${renamedVariant} image` }),
+      page.getByRole("row").filter({ hasText: renamedVariant }).getByRole("img", { name: `${renamedVariant} image` }),
       0.6,
     );
-    await inspectRecord(page.getByRole("row").filter({ hasText: variantCode }), "variant-record");
+    await inspectRecord(page.getByRole("row").filter({ hasText: renamedVariant }), "variant-record");
 
     await page.goto("/applications");
     await page.getByRole("button", { name: "Create application" }).click();
     const responsiveApplicationDialog = page.getByRole("dialog", { name: "Create application" });
-    await selectBrandedOption(responsiveApplicationDialog.getByLabel("Bank", { exact: true }), { label: `${renamedBank} (${bankCode})` });
-    await selectBrandedOption(responsiveApplicationDialog.getByLabel("Product", { exact: true }), { label: `${productName} (${productCode})` });
-    await selectBrandedOption(responsiveApplicationDialog.getByLabel("Product Variant", { exact: true }), { label: `${renamedVariant} (${variantCode})` });
+    await selectBrandedOption(responsiveApplicationDialog.getByLabel("Bank", { exact: true }), { label: renamedBank });
+    await selectBrandedOption(responsiveApplicationDialog.getByLabel("Product", { exact: true }), { label: productName });
+    await selectBrandedOption(responsiveApplicationDialog.getByLabel("Product Variant", { exact: true }), { label: renamedVariant });
     await expectUnframedCatalogueImage(responsiveApplicationDialog.getByRole("img", { name: `${renamedBank} image` }), 2);
     await expectUnframedCatalogueImage(responsiveApplicationDialog.getByRole("img", { name: `${productName} image` }), 2);
     await expectUnframedCatalogueImage(responsiveApplicationDialog.getByRole("img", { name: `${renamedVariant} image` }), 0.6);
@@ -446,14 +453,14 @@ test("catalog uses task tabs, modal editing, explicit rule saves, and mapping va
   }
 
   await page.goto("/catalog?tab=variants");
-  await selectBrandedOption(page.getByLabel("Variant bank"), { label: `${renamedBank} (${bankCode})` });
-  await selectBrandedOption(page.getByLabel("Variant product category"), { label: `${productName} (${productCode})` });
+  await selectBrandedOption(page.getByLabel("Variant bank"), { label: renamedBank });
+  await selectBrandedOption(page.getByLabel("Variant product category"), { label: productName });
   await page.getByLabel("Search Product Variants").fill(variantCode);
 
   await page.getByRole("button", { name: "Add Product Variant", exact: true }).click();
   const duplicateDialog = page.getByRole("dialog", { name: "Add Product Variant" });
   await duplicateDialog.getByLabel("Variant name").fill(renamedVariant);
-  await duplicateDialog.getByLabel("Variant code").fill(variantCode);
+  await expect(duplicateDialog.getByLabel("Variant code")).toHaveCount(0);
   await duplicateDialog.getByRole("button", { name: "Add Product Variant", exact: true }).click();
   await expect(duplicateDialog.getByRole("alert")).toContainText("already exists");
   await duplicateDialog.getByRole("button", { name: "Cancel" }).click();
@@ -483,7 +490,7 @@ test("catalog uses task tabs, modal editing, explicit rule saves, and mapping va
   await page.getByRole("dialog", { name: "Confirm deactivation" }).getByRole("button", { name: "Deactivate" }).click();
   await tabs.getByRole("tab", { name: "Product Variants", exact: true }).click();
   await page.getByLabel("Variant bank").click();
-  await expect(page.getByRole("listbox").getByRole("option", { name: `${renamedBank} (${bankCode})` })).toHaveCount(0);
+  await expect(page.getByRole("listbox").getByRole("option", { name: renamedBank, exact: true })).toHaveCount(0);
   await page.keyboard.press("Escape");
 
   for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {

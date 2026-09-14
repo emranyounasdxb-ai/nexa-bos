@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from nexa_bos_api.core.exceptions import AppError
+from nexa_bos_api.core.master_codes import generate_master_code
 from nexa_bos_api.identity.audit import record_audit
 from nexa_bos_api.identity.auth_service import terminate_sessions
 from nexa_bos_api.identity.enums import UserTypeStatus, VisibilityScope
@@ -64,7 +65,13 @@ async def list_user_types(session: AsyncSession) -> list[UserType]:
 async def create_custom_type(
     session: AsyncSession, actor: User, payload: UserTypeCreateRequest
 ) -> UserType:
-    code = payload.code.strip().upper()
+    code = (
+        payload.code.strip().upper()
+        if payload.code
+        else await generate_master_code(
+            session, UserType, name=payload.name, fallback="user_type", max_length=64
+        )
+    )
     existing = (
         await session.execute(select(UserType).where(UserType.code == code))
     ).scalar_one_or_none()

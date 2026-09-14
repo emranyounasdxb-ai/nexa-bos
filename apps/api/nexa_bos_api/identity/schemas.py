@@ -157,7 +157,7 @@ class TerminateSessionsRequest(BaseModel):
 
 class UserTypeCreateRequest(BaseModel):
     name: str = Field(min_length=1, max_length=120)
-    code: str = Field(min_length=1, max_length=64)
+    code: str | None = Field(default=None, min_length=1, max_length=64)
     description: str | None = Field(default=None, max_length=500)
     can_be_reporting_manager: bool = False
     can_be_case_owner: bool = False
@@ -196,7 +196,7 @@ class AssignCaseOwnerRequest(BaseModel):
 
 class MasterCreateRequest(BaseModel):
     name: str = Field(min_length=1, max_length=120)
-    code: str = Field(min_length=1, max_length=32)
+    code: str | None = Field(default=None, min_length=1, max_length=32)
 
 
 class MasterNameUpdateRequest(BaseModel):

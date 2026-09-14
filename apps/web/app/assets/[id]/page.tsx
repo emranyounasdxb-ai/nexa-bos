@@ -421,7 +421,7 @@ export default function AssetDetailPage() {
                 <Card>
                   <SectionHeader title="Allocate to employee" description="Creates an active custody record for an eligible employee in this Office." />
                   <div className="mt-3 space-y-3">
-                    <Field label="Eligible employee"><Select aria-label="Allocation employee" value={employeeId} onChange={(event) => setEmployeeId(event.target.value)}><option value="">Select employee</option>{allocationEmployees.map((item) => <option key={item.id} value={item.id}>{item.userCode} — {item.fullName} ({item.employmentStatus})</option>)}</Select></Field>
+                    <Field label="Eligible employee"><Select aria-label="Allocation employee" value={employeeId} onChange={(event) => setEmployeeId(event.target.value)}><option value="">Select employee</option>{allocationEmployees.map((item) => <option key={item.id} value={item.id}>{item.fullName} ({item.employmentStatus})</option>)}</Select></Field>
                     <Field label="Issue Date"><DatePicker aria-label="Asset Issue Date" value={issueDate} onChange={setIssueDate} required /></Field>
                     <Field label="Condition at Issue"><Select aria-label="Condition at Issue" value={condition} onChange={(event) => setCondition(event.target.value)}>{options?.conditions.map((item) => <option key={item}>{item}</option>)}</Select></Field>
                     <Field label="Remarks"><Textarea aria-label="Allocation remarks" value={remarks} onChange={(event) => setRemarks(event.target.value)} /></Field>
@@ -459,7 +459,7 @@ export default function AssetDetailPage() {
                 <Card>
                   <SectionHeader title="Employee transfer" description="Atomically closes current employee custody and opens custody for the selected employee." />
                   <div className="mt-3 space-y-3">
-                    <Field label="New employee"><Select aria-label="Transfer employee" value={transferEmployee} onChange={(event) => setTransferEmployee(event.target.value)}><option value="">Select employee</option>{transferEmployees.map((item) => <option key={item.id} value={item.id}>{item.userCode} — {item.fullName} ({item.employmentStatus})</option>)}</Select></Field>
+                    <Field label="New employee"><Select aria-label="Transfer employee" value={transferEmployee} onChange={(event) => setTransferEmployee(event.target.value)}><option value="">Select employee</option>{transferEmployees.map((item) => <option key={item.id} value={item.id}>{item.fullName} ({item.employmentStatus})</option>)}</Select></Field>
                     <Field label="Transfer Date"><DatePicker aria-label="Employee Transfer Date" value={transferDate} onChange={setTransferDate} required /></Field>
                     <Field label="Condition"><Select aria-label="Employee Transfer Condition" value={condition} onChange={(event) => setCondition(event.target.value)}>{options?.conditions.map((item) => <option key={item}>{item}</option>)}</Select></Field>
                     <Field label="Remarks"><Textarea aria-label="Employee transfer remarks" value={remarks} onChange={(event) => setRemarks(event.target.value)} /></Field>

@@ -43,7 +43,7 @@ type MasterTab = "offices" | "departments" | "business-units" | "teams" | "desig
 type MasterRecord = OrgRef & { officeId?: string; departmentId?: string; businessUnitId?: string | null };
 type DrawerState = { kind: MasterTab; mode: "create" | "edit"; item?: MasterRecord } | null;
 type StatusTarget = { kind: MasterTab; item: MasterRecord } | null;
-type FieldErrors = Partial<Record<"name" | "code" | "office" | "department" | "businessUnit", string>>;
+type FieldErrors = Partial<Record<"name" | "office" | "department" | "businessUnit", string>>;
 
 const MASTER_TABS: MasterTab[] = ["offices", "departments", "business-units", "teams", "designations"];
 const EMPTY_FILTERS: Record<MasterTab, string> = {
@@ -149,7 +149,6 @@ export default function OrganizationPage() {
   const [discardConfirmOpen, setDiscardConfirmOpen] = useState(false);
   const [statusTarget, setStatusTarget] = useState<StatusTarget>(null);
   const [name, setName] = useState("");
-  const [code, setCode] = useState("");
   const [officeId, setOfficeId] = useState("");
   const [departmentId, setDepartmentId] = useState("");
   const canManageTeams = can("Teams.Manage");
@@ -223,7 +222,7 @@ export default function OrganizationPage() {
       if (!query) return true;
       const office = item.officeId ? officeById.get(item.officeId) : undefined;
       const department = item.departmentId ? departmentById.get(item.departmentId) : undefined;
-      return [item.code, item.name, office?.code, office?.name, department?.code, department?.name]
+      return [item.name, item.code, office?.name, office?.code, department?.name, department?.code]
         .filter(Boolean)
         .some((value) => value!.toLowerCase().includes(query));
     });
@@ -246,7 +245,6 @@ export default function OrganizationPage() {
         setDrawer(null);
         setDiscardConfirmOpen(false);
         setName("");
-        setCode("");
         setOfficeId("");
         setDepartmentId("");
         setDrawerDirty(false);
@@ -291,7 +289,6 @@ export default function OrganizationPage() {
 
   function resetDrawerForm() {
     setName("");
-    setCode("");
     setOfficeId("");
     setDepartmentId("");
     setDrawerDirty(false);
@@ -310,7 +307,6 @@ export default function OrganizationPage() {
     drawerTriggerRef.current = trigger;
     resetDrawerForm();
     setName(item.name);
-    setCode(item.code);
     setOfficeId(item.officeId ?? "");
     setDepartmentId(item.departmentId ?? "");
     setBusinessUnitId(item.businessUnitId ?? "");
@@ -365,8 +361,6 @@ export default function OrganizationPage() {
     }
     else if (name.trim().length > 120) errors.name = "Name cannot exceed 120 characters.";
     if (drawer.mode === "create") {
-      if (!code.trim()) errors.code = "Enter an immutable code.";
-      else if (code.trim().length > 32) errors.code = "Code cannot exceed 32 characters.";
       if ((drawer.kind === "departments" || drawer.kind === "teams") && !officeId) {
         errors.office = "Select an office.";
       }
@@ -390,10 +384,7 @@ export default function OrganizationPage() {
           body: JSON.stringify({ name: name.trim(), ...(drawer.kind === "business-units" ? { office_id: officeId, department_id: departmentId } : {}), ...(drawer.kind === "teams" && businessUnitId ? { business_unit_id: businessUnitId } : {}) }),
         });
       } else {
-        const body: Record<string, string> = {
-          name: name.trim(),
-          code: code.trim().toUpperCase(),
-        };
+        const body: Record<string, string> = { name: name.trim() };
         if (["departments", "business-units", "teams"].includes(drawer.kind)) body.office_id = officeId;
         if (["business-units", "teams"].includes(drawer.kind)) body.department_id = departmentId;
         if (drawer.kind === "teams") body.business_unit_id = businessUnitId;
@@ -404,8 +395,7 @@ export default function OrganizationPage() {
     } catch (caught) {
       if (caught instanceof ApiClientError) {
         const errorCode = caught.body?.error?.code ?? "";
-        if (errorCode.endsWith("_CODE_DUPLICATE")) setFieldErrors({ code: caught.message });
-        else if (errorCode === "TEAM_ORG_MISMATCH") setFieldErrors({ department: caught.message });
+        if (errorCode === "TEAM_ORG_MISMATCH") setFieldErrors({ department: caught.message });
         else setDrawerError(caught.message);
       } else {
         setDrawerError(caught instanceof Error ? caught.message : "Save failed.");
@@ -451,7 +441,7 @@ export default function OrganizationPage() {
     : "Organization master";
   const drawerDescription = drawerConfig
     ? drawer?.mode === "edit"
-      ? `Update the display name. The ${drawerConfig.singular.toLowerCase()} code remains immutable.`
+      ? "Update the business-facing display name."
       : `Create a ${drawerConfig.singular.toLowerCase()} for authorized organization workflows.`
     : "";
 
@@ -545,7 +535,7 @@ export default function OrganizationPage() {
                     <TextInput
                       id="organization-search"
                       value={currentSearch}
-                      placeholder="Search by code, name, or parent"
+                      placeholder="Search by name or parent"
                       onChange={(event) => updateSearch(event.target.value)}
                     />
                   </Field>
@@ -688,7 +678,7 @@ export default function OrganizationPage() {
                         .filter((item) => normalizedStatus(item) === "active")
                         .map((item) => (
                           <option key={item.id} value={item.id}>
-                            {item.name} ({item.code})
+                            {item.name}
                           </option>
                         ))}
                     </Select>
@@ -715,7 +705,7 @@ export default function OrganizationPage() {
                       <option value="">Select department</option>
                       {drawerDepartments.map((item) => (
                         <option key={item.id} value={item.id}>
-                          {item.name} ({item.code})
+                          {item.name}
                         </option>
                       ))}
                     </Select>
@@ -729,7 +719,7 @@ export default function OrganizationPage() {
                 {drawer.kind === "teams" ? <Field label="Business Unit" htmlFor="master-business-unit" help="Only Business Units in the selected office and department are available.">
                   <Select id="master-business-unit" aria-label="Business Unit" disabled={!officeId || !departmentId} value={businessUnitId} error={Boolean(fieldErrors.businessUnit)} aria-describedby={fieldErrors.businessUnit ? "master-business-unit-error" : undefined} onChange={(event) => { setBusinessUnitId(event.target.value); setDrawerDirty(true); }}>
                     <option value="">Select Business Unit</option>
-                    {businessUnits.filter((unit) => unit.officeId === officeId && unit.departmentId === departmentId && (normalizedStatus(unit) === "active" || unit.id === businessUnitId)).map((unit) => <option key={unit.id} value={unit.id}>{unit.name} ({unit.code})</option>)}
+                    {businessUnits.filter((unit) => unit.officeId === officeId && unit.departmentId === departmentId && (normalizedStatus(unit) === "active" || unit.id === businessUnitId)).map((unit) => <option key={unit.id} value={unit.id}>{unit.name}</option>)}
                   </Select>
                   <InlineError id="master-business-unit-error">{fieldErrors.businessUnit}</InlineError>
                   {drawer.mode === "edit" && !drawer.item?.businessUnitId ? <p className="mt-1 text-xs text-text-secondary">Existing Team is unmapped. Select its correct Business Unit explicitly; employee assignments are not guessed or changed.</p> : null}
@@ -753,28 +743,6 @@ export default function OrganizationPage() {
                   />
                   <p id="master-name-help" className="mt-1 text-xs text-text-secondary">Required · maximum 120 characters.</p>
                   <InlineError id="master-name-error">{fieldErrors.name}</InlineError>
-                </Field>
-
-                <Field label="Immutable code" htmlFor="master-code" help="The code is normalized to uppercase and cannot be changed after creation.">
-                  <TextInput
-                    id="master-code"
-                    aria-label="Immutable code"
-                    maxLength={32}
-                    required
-                    disabled={drawer.mode === "edit"}
-                    error={Boolean(fieldErrors.code)}
-                    aria-describedby={fieldErrors.code ? "master-code-error" : "master-code-help"}
-                    value={code}
-                    onChange={(event) => {
-                      setCode(event.target.value.toUpperCase());
-                      setFieldErrors((current) => ({ ...current, code: undefined }));
-                      setDrawerDirty(true);
-                    }}
-                  />
-                  <p id="master-code-help" className="mt-1 text-xs text-text-secondary">
-                    {drawer.mode === "edit" ? "This permanent identifier cannot be edited." : "Required · maximum 32 characters · saved in uppercase."}
-                  </p>
-                  <InlineError id="master-code-error">{fieldErrors.code}</InlineError>
                 </Field>
 
                 {drawerError ? <ErrorText>{drawerError}</ErrorText> : null}
@@ -814,7 +782,7 @@ export default function OrganizationPage() {
               {normalizedStatus(statusTarget.item) === "active" ? "Deactivate" : "Activate"} {MASTER_CONFIG[statusTarget.kind].singular.toLowerCase()}?
             </h2>
             <p id="status-description" className="mt-2 text-sm text-text-secondary">
-              {statusTarget.item.name} ({statusTarget.item.code}) will be marked as {normalizedStatus(statusTarget.item) === "active" ? "inactive" : "active"}.
+              {statusTarget.item.name} will be marked as {normalizedStatus(statusTarget.item) === "active" ? "inactive" : "active"}.
             </p>
             <div className="mt-4 flex justify-end gap-2">
               <Button type="button" variant="secondary" disabled={saving} onClick={() => setStatusTarget(null)}>Cancel</Button>
@@ -847,11 +815,10 @@ function MasterList({ kind, items, officeById, departmentById, businessUnitById,
     <>
       <div className="hidden min-w-0 md:block">
         <TableShell>
-          <TableHead><tr><Th>Code</Th><Th>Name</Th>{(kind === "departments" || kind === "teams") && <Th>Office</Th>}{kind === "teams" && <Th>Department</Th>}<Th>Status</Th>{kind === "teams" && <Th>Team leader</Th>}{canManage && <Th className="text-right">Actions</Th>}</tr></TableHead>
+          <TableHead><tr><Th>Name</Th>{(kind === "departments" || kind === "teams") && <Th>Office</Th>}{kind === "teams" && <Th>Department</Th>}<Th>Status</Th>{kind === "teams" && <Th>Team leader</Th>}{canManage && <Th className="text-right">Actions</Th>}</tr></TableHead>
           <tbody>
             {items.map((item) => (
               <tr key={item.id}>
-                <Td className="font-mono text-xs font-semibold">{item.code}</Td>
                 <Td className="font-medium">{item.name}{kind === "business-units" ? <p className="text-xs text-text-secondary">{officeById.get(item.officeId ?? "")?.name} · {departmentById.get(item.departmentId ?? "")?.name}</p> : null}{kind === "teams" ? <p className="text-xs text-text-secondary">Business Unit: {businessUnitById.get(item.businessUnitId ?? "")?.name ?? "Not assigned"}</p> : null}</Td>
                 {(kind === "departments" || kind === "teams") && <Td>{item.officeId ? officeById.get(item.officeId)?.name ?? "Unavailable" : "—"}</Td>}
                 {kind === "teams" && <Td>{item.departmentId ? departmentById.get(item.departmentId)?.name ?? "Unavailable" : "—"}</Td>}
@@ -859,9 +826,9 @@ function MasterList({ kind, items, officeById, departmentById, businessUnitById,
                 {kind === "teams" && (
                   <Td className="min-w-48">
                     {canManage ? (
-                      <Select aria-label={`Team leader for ${item.code}`} className="!mt-0" value={item.teamLeaderId ?? ""} onChange={(event) => onAssignLeader(item.id, event.target.value)}>
+                      <Select aria-label={`Team leader for ${item.name}`} className="!mt-0" value={item.teamLeaderId ?? ""} onChange={(event) => onAssignLeader(item.id, event.target.value)}>
                         <option value="">No team leader</option>
-                        {(leadersByTeam[item.id] ?? []).map((leader) => <option key={leader.id} value={leader.id}>{leader.userCode} — {leader.fullName}</option>)}
+                        {(leadersByTeam[item.id] ?? []).map((leader) => <option key={leader.id} value={leader.id}>{leader.fullName}</option>)}
                       </Select>
                     ) : item.teamLeaderId ?? "None"}
                   </Td>
@@ -870,7 +837,7 @@ function MasterList({ kind, items, officeById, departmentById, businessUnitById,
                   <Td><div className="flex justify-end gap-1">
                     <Button type="button" variant="ghost" size="compact" onClick={(event) => onEdit(kind, item, event.currentTarget)}><IconEdit className="size-4" /> Edit</Button>
                     <Button type="button" variant="secondary" size="compact" onClick={() => onStatus({ kind, item })}><IconPower className="size-4" />{normalizedStatus(item) === "active" ? "Deactivate" : "Activate"}</Button>
-                    {canDelete ? <Button type="button" variant="danger" size="compact" aria-label={`Delete ${item.code}`} onClick={(event) => onDelete(kind, item, event.currentTarget)}>Delete</Button> : null}
+                    {canDelete ? <Button type="button" variant="danger" size="compact" aria-label={`Delete ${item.name}`} onClick={(event) => onDelete(kind, item, event.currentTarget)}>Delete</Button> : null}
                   </div></Td>
                 )}
               </tr>
@@ -882,16 +849,16 @@ function MasterList({ kind, items, officeById, departmentById, businessUnitById,
       <div className="grid min-w-0 gap-2 md:hidden" data-testid="organization-mobile-list">
         {items.map((item) => (
           <Card key={item.id} className="!p-3">
-            <div className="flex min-w-0 items-start justify-between gap-3"><div className="min-w-0"><p className="break-words text-sm font-semibold text-text-primary">{item.name}</p><p className="mt-0.5 break-all font-mono text-xs text-text-secondary">{item.code}</p></div><StatusBadge value={normalizedStatus(item)} /></div>
+            <div className="flex min-w-0 items-start justify-between gap-3"><p className="min-w-0 break-words text-sm font-semibold text-text-primary">{item.name}</p><StatusBadge value={normalizedStatus(item)} /></div>
             {(kind === "departments" || kind === "teams") && <p className="mt-3 text-xs text-text-secondary"><span className="font-medium text-text-primary">Office:</span> {item.officeId ? officeById.get(item.officeId)?.name ?? "Unavailable" : "—"}</p>}
             {kind === "teams" && (
               <><p className="mt-1 text-xs text-text-secondary"><span className="font-medium text-text-primary">Department:</span> {item.departmentId ? departmentById.get(item.departmentId)?.name ?? "Unavailable" : "—"}</p>
-                {canManage ? <Field label="Team leader" className="mt-3"><Select aria-label={`Team leader for ${item.code}`} value={item.teamLeaderId ?? ""} onChange={(event) => onAssignLeader(item.id, event.target.value)}><option value="">No team leader</option>{(leadersByTeam[item.id] ?? []).map((leader) => <option key={leader.id} value={leader.id}>{leader.userCode} — {leader.fullName}</option>)}</Select></Field> : null}
+                {canManage ? <Field label="Team leader" className="mt-3"><Select aria-label={`Team leader for ${item.name}`} value={item.teamLeaderId ?? ""} onChange={(event) => onAssignLeader(item.id, event.target.value)}><option value="">No team leader</option>{(leadersByTeam[item.id] ?? []).map((leader) => <option key={leader.id} value={leader.id}>{leader.fullName}</option>)}</Select></Field> : null}
               </>
             )}
             {kind === "business-units" ? <p className="mt-2 text-xs text-text-secondary">{officeById.get(item.officeId ?? "")?.name} · {departmentById.get(item.departmentId ?? "")?.name}</p> : null}
             {kind === "teams" ? <p className="mt-2 text-xs text-text-secondary">Business Unit: {businessUnitById.get(item.businessUnitId ?? "")?.name ?? "Not assigned"}</p> : null}
-            {canManage && <div className="mt-3 flex flex-wrap justify-end gap-1 border-t border-brand-border pt-3"><Button type="button" variant="ghost" size="compact" onClick={(event) => onEdit(kind, item, event.currentTarget)}><IconEdit className="size-4" /> Edit</Button><Button type="button" variant="secondary" size="compact" onClick={() => onStatus({ kind, item })}><IconPower className="size-4" />{normalizedStatus(item) === "active" ? "Deactivate" : "Activate"}</Button>{canDelete ? <Button type="button" variant="danger" size="compact" aria-label={`Delete ${item.code}`} onClick={(event) => onDelete(kind, item, event.currentTarget)}>Delete</Button> : null}</div>}
+            {canManage && <div className="mt-3 flex flex-wrap justify-end gap-1 border-t border-brand-border pt-3"><Button type="button" variant="ghost" size="compact" onClick={(event) => onEdit(kind, item, event.currentTarget)}><IconEdit className="size-4" /> Edit</Button><Button type="button" variant="secondary" size="compact" onClick={() => onStatus({ kind, item })}><IconPower className="size-4" />{normalizedStatus(item) === "active" ? "Deactivate" : "Activate"}</Button>{canDelete ? <Button type="button" variant="danger" size="compact" aria-label={`Delete ${item.name}`} onClick={(event) => onDelete(kind, item, event.currentTarget)}>Delete</Button> : null}</div>}
           </Card>
         ))}
       </div>

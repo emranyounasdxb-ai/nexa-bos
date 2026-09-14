@@ -225,7 +225,7 @@ function UsersDirectory() {
         <Field label="Search users">
           <div className="relative">
             <span aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-disabled">⌕</span>
-            <TextInput aria-label="Search users" className="pl-9" placeholder="Name, email, code, mobile, office or department" value={searchDraft} onChange={(event) => setSearchDraft(event.target.value)} />
+            <TextInput aria-label="Search users" className="pl-9" placeholder="Name, email, mobile, office or department" value={searchDraft} onChange={(event) => setSearchDraft(event.target.value)} />
           </div>
         </Field>
       } actions={currentUser?.userType?.code === "OWNER" || can("Users.Create") ? (
@@ -235,7 +235,7 @@ function UsersDirectory() {
         </div>
       ) : null} />
       <ResponsiveFilterPanel activeFilters={[
-        query ? { label: "Search", value: query } : null,
+        query ? { label: "Search", value: "Applied" } : null,
         employmentStatus ? { label: "Employment", value: employmentStatus } : null,
         accountStatus ? { label: "Account", value: accountStatus } : null,
         officeId ? { label: "Office", value: options.offices.find((item) => item.id === officeId)?.name ?? officeId } : null,
@@ -270,7 +270,7 @@ function UsersDirectory() {
         <Field label="User Type" help={!can("UserTypes.View") ? "Your role cannot view the User Type catalogue." : undefined}>
           <Select aria-label="User Type" disabled={optionsLoading || !can("UserTypes.View")} value={userTypeId} onChange={(event) => updateUrl({ userTypeId: event.target.value || null, page: null })}>
             <option value="">All User Types</option>
-            {options.userTypes.map((type) => <option key={type.id} value={type.id}>{type.name} ({type.code})</option>)}
+            {options.userTypes.map((type) => <option key={type.id} value={type.id}>{type.name}</option>)}
           </Select>
         </Field>
         <div className="col-span-2 flex items-end gap-2 lg:col-span-3 xl:col-span-1">
@@ -302,9 +302,9 @@ function UsersDirectory() {
                 <tbody>
                   {items.map((user) => (
                     <tr key={user.id}>
-                      <Td><div className="flex min-w-56 items-center gap-3"><span aria-hidden="true" className="inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-brand-soft text-xs font-semibold text-brand-primary">{initials(user.fullName)}</span><span className="min-w-0"><Link className="block font-medium text-brand-link underline" href={`/users/${user.id}`}>{user.userCode}</Link><span className="block truncate font-medium text-text-primary">{user.fullName}</span><span className="block truncate text-xs text-text-secondary">{user.email}</span></span></div></Td>
+                      <Td><div className="flex min-w-56 items-center gap-3"><span aria-hidden="true" className="inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-brand-soft text-xs font-semibold text-brand-primary">{initials(user.fullName)}</span><span className="min-w-0"><Link className="block truncate font-medium text-brand-link underline" href={`/users/${user.id}`}>{user.fullName}</Link><span className="block truncate text-xs text-text-secondary">{user.email}</span></span></div></Td>
                       <Td>{user.office?.name ?? "No Office"}<span className="block text-xs text-text-secondary">{user.department?.name ?? "No Department"}</span></Td>
-                      <Td>{user.userType?.code ? <Badge>{user.userType.code}</Badge> : "—"}</Td>
+                      <Td>{user.userType?.name ? <Badge>{user.userType.name}</Badge> : "—"}</Td>
                       <Td><Badge>{user.employmentStatus}</Badge></Td>
                       <Td><StatusBadge value={user.accountStatus} /></Td>
                     </tr>
@@ -316,10 +316,10 @@ function UsersDirectory() {
             <div className={loading ? "grid gap-2 p-3 opacity-70 sm:hidden" : "grid gap-2 p-3 sm:hidden"}>
               {items.map((user) => (
                 <article key={user.id} className="min-w-0 rounded-[10px] border border-brand-border p-3">
-                  <div className="flex min-w-0 items-start gap-3"><span aria-hidden="true" className="inline-flex size-9 shrink-0 items-center justify-center rounded-full bg-brand-soft text-xs font-semibold text-brand-primary">{initials(user.fullName)}</span><div className="min-w-0 flex-1"><Link className="font-semibold text-brand-link underline" href={`/users/${user.id}`}>{user.userCode}</Link><p className="truncate font-medium text-text-primary">{user.fullName}</p><p className="truncate text-xs text-text-secondary">{user.email}</p></div></div>
+                  <div className="flex min-w-0 items-start gap-3"><span aria-hidden="true" className="inline-flex size-9 shrink-0 items-center justify-center rounded-full bg-brand-soft text-xs font-semibold text-brand-primary">{initials(user.fullName)}</span><div className="min-w-0 flex-1"><Link className="truncate font-semibold text-brand-link underline" href={`/users/${user.id}`}>{user.fullName}</Link><p className="truncate text-xs text-text-secondary">{user.email}</p></div></div>
                   <dl className="mt-3 grid min-w-0 grid-cols-2 gap-2 text-xs">
                     <div><dt className="text-text-secondary">Organization</dt><dd className="break-words text-text-primary">{user.office?.name ?? "No Office"}<span className="block">{user.department?.name ?? "No Department"}</span></dd></div>
-                    <div><dt className="text-text-secondary">User Type</dt><dd className="text-text-primary">{user.userType?.code ?? "—"}</dd></div>
+                    <div><dt className="text-text-secondary">User Type</dt><dd className="text-text-primary">{user.userType?.name ?? "—"}</dd></div>
                     <div><dt className="text-text-secondary">Employment</dt><dd className="text-text-primary">{user.employmentStatus}</dd></div>
                     <div><dt className="text-text-secondary">Account</dt><dd><StatusBadge value={user.accountStatus} /></dd></div>
                   </dl>

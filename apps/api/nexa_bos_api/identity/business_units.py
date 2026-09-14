@@ -82,11 +82,11 @@ async def save_business_unit(
     code: str | None = None,
     unit_id: UUID | None = None,
 ):
-    if not name.strip() or (unit_id is None and not (code or "").strip()):
+    if not name.strip():
         raise AppError(
             status_code=422,
             code="BUSINESS_UNIT_DETAILS_REQUIRED",
-            message="Business Unit name and immutable code cannot be blank",
+            message="Business Unit name cannot be blank",
         )
     await validate_parents(session, office_id, department_id)
     now = utcnow()
@@ -95,7 +95,7 @@ async def save_business_unit(
             id=new_uuid(),
             office_id=office_id,
             department_id=department_id,
-            code=await _unique_code(session, BusinessUnit, code or "", "business_unit"),
+            code=await _unique_code(session, BusinessUnit, code, "business_unit", name=name),
             name=name.strip(),
             status=MasterStatus.ACTIVE,
             created_at=now,

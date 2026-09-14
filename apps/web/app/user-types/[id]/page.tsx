@@ -700,9 +700,6 @@ export default function UserTypeDetailPage() {
                   <Badge tone="amber">Sensitive</Badge>
                 ) : null}
               </span>
-              <code className="mt-0.5 block break-all text-xs leading-4 text-slate-500">
-                {permission.code}
-              </code>
             </span>
           </label>
         ))}
@@ -720,7 +717,7 @@ export default function UserTypeDetailPage() {
               Back to User Types
             </ButtonLink>
             <h2 className="text-[length:var(--amafh-text-section)] font-semibold tracking-tight text-slate-950 sm:text-xl">
-              {item.name} <span className="font-medium text-slate-500">({item.code})</span>
+              {item.name}
             </h2>
             <p className="mt-1 max-w-4xl text-sm leading-5 text-slate-600">
               {item.description || "No description has been provided for this User Type."}
@@ -847,7 +844,7 @@ export default function UserTypeDetailPage() {
           <div className="border-b border-slate-100 px-4 py-4 sm:px-5">
             <SectionHeader
               title="Permissions"
-              description="Select the capabilities users inherit from this User Type. Technical codes remain unchanged."
+              description="Select the capabilities users inherit from this User Type."
             />
           </div>
 
@@ -864,7 +861,7 @@ export default function UserTypeDetailPage() {
                 Search permissions
                 <TextInput
                   aria-label="Search permissions"
-                  placeholder="Name or technical code"
+                  placeholder="Permission name or description"
                   value={permissionQuery}
                   onChange={(event) => setPermissionQuery(event.target.value)}
                 />

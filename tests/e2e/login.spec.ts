@@ -41,13 +41,15 @@ test("owner lands on the dashboard and can open the user directory", async ({ pa
   await expect(peopleMenu).toHaveAttribute("aria-expanded", "true");
   await page.getByRole("dialog", { name: "People", exact: true }).getByRole("link", { name: "Users", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Users", exact: true })).toBeVisible();
-  await expect(page.getByRole("link", { name: "USR-000001" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Platform Owner" })).toBeVisible();
+  await expect(page.getByTestId("authenticated-content")).not.toContainText("USR-000001");
   await page.goto("/users/new");
   const dialog = page.getByRole("dialog", { name: "Create User" });
   await expect(dialog).toBeVisible();
-  for (const label of ["User Code", "Full Name", "Personal Email", "Personal Mobile"]) {
+  for (const label of ["Full Name", "Personal Email", "Personal Mobile"]) {
     await expect(dialog.getByLabel(new RegExp(`^${label}`))).toBeVisible();
   }
+  await expect(dialog.getByLabel("User Code", { exact: true })).toHaveCount(0);
   await expect(dialog.getByLabel("Reporting manager")).toHaveCount(0);
   await page.goto("/organization");
   await page.getByRole("tab", { name: "Teams" }).click();

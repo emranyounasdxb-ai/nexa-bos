@@ -61,8 +61,11 @@ type Profile = {
     applicationCode: string;
     currentStage: string;
     bankCode: string;
+    bankName: string;
     productCode: string;
+    productName: string;
     productVariantCode: string | null;
+    productVariantName: string | null;
   }[];
   attendanceSummary: {
     presentCount: number;
@@ -83,7 +86,9 @@ type Profile = {
     targets: {
       id: string;
       productCode: string | null;
+      productName: string | null;
       bankCode: string | null;
+      bankName: string | null;
       milestone: string;
       measurement: string;
       prorate: boolean;
@@ -147,7 +152,7 @@ function ProfileInner() {
     <section className="space-y-4">
       <PageHeader
         title={data?.employee.fullName ?? "Employee performance"}
-        description={data ? `${data.employee.employeeCode} · ${data.employee.userCode}` : undefined}
+        description={data ? data.employee.employeeCode : undefined}
         actions={
           <Button type="button" variant="secondary" onClick={() => void load()}>
             Refresh
@@ -191,7 +196,7 @@ function ProfileInner() {
       {data ? (
         <RecordFrame summary={<Card>
           <h2 className="text-[18px] font-medium">{data.employee.fullName}</h2>
-          <p className="mt-1 text-xs text-text-secondary">{data.employee.employeeCode} · {data.employee.userCode}</p>
+          <p className="mt-1 text-xs text-text-secondary">{data.employee.employeeCode}</p>
           <dl className="mt-4 grid gap-3 text-sm">
             <div>
               <dt className="text-slate-500">Designation</dt>
@@ -336,7 +341,7 @@ function ProfileInner() {
                 <ul className={styles.results}>
                   {data.targetsKpi.targets.map((item) => (
                     <li key={item.id}>
-                      <h4>{item.productCode}{item.bankCode ? ` / ${item.bankCode}` : " overall"} · {item.milestone}</h4>
+                      <h4>{item.productName ?? "All products"}{item.bankName ? ` / ${item.bankName}` : " overall"} · {item.milestone}</h4>
                       <dl>
                         <div><dt>Target</dt><dd>{item.measurement === "amount" ? formatAed(item.result?.effectiveTarget) : item.result?.effectiveTarget}</dd></div>
                         <div><dt>Actual</dt><dd>{item.measurement === "amount" ? formatAed(item.result?.actual) : item.result?.actual}</dd></div>
@@ -401,7 +406,7 @@ function ProfileInner() {
                     </Link>
                   </Td>
                   <Td>
-                    {item.bankCode} / {item.productCode} / {item.productVariantCode ?? "Legacy"}
+                    {item.bankName} / {item.productName} / {item.productVariantName ?? "Legacy"}
                   </Td>
                   <Td>{item.currentStage}</Td>
                 </tr>

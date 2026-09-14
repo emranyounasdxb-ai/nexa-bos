@@ -29,7 +29,6 @@ export default function AssetCategoriesPage() {
   const { can } = useAuth();
   const api = getBrowserApiUrl();
   const [items, setItems] = useState<AssetCategoryRecord[]>([]);
-  const [code, setCode] = useState("");
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [fields, setFields] = useState<AssetCategoryField[]>([]);
@@ -74,10 +73,9 @@ export default function AssetCategoriesPage() {
     try {
       const created = await apiRequest<AssetCategoryRecord>("/api/v1/assets/categories", api, {
         method: "POST",
-        body: JSON.stringify({ code, name, description: description || null, fields }),
+        body: JSON.stringify({ name, description: description || null, fields }),
       });
       setMessage(`${created.name} created`);
-      setCode("");
       setName("");
       setDescription("");
       setFields([]);
@@ -127,8 +125,7 @@ export default function AssetCategoriesPage() {
       <Card>
         <h3 className="text-lg font-semibold text-slate-900">New category</h3>
         <form className="mt-4 space-y-4" onSubmit={createCategory}>
-          <div className="grid gap-4 md:grid-cols-3">
-            <Field label="Code"><TextInput aria-label="Category code" required value={code} onChange={(event) => setCode(event.target.value)} /></Field>
+          <div className="grid gap-4 md:grid-cols-2">
             <Field label="Name"><TextInput aria-label="Category name" required value={name} onChange={(event) => setName(event.target.value)} /></Field>
             <Field label="Description"><TextInput aria-label="Category description" value={description} onChange={(event) => setDescription(event.target.value)} /></Field>
           </div>
@@ -149,11 +146,10 @@ export default function AssetCategoriesPage() {
       <ErrorText>{error}</ErrorText>
       {message ? <p className="text-sm text-slate-700">{message}</p> : null}
       <TableShell className="rounded-b-none">
-        <TableHead><tr><Th>Code</Th><Th>Category</Th><Th>Fields</Th><Th>Status</Th><Th>Actions</Th></tr></TableHead>
+        <TableHead><tr><Th>Category</Th><Th>Fields</Th><Th>Status</Th><Th>Actions</Th></tr></TableHead>
         <tbody>
           {pagination.pagedItems.map((item) => (
             <tr key={item.id} className="border-t border-slate-100">
-              <Td>{item.code}</Td>
               <Td><p className="font-medium">{item.name}</p><p className="text-xs text-slate-500">{item.description}</p></Td>
               <Td>{item.fields.map((field) => field.label).join(", ") || "No additional fields"}</Td>
               <Td><Badge>{item.status}</Badge></Td>

@@ -35,8 +35,7 @@ for (const width of [1440, 390]) {
     await expect(page).toHaveURL(/\/users\/new$/);
     await expect(dialog).toBeVisible();
     await expect(name).toBeFocused();
-    await expect(page.getByLabel("User Code", { exact: true })).toHaveValue(/^USR-\d+$/);
-    await expect(page.getByLabel("User Code", { exact: true })).toHaveAttribute("readonly", "");
+    await expect(page.getByLabel("User Code", { exact: true })).toHaveCount(0);
     await page.goBack();
     await expect(page).toHaveURL(/\/users$/);
     await expect(dialog).toHaveCount(0);
@@ -60,7 +59,7 @@ for (const width of [1440, 390]) {
     await page.reload();
     await expect(dialog).toBeVisible();
     await expect(submit).toBeEnabled();
-    await expect(dialog.locator("input")).toHaveCount(4);
+    await expect(dialog.locator("input")).toHaveCount(3);
     await expect(dialog.getByRole("combobox")).toHaveCount(0);
     for (const excluded of ["First Name", "Last Name", "Employee Code", "Work Email", "Office", "User Type"]) {
       await expect(dialog.getByLabel(excluded, { exact: true })).toHaveCount(0);

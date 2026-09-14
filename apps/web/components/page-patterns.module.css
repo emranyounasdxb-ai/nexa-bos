@@ -1,10 +1,10 @@
 .record { display: grid; grid-template-columns: minmax(0, 1fr); min-width: 0; gap: 16px; align-items: start; }
 .configuration { display: grid; min-width: 0; align-items: start; gap: 16px; }
 .configurationControls { min-width: 0; }
-.configurationControls > :global([data-amafh-filter-bar]) { grid-template-columns: minmax(0, 1fr); border: 0; border-radius: 20px; }
+.configurationControls > :global([data-amafh-filter-bar]) { grid-template-columns: minmax(0, 1fr); border: 0; border-radius: 10px; }
 .register { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; min-width: 0; align-items: start; }
 .registerEditor { min-width: 0; }
-.registerEditor > form { grid-template-columns: repeat(2, minmax(0, 1fr)); border: 0; border-radius: 20px; padding: 20px; }
+.registerEditor > form { grid-template-columns: repeat(2, minmax(0, 1fr)); border: 0; border-radius: 10px; padding: 20px; }
 .registerEditor > form > div { grid-column: 1 / -1; }
 .registerEditor > form > label { min-width: 0; }
 .registerEditor form div[class*="grid"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -28,15 +28,15 @@
 .recordSummary :global([data-amafh-section-header]) { flex-direction: column; }
 .form { display: grid; grid-template-columns: minmax(0, 1fr); align-items: start; gap: 20px; min-width: 0; }
 .formBody form, .formBody label { min-width: 0; }
-.formGuide { padding: 20px; border-radius: 20px; background: var(--amafh-surface); }
+.formGuide { padding: 20px; border-radius: 10px; background: var(--amafh-surface); }
 .formGuide h2 { margin-top: 18px; font-size: 18px; font-weight: 500; }
 .formGuide p { margin-top: 10px; color: var(--amafh-text-secondary); font-size: 14px; line-height: 1.6; }
 .marker { display: block; width: 36px; height: 5px; border-radius: 5px; background: var(--amafh-gradient); }
-.formBody > form { border: 0; border-radius: 20px; }
-.list { min-width: 0; padding: 12px; border-radius: 20px; background: var(--amafh-surface); }
+.formBody > form { border: 0; border-radius: 10px; }
+.list { min-width: 0; padding: 12px; border-radius: 10px; background: var(--amafh-surface); }
 .listHeader { padding: 8px 8px 16px; }
 .listHeader h2 { font-size: 17px; font-weight: 500; }
-.listFilters { padding: 16px; border-radius: 14px; background: var(--amafh-subtle); }
+.listFilters { padding: 16px; border-radius: 8px; background: var(--amafh-subtle); }
 .listFilters > :global([data-amafh-card]), .listFilters > :global([data-amafh-filter-bar]) { padding: 0; border: 0; background: transparent !important; }
 .listBody { display: flex; flex-direction: column; gap: 12px; min-width: 0; padding-top: 16px; }
 .listBody > :global([data-amafh-card]) { padding: 0; border: 0; }

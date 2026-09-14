@@ -629,7 +629,7 @@ export function ApplicationCreateDialog({
                   >
                     <option value="">Select bank</option>
                     {bankOptions.map(([id, bank]) => (
-                      <option key={id} value={id}>{bank.name} ({bank.code})</option>
+                      <option key={id} value={id}>{bank.name}</option>
                     ))}
                   </Select>
                 </Field>
@@ -645,7 +645,7 @@ export function ApplicationCreateDialog({
                   >
                     <option value="">Select product</option>
                     {productMappings.map((item) => (
-                      <option key={item.id} value={item.productId}>{item.product?.name} ({item.product?.code})</option>
+                      <option key={item.id} value={item.productId}>{item.product?.name}</option>
                     ))}
                   </Select>
                 </Field>
@@ -659,7 +659,7 @@ export function ApplicationCreateDialog({
                   >
                     <option value="">Select product variant</option>
                     {variantOptions.map((item) => (
-                      <option key={item.id} value={item.id}>{item.name} ({item.code})</option>
+                      <option key={item.id} value={item.id}>{item.name}</option>
                     ))}
                   </Select>
                 </Field>

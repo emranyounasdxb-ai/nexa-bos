@@ -499,7 +499,7 @@ test("AMAFH CORE semantic colors drive primary actions, focus, navigation, and s
   const dashboardLink = page
     .getByLabel("Application sidebar")
     .getByRole("link", { name: "Dashboard", exact: true });
-  await expect(dashboardLink).toHaveCSS("background-color", "rgb(40, 36, 46)");
+  await expect(dashboardLink).toHaveCSS("background-color", "rgb(111, 13, 131)");
   await expect(dashboardLink).toHaveCSS("color", "rgb(255, 255, 255)");
 
   const refresh = page.getByTestId("dashboard-actions").getByRole("button", { name: "Refresh" });

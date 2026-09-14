@@ -210,7 +210,7 @@ test("employee profile organizes identity, access, assets, and filtered audit hi
 
   await expect(page).toHaveURL(new RegExp(`/users/${seeded.userId}\\?tab=overview$`));
   await expect(page.getByRole("heading", { name: seeded.fullName, exact: true })).toBeVisible();
-  await expect(page.getByText(seeded.userCode, { exact: true })).toBeVisible();
+  await expect(page.getByTestId("authenticated-content")).not.toContainText(seeded.userCode);
   await expect(page.getByRole("link", { name: "Edit profile" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Performance profile" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Contact details" })).toBeVisible();

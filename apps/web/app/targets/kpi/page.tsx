@@ -398,7 +398,7 @@ export default function KpiScorecardsPage() {
                         <div className="flex max-w-2xl flex-wrap gap-1.5">
                           {item.metrics.map((metric) => (
                             <Badge key={metric.id ?? metric.metricCode} tone="neutral">
-                              {catalogByCode.get(metric.metricCode)?.label ?? metric.metricCode} · {metric.weightPercent}%
+                              {catalogByCode.get(metric.metricCode)?.label ?? "Unavailable metric"} · {metric.weightPercent}%
                             </Badge>
                           ))}
                         </div>
@@ -505,7 +505,6 @@ export default function KpiScorecardsPage() {
                             <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-action text-xs font-semibold text-action-text">{index + 1}</span>
                             <div className="min-w-0">
                               <h3 id={`metric-${index + 1}-title`} className="truncate text-sm font-semibold text-slate-900">{selectedDefinition?.label ?? "Metric"}</h3>
-                              <p className="truncate text-xs text-slate-500">{row.metricCode}</p>
                             </div>
                           </div>
                           <Button type="button" variant="ghost" size="compact" aria-label={`Remove metric ${index + 1}`} onClick={() => removeRow(index)}>

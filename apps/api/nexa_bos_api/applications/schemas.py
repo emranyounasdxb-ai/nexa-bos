@@ -109,7 +109,7 @@ class WorkflowCreateRequest(BaseModel):
 
 class WorkflowStageCreateRequest(BaseModel):
     name: str = Field(min_length=1, max_length=120)
-    code: str = Field(min_length=1, max_length=64)
+    code: str | None = Field(default=None, min_length=1, max_length=64)
     sort_order: int = Field(ge=1, le=10000)
 
 

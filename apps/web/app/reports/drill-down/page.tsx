@@ -133,10 +133,10 @@ function DrillDownInner() {
                 </Td>
                 <Td>{item.customerName}</Td>
                 <Td>
-                  <p>{item.bankName} ({item.bankCode})</p>
+                  <p>{item.bankName}</p>
                   <p className="text-xs text-slate-500">
-                    {item.productName} ({item.productCode}) · {item.productVariantName
-                      ? `${item.productVariantName} (${item.productVariantCode})`
+                    {item.productName} · {item.productVariantName
+                      ? item.productVariantName
                       : "Legacy: no Product Variant"}
                   </p>
                 </Td>

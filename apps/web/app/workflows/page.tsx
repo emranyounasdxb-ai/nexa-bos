@@ -44,7 +44,7 @@ type Confirmation = { actionLabel: string; description: string; title: string; r
 const WORKSPACE_VIEWS: WorkspaceView[] = ["stages", "transitions", "preview"];
 
 function catalogLabel(item: CatalogItem | null | undefined, fallback: string) {
-  return item ? `${item.name} (${item.code})` : fallback;
+  return item?.name ?? fallback;
 }
 
 function orderedStages(workflow: WorkflowRecord | undefined) {
@@ -104,7 +104,6 @@ export default function WorkflowsPage() {
   const [createBankId, setCreateBankId] = useState("");
   const [createProductId, setCreateProductId] = useState("");
   const [stageName, setStageName] = useState("");
-  const [stageCode, setStageCode] = useState("");
   const [stageOrder, setStageOrder] = useState("80");
   const [editingStage, setEditingStage] = useState<WorkflowStageRecord | null>(null);
   const [fromStage, setFromStage] = useState("");
@@ -266,12 +265,10 @@ export default function WorkflowsPage() {
     } else if (next === "add-stage") {
       setEditingStage(null);
       setStageName("");
-      setStageCode("");
       setStageOrder(String((stages.at(-1)?.sortOrder ?? 70) + 10));
     } else if (next === "edit-stage" && stage) {
       setEditingStage(stage);
       setStageName(stage.name);
-      setStageCode(stage.code);
       setStageOrder(String(stage.sortOrder));
     } else if (next === "add-transition") {
       setFromStage("");
@@ -350,7 +347,7 @@ export default function WorkflowsPage() {
       } else {
         await apiRequest(`/api/v1/workflows/${selected.id}/stages`, api, {
           method: "POST",
-          body: JSON.stringify({ name: stageName.trim(), code: stageCode.trim(), sort_order: Number(stageOrder) }),
+          body: JSON.stringify({ name: stageName.trim(), sort_order: Number(stageOrder) }),
         });
         setMessage(`${stageName.trim()} was added to version ${selected.version}.`);
       }
@@ -453,13 +450,13 @@ export default function WorkflowsPage() {
           <Field label="Bank" htmlFor="workflow-bank">
             <Select id="workflow-bank" aria-label="Workflow bank" value={bankId} onChange={(event) => { setBankId(event.target.value); setProductId(""); setSelectedId(""); }}>
               <option value="">Select bank</option>
-              {bankOptions.map((bank) => <option key={bank.id} value={bank.id}>{bank.name} ({bank.code})</option>)}
+              {bankOptions.map((bank) => <option key={bank.id} value={bank.id}>{bank.name}</option>)}
             </Select>
           </Field>
           <Field label="Product" htmlFor="workflow-product">
             <Select id="workflow-product" aria-label="Workflow product" value={productId} disabled={!bankId} onChange={(event) => { setProductId(event.target.value); setSelectedId(""); }}>
               <option value="">Select product</option>
-              {productOptions.map((product) => <option key={product.id} value={product.id}>{product.name} ({product.code})</option>)}
+              {productOptions.map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}
             </Select>
           </Field>
           <Field label="Version" htmlFor="workflow-version">
@@ -508,7 +505,7 @@ export default function WorkflowsPage() {
           {view === "stages" ? (
             <Card className="p-3 sm:p-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <div><h2 className="text-[length:var(--amafh-text-section)] font-semibold">Ordered stages</h2><p className="mt-0.5 text-sm text-text-secondary">Stage codes are immutable after creation. Sort order controls the displayed sequence.</p></div>
+                <div><h2 className="text-[length:var(--amafh-text-section)] font-semibold">Ordered stages</h2><p className="mt-0.5 text-sm text-text-secondary">Sort order controls the displayed sequence.</p></div>
                 {can("WorkflowStages.Create") ? <Button type="button" variant="secondary" onClick={() => openDrawer("add-stage")}>Add stage</Button> : null}
               </div>
               {stages.length ? (
@@ -525,7 +522,6 @@ export default function WorkflowsPage() {
                             <h3 className="truncate text-sm font-semibold text-text-primary">{stage.name}</h3><StatusBadge value={stage.status ?? "active"} />
                             {fixed ? <span className="inline-flex items-center gap-1"><Badge tone="purple">Fixed entry stage</Badge><Tooltip label="About the fixed entry stage" text="Application Created is the system-defined entry stage. Its name, order, and active status cannot be changed." /></span> : null}
                           </div>
-                          <p className="mt-1 font-mono text-xs text-text-secondary">{stage.code}</p>
                           {!fixed && (can("WorkflowStages.Edit") || canActivate || canDeactivate) ? (
                             <div className="mt-2 flex flex-wrap gap-1">
                               {can("WorkflowStages.Edit") ? <Button type="button" size="compact" variant="ghost" onClick={() => openDrawer("edit-stage", stage)}><IconEdit className="size-3.5" /> Edit</Button> : null}
@@ -569,7 +565,7 @@ export default function WorkflowsPage() {
                       <div key={layer.map((stage) => stage.id).join("-")} className="flex flex-col items-center">
                         {layerIndex ? <div className="h-5 w-px bg-brand-border" aria-hidden="true" /> : null}
                         <div className="flex items-stretch justify-center gap-3">
-                          {layer.map((stage) => <div key={stage.id} className="w-48 rounded-lg border border-brand-border bg-surface px-3 py-2 text-center shadow-sm"><p className="truncate text-sm font-semibold text-text-primary">{stage.name}</p><p className="mt-0.5 font-mono text-xs text-text-secondary">{stage.code}</p><div className="mt-1"><StatusBadge value={stage.status ?? "active"} /></div></div>)}
+                          {layer.map((stage) => <div key={stage.id} className="w-48 rounded-md border border-brand-border bg-surface px-3 py-2 text-center shadow-sm"><p className="truncate text-sm font-semibold text-text-primary">{stage.name}</p><div className="mt-1"><StatusBadge value={stage.status ?? "active"} /></div></div>)}
                         </div>
                       </div>
                     ))}
@@ -596,22 +592,20 @@ export default function WorkflowsPage() {
             <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-5">
               {drawer === "create-version" ? (
                 <fieldset className="grid content-start gap-4 rounded-2xl bg-surface-subtle p-4 sm:grid-cols-2"><legend className="px-1 text-sm font-medium">Bank and product mapping</legend>
-                  <Field label="Bank" htmlFor="create-workflow-bank"><Select id="create-workflow-bank" autoFocus required value={createBankId} onChange={(event) => { setCreateBankId(event.target.value); setCreateProductId(""); setDrawerDirty(true); }}><option value="">Select Bank</option>{banks.filter((bank) => bank.status === "active").map((bank) => <option key={bank.id} value={bank.id}>{bank.name} ({bank.code})</option>)}</Select></Field>
-                  <Field label="Product" htmlFor="create-workflow-product" help="Only Products in an active Bank–Product mapping are available."><Select id="create-workflow-product" required disabled={!createBankId} value={createProductId} onChange={(event) => { setCreateProductId(event.target.value); setDrawerDirty(true); }}><option value="">{createBankId ? "Select Product" : "Select Bank first"}</option>{createProductOptions.map((product) => <option key={product.id} value={product.id}>{product.name} ({product.code})</option>)}</Select></Field>
+                  <Field label="Bank" htmlFor="create-workflow-bank"><Select id="create-workflow-bank" autoFocus required value={createBankId} onChange={(event) => { setCreateBankId(event.target.value); setCreateProductId(""); setDrawerDirty(true); }}><option value="">Select Bank</option>{banks.filter((bank) => bank.status === "active").map((bank) => <option key={bank.id} value={bank.id}>{bank.name}</option>)}</Select></Field>
+                  <Field label="Product" htmlFor="create-workflow-product" help="Only Products in an active Bank–Product mapping are available."><Select id="create-workflow-product" required disabled={!createBankId} value={createProductId} onChange={(event) => { setCreateProductId(event.target.value); setDrawerDirty(true); }}><option value="">{createBankId ? "Select Product" : "Select Bank first"}</option>{createProductOptions.map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}</Select></Field>
                   {createBankId && !createProductOptions.length ? <p className="rounded-md bg-information-soft px-3 py-2 text-sm text-text-primary">No active Product mapping is available for this Bank.</p> : null}
                   <div className="rounded-xl border border-information-soft bg-information-soft p-3 text-sm text-text-primary sm:col-span-2">Creating a version activates it immediately and deactivates the previous active version for the same Bank and Product. Existing versions remain available for history.</div>
                 </fieldset>
               ) : drawer === "add-stage" || drawer === "edit-stage" ? (
                 <fieldset className="grid content-start gap-4 rounded-2xl bg-surface-subtle p-4 sm:grid-cols-2"><legend className="px-1 text-sm font-medium">Stage identity and sequence</legend>
                   <Field label="Stage name" htmlFor="workflow-stage-name" className="sm:col-span-2"><TextInput id="workflow-stage-name" autoFocus required value={stageName} onChange={(event) => { setStageName(event.target.value); setDrawerDirty(true); }} /></Field>
-                  <Field label="Stage code" htmlFor="workflow-stage-code" help="The technical stage code cannot be changed after this stage is created."><TextInput id="workflow-stage-code" required disabled={Boolean(editingStage)} value={stageCode} onChange={(event) => { setStageCode(event.target.value); setDrawerDirty(true); }} /></Field>
                   <Field label="Sort order" htmlFor="workflow-stage-order" help="Lower numbers appear earlier in the workflow stage sequence."><TextInput id="workflow-stage-order" type="number" min={1} max={10000} required value={stageOrder} onChange={(event) => { setStageOrder(event.target.value); setDrawerDirty(true); }} /></Field>
-                  {editingStage ? <p className="rounded-md bg-information-soft px-3 py-2 text-sm text-text-primary">The immutable code remains <span className="font-mono font-semibold">{editingStage.code}</span>.</p> : null}
                 </fieldset>
               ) : (
                 <fieldset className="grid content-start gap-4 rounded-2xl bg-surface-subtle p-4 sm:grid-cols-2"><legend className="px-1 text-sm font-medium">Transition direction</legend>
-                  <Field label="From stage" htmlFor="transition-from"><Select id="transition-from" autoFocus required value={fromStage} onChange={(event) => { setFromStage(event.target.value); setDrawerDirty(true); }}><option value="">Select From stage</option>{stages.map((stage) => <option key={stage.id} value={stage.id}>{stage.name} ({stage.code})</option>)}</Select></Field>
-                  <Field label="To stage" htmlFor="transition-to"><Select id="transition-to" required value={toStage} onChange={(event) => { setToStage(event.target.value); setDrawerDirty(true); }}><option value="">Select To stage</option>{stages.map((stage) => <option key={stage.id} value={stage.id}>{stage.name} ({stage.code})</option>)}</Select></Field>
+                  <Field label="From stage" htmlFor="transition-from"><Select id="transition-from" autoFocus required value={fromStage} onChange={(event) => { setFromStage(event.target.value); setDrawerDirty(true); }}><option value="">Select From stage</option>{stages.map((stage) => <option key={stage.id} value={stage.id}>{stage.name}</option>)}</Select></Field>
+                  <Field label="To stage" htmlFor="transition-to"><Select id="transition-to" required value={toStage} onChange={(event) => { setToStage(event.target.value); setDrawerDirty(true); }}><option value="">Select To stage</option>{stages.map((stage) => <option key={stage.id} value={stage.id}>{stage.name}</option>)}</Select></Field>
                   {(fromStage || toStage) && transitionError ? <div className="sm:col-span-2"><ErrorText>{transitionError}</ErrorText></div> : null}
                   {!transitionError ? <p className="flex items-center gap-2 rounded-md bg-success-soft px-3 py-2 text-sm text-text-primary sm:col-span-2"><IconGitBranch className="size-4 text-success" /> This direction is available to add.</p> : null}
                 </fieldset>
@@ -619,7 +613,7 @@ export default function WorkflowsPage() {
             </div>
             <div className="sticky bottom-0 flex flex-wrap items-center justify-end gap-2 border-t border-brand-border bg-surface px-4 py-3 sm:px-5">
               <Button type="button" variant="secondary" disabled={saving} onClick={requestDrawerClose}>Cancel</Button>
-              {drawer === "create-version" ? <Button type="button" disabled={saving || !createBankId || !createProductId} onClick={() => setConfirmation({ actionLabel: "Create and activate", title: "Create this workflow version?", description: "The new version will become active. If this Bank and Product already has an active version, that version will become inactive; its history is retained.", run: createVersion })}>{saving ? "Creating…" : "Review and create"}</Button> : drawer === "add-transition" ? <Button type="button" disabled={saving || Boolean(transitionError)} onClick={() => void saveTransition()}>{saving ? "Saving…" : "Add transition"}</Button> : <Button type="button" disabled={saving || !stageName.trim() || !stageCode.trim() || !Number(stageOrder)} onClick={() => void saveStage()}>{saving ? "Saving…" : editingStage ? "Save changes" : "Add stage"}</Button>}
+              {drawer === "create-version" ? <Button type="button" disabled={saving || !createBankId || !createProductId} onClick={() => setConfirmation({ actionLabel: "Create and activate", title: "Create this workflow version?", description: "The new version will become active. If this Bank and Product already has an active version, that version will become inactive; its history is retained.", run: createVersion })}>{saving ? "Creating…" : "Review and create"}</Button> : drawer === "add-transition" ? <Button type="button" disabled={saving || Boolean(transitionError)} onClick={() => void saveTransition()}>{saving ? "Saving…" : "Add transition"}</Button> : <Button type="button" disabled={saving || !stageName.trim() || !Number(stageOrder)} onClick={() => void saveStage()}>{saving ? "Saving…" : editingStage ? "Save changes" : "Add stage"}</Button>}
             </div>
           </aside>
         </div>

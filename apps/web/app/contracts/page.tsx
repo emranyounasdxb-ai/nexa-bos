@@ -151,7 +151,7 @@ export default function ContractsPage() {
   const [comment, setComment] = useState("");
   const [attachment, setAttachment] = useState<File | null>(null);
   const [replacementReason, setReplacementReason] = useState("");
-  const [typeDraft, setTypeDraft] = useState({ code: "", name: "", description: "" });
+  const [typeDraft, setTypeDraft] = useState({ name: "", description: "" });
   const returnFocus = useRef<HTMLElement | null>(null);
 
   const load = useCallback(async () => {
@@ -405,7 +405,7 @@ export default function ContractsPage() {
         method: "POST",
         body: JSON.stringify(typeDraft),
       });
-      setTypeDraft({ code: "", name: "", description: "" });
+      setTypeDraft({ name: "", description: "" });
       setNotice("Contract type created.");
       await load();
     } catch (caught) {
@@ -517,7 +517,7 @@ export default function ContractsPage() {
             <h2 className="text-[length:var(--amafh-text-section)] font-semibold">Configured contract types</h2>
             {types.length ? types.map((item) => (
               <div key={item.id} className="flex items-start justify-between gap-3 border-t border-brand-border pt-3 first:border-0 first:pt-0">
-                <div><p className="font-medium">{item.name}</p><p className="text-xs text-text-secondary">{item.code}{item.description ? ` · ${item.description}` : ""}</p></div>
+                <div><p className="font-medium">{item.name}</p>{item.description ? <p className="text-xs text-text-secondary">{item.description}</p> : null}</div>
                 <div className="flex items-center gap-2"><StatusBadge value={item.isActive ? "Active" : "Inactive"} /><Button type="button" size="compact" variant="ghost" onClick={() => void toggleType(item)}>{item.isActive ? "Deactivate" : "Activate"}</Button></div>
               </div>
             )) : <EmptyState>No contract types are configured.</EmptyState>}
@@ -525,7 +525,6 @@ export default function ContractsPage() {
           <Card>
             <form className="space-y-3" onSubmit={createType}>
               <h2 className="text-[length:var(--amafh-text-section)] font-semibold">Add contract type</h2>
-              <Field label="Code"><TextInput required pattern="[A-Z0-9_-]+" value={typeDraft.code} onChange={(event) => setTypeDraft((value) => ({ ...value, code: event.target.value.toUpperCase() }))} /></Field>
               <Field label="Name"><TextInput required value={typeDraft.name} onChange={(event) => setTypeDraft((value) => ({ ...value, name: event.target.value }))} /></Field>
               <Field label="Description"><Textarea value={typeDraft.description} onChange={(event) => setTypeDraft((value) => ({ ...value, description: event.target.value }))} /></Field>
               <Button type="submit">Create type</Button>

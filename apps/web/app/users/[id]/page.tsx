@@ -381,7 +381,6 @@ export default function UserProfilePage() {
             </p>
             <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-text-secondary">
               <span><strong className="font-medium text-text-primary">Employee:</strong> {user.employeeCode}</span>
-              <span><strong className="font-medium text-text-primary">User:</strong> {user.userCode}</span>
             </div>
           </div>
         </div>
@@ -424,12 +423,12 @@ export default function UserProfilePage() {
             <Card>
               <SectionHeader title="Organization assignment" description="Current placement and reporting context." />
               <dl className="mt-4 grid min-w-0 gap-4 sm:grid-cols-2 xl:grid-cols-1">
-                <Definition label="Designation">{user.designation ? `${user.designation.code} — ${user.designation.name}` : "Unassigned"}</Definition>
-                <Definition label="Office">{user.office ? `${user.office.code} — ${user.office.name}` : "Unassigned"}</Definition>
-                <Definition label="Department">{user.department ? `${user.department.code} — ${user.department.name}` : "Unassigned"}</Definition>
-                <Definition label="Business Unit">{user.businessUnit ? `${user.businessUnit.code} — ${user.businessUnit.name}` : "Unassigned"}</Definition>
-                <Definition label="Team">{user.team ? `${user.team.code} — ${user.team.name}` : "Unassigned"}</Definition>
-                <Definition label="User type">{user.userType ? `${user.userType.code} — ${user.userType.name}` : "Unassigned"}</Definition>
+                <Definition label="Designation">{user.designation?.name ?? "Unassigned"}</Definition>
+                <Definition label="Office">{user.office?.name ?? "Unassigned"}</Definition>
+                <Definition label="Department">{user.department?.name ?? "Unassigned"}</Definition>
+                <Definition label="Business Unit">{user.businessUnit?.name ?? "Unassigned"}</Definition>
+                <Definition label="Team">{user.team?.name ?? "Unassigned"}</Definition>
+                <Definition label="User type">{user.userType?.name ?? "Unassigned"}</Definition>
                 <Definition label="Effective permissions">{user.permissions.length.toLocaleString()}</Definition>
               </dl>
             </Card>
@@ -444,7 +443,7 @@ export default function UserProfilePage() {
                     <Definition label="Lock state">{locked ? `Locked until ${formatDateTime(user.lockedUntil!)}` : "Not locked"}</Definition>
                   </dl>
                   <div className="grid min-w-0 gap-3 border-t border-brand-border pt-4 sm:grid-cols-2">
-                    {user.userType?.code === "OWNER" ? <Definition label="User type">OWNER — Owner</Definition> : can("Users.AssignUserType") ? (
+                    {user.userType?.code === "OWNER" ? <Definition label="User type">Owner</Definition> : can("Users.AssignUserType") ? (
                       <Field label="Assign user type" help="OWNER cannot be assigned from this control.">
                         <Select id="profile-user-type" aria-label="Assign user type" value={user.userType?.id ?? ""} onChange={(event) => {
                           const selected = types.find((item) => item.id === event.target.value);
@@ -452,7 +451,7 @@ export default function UserProfilePage() {
                           if (!selected || !trigger) return;
                           requestConfirmation(trigger, {
                             title: "Assign user type?",
-                            description: `Assign ${selected.code} — ${selected.name} to ${user.fullName}. This changes effective access according to the existing role policy.`,
+                            description: `Assign ${selected.name} to ${user.fullName}. This changes effective access according to the existing role policy.`,
                             confirmLabel: "Assign user type",
                             path: `/api/v1/users/${user.id}/assign-type`,
                             body: { user_type_id: selected.id },
@@ -460,8 +459,8 @@ export default function UserProfilePage() {
                           });
                         }}>
                           <option value="">Choose a user type</option>
-                          {user.userType && !types.some(type => type.id === user.userType?.id) ? <option value={user.userType.id}>{user.userType.code} — {user.userType.name}</option> : null}
-                          {types.map((item) => <option key={item.id} value={item.id}>{item.code} — {item.name}</option>)}
+                          {user.userType && !types.some(type => type.id === user.userType?.id) ? <option value={user.userType.id}>{user.userType.name}</option> : null}
+                          {types.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
                         </Select>
                       </Field>
                     ) : null}
@@ -582,7 +581,7 @@ export default function UserProfilePage() {
 function Overview({ user }: { user: UserRecord }) {
   return (
     <div className="grid min-w-0 gap-4 xl:grid-cols-2">
-      <Card><SectionHeader title="Contact details" description="Work and personal contact information on the employee record." /><dl className="mt-4 grid min-w-0 gap-4 sm:grid-cols-2"><Definition label="Work email">{user.workEmail ?? "Not recorded"}</Definition><Definition label="Work mobile">{user.workMobile ?? "Not recorded"}</Definition><Definition label="Personal email">{user.personalEmail ?? "Not recorded"}</Definition><Definition label="Personal mobile">{user.personalMobile ?? "Not recorded"}</Definition><Definition label="Employee code">{user.employeeCode ?? "Not assigned"}</Definition><Definition label="User code">{user.userCode}</Definition></dl></Card>
+      <Card><SectionHeader title="Contact details" description="Work and personal contact information on the employee record." /><dl className="mt-4 grid min-w-0 gap-4 sm:grid-cols-2"><Definition label="Work email">{user.workEmail ?? "Not recorded"}</Definition><Definition label="Work mobile">{user.workMobile ?? "Not recorded"}</Definition><Definition label="Personal email">{user.personalEmail ?? "Not recorded"}</Definition><Definition label="Personal mobile">{user.personalMobile ?? "Not recorded"}</Definition><Definition label="Employee code">{user.employeeCode ?? "Not assigned"}</Definition></dl></Card>
       <Card><SectionHeader title="Employment" description="Current employment dates and lifecycle status." /><dl className="mt-4 grid min-w-0 gap-4 sm:grid-cols-2"><Definition label="Joining date">{user.joiningDate}</Definition><Definition label="Last working date">{user.lastWorkingDate ?? "—"}</Definition><Definition label="Employment status"><StatusBadge value={user.employmentStatus} /></Definition><Definition label="Account status"><StatusBadge value={user.accountStatus} /></Definition></dl></Card>
     </div>
   );
@@ -606,7 +605,7 @@ function HistoryPanel({ history, auditSearch, setAuditSearch, auditAction, setAu
         <HistoryCard title="Employment periods" empty="No employment periods recorded.">{(history?.employmentPeriods ?? []).map((row, index) => <li key={`${row.employeeCode}-${row.joiningDate}-${index}`} className="rounded-md bg-surface-subtle px-3 py-2"><span className="text-sm font-medium text-text-primary">{row.joiningDate} to {row.lastWorkingDate ?? "current"}</span><span className="mt-1 block text-xs text-text-secondary">{row.employeeCode}{row.isCurrent ? " · Current period" : ""}</span></li>)}</HistoryCard>
       </div>
       <Card>
-        <SectionHeader title="Assignment history" description="Recorded organization, designation, code, and employment changes." />
+        <SectionHeader title="Assignment history" description="Recorded organization, designation, and employment changes." />
         {history?.assignments.length ? <div className="mt-3 grid min-w-0 gap-2 sm:grid-cols-2 xl:grid-cols-3">{history.assignments.map((row, index) => <div key={`${row.field}-${row.effectiveFrom}-${index}`} className="min-w-0 rounded-md border border-brand-border bg-surface-subtle px-3 py-2"><p className="text-xs font-medium text-text-secondary">{friendly(row.field)}</p><p className="mt-1 break-words text-sm font-medium text-text-primary">{row.valueLabel}</p><p className="mt-1 text-xs text-text-disabled">{row.effectiveFrom} to {row.effectiveTo ?? "current"}</p></div>)}</div> : <EmptyState>No assignment history is recorded.</EmptyState>}
       </Card>
       <Card className="space-y-3">

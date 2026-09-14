@@ -45,6 +45,7 @@ from nexa_bos_api.attendance.schemas import (
     ScheduleUpdateRequest,
 )
 from nexa_bos_api.core.exceptions import AppError
+from nexa_bos_api.core.master_codes import generate_master_code
 from nexa_bos_api.core.pagination import PageResult
 from nexa_bos_api.identity.access import can_view_user, visible_user_ids
 from nexa_bos_api.identity.audit import record_audit
@@ -352,7 +353,13 @@ async def list_leave_types(
 async def create_leave_type(
     session: AsyncSession, actor: User, payload: LeaveTypeCreateRequest
 ) -> dict[str, object]:
-    code = payload.code.strip().upper()
+    code = (
+        payload.code.strip().upper()
+        if payload.code
+        else await generate_master_code(
+            session, LeaveType, name=payload.name, fallback="leave_type", max_length=32
+        )
+    )
     existing = (
         await session.execute(select(LeaveType).where(LeaveType.code == code))
     ).scalar_one_or_none()

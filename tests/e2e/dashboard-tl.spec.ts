@@ -195,7 +195,7 @@ async function expectTabFrame(page: Page, tabKey: "review" | "team" | "analytics
   await expect(workspace).toHaveAttribute("aria-labelledby", `tl-tab-${tabKey}`);
   await expect(page.getByRole("heading", { name: "Team Leader Dashboard", level: 1 })).toHaveCount(1);
   for (const tab of await tabs.getByRole("tab").all()) {
-    expect((await tab.boundingBox())!.height).toBe(32);
+    expect((await tab.boundingBox())!.height).toBe(30);
     await expect(tab.locator('svg[aria-hidden="true"]')).toHaveCount(1);
     await expect(tab).toHaveCSS("font-size", "15px");
     await expect(tab).toHaveCSS("box-shadow", "none");
@@ -212,7 +212,7 @@ async function expectTabFrame(page: Page, tabKey: "review" | "team" | "analytics
     return { left: rect.left, right: rect.right, height: rect.height, backgroundImage: style.backgroundImage, transform: style.transform, shape: getComputedStyle(element, "::before").clipPath, labelOverflow: label.scrollWidth - label.clientWidth, iconTransform: getComputedStyle(icon).transform, baselineDifference: Math.abs(labelBox.y + labelBox.height / 2 - iconBox.y - iconBox.height / 2), unobstructed: !visible || element.contains(document.elementFromPoint(labelBox.x + labelBox.width / 2, labelBox.y + labelBox.height / 2)) };
   }));
   for (const [index, item] of geometry.entries()) {
-    expect(item.height).toBe(32);
+    expect(item.height).toBe(30);
     expect(item.backgroundImage).toBe("none");
     expect(item.shape).toBe("none");
     expect(item.transform).toBe("none");
@@ -223,14 +223,14 @@ async function expectTabFrame(page: Page, tabKey: "review" | "team" | "analytics
     if (index > 0) expect(Math.abs(item.left - geometry[index - 1].right - 4)).toBeLessThanOrEqual(1);
   }
   await expect(selected).toHaveCSS("font-weight", "500");
-  await expect(selected).toHaveCSS("border-radius", "20px");
+  await expect(selected).toHaveCSS("border-radius", "6px");
   await expect(selected).toHaveCSS("box-shadow", "none");
-  await expect(selected).toHaveCSS("background-color", "rgb(40, 36, 46)");
+  await expect(selected).toHaveCSS("background-color", "rgb(111, 13, 131)");
   const beforeHover = await selected.boundingBox();
   const beforeHoverToolbar = await workspaceBar.boundingBox();
   const beforeHoverContent = await workspace.boundingBox();
   await selected.hover();
-  await expect(selected).toHaveCSS("background-color", "rgb(66, 58, 73)");
+  await expect(selected).toHaveCSS("background-color", "rgb(87, 10, 104)");
   const afterHover = await selected.boundingBox();
   expect(afterHover?.width).toBe(beforeHover?.width);
   expect(afterHover?.height).toBe(beforeHover?.height);
@@ -267,9 +267,10 @@ async function expectTabFrame(page: Page, tabKey: "review" | "team" | "analytics
 
   const controls = [page.getByLabel("Period", { exact: true }), page.getByLabel("Scope", { exact: true }), page.getByRole("button", { name: "Refresh", exact: true }), page.getByRole("link", { name: "Create Application", exact: true })];
   const controlBoxes = await Promise.all(controls.map(control => control.boundingBox()));
-  for (const box of controlBoxes) {
+  for (const [index, box] of controlBoxes.entries()) {
     expect(box).not.toBeNull();
-    expect(Math.abs(box!.height - 32)).toBeLessThanOrEqual(1);
+    const expectedHeight = index < 2 || viewportWidth === 390 ? 32 : 30;
+    expect(Math.abs(box!.height - expectedHeight)).toBeLessThanOrEqual(1);
   }
   for (const control of controls.slice(0, 2)) {
     // The selected value must remain readable, not just accessible by its label.
@@ -1042,7 +1043,7 @@ test("TL compact header and real database refresh preserve selections and last s
   await signOut(page);
 });
 
-test("TL portal surfaces share approved spacing, pill tabs, flat cards and responsive access", async ({ page, request }, testInfo) => {
+test("TL portal surfaces share approved spacing, compact tabs, flat cards and responsive access", async ({ page, request }, testInfo) => {
   test.setTimeout(240_000);
   const fixture = await seed(request);
   const group = fixture.groups[0];
@@ -1083,12 +1084,12 @@ test("TL portal surfaces share approved spacing, pill tabs, flat cards and respo
 
       if (route.tabs) {
         const tablist = page.getByRole("tablist").first();
-        await expect(tablist).toHaveCSS("height", "32px");
+        await expect(tablist).toHaveCSS("height", "36px");
         await expect(tablist).toHaveCSS("gap", "4px");
         const tabs = tablist.getByRole("tab");
         expect(await tabs.count()).toBeGreaterThan(1);
         for (const tab of await tabs.all()) {
-          await expect(tab).toHaveCSS("height", "32px");
+          await expect(tab).toHaveCSS("height", "30px");
           expect(await tab.evaluate(element => getComputedStyle(element).transform)).toBe("none");
           expect(await tab.evaluate(element => getComputedStyle(element).backgroundImage)).toBe("none");
         }

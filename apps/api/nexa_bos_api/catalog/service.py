@@ -17,6 +17,7 @@ from nexa_bos_api.catalog.models import (
     ProductVariant,
 )
 from nexa_bos_api.core.exceptions import AppError
+from nexa_bos_api.core.master_codes import generate_master_code
 from nexa_bos_api.identity.audit import record_audit
 from nexa_bos_api.identity.enums import (
     INITIAL_BANK_PRODUCTS,
@@ -106,8 +107,18 @@ def _image_metadata(row: Bank | Product | ProductVariant, image_url: str) -> dic
     }
 
 
-async def _unique_code(session: AsyncSession, model, code: str, entity: str) -> str:
+async def _unique_code(
+    session: AsyncSession, model, code: str | None, entity: str, *, name: str
+) -> str:
+    if code is None:
+        return await generate_master_code(session, model, name=name, fallback=entity, max_length=32)
     normalized = code.strip().upper()
+    if not normalized:
+        raise AppError(
+            status_code=422,
+            code=f"{entity.upper()}_CODE_REQUIRED",
+            message=f"{entity} code cannot be blank",
+        )
     existing = (
         await session.execute(select(model).where(model.code == normalized))
     ).scalar_one_or_none()
@@ -215,11 +226,11 @@ async def list_banks(session: AsyncSession, *, include_inactive: bool) -> list[B
     return list((await session.execute(stmt)).scalars().all())
 
 
-async def create_bank(session: AsyncSession, actor: User, name: str, code: str) -> Bank:
+async def create_bank(session: AsyncSession, actor: User, name: str, code: str | None) -> Bank:
     now = utcnow()
     bank = Bank(
         id=new_uuid(),
-        code=await _unique_code(session, Bank, code, "bank"),
+        code=await _unique_code(session, Bank, code, "bank", name=name),
         name=name.strip(),
         status=MasterStatus.ACTIVE,
         created_at=now,
@@ -299,15 +310,18 @@ async def list_products(session: AsyncSession, *, include_inactive: bool) -> lis
     return list((await session.execute(stmt)).scalars().all())
 
 
-async def create_product(session: AsyncSession, actor: User, name: str, code: str) -> Product:
+async def create_product(
+    session: AsyncSession, actor: User, name: str, code: str | None
+) -> Product:
     now = utcnow()
+    product_code = await _unique_code(session, Product, code, "product", name=name)
     product = Product(
         id=new_uuid(),
-        code=await _unique_code(session, Product, code, "product"),
+        code=product_code,
         name=name.strip(),
         status=MasterStatus.ACTIVE,
-        requested_amount_required=code.strip().upper() == "PF",
-        approved_amount_required=code.strip().upper() == "PF",
+        requested_amount_required=product_code == "PF",
+        approved_amount_required=product_code == "PF",
         booked_amount_required=False,
         funded_amount_required=False,
         target_measurement="count",
@@ -627,7 +641,7 @@ async def _assert_variant_unique(
     session: AsyncSession,
     *,
     bank_product_id: UUID,
-    code: str,
+    code: str | None,
     name: str,
     exclude_id: UUID | None = None,
 ) -> None:
@@ -681,7 +695,15 @@ async def create_product_variant(
     normalized_name, normalized_code, normalized_description = _normalize_variant_values(
         name, code, description
     )
-    assert normalized_code is not None
+    if normalized_code is None:
+        normalized_code = await generate_master_code(
+            session,
+            ProductVariant,
+            name=normalized_name,
+            fallback="variant",
+            max_length=32,
+            scope=(ProductVariant.bank_product_id == mapping.id,),
+        )
     await _assert_variant_unique(
         session,
         bank_product_id=mapping.id,
