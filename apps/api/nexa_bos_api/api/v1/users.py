@@ -26,6 +26,7 @@ from nexa_bos_api.identity.permissions import (
     APPLICATIONS_CREATE,
     APPLICATIONS_REASSIGN_CASE_OWNER,
     USER_PROFILES_HR_UPDATE,
+    USER_PROFILES_HR_VIEW,
     USERS_ACTIVATE,
     USERS_ASSIGN_USER_TYPE,
     USERS_CREATE,
@@ -89,6 +90,15 @@ def _require_owner(actor: User) -> None:
         )
 
 
+def _directory_user(user: User, *, include_nationality: bool) -> dict[str, object]:
+    payload = public_user(user)
+    profile = user.hr_profile
+    payload["nationality"] = (
+        getattr(profile, "nationality", None) if include_nationality and profile else None
+    )
+    return payload
+
+
 async def _read_csv(file: UploadFile) -> bytes:
     filename = Path((file.filename or "").replace("\\", "/")).name
     content_type = (file.content_type or "").split(";", 1)[0].strip().lower()
@@ -133,7 +143,13 @@ async def directory(
         page_size=pagination.page_size,
     )
     return {
-        "items": [public_user(user) for user in users.items],
+        "items": [
+            _directory_user(
+                user,
+                include_nationality=has_permission(actor, USER_PROFILES_HR_VIEW),
+            )
+            for user in users.items
+        ],
         "pagination": users.metadata(),
     }
 

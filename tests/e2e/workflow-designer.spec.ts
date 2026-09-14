@@ -123,6 +123,34 @@ async function chooseOption(page: Page, name: string, option: string) {
   await expect(combobox).toHaveAttribute("value", /.+/);
 }
 
+async function expectWorkflowSteps(page: Page, activeStep: number) {
+  const progress = page.getByLabel("Workflow setup progress");
+  const indicators = progress.getByTestId("workflow-step-indicator");
+  await expect(indicators).toHaveText(["1", "2", "3", "4", "5"]);
+  await expect(progress).not.toContainText(/[①②③④⑤]/);
+  await expect(progress.locator('[aria-current="step"]')).toHaveCount(1);
+  await expect(progress.locator('[aria-current="step"]')).toContainText(String(activeStep));
+  await expect(progress.locator('svg')).toHaveCount(4);
+  const geometry = await indicators.evaluateAll((elements) => elements.map((element) => {
+    const box = element.getBoundingClientRect();
+    const style = getComputedStyle(element);
+    return {
+      alignItems: style.alignItems,
+      display: style.display,
+      height: box.height,
+      justifyContent: style.justifyContent,
+      width: box.width,
+    };
+  }));
+  expect(geometry).toEqual(Array.from({ length: 5 }, () => ({
+    alignItems: "center",
+    display: "flex",
+    height: 20,
+    justifyContent: "center",
+    width: 20,
+  })));
+}
+
 test("Workflow Designer presents dependent branded selectors, drawers, branching preview, and responsive containment", async ({ page, request }, testInfo) => {
   test.setTimeout(120_000);
   await ensureOwner(request);
@@ -150,6 +178,7 @@ test("Workflow Designer presents dependent branded selectors, drawers, branching
   await expect(status).toContainText("All statuses");
   await expect(page.getByRole("tablist", { name: "Workflow configuration" })).toHaveCount(0);
   await expect(page.getByTestId("workflow-preview")).toHaveCount(0);
+  await expectWorkflowSteps(page, 1);
   const initialOverflow = await page.evaluate(() => ({
     client: document.documentElement.clientWidth,
     scroll: document.documentElement.scrollWidth,
@@ -198,6 +227,13 @@ test("Workflow Designer presents dependent branded selectors, drawers, branching
   await expect(page.getByRole("combobox", { name: "Workflow product" })).toContainText(fixture.productName);
   await expect(version).toHaveAttribute("value", fixture.workflowId);
   await expect(status).toContainText("All statuses");
+  await expectWorkflowSteps(page, 5);
+  await captureViewportPair(
+    page,
+    testInfo,
+    "workflow-step-progress",
+    page.getByLabel("Workflow setup progress"),
+  );
   await expect(page.getByText("Fixed entry stage", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "About the fixed entry stage" }).focus();
   await expect(page.getByRole("tooltip")).toContainText("system-defined entry stage");

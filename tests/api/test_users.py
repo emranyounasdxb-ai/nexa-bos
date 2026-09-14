@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import pytest
 from helpers import (
+    authenticate,
     create_activated_user,
     create_team_fixture,
     designation_id,
     office_id,
     owner_client,
+    spawned_client,
     unique_tag,
 )
 from httpx import AsyncClient
@@ -42,6 +44,61 @@ async def test_user_code_sequence_and_required_fields(client: AsyncClient) -> No
     assert body["userCode"].startswith("USR-")
     assert body["accountStatus"] == "pending"
     assert body["joiningDate"] == "2026-03-01"
+
+
+@pytest.mark.asyncio
+async def test_directory_nationality_respects_hr_view_permission(client: AsyncClient) -> None:
+    owner, _owner = await owner_client(client)
+    employee = await create_activated_user(owner)
+    updated = await owner.put(
+        f"/api/v1/employee-profiles/{employee['id']}/hr",
+        json={"nationality": "Pakistani"},
+    )
+    assert updated.status_code == 200, updated.text
+
+    owner_directory = await owner.get(
+        "/api/v1/users", params={"q": employee["employeeCode"]}
+    )
+    assert owner_directory.status_code == 200, owner_directory.text
+    owner_row = next(
+        row for row in owner_directory.json()["items"] if row["id"] == employee["id"]
+    )
+    assert owner_row["nationality"] == "Pakistani"
+
+    tag = unique_tag().upper()
+    user_type = await owner.post(
+        "/api/v1/user-types",
+        json={"name": f"Directory only {tag}", "code": f"DO{tag}"},
+    )
+    assert user_type.status_code == 200, user_type.text
+    user_type_id = user_type.json()["id"]
+    assert (await owner.post(f"/api/v1/user-types/{user_type_id}/activate")).status_code == 200
+    assert (
+        await owner.put(
+            f"/api/v1/user-types/{user_type_id}/permissions",
+            json={"permissions": ["Users.View"]},
+        )
+    ).status_code == 200
+    assert (
+        await owner.put(
+            f"/api/v1/user-types/{user_type_id}/scope",
+            json={"visibility_scope": "company"},
+        )
+    ).status_code == 200
+    viewer = await create_activated_user(owner, user_type_code=f"DO{tag}")
+
+    async with await spawned_client() as restricted:
+        await authenticate(restricted, viewer["email"], "UserPass1!")
+        restricted_directory = await restricted.get(
+            "/api/v1/users", params={"q": employee["employeeCode"]}
+        )
+        assert restricted_directory.status_code == 200, restricted_directory.text
+        restricted_row = next(
+            row
+            for row in restricted_directory.json()["items"]
+            if row["id"] == employee["id"]
+        )
+        assert restricted_row["nationality"] is None
 
 
 @pytest.mark.asyncio
