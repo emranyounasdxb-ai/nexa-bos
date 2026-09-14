@@ -655,6 +655,11 @@ export function ApplicationCreateDialog({
                     aria-label="Product Variant"
                     value={form.product_variant_id}
                     disabled={!selectedMapping}
+                    optionStartContent={Object.fromEntries(
+                      variantOptions
+                        .filter((item) => item.hasImage && item.imageUrl)
+                        .map((item) => [item.id, <CatalogueImage key={item.id} item={item} api={api} size="select" />]),
+                    )}
                     onChange={(event) => setForm({ ...form, product_variant_id: event.target.value })}
                   >
                     <option value="">Select product variant</option>

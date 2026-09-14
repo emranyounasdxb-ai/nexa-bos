@@ -27,6 +27,7 @@ type SelectOption = {
 
 export type BrandedSelectProps = Omit<SelectHTMLAttributes<HTMLSelectElement>, "multiple" | "size"> & {
   "data-testid"?: string;
+  optionStartContent?: Readonly<Record<string, ReactNode>>;
 };
 
 function optionText(value: ReactNode): string {
@@ -82,6 +83,7 @@ export function BrandedSelect({
   onBlur,
   onChange,
   onFocus,
+  optionStartContent,
   required,
   title,
   value,
@@ -270,8 +272,13 @@ export function BrandedSelect({
         onFocus={(event) => onFocus?.(event as unknown as FocusEvent<HTMLSelectElement>)}
         onKeyDown={handleKeyDown}
       >
-        <span className={`min-w-0 flex-1 truncate ${selectedOption ? "text-text-primary" : "text-text-disabled"}`}>
-          {selectedOption?.label ?? "Select an option"}
+        <span className={`flex min-w-0 flex-1 items-center gap-2 ${selectedOption ? "text-text-primary" : "text-text-disabled"}`}>
+          {selectedOption && optionStartContent?.[selectedOption.value] ? (
+            <span aria-hidden="true" className="flex shrink-0 items-center">
+              {optionStartContent[selectedOption.value]}
+            </span>
+          ) : null}
+          <span className="min-w-0 flex-1 truncate">{selectedOption?.label ?? "Select an option"}</span>
         </span>
         <IconChevronDown className={`size-4 shrink-0 text-text-disabled transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
@@ -311,7 +318,13 @@ export function BrandedSelect({
                       onMouseEnter={() => { if (!option.disabled) setActiveIndex(index); }}
                       onClick={() => choose(index)}
                     >
-                      <span className={`size-1.5 shrink-0 rounded-full ${option.value === selectedValue ? "bg-brand-fill" : "bg-transparent"}`} aria-hidden="true" />
+                      {optionStartContent?.[option.value] ? (
+                        <span aria-hidden="true" className="flex shrink-0 items-center">
+                          {optionStartContent[option.value]}
+                        </span>
+                      ) : (
+                        <span className={`size-1.5 shrink-0 rounded-full ${option.value === selectedValue ? "bg-brand-fill" : "bg-transparent"}`} aria-hidden="true" />
+                      )}
                       <span className="min-w-0 flex-1 break-words">{option.label}</span>
                     </div>
                   </div>
