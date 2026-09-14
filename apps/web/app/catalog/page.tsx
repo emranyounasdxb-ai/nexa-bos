@@ -21,6 +21,7 @@ import {
   IconPackages,
 } from "@/components/icons";
 import { CatalogueImage } from "@/components/catalogue-image";
+import { FilePicker } from "@/components/file-picker";
 import { Pagination, useClientPagination } from "@/components/pagination";
 import { Tooltip as InfoTooltip } from "@/components/tooltip";
 import {
@@ -1046,17 +1047,18 @@ function CatalogInner() {
           <div className="flex min-h-40 items-center justify-center p-3">
             <CatalogueImage item={imageDialog.item} api={api} size="preview" />
           </div>
-          <label className="mt-4 block text-sm font-medium text-text-primary">
-            PNG, JPEG, or WebP image
-            <input
-              className={cx("mt-1 block w-full rounded-lg border border-brand-border bg-surface px-3 py-2 text-sm", focusRing)}
-              type="file"
-              accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"
-              disabled={dialogSaving}
-              onChange={(event) => setImageFile(event.target.files?.[0] ?? null)}
-            />
-          </label>
-          <p className="mt-1.5 text-xs leading-5 text-text-secondary">Maximum 2 MB and 4096 × 4096 pixels. The image is validated and stored with a generated name.</p>
+          <FilePicker
+            className="mt-4"
+            label="PNG, JPEG, or WebP image"
+            chooseLabel="Choose image"
+            accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"
+            guidance="Maximum 2 MB and 4096 × 4096 pixels. The image is validated and stored with a generated name."
+            file={imageFile}
+            onChange={setImageFile}
+            disabled={dialogSaving}
+            busy={dialogSaving}
+            imagePreview
+          />
           <div className="mt-4"><ErrorText>{dialogError}</ErrorText></div>
           <div className="mt-5 flex flex-wrap items-center justify-between gap-2">
             <div>

@@ -1,4 +1,5 @@
 import { expect as baseExpect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { captureViewportThemes } from "./helpers/viewport-capture";
 
 // Each route can compile on first navigation in the repository's development server.
 const expect = baseExpect.configure({ timeout: 30_000 });
@@ -340,6 +341,36 @@ test("owner can log in, navigate major screens, sign out, and log in again", asy
     timeout: 30_000,
   });
   await expect(page.getByLabel("Authenticator code")).toHaveCount(0);
+});
+
+test("profile photo uses the accessible shared image picker without uploading on selection", async ({
+  page,
+  request,
+}, testInfo) => {
+  await signIn(page, request);
+  await page.goto("/account");
+  await expect(page.getByRole("heading", { name: "My profile", exact: true })).toBeVisible();
+  const photoInput = page.getByLabel("Profile photo", { exact: true });
+  const photoPicker = page.locator('[data-file-picker]').filter({ has: photoInput });
+  await expect(photoPicker.getByRole("button", { name: "Choose image", exact: true })).toBeVisible();
+  await expect(photoPicker.getByText("PNG, JPEG, or WebP. Maximum 2 MB.", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Upload photo", exact: true })).toBeDisabled();
+  await photoInput.setInputFiles({
+    name: "profile-preview.png",
+    mimeType: "image/png",
+    buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M/wHwAEAQH/2c2pWQAAAABJRU5ErkJggg==", "base64"),
+  });
+  await expect(photoPicker.getByText("profile-preview.png", { exact: true })).toBeVisible();
+  await expect(photoPicker.getByRole("img", { name: "Selected preview for profile-preview.png" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Upload photo", exact: true })).toBeEnabled();
+  for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
+    await page.setViewportSize(viewport);
+    await captureViewportThemes(page, testInfo.outputPath(`profile-photo-picker-${viewport.width}.png`), photoPicker);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
+  }
+  await photoPicker.getByRole("button", { name: "Clear selected file for Profile photo" }).click();
+  await expect(photoPicker.getByText("No file selected", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Upload photo", exact: true })).toBeDisabled();
 });
 
 test("approved AMAFH CORE branding is used across public and responsive authenticated shells", async ({

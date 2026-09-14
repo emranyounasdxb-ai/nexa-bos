@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { DatePicker } from "@/components/date-picker";
+import { FilePicker } from "@/components/file-picker";
 import { IconCalendarCheck, IconFileDescription, IconX } from "@/components/icons";
 import { ProfileNationalitySelect } from "@/components/profile-nationality-select";
 import {
@@ -152,7 +153,6 @@ function value(data: HrData | null, key: keyof HrData) {
 
 export function EmployeeLifecycleProfile({ userId, section }: { userId: string; section: "hr" | "pro" }) {
   const api = getBrowserApiUrl();
-  const fileRef = useRef<HTMLInputElement>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -169,6 +169,7 @@ export function EmployeeLifecycleProfile({ userId, section }: { userId: string; 
   const [documentNotes, setDocumentNotes] = useState("");
   const [editingDocumentId, setEditingDocumentId] = useState<string | null>(null);
   const [replacementReason, setReplacementReason] = useState("");
+  const [documentFile, setDocumentFile] = useState<File | null>(null);
   const [hrDraft, setHrDraft] = useState<Record<string, string>>({});
   const [histories, setHistories] = useState<Record<string, DocumentRecord[]>>({});
   const [departments, setDepartments] = useState<OrgRef[]>([]);
@@ -275,7 +276,7 @@ export function EmployeeLifecycleProfile({ userId, section }: { userId: string; 
     setDocumentExpiry(""); setDocumentVisaType(""); setDocumentMedicalStatus("");
     setDocumentProvider(""); setDocumentStatus(""); setDocumentNotes("");
     setEditingDocumentId(null); setReplacementReason("");
-    if (fileRef.current) fileRef.current.value = "";
+    setDocumentFile(null);
   }
 
   function editDocument(row: DocumentRecord) {
@@ -305,9 +306,8 @@ export function EmployeeLifecycleProfile({ userId, section }: { userId: string; 
         const created = await apiRequest<DocumentRecord>(`/api/v1/employee-profiles/${userId}/documents`, api, {
           method: "POST", body: JSON.stringify(payload),
         });
-        const file = fileRef.current?.files?.[0];
-        if (file) {
-          const form = new FormData(); form.append("file", file);
+        if (documentFile) {
+          const form = new FormData(); form.append("file", documentFile);
           await apiRequest(`/api/v1/employee-profiles/${userId}/documents/${created.id}/upload`, api, { method: "POST", body: form });
         }
       }
@@ -449,7 +449,7 @@ export function EmployeeLifecycleProfile({ userId, section }: { userId: string; 
                 {documentKind === "insurance" ? <Field label="Insurance provider"><TextInput value={documentProvider} onChange={(event) => setDocumentProvider(event.target.value)} required /></Field> : null}
                 <Field label="Expiry" htmlFor="pro-expiry"><ProfileDate id="pro-expiry" label="Expiry" value={documentExpiry} onChange={setDocumentExpiry} /></Field>
                 <Field label="Recorded status"><TextInput value={documentStatus} onChange={(event) => setDocumentStatus(event.target.value)} /></Field>
-                {editingDocumentId ? <Field label="Replacement reason"><TextInput value={replacementReason} onChange={(event) => setReplacementReason(event.target.value)} required minLength={3} /></Field> : <Field label="Attachment" htmlFor="pro-attachment" help="PDF, JPG/JPEG, PNG or WebP; maximum 10 MB."><input id="pro-attachment" aria-label="Attachment" ref={fileRef} type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" className="mt-1.5 block w-full text-sm" /></Field>}
+                {editingDocumentId ? <Field label="Replacement reason"><TextInput value={replacementReason} onChange={(event) => setReplacementReason(event.target.value)} required minLength={3} /></Field> : <FilePicker id="pro-attachment" label="Attachment" chooseLabel="Choose document" accept="application/pdf,image/jpeg,image/png,image/webp,.pdf,.jpg,.jpeg,.png,.webp" guidance="PDF, JPG/JPEG, PNG, or WebP. Maximum 10 MB." file={documentFile} onChange={setDocumentFile} busy={saving} />}
                 <Field label="Notes" className="sm:col-span-2"><Textarea rows={2} value={documentNotes} onChange={(event) => setDocumentNotes(event.target.value)} /></Field>
                 <div className="flex flex-wrap items-end gap-2"><Button disabled={saving}><IconFileDescription className="size-4" />{saving ? "Saving…" : editingDocumentId ? "Replace metadata" : "Add record"}</Button>{editingDocumentId ? <Button type="button" variant="secondary" onClick={resetDocumentDraft}>Cancel</Button> : null}</div>
               </form>

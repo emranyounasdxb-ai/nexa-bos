@@ -455,6 +455,10 @@ for (const width of [1440, 390]) {
     await page.getByRole("dialog", { name: "Choose date" }).getByRole("button", { name: "2028-06-15", exact: true }).click();
     await expect(expiry).toHaveValue("2028-06-15");
     await page.getByLabel("Attachment", { exact: true }).setInputFiles({ name: "compact-test.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4\n1 0 obj<</Type/Catalog>>endobj\n%%EOF") });
+    const documentPicker = page.locator('[data-file-picker]').filter({ has: page.getByLabel("Attachment", { exact: true }) });
+    await expect(documentPicker.getByText("compact-test.pdf", { exact: true })).toBeVisible();
+    await expect(documentPicker.getByText("PDF, JPG/JPEG, PNG, or WebP. Maximum 10 MB.", { exact: true })).toBeVisible();
+    await expect(documentPicker.getByRole("button", { name: "Change", exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Add record", exact: true }).click();
     await expect(page.getByRole("status")).toContainText("PRO document record added.");
     await page.reload();
