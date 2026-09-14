@@ -1,12 +1,12 @@
 .canvas { width: 100%; min-height: 100dvh; background: var(--amafh-background); }
 .frame { display: grid; grid-template-columns: 60px minmax(0, 1fr); grid-template-rows: auto 1fr; column-gap: 20px; width: 100%; min-height: 100dvh; background: var(--amafh-background); }
 .frame :is(a,button):focus-visible { outline: 2px solid var(--amafh-primary); outline-offset: 2px; }
-.topbar { grid-column: 1 / -1; display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 20px; padding: 12px 24px; border-bottom: 1px solid var(--amafh-border); }
+.topbar { grid-column: 1 / -1; position: sticky; z-index: 30; top: 0; display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 20px; padding: 12px 24px; border-bottom: 1px solid var(--amafh-border); background: var(--amafh-background); }
 .brand { display: flex; align-items: center; flex-shrink: 0; }
 .brand img { width: auto; height: 32px; max-width: 100%; object-fit: contain; }
-.topNav { display: flex; min-width: 0; max-width: 650px; gap: 4px; padding: 4px; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: thin; border-radius: 8px; background: var(--amafh-surface); }
+.topNav { display: flex; flex: 1 1 auto; min-width: 0; max-width: none; justify-content: center; gap: 2px; padding: 3px; overflow: visible; border-radius: 8px; background: var(--amafh-surface); }
 .topNav:empty { display: none; }
-.topNav a { display: flex; flex-shrink: 0; height: 30px; align-items: center; justify-content: center; padding: 0 14px; border-radius: 6px; color: var(--amafh-text-secondary); font-size: 12px; white-space: nowrap; }
+.topNav a { display: flex; min-width: 0; flex: 0 0 auto; height: 30px; align-items: center; justify-content: center; padding: 0 clamp(3px, .45vw, 8px); border-radius: 6px; color: var(--amafh-text-secondary); font-size: clamp(8px, .72vw, 11px); white-space: nowrap; }
 .topNav a[aria-current="page"] { background: var(--amafh-brand-fill); color: #fff; }
 .topNav a:focus-visible { outline-offset: -2px; }
 .headerActions { display: flex; flex-shrink: 0; align-items: center; gap: 12px; }
@@ -53,12 +53,12 @@
 .submenu :is(a,button):focus-visible { outline: 2px solid var(--amafh-primary); outline-offset: -2px; }
 .mobileTrigger, .mobileClose { display: none; }
 @media (min-width: 1280px) { .topbar, .pageHeader, .workspace { padding-inline: 32px; } }
-@media (max-width: 1190px) { .topbar { gap: 12px; } .topNav a { padding-inline: 12px; } .accountCopy, .accountChevron { display: none; } }
+@media (max-width: 1190px) { .topbar { gap: 12px; } .accountCopy, .accountChevron { display: none; } }
 @media (max-width: 1023px) {
   .frame { display: block; min-height: 100dvh; }
   .topbar { flex-wrap: wrap; gap: 12px; padding: 10px 12px 12px; }
-  .topNav { order: 3; flex: 0 0 100%; max-width: 100%; }
-  .topNav a { padding-inline: 15px; font-size: 11px; }
+  .topNav { order: 3; flex: 0 0 100%; max-width: 100%; flex-wrap: wrap; }
+  .topNav a { flex: 1 1 auto; padding-inline: 8px; font-size: 11px; }
   .headerActions { margin-left: auto; gap: 6px; }
   .accountTrigger { padding: 3px; background: none; }
   .mobileTrigger, .mobileClose { display: inline-flex; }

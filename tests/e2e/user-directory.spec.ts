@@ -102,7 +102,7 @@ test("User Directory filters and pagination persist in the URL across refresh an
   expect(departmentResponse.ok(), await departmentResponse.text()).toBeTruthy();
   const department = (await departmentResponse.json()) as Ref;
   const target = await createUser(request, headers, designations[0]!.id, `FOCUS${suffix}`, {
-    full_name: `Directory Focus Employee With A Deliberately Long Name ${suffix}`,
+    full_name: `Directory Focus Employee ${suffix}`,
     email: `directory-focus-with-long-email-address-${suffix}@example.com`,
     employment_status: "Probation",
     office_id: dxb!.id,
@@ -131,6 +131,47 @@ test("User Directory filters and pagination persist in the URL across refresh an
   await page.goto("/users");
   await expect(page.getByRole("heading", { name: "Users", exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "Create user" })).toBeVisible();
+  const topNavigation = page.getByRole("navigation", { name: "Workspace pages" });
+  const topbar = topNavigation.locator("..");
+  await expect(topNavigation.getByRole("link")).toHaveText([
+    "Users",
+    "HR Dashboard",
+    "PRO Dashboard",
+    "Organization",
+    "Hierarchy",
+    "Attendance",
+    "Leave",
+    "Contracts",
+    "Transfers",
+    "Exit and offboarding",
+    "Approval Centre",
+    "Attendance reports",
+  ]);
+  await expect(topbar).toHaveCSS("position", "sticky");
+  await expect(topbar).toHaveCSS("top", "0px");
+  expect(await topbar.evaluate((element) => getComputedStyle(element).backgroundColor)).not.toBe("rgba(0, 0, 0, 0)");
+  for (const width of [1440, 1280, 1024]) {
+    await page.setViewportSize({ width, height: 900 });
+    expect(await topNavigation.evaluate((element) => ({
+      fits: element.scrollWidth <= element.clientWidth,
+      overflowX: getComputedStyle(element).overflowX,
+    }))).toEqual({ fits: true, overflowX: "visible" });
+    expect(await topNavigation.evaluate((navigation) => {
+      const navBox = navigation.getBoundingClientRect();
+      return Array.from(navigation.querySelectorAll("a")).every((link) => {
+        const box = link.getBoundingClientRect();
+        return box.left >= navBox.left - 1 && box.right <= navBox.right + 1;
+      });
+    })).toBeTruthy();
+  }
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const initialTopbarBox = (await topbar.boundingBox())!;
+  const initialHeaderBottom = initialTopbarBox.y + initialTopbarBox.height;
+  expect((await page.getByTestId("page-header").boundingBox())!.y).toBeGreaterThanOrEqual(initialHeaderBottom);
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+  expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+  expect((await topbar.boundingBox())!.y).toBeCloseTo(0, 0);
+  await page.evaluate(() => window.scrollTo(0, 0));
 
   const employment = page.getByRole("combobox", { name: "Employment status" });
   await employment.focus();
@@ -180,7 +221,8 @@ test("User Directory filters and pagination persist in the URL across refresh an
   await expect(targetRow.getByTitle(target.fullName)).toBeVisible();
   await expect(targetRow.getByTitle(target.email)).toBeVisible();
   expect(await targetRow.getByRole("cell").evaluateAll((cells) => cells.every((cell) => getComputedStyle(cell).whiteSpace === "nowrap"))).toBeTruthy();
-  expect(await directoryTable.evaluate((element) => element.scrollWidth > element.clientWidth)).toBeTruthy();
+  expect(await directoryTable.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBeTruthy();
+  expect(await targetRow.getByRole("link", { name: target.fullName }).evaluate((element) => element.scrollWidth <= element.clientWidth)).toBeTruthy();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBeTruthy();
   await captureViewportPair(page, testInfo, "users-directory-columns", page.getByTestId("users-list-card"));
 

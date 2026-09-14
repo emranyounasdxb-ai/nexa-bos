@@ -88,7 +88,6 @@ export function WorkspaceFrame({ children, user, groups, context, pathname, home
   const accountInitial = useRef<"first" | "last">("first");
   const tooltipTarget = useRef<HTMLElement | null>(null);
   const tooltipPreviousDescription = useRef<string | null>(null);
-  const topNav = useRef<HTMLElement>(null);
   const workspace = useRef<HTMLElement>(null);
   const breadcrumb = useRef<HTMLElement>(null);
   const activeGroup = groups.find(group => group.label === context.group);
@@ -164,20 +163,6 @@ export function WorkspaceFrame({ children, user, groups, context, pathname, home
   }, [desktop, mobileOpen]);
   useEffect(() => { if (workspace.current) return observeSelectedTabVisibility(workspace.current); }, []);
   useEffect(() => {
-    const nav = topNav.current;
-    const reveal = () => {
-      const selected = nav?.querySelector<HTMLElement>('[aria-current="page"]');
-      if (!nav || !selected) return;
-      const parent = nav.getBoundingClientRect(), child = selected.getBoundingClientRect();
-      if (child.left < parent.left) nav.scrollLeft += child.left - parent.left;
-      else if (child.right > parent.right) nav.scrollLeft += child.right - parent.right;
-    };
-    reveal();
-    const resize = new ResizeObserver(reveal);
-    if (nav) resize.observe(nav);
-    return () => resize.disconnect();
-  }, [pathname, context.group]);
-  useEffect(() => {
     const nav = breadcrumb.current;
     if (nav) nav.scrollLeft = nav.scrollWidth;
   }, [pathname]);
@@ -226,7 +211,7 @@ export function WorkspaceFrame({ children, user, groups, context, pathname, home
   return <div className={styles.canvas}><div className={styles.frame}>
     <header className={styles.topbar} inert={!desktop && mobileOpen}>
       <Link href={home} aria-label="AMAFH CORE home" className={styles.brand}><BrandLogo /></Link>
-      <nav ref={topNav} className={styles.topNav} aria-label="Workspace pages">{topItems.map(item => <Link key={item.href} href={item.href} aria-current={isActive(item.href) ? "page" : undefined}>{item.label}</Link>)}</nav>
+      <nav className={styles.topNav} aria-label="Workspace pages">{topItems.map(item => <Link key={item.href} href={item.href} aria-current={isActive(item.href) ? "page" : undefined}>{item.label}</Link>)}</nav>
       <div className={styles.headerActions}>
         {notifications && <NotificationBell pathname={pathname} />}
         <div className={styles.accountAnchor} data-testid="account-actions">
