@@ -192,7 +192,7 @@ export default function AssetReportsPage() {
             setEmployeeId(event.target.value);
           }}>
             <option value="">All authorized employees</option>
-            {options?.employees.map((item) => <option key={item.id} value={item.id}>{item.userCode} — {item.fullName}</option>)}
+            {options?.employees.map((item) => <option key={item.id} value={item.id}>{item.fullName}</option>)}
           </Select>
         </Field>
         <Field label="Category">

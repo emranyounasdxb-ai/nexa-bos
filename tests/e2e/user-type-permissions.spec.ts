@@ -45,22 +45,22 @@ test("User Type editor groups permissions and saves existing settings without ch
   await signIn(page, request);
 
   const suffix = Date.now().toString().slice(-8);
-  const typeCode = `UX${suffix}`;
+  let typeCode = "";
   const typeName = `Permission UX ${suffix}`;
   await page.goto("/user-types");
   for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
     await page.setViewportSize(viewport);
-    for (const label of ["Name", "Unique code", "Description"]) {
+    for (const label of ["Name", "Description"]) {
       const field = page.getByRole("textbox", { name: label, exact: true });
       await expect(field).toBeVisible();
       expect((await field.boundingBox())?.height).toBe(32);
     }
+    await expect(page.getByRole("textbox", { name: "Unique code", exact: true })).toHaveCount(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
     await captureViewportThemes(page, testInfo.outputPath(`user-type-create-${viewport.width}.png`), page.getByRole("textbox", { name: "Name", exact: true }));
   }
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.getByPlaceholder("Name").fill(typeName);
-  await page.getByPlaceholder("Unique code").fill(typeCode);
   await page.getByPlaceholder("Description").fill("Focused permission editor workflow");
   const createResponsePromise = page.waitForResponse(
     (response) => response.url() === `${apiOrigin}/api/v1/user-types` && response.request().method() === "POST",
@@ -69,10 +69,12 @@ test("User Type editor groups permissions and saves existing settings without ch
   const createResponse = await createResponsePromise;
   expect(createResponse.ok()).toBeTruthy();
   const createdType = (await createResponse.json()) as { code: string; id: string };
-  expect(createdType.code).toBe(typeCode);
+  typeCode = createdType.code;
+  expect(typeCode).toMatch(/^PERMISSION_UX_/);
   await page.goto(`/user-types/${createdType.id}`);
 
-  await expect(page.getByRole("heading", { name: `${typeName} (${typeCode})` })).toBeVisible();
+  await expect(page.getByRole("heading", { name: typeName, exact: true })).toBeVisible();
+  await expect(page.getByTestId("authenticated-content")).not.toContainText(typeCode);
   await expect(page.getByText("Focused permission editor workflow")).toBeVisible();
   await expect(page.getByRole("link", { name: "Back to User Types" })).toBeVisible();
   await expect(page.getByText(/^inactive$/i).first()).toBeVisible();
@@ -122,7 +124,7 @@ test("User Type editor groups permissions and saves existing settings without ch
 
   const usersModule = page.getByTestId("permission-panel-users");
   await expect(page.getByLabel("View users within assigned visibility scope")).toBeVisible();
-  await expect(usersModule.getByText("Users.View", { exact: true })).toBeVisible();
+  await expect(usersModule.getByText("Users.View", { exact: true })).toHaveCount(0);
   await page.getByRole("button", { name: "Select all Users permissions" }).click();
   await expect(page.getByText("This will include sensitive administrative permissions.")).toBeVisible();
   await captureViewportPair(page, testInfo, "user-type-sensitive-permission-confirmation");
@@ -227,7 +229,7 @@ test("User Type editor groups permissions and saves existing settings without ch
   expect(owner).toBeTruthy();
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto(`/user-types/${owner!.id}`);
-  await expect(page.getByRole("heading", { name: /.* \(OWNER\)/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: owner!.name, exact: true })).toBeVisible();
   await page.getByRole("button", { name: "About System Type restrictions" }).focus();
   await expect(page.getByRole("tooltip")).toContainText("seeded identity details");
   await expect(page.getByRole("heading", { name: "Permissions", exact: true })).toHaveCount(0);

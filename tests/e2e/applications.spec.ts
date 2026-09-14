@@ -67,12 +67,12 @@ async function prepareApplicationPrereqs(request: APIRequestContext) {
   }
   const banks = (
     (await (await request.get(`${apiOrigin}/api/v1/banks`)).json()) as {
-      items: { id: string; code: string }[];
+      items: { id: string; code: string; name: string }[];
     }
   ).items;
   const products = (
     (await (await request.get(`${apiOrigin}/api/v1/products`)).json()) as {
-      items: { id: string; code: string }[];
+      items: { id: string; code: string; name: string }[];
     }
   ).items;
   const dib = banks.find((item) => item.code === "DIB");
@@ -370,9 +370,9 @@ test("owner can create an application and filter the list", async ({ page, reque
   await createDialog.getByLabel("Customer Emirates ID").fill(`784-APP-${suffix}`);
   await createDialog.getByLabel("Customer Full Name").fill(`App Customer ${suffix}`);
   await createDialog.getByLabel("Customer Mobile").fill(`+97155${suffix}`);
-  await selectBrandedOption(createDialog.getByLabel("Bank", { exact: true }), { label: /\(DIB\)$/ });
-  await selectBrandedOption(createDialog.getByLabel("Product", { exact: true }), { label: /\(PF\)$/ });
-  await selectBrandedOption(createDialog.getByLabel("Product Variant", { exact: true }), { label: `${prerequisites.variant.name} (${prerequisites.variant.code})` });
+  await selectBrandedOption(createDialog.getByLabel("Bank", { exact: true }), { label: prerequisites.bank.name });
+  await selectBrandedOption(createDialog.getByLabel("Product", { exact: true }), { label: prerequisites.product.name });
+  await selectBrandedOption(createDialog.getByLabel("Product Variant", { exact: true }), { label: prerequisites.variant.name });
   await expect(createDialog.getByText(/Initial Case Owner:.*Platform Owner/)).toBeVisible();
   await createDialog.getByLabel("Requested amount").fill("15000");
   await captureViewportPair(page, testInfo, "application-create-dialog");
@@ -438,7 +438,7 @@ test("owner can create an application and filter the list", async ({ page, reque
   await page.reload();
   const detailVariant = page.getByLabel("Product Variant", { exact: true });
   await expect(detailVariant).toHaveAttribute("value", prerequisites.variant.id);
-  await selectBrandedOption(detailVariant, { label: `${replacementName} (${replacementCode})` });
+  await selectBrandedOption(detailVariant, { label: replacementName });
   await expect(detailVariant).toHaveAttribute("value", replacementBody.id);
   await page.getByRole("button", { name: "Save Product Variant" }).click();
   await expect(page.getByRole("status")).toContainText("Product Variant saved");
@@ -456,7 +456,7 @@ test("owner can create an application and filter the list", async ({ page, reque
   await page.getByLabel("Search applications").fill(replacementCode);
   const variantRow = page.getByRole("row").filter({ has: page.getByRole("link", { name: applicationId }) });
   await expect(variantRow).toContainText(replacementName);
-  await expect(variantRow).toContainText(replacementCode);
+  await expect(variantRow).not.toContainText(replacementCode);
   await expect(page.getByRole("link", { name: applicationId })).toBeVisible();
   await page.getByRole("link", { name: applicationId }).click();
   await page.getByRole("tab", { name: "Corrections & Actions" }).click();
@@ -474,9 +474,9 @@ test("owner can create an application and filter the list", async ({ page, reque
   await page.getByRole("button", { name: "Confirm correction" }).click();
   await expect(page.getByRole("status")).toContainText("Submitted data correction recorded");
   await page.getByRole("tab", { name: "Overview" }).click();
-  await expect(page.getByText(`${prerequisites.variant.name} (${prerequisites.variant.code})`, { exact: true }).first()).toBeVisible();
+  await expect(page.getByText(prerequisites.variant.name, { exact: true }).first()).toBeVisible();
   await page.getByRole("tab", { name: "Timeline" }).click();
-  await expect(page.getByText(/Product Variant: .* → /)).toContainText(prerequisites.variant.code);
+  await expect(page.getByText(/Product Variant: .* → /)).toContainText(prerequisites.variant.name);
   await page.goto("/applications");
   await page.getByLabel("Search applications").fill(applicationId);
   const submittedRow = page.getByRole("row").filter({ has: page.getByRole("link", { name: applicationId }) });
@@ -856,8 +856,8 @@ test("SE creates through exact identity matching without Customer directory or a
   await duplicateMatchTrigger.click();
   const duplicateMatchDetails = page.getByRole("dialog", { name: "Customer match details" });
   await expect(duplicateMatchDetails.getByText(applicationCode, { exact: true })).toBeVisible();
-  await expect(duplicateMatchDetails).toContainText(prerequisites.bank.code);
-  await expect(duplicateMatchDetails).toContainText(prerequisites.product.code);
+  await expect(duplicateMatchDetails).toContainText(prerequisites.bank.name);
+  await expect(duplicateMatchDetails).toContainText(prerequisites.product.name);
   await duplicateMatchDetails.getByRole("button", { name: "Close", exact: true }).click();
   await expect(duplicateMatchDetails).toHaveCount(0);
   await expect(duplicateMatchTrigger).toBeFocused();

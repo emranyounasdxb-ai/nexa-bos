@@ -38,6 +38,7 @@ from nexa_bos_api.assets.schemas import (
     OfficeTransferRequest,
 )
 from nexa_bos_api.core.exceptions import AppError
+from nexa_bos_api.core.master_codes import generate_master_code
 from nexa_bos_api.core.pagination import PageResult
 from nexa_bos_api.identity.access import (
     has_permission,
@@ -249,10 +250,21 @@ async def create_category(
 ) -> dict[str, object]:
     _require_company_master_scope(actor)
     now = utcnow()
+    category_name = _clean(payload.name) or payload.name
     category = AssetCategory(
         id=new_uuid(),
-        code=payload.code.strip().upper(),
-        name=_clean(payload.name) or payload.name,
+        code=(
+            payload.code.strip().upper()
+            if payload.code
+            else await generate_master_code(
+                session,
+                AssetCategory,
+                name=category_name,
+                fallback="asset_category",
+                max_length=32,
+            )
+        ),
+        name=category_name,
         description=_clean(payload.description),
         status=MasterStatus.ACTIVE,
         field_definitions=_normalize_definitions(payload.fields),

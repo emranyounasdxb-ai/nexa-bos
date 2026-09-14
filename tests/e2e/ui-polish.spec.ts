@@ -224,7 +224,7 @@ test("list search and page actions share compact desktop rows", async ({ page, r
   await expect(customerSearch).toBeVisible();
   await expect(customerAction).toBeVisible();
   expect((await customerSearch.boundingBox())?.height).toBe(32);
-  expect((await customerAction.boundingBox())?.height).toBe(32);
+  expect((await customerAction.boundingBox())?.height).toBe(30);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBeTruthy();
 
   await page.goto("/users");
@@ -234,7 +234,7 @@ test("list search and page actions share compact desktop rows", async ({ page, r
   await expect(userSearch).toBeVisible();
   await expect(userAction).toBeVisible();
   expect((await userSearch.boundingBox())?.height).toBe(32);
-  expect((await userAction.boundingBox())?.height).toBe(32);
+  expect((await userAction.boundingBox())?.height).toBe(30);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBeTruthy();
 
   for (const item of [
@@ -254,7 +254,7 @@ test("list search and page actions share compact desktop rows", async ({ page, r
     expect(searchBox!.width).toBeGreaterThan(actionBox!.width);
     expect(searchBox!.height).toBe(32);
     expect(Math.abs(searchBox!.y + searchBox!.height - actionBox!.y - actionBox!.height)).toBeLessThan(2);
-    expect(actionBox!.height).toBe(32);
+    expect(actionBox!.height).toBe(30);
     await search.fill("layout verification");
     await expect(search).toHaveValue("layout verification");
     await search.fill("");
@@ -272,7 +272,7 @@ test("list search and page actions share compact desktop rows", async ({ page, r
   expect(assetSearchBox!.width).toBeGreaterThan(assetActionBox!.width);
   expect(assetSearchBox!.height).toBe(32);
   expect(Math.abs(assetSearchBox!.y + assetSearchBox!.height - assetActionBox!.y - assetActionBox!.height)).toBeLessThan(2);
-  expect(assetActionBox!.height).toBe(32);
+  expect(assetActionBox!.height).toBe(30);
   await assetSearch.fill("AST-");
   await expect(assetSearch).toHaveValue("AST-");
 
@@ -281,7 +281,7 @@ test("list search and page actions share compact desktop rows", async ({ page, r
   for (const label of ["Refresh", "Export"]) {
     const button = page.getByRole("button", { name: label, exact: true }).first();
     await expect(button).toBeVisible();
-    expect((await button.boundingBox())?.height).toBe(32);
+    expect((await button.boundingBox())?.height).toBe(30);
   }
 
   await page.goto("/users/new");
@@ -290,11 +290,10 @@ test("list search and page actions share compact desktop rows", async ({ page, r
     page.getByRole("textbox", { name: "Full Name (required)", exact: true }),
     page.getByRole("textbox", { name: "Personal Email (required)", exact: true }),
     page.getByRole("textbox", { name: "Personal Mobile (required)", exact: true }),
-    page.getByLabel("User Code", { exact: true }),
     page.getByRole("button", { name: "Create User", exact: true }),
   ]) {
     await expect(control).toBeVisible();
-    expect((await control.boundingBox())?.height).toBe(32);
+    expect((await control.boundingBox())?.height).toBe((await control.getAttribute("data-amafh-button")) === null ? 32 : 30);
   }
   await expect(page.getByRole("button", { name: "Open calendar", exact: true })).toHaveCount(0);
 
@@ -307,7 +306,7 @@ test("list search and page actions share compact desktop rows", async ({ page, r
     page.getByRole("button", { name: "Save schedule", exact: true }),
   ]) {
     await expect(control).toBeVisible();
-    expect((await control.boundingBox())?.height).toBe(32);
+    expect((await control.boundingBox())?.height).toBe((await control.getAttribute("data-amafh-button")) === null ? 32 : 30);
   }
 
   for (const path of ["/customers", "/users", "/applications", "/assets", "/finance"]) {
@@ -880,7 +879,7 @@ test("shared application layout stays compact, aligned, and overflow-free across
         const borderWidth = await card.evaluate(element => parseFloat(getComputedStyle(element).borderTopWidth));
         if (borderWidth > 0) await expect(card).toHaveCSS("border-color", "rgb(236, 233, 239)");
         else await expect(card).toHaveCSS("border-top-width", "0px");
-        await expect(card).toHaveCSS("border-radius", /^(20|14)px$/);
+        await expect(card).toHaveCSS("border-radius", /^(8|10)px$/);
       }
       for (const tableShell of await page.locator("main [data-amafh-table-shell]").all()) {
         await expect(tableShell).toHaveCSS("position", "relative");
@@ -904,10 +903,10 @@ test("shared application layout stays compact, aligned, and overflow-free across
           };
         });
         expect(geometry.gap).toBe("4px");
-        expect(geometry.height).toBe(32);
+        expect(geometry.height).toBe(36);
         expect(geometry.overflowX).toBe("auto");
         for (const tab of await tabs.all()) {
-          expect((await tab.boundingBox())?.height).toBe(32);
+          expect((await tab.boundingBox())?.height).toBe(30);
         }
         if (await selected.count()) {
           await expect(selected.first()).toHaveCSS("color", "rgb(255, 255, 255)");

@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from nexa_bos_api.core.exceptions import AppError
+from nexa_bos_api.core.master_codes import generate_master_code
 from nexa_bos_api.identity.access import is_owner, load_user_with_type, user_load_options
 from nexa_bos_api.identity.audit import record_audit
 from nexa_bos_api.identity.enums import AccountStatus, MasterStatus
@@ -84,8 +85,18 @@ def serialize_team(team: Team) -> dict[str, object]:
     }
 
 
-async def _unique_code(session: AsyncSession, model, code: str, entity: str) -> str:
+async def _unique_code(
+    session: AsyncSession, model, code: str | None, entity: str, *, name: str
+) -> str:
+    if code is None:
+        return await generate_master_code(session, model, name=name, fallback=entity, max_length=32)
     normalized = code.strip().upper()
+    if not normalized:
+        raise AppError(
+            status_code=422,
+            code=f"{entity.upper()}_CODE_REQUIRED",
+            message=f"{entity} code cannot be blank",
+        )
     existing = (
         await session.execute(select(model).where(model.code == normalized))
     ).scalar_one_or_none()
@@ -105,11 +116,11 @@ async def list_offices(session: AsyncSession, *, include_inactive: bool) -> list
     return list((await session.execute(stmt)).scalars().all())
 
 
-async def create_office(session: AsyncSession, actor: User, name: str, code: str) -> Office:
+async def create_office(session: AsyncSession, actor: User, name: str, code: str | None) -> Office:
     now = utcnow()
     office = Office(
         id=new_uuid(),
-        code=await _unique_code(session, Office, code, "office"),
+        code=await _unique_code(session, Office, code, "office", name=name),
         name=name.strip(),
         status=MasterStatus.ACTIVE,
         created_at=now,
@@ -181,7 +192,7 @@ async def list_departments(
 
 
 async def create_department(
-    session: AsyncSession, actor: User, office_id: UUID, name: str, code: str
+    session: AsyncSession, actor: User, office_id: UUID, name: str, code: str | None
 ) -> Department:
     office = await session.get(Office, office_id)
     if office is None:
@@ -190,7 +201,7 @@ async def create_department(
     department = Department(
         id=new_uuid(),
         office_id=office.id,
-        code=await _unique_code(session, Department, code, "department"),
+        code=await _unique_code(session, Department, code, "department", name=name),
         name=name.strip(),
         status=MasterStatus.ACTIVE,
         created_at=now,
@@ -272,12 +283,12 @@ async def list_designations(session: AsyncSession, *, include_inactive: bool) ->
 
 
 async def create_designation(
-    session: AsyncSession, actor: User | None, name: str, code: str, *, commit: bool = True
+    session: AsyncSession, actor: User | None, name: str, code: str | None, *, commit: bool = True
 ) -> Designation:
     now = utcnow()
     designation = Designation(
         id=new_uuid(),
-        code=await _unique_code(session, Designation, code, "designation"),
+        code=await _unique_code(session, Designation, code, "designation", name=name),
         name=name.strip(),
         status=MasterStatus.ACTIVE,
         created_at=now,
@@ -392,7 +403,7 @@ async def create_team(
     office_id: UUID,
     department_id: UUID,
     name: str,
-    code: str,
+    code: str | None,
     business_unit_id: UUID,
 ) -> Team:
     from nexa_bos_api.identity.business_units import validate_business_unit
@@ -416,7 +427,7 @@ async def create_team(
         office_id=office.id,
         department_id=department.id,
         business_unit_id=business_unit_id,
-        code=await _unique_code(session, Team, code, "team"),
+        code=await _unique_code(session, Team, code, "team", name=name),
         name=name.strip(),
         status=MasterStatus.ACTIVE,
         created_at=now,

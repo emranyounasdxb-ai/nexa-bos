@@ -209,7 +209,7 @@ export default function EditUserPage() {
           >
             {designations.map((item) => (
               <option key={item.id} value={item.id}>
-                {item.code} — {item.name}
+                {item.name}
               </option>
             ))}
           </Select>
@@ -240,7 +240,7 @@ export default function EditUserPage() {
           <option value="">None</option>
           {offices.map((item) => (
             <option key={item.id} value={item.id}>
-              {item.code} — {item.name}
+              {item.name}
             </option>
           ))}
         </Select>
@@ -261,7 +261,7 @@ export default function EditUserPage() {
           <option value="">None</option>
           {departmentOptions.map((item) => (
             <option key={item.id} value={item.id}>
-              {item.code} — {item.name}
+              {item.name}
               {item.officeId !== form.office_id ? " (does not match office)" : ""}
             </option>
           ))}
@@ -270,7 +270,7 @@ export default function EditUserPage() {
         <div className="min-w-0"><label className="block text-sm" htmlFor="edit-business-unit">Business Unit</label>
         <Select id="edit-business-unit" value={form.business_unit_id ?? ""} disabled={!departmentValid} onChange={(event) => { orgDirty.current = true; setForm((current) => ({ ...current, business_unit_id: event.target.value, team_id: "" })); }}>
           <option value="">Select Business Unit</option>
-          {businessUnits.filter((unit) => unit.officeId === form.office_id && unit.departmentId === form.department_id).map((unit) => <option key={unit.id} value={unit.id}>{unit.code} — {unit.name}</option>)}
+          {businessUnits.filter((unit) => unit.officeId === form.office_id && unit.departmentId === form.department_id).map((unit) => <option key={unit.id} value={unit.id}>{unit.name}</option>)}
         </Select>
         </div>
         <div className="min-w-0"><label className="block text-sm" htmlFor="edit-team">
@@ -289,7 +289,7 @@ export default function EditUserPage() {
           <option value="">None</option>
           {teamOptions.map((item) => (
             <option key={item.id} value={item.id}>
-              {item.code} — {item.name}
+              {item.name}
               {item.officeId !== form.office_id || item.departmentId !== form.department_id
                 ? " (does not match office and department)"
                 : ""}
@@ -332,7 +332,7 @@ export default function EditUserPage() {
               <option value="">None</option>
               {managers.map((item) => (
                 <option key={item.id} value={item.id}>
-                  {item.userCode} — {item.fullName}
+                  {item.fullName}
                 </option>
               ))}
             </Select>

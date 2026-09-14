@@ -104,11 +104,11 @@ async function createBranchingWorkflow(request: APIRequestContext) {
   expect(transitions.ok(), await transitions.text()).toBeTruthy();
   return {
     bankId: bankBody.id,
-    bankLabel: `${bankName} (${bankCode})`,
+    bankLabel: bankName,
     bankName,
-    documentStageLabel: `${createdStages[0].name} (${createdStages[0].code})`,
+    documentStageLabel: createdStages[0].name,
     productId: productBody.id,
-    productLabel: `${productName} (${productCode})`,
+    productLabel: productName,
     productName,
     workflowId: workflowBody.id,
   };
@@ -229,7 +229,7 @@ test("Workflow Designer presents dependent branded selectors, drawers, branching
   await page.getByRole("button", { name: "Add transition" }).click();
   const transitionDialog = page.getByRole("dialog", { name: "Add transition" });
   await expect(transitionDialog).toBeVisible();
-  await chooseOption(page, "From stage", "Application Created (APPLICATION_CREATED)");
+  await chooseOption(page, "From stage", "Application Created");
   await chooseOption(page, "To stage", fixture.documentStageLabel);
   await expect(transitionDialog.getByRole("alert")).toContainText("already exists");
   await captureViewportPair(page, testInfo, "workflow-transition-validation");

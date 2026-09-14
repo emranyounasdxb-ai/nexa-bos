@@ -243,7 +243,7 @@ function ApplicationsPageInner() {
             <option value="">All banks</option>
             {banks.map((item) => (
               <option key={item.id} value={item.id}>
-                {item.name} ({item.code})
+                {item.name}
               </option>
             ))}
           </Select>
@@ -257,7 +257,7 @@ function ApplicationsPageInner() {
             <option value="">All products</option>
             {products.map((item) => (
               <option key={item.id} value={item.id}>
-                {item.name} ({item.code})
+                {item.name}
               </option>
             ))}
           </Select>
@@ -367,12 +367,12 @@ function ApplicationsPageInner() {
                 </Td>
                 <Td>
                   <p>
-                    {item.bankName ?? item.bankCode} ({item.bankCode})
+                    {item.bankName ?? "Unavailable bank"}
                   </p>
                   <p className="text-xs text-slate-500">
-                    {item.productName ?? item.productCode} ({item.productCode}) ·{" "}
+                    {item.productName ?? "Unavailable product"} ·{" "}
                     {item.productVariantName
-                      ? `${item.productVariantName} (${item.productVariantCode})`
+                      ? item.productVariantName
                       : "Legacy: no Product Variant"}
                   </p>
                 </Td>

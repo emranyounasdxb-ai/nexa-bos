@@ -146,7 +146,7 @@ export default function OrganizationHierarchyPage() {
               <option value="">Company view</option>
               {data?.filters.offices.map((office) => (
                 <option key={office.id} value={office.id}>
-                  {office.code} — {office.name}
+                  {office.name}
                 </option>
               ))}
             </Select>
@@ -166,7 +166,7 @@ export default function OrganizationHierarchyPage() {
               <option value="">All departments</option>
               {data?.filters.departments.map((department) => (
                 <option key={department.id} value={department.id}>
-                  {department.code} — {department.name}
+                  {department.name}
                 </option>
               ))}
             </Select>
@@ -174,7 +174,7 @@ export default function OrganizationHierarchyPage() {
           <Field label="Business Unit" htmlFor="hierarchy-business-unit">
             <Select id="hierarchy-business-unit" aria-label="Business Unit" value={businessUnitId} onChange={(event) => { setBusinessUnitId(event.target.value); setTeamId(""); resetSelection(); }}>
               <option value="">All Business Units</option>
-              {data?.filters.businessUnits.map((unit) => <option key={unit.id} value={unit.id}>{unit.code} — {unit.name}</option>)}
+              {data?.filters.businessUnits.map((unit) => <option key={unit.id} value={unit.id}>{unit.name}</option>)}
             </Select>
           </Field>
           <Field label="Team" htmlFor="hierarchy-team">
@@ -190,7 +190,7 @@ export default function OrganizationHierarchyPage() {
               <option value="">All teams</option>
               {data?.filters.teams.map((team) => (
                 <option key={team.id} value={team.id}>
-                  {team.code} — {team.name}
+                  {team.name}
                 </option>
               ))}
             </Select>

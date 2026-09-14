@@ -117,8 +117,7 @@ function humanize(value: string): string {
 function namedLabel(item: Named | undefined): string {
   if (!item) return "Not selected";
   const base = item.fullName ?? item.name ?? "Unnamed";
-  const code = item.employeeCode ?? item.code;
-  return code ? `${base} (${code})` : base;
+  return item.employeeCode ? `${base} (${item.employeeCode})` : base;
 }
 
 export default function TargetsPage() {
@@ -171,6 +170,8 @@ export default function TargetsPage() {
   const selectedEntity = entities.find((item) => item.id === entityId);
   const selectedProduct = options?.products.find((item) => item.id === productId);
   const selectedBank = options?.banks.find((item) => item.id === bankId);
+  const productNameByCode = new Map(options?.products.map((item) => [item.code, item.name]) ?? []);
+  const bankNameByCode = new Map(options?.banks.map((item) => [item.code, item.name]) ?? []);
   const normalizedMonth = monthFirst(periodMonth);
   const hasPeriodMonth = Boolean(normalizedMonth);
   const isPeriodLocked = options?.lockedMonths.includes(normalizedMonth) ?? false;
@@ -534,7 +535,7 @@ export default function TargetsPage() {
                             <span className="block text-xs capitalize text-text-secondary">{item.level}</span>
                             {item.level === "employee" ? <Link className="font-medium text-brand-link underline-offset-2 hover:underline" href={`/reports/employees/${item.entityId}`}>{item.entityName}</Link> : <span className="font-medium">{item.entityName}</span>}
                           </Td>
-                          <Td><span className="block font-medium">{item.periodMonth}</span><span className="block text-xs text-text-secondary">{item.productCode} · {item.bankCode ?? "Overall"} · {humanize(item.milestone)}</span></Td>
+                          <Td><span className="block font-medium">{item.periodMonth}</span><span className="block text-xs text-text-secondary">{productNameByCode.get(item.productCode ?? "") ?? "Product"} · {item.bankCode ? bankNameByCode.get(item.bankCode) ?? "Bank" : "Overall"} · {humanize(item.milestone)}</span></Td>
                           <Td><span className="block font-medium text-text-primary">{item.measurement === "amount" ? formatAed(item.result?.effectiveTarget ?? item.targetValue) : item.result?.effectiveTarget ?? item.targetValue}</span><span className="block text-xs text-text-secondary">Actual {item.measurement === "amount" ? formatAed(item.result?.actual) : item.result?.actual}</span></Td>
                           <Td>{formatPct(item.result?.achievementPct)}</Td>
                           <Td><span className="block">Gap {item.result?.gap}</span><span className="block text-xs text-text-secondary">Run-rate {item.result?.dailyRequiredRunRate ?? "—"}</span></Td>
@@ -558,7 +559,7 @@ export default function TargetsPage() {
                           <div className="min-w-0"><span className="block text-xs capitalize text-text-secondary">{item.level}</span>{item.level === "employee" ? <Link className="block truncate font-medium text-brand-link" href={`/reports/employees/${item.entityId}`}>{item.entityName}</Link> : <span className="block truncate font-medium">{item.entityName}</span>}</div>
                           <div className="flex shrink-0 flex-wrap justify-end gap-1"><StatusBadge value={humanize(item.status)} />{item.locked ? <Badge tone="red">Locked</Badge> : null}</div>
                         </div>
-                        <p className="mt-2 text-xs text-text-secondary">{item.periodMonth} · {item.productCode} · {item.bankCode ?? "Overall"} · {humanize(item.milestone)}</p>
+                        <p className="mt-2 text-xs text-text-secondary">{item.periodMonth} · {productNameByCode.get(item.productCode ?? "") ?? "Product"} · {item.bankCode ? bankNameByCode.get(item.bankCode) ?? "Bank" : "Overall"} · {humanize(item.milestone)}</p>
                         <dl className="mt-3 grid grid-cols-2 gap-2 text-xs">
                           <div><dt className="text-text-secondary">Target / actual</dt><dd className="mt-0.5 font-medium text-text-primary">{item.measurement === "amount" ? formatAed(item.result?.effectiveTarget ?? item.targetValue) : item.result?.effectiveTarget ?? item.targetValue} / {item.measurement === "amount" ? formatAed(item.result?.actual) : item.result?.actual}</dd></div>
                           <div><dt className="text-text-secondary">Achievement</dt><dd className="mt-0.5 font-medium text-text-primary">{formatPct(item.result?.achievementPct)}</dd></div>
@@ -644,8 +645,8 @@ export default function TargetsPage() {
               <fieldset className="rounded-lg border border-slate-200 p-4">
                 <legend className="px-1 text-sm font-semibold text-slate-900">Measurement</legend>
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <Field label="Product"><Select aria-label="Product" value={productId} onChange={(event) => { const nextId = event.target.value; setProductId(nextId); setMeasurement(options?.products.find((item) => item.id === nextId)?.defaultMeasurement ?? ""); }}><option value="">Select</option>{options?.products.map((item) => <option key={item.id} value={item.id}>{item.code} — {item.name}</option>)}</Select><span className="mt-1 block text-xs font-normal leading-5 text-slate-500">The product supplies the existing default measurement.</span></Field>
-                  <Field label="Bank (optional)"><Select aria-label="Bank" value={bankId} onChange={(event) => setBankId(event.target.value)}><option value="">Overall product</option>{options?.banks.map((item) => <option key={item.id} value={item.id}>{item.name} ({item.code})</option>)}</Select><span className="mt-1 block text-xs font-normal leading-5 text-slate-500">Leave blank to measure the product across all banks.</span></Field>
+                  <Field label="Product"><Select aria-label="Product" value={productId} onChange={(event) => { const nextId = event.target.value; setProductId(nextId); setMeasurement(options?.products.find((item) => item.id === nextId)?.defaultMeasurement ?? ""); }}><option value="">Select</option>{options?.products.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</Select><span className="mt-1 block text-xs font-normal leading-5 text-slate-500">The product supplies the existing default measurement.</span></Field>
+                  <Field label="Bank (optional)"><Select aria-label="Bank" value={bankId} onChange={(event) => setBankId(event.target.value)}><option value="">Overall product</option>{options?.banks.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</Select><span className="mt-1 block text-xs font-normal leading-5 text-slate-500">Leave blank to measure the product across all banks.</span></Field>
                   <Field label="Milestone"><Select aria-label="Milestone" value={milestone} onChange={(event) => setMilestone(event.target.value)}><option value="submitted">Submitted</option><option value="approved">Approved</option><option value="booked">Booked</option><option value="funded">Funded</option></Select><span className="mt-1 block text-xs font-normal leading-5 text-slate-500">Actual results use applications that reached this workflow milestone.</span></Field>
                   <Field label="Measurement"><Select aria-label="Measurement" value={measurement} onChange={(event) => setMeasurement(event.target.value)}><option value="amount">Amount (AED)</option><option value="count">Count</option></Select><span className="mt-1 block text-xs font-normal leading-5 text-slate-500">Measure the milestone by eligible amount or application count.</span></Field>
                   <Field label="Target value"><TextInput aria-label="Target value" inputMode="decimal" value={targetValue} onChange={(event) => setTargetValue(event.target.value)} /><span className="mt-1 block text-xs font-normal leading-5 text-slate-500">Enter a non-negative count or AED value matching the selected measurement.</span></Field>
@@ -658,7 +659,7 @@ export default function TargetsPage() {
                 <dl className="mt-3 grid gap-x-4 gap-y-2 text-sm sm:grid-cols-2">
                   <div><dt className="text-blue-700">Assignment</dt><dd className="font-medium text-blue-950">{humanize(level)} · {namedLabel(selectedEntity)}</dd></div>
                   <div><dt className="text-blue-700">Period</dt><dd className="font-medium text-blue-950">{normalizedMonth || "Not selected"}</dd></div>
-                  <div><dt className="text-blue-700">Product / bank</dt><dd className="font-medium text-blue-950">{selectedProduct ? `${selectedProduct.name} (${selectedProduct.code})` : "Not selected"} · {selectedBank ? `${selectedBank.name} (${selectedBank.code})` : "Overall"}</dd></div>
+                  <div><dt className="text-blue-700">Product / bank</dt><dd className="font-medium text-blue-950">{selectedProduct?.name ?? "Not selected"} · {selectedBank?.name ?? "Overall"}</dd></div>
                   <div><dt className="text-blue-700">Result</dt><dd className="font-medium text-blue-950">{humanize(milestone)} · {humanize(measurement || "Not selected")} · {targetValue || "No value"}{prorate ? " · Prorated" : ""}</dd></div>
                 </dl>
               </div>

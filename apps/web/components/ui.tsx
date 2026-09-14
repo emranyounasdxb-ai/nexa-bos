@@ -55,24 +55,28 @@ const ghostButtonTone = "text-text-secondary hover:bg-brand-soft hover:text-bran
 const dangerButtonTone = "bg-[#b9233b] text-white hover:bg-[#9f1e33] active:bg-[#89182b]";
 
 export const primaryButtonClass = cx(
+  "amafh-static-button",
   buttonBaseClass,
   buttonSizeClass.default,
   primaryButtonTone,
 );
 
 export const secondaryButtonClass = cx(
+  "amafh-static-button",
   buttonBaseClass,
   buttonSizeClass.default,
   secondaryButtonTone,
 );
 
 export const ghostButtonClass = cx(
+  "amafh-static-button",
   buttonBaseClass,
   buttonSizeClass.default,
   ghostButtonTone,
 );
 
 export const dangerButtonClass = cx(
+  "amafh-static-button",
   buttonBaseClass,
   buttonSizeClass.default,
   dangerButtonTone,
@@ -252,7 +256,7 @@ export function Button({
   className,
   ...props
 }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: ButtonVariant; size?: ButtonSize }) {
-  return <button className={cx(buttonClassFor(variant, size), className)} {...props} />;
+  return <button data-amafh-button="" data-amafh-button-size={size} className={cx(buttonClassFor(variant, size), className)} {...props} />;
 }
 
 export function ButtonLink({
@@ -269,7 +273,7 @@ export function ButtonLink({
   className?: string;
 }) {
   return (
-    <Link href={href} className={cx(buttonClassFor(variant, size), className)}>
+    <Link data-amafh-button="" data-amafh-button-size={size} href={href} className={cx(buttonClassFor(variant, size), className)}>
       {children}
     </Link>
   );

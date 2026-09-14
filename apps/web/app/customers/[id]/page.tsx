@@ -495,7 +495,7 @@ export default function CustomerDetailPage() {
                       {applications.map((application) => (
                         <tr key={application.id} className="border-t border-brand-border">
                           <Td><Link className="font-medium text-brand-link underline" href={`/applications/${application.id}`}>{application.applicationCode}</Link></Td>
-                          <Td>{application.bankCode} / {application.productCode} / {application.productVariantCode ?? "Legacy"}</Td>
+                          <Td>{application.bankName ?? "—"} / {application.productName ?? "—"} / {application.productVariantName ?? "Legacy"}</Td>
                           <Td>{application.currentStage}</Td>
                           <Td>{application.terminalOutcome ?? (application.hasActiveDelay && application.activeDelay ? `Delay · ${application.activeDelay.delayType}` : "In progress")}</Td>
                         </tr>
@@ -507,7 +507,7 @@ export default function CustomerDetailPage() {
                   {applications.map((application) => (
                     <article key={application.id} className="min-w-0 rounded-[10px] border border-brand-border p-3 text-sm">
                       <Link className="font-semibold text-brand-link underline" href={`/applications/${application.id}`}>{application.applicationCode}</Link>
-                      <p className="mt-1 break-words text-text-primary">{application.bankCode} / {application.productCode} / {application.productVariantCode ?? "Legacy"}</p>
+                      <p className="mt-1 break-words text-text-primary">{application.bankName ?? "—"} / {application.productName ?? "—"} / {application.productVariantName ?? "Legacy"}</p>
                       <p className="mt-1 text-text-secondary">{application.currentStage}{application.terminalOutcome ? ` · ${application.terminalOutcome}` : ""}</p>
                     </article>
                   ))}

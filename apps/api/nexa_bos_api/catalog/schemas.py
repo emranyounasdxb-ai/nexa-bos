@@ -39,7 +39,7 @@ class ProductFieldRulesUpdate(BaseModel):
 class ProductVariantCreateRequest(BaseModel):
     bank_product_id: UUID
     name: str = Field(min_length=1, max_length=120)
-    code: str = Field(min_length=1, max_length=32)
+    code: str | None = Field(default=None, min_length=1, max_length=32)
     description: str | None = Field(default=None, max_length=500)
 
 

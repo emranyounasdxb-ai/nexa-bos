@@ -177,7 +177,8 @@ for (const action of ["Next", "Page 2"]) {
       await expect.poll(() => new URL(page.url()).searchParams.get("q")).toBe(target.fullName);
       await expect.poll(() => new URL(page.url()).searchParams.get("page") ?? "1").toBe("1");
       expect(new URL(page.url()).searchParams.get("pageSize")).toBe("25");
-      await expect(page.getByRole("link", { name: target.userCode, exact: true })).toBeVisible();
+      await expect(page.getByRole("link", { name: target.fullName, exact: true })).toBeVisible();
+      await expect(page.getByTestId("authenticated-content")).not.toContainText(target.userCode);
       await expect(pagination).toContainText("Showing 1–1 of 1");
       await expect(page.getByLabel("Rows per page")).toHaveAttribute("value", "25");
       await expect(page.getByText(new RegExp(`${group} Other`))).toHaveCount(0);

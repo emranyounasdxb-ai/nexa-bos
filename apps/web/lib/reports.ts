@@ -51,7 +51,9 @@ export type DashboardPayload = {
       level: string;
       entityName: string | null;
       productCode: string | null;
+      productName: string | null;
       bankCode: string | null;
+      bankName: string | null;
       result: {
         actual: string;
         achievementPct: number | null;

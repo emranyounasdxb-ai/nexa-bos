@@ -136,7 +136,8 @@ test("User Directory filters and pagination persist in the URL across refresh an
   await expect.poll(() => new URL(page.url()).searchParams.get("userTypeId")).toBe(se!.id);
   await page.getByLabel("Search users").fill(target.fullName);
   await expect.poll(() => new URL(page.url()).searchParams.get("q")).toBe(target.fullName);
-  await expect(page.getByRole("link", { name: target.userCode })).toBeVisible();
+  await expect(page.getByRole("link", { name: target.fullName })).toBeVisible();
+  await expect(page.getByTestId("authenticated-content")).not.toContainText(target.userCode);
   await expect(page.getByText(other.fullName, { exact: true })).toHaveCount(0);
 
   await page.reload();
@@ -150,7 +151,7 @@ test("User Directory filters and pagination persist in the URL across refresh an
   await selectBrandedOption(page.getByRole("combobox", { name: "Account status" }), "active");
   await expect(page.getByText("No Users match the current filters.")).toBeVisible();
   await page.goBack();
-  await expect(page.getByRole("link", { name: target.userCode })).toBeVisible();
+  await expect(page.getByRole("link", { name: target.fullName })).toBeVisible();
   await expect(page.getByRole("combobox", { name: "Account status" })).toHaveAttribute("value", "pending");
 
   await page.getByRole("button", { name: "Clear filters" }).click();
@@ -198,7 +199,8 @@ test("Users.View-only access keeps privileged directory controls unavailable on 
   await expect(page.getByRole("combobox", { name: "User Type" })).toBeDisabled();
   await selectBrandedOption(page.getByRole("combobox", { name: "Employment status" }), "Active");
   await page.getByLabel("Search users").fill(viewer.userCode);
-  await expect(page.getByRole("link", { name: viewer.userCode })).toBeVisible();
+  await expect(page.getByRole("link", { name: viewer.fullName })).toBeVisible();
+  await expect(page.getByTestId("authenticated-content")).not.toContainText(viewer.userCode);
   const deniedTypes = await page.request.get(`${apiOrigin}/api/v1/user-types`);
   expect(deniedTypes.status()).toBe(403);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBeTruthy();

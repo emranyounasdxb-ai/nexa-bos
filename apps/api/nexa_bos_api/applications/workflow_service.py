@@ -19,6 +19,7 @@ from nexa_bos_api.applications.seed import (
 )
 from nexa_bos_api.catalog.models import Bank, Product
 from nexa_bos_api.core.exceptions import AppError
+from nexa_bos_api.core.master_codes import generate_master_code
 from nexa_bos_api.identity.audit import record_audit
 from nexa_bos_api.identity.enums import MasterStatus, StageKind, StageSystemKey
 from nexa_bos_api.identity.models import User
@@ -175,11 +176,27 @@ async def _assert_workflow_unused(session: AsyncSession, workflow: Workflow) -> 
 
 
 async def add_stage(
-    session: AsyncSession, actor: User, workflow: Workflow, name: str, code: str, sort_order: int
+    session: AsyncSession,
+    actor: User,
+    workflow: Workflow,
+    name: str,
+    code: str | None,
+    sort_order: int,
 ) -> WorkflowStage:
     await _assert_workflow_unused(session, workflow)
     now = utcnow()
-    normalized = code.strip().upper()
+    normalized = (
+        code.strip().upper()
+        if code
+        else await generate_master_code(
+            session,
+            WorkflowStage,
+            name=name,
+            fallback="stage",
+            max_length=64,
+            scope=(WorkflowStage.workflow_id == workflow.id,),
+        )
+    )
     duplicate = next((row for row in workflow.stages if row.code == normalized), None)
     if duplicate:
         raise AppError(

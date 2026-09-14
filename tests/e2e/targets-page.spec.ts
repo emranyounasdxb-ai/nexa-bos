@@ -1,9 +1,10 @@
 import { expect, test, type APIRequestContext, type APIResponse, type Page } from "@playwright/test";
+import { selectBrandedOption } from "./helpers/select";
 
 const apiOrigin = `http://127.0.0.1:${process.env.PLAYWRIGHT_API_PORT ?? "8010"}`;
 const secret = process.env.BOOTSTRAP_SECRET ?? "nexa-test-bootstrap-secret";
 
-type TargetOption = { id: string; defaultMeasurement?: string; fullName?: string };
+type TargetOption = { id: string; code?: string; defaultMeasurement?: string; employeeCode?: string; fullName?: string; name?: string };
 
 async function expectOk(response: APIResponse) {
   expect(response.ok(), await response.text()).toBeTruthy();
@@ -52,7 +53,9 @@ async function seedTarget(request: APIRequestContext, month: string) {
   const optionsResponse = await expectOk(await request.get(`${apiOrigin}/api/v1/targets/options`));
   const options = (await optionsResponse.json()) as {
     employees: TargetOption[];
+    offices: TargetOption[];
     products: TargetOption[];
+    teams: TargetOption[];
   };
   const employee = options.employees.find((item) => item.fullName === "Platform Owner") ?? options.employees[0];
   const product = options.products[0];
@@ -71,7 +74,7 @@ async function seedTarget(request: APIRequestContext, month: string) {
       prorate: false,
     },
   }));
-  return { employee, product };
+  return { employee, options, product };
 }
 
 async function expectNoHorizontalOverflow(page: Page) {
@@ -145,8 +148,8 @@ test("Targets workspace keeps URL tabs, compact filters, results, and drawer foc
   const resultPeriod = toolbar.getByLabel("Result period");
   const targetMonth = toolbar.getByLabel("Target month filter");
   const refresh = toolbar.getByRole("button", { name: "Refresh results" });
-  for (const control of [level, resultPeriod, targetMonth, refresh]) {
-    expect((await control.boundingBox())?.height).toBe(32);
+  for (const [index, control] of [level, resultPeriod, targetMonth, refresh].entries()) {
+    expect((await control.boundingBox())?.height).toBe(index < 3 ? 32 : 30);
   }
   // The approved desktop layout places filters in a context column beside results.
   const boxes = await Promise.all([level, resultPeriod, targetMonth, refresh].map(control => control.boundingBox()));
@@ -188,7 +191,22 @@ test("Targets workspace keeps URL tabs, compact filters, results, and drawer foc
   await targetsTab.click();
   const createTarget = page.getByRole("button", { name: "Create target", exact: true });
   await createTarget.click();
-  await expect(page.getByRole("dialog", { name: "Create target" })).toBeVisible();
+  const createDialog = page.getByRole("dialog", { name: "Create target" });
+  await expect(createDialog).toBeVisible();
+  const entity = createDialog.getByLabel("Target entity");
+  await entity.click();
+  await expect(page.getByRole("listbox")).toContainText(seeded.employee.employeeCode ?? "EMP-OWNER");
+  await page.keyboard.press("Escape");
+  for (const [levelLabel, records] of [["Team", seeded.options.teams], ["Office", seeded.options.offices]] as const) {
+    await selectBrandedOption(createDialog.getByLabel("Target level"), { label: levelLabel });
+    await entity.click();
+    const listbox = page.getByRole("listbox");
+    for (const record of records) {
+      if (record.name) await expect(listbox).toContainText(record.name);
+      if (record.code && record.code !== record.name) await expect(listbox).not.toContainText(`(${record.code})`);
+    }
+    await page.keyboard.press("Escape");
+  }
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog", { name: "Create target" })).toHaveCount(0);
   await expect(createTarget).toBeFocused();

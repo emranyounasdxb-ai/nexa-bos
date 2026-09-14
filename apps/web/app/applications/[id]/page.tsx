@@ -100,11 +100,9 @@ function correctionVariant(
   const id = typeof record.productVariantId === "string" ? record.productVariantId : null;
   const name =
     typeof record.productVariantName === "string" ? record.productVariantName : null;
-  const code =
-    typeof record.productVariantCode === "string" ? record.productVariantCode : null;
   return {
     id,
-    label: name ? `${name}${code ? ` (${code})` : ""}` : "No Product Variant (legacy)",
+    label: name || "No Product Variant (legacy)",
   };
 }
 
@@ -515,8 +513,7 @@ export default function ApplicationDetailPage() {
               {item.activeDelay ? <Badge tone="amber">Delay · {item.activeDelay.delayType}</Badge> : null}
             </div>
             <p className="mt-1 break-words text-sm text-text-secondary">
-              {item.customerCode} · {item.customerName} · {item.bankCode} / {item.productCode}
-              {item.productVariantCode ? ` / ${item.productVariantCode}` : ""}
+              {item.customerCode} · {item.customerName} · {item.bankName} / {item.productName}
             </p>
             <p className="mt-1 text-xs text-text-secondary">
               Case Owner {item.caseOwnerName || "Not assigned"} · Workflow version {item.workflowVersion}
@@ -623,16 +620,16 @@ export default function ApplicationDetailPage() {
                 {item.productVariantStatus ? <StatusBadge value={item.productVariantStatus} /> : null}
               </div>
               <div className="mt-3 grid gap-3 md:grid-cols-3">
-                <Field label="Bank"><Select aria-label="Bank" value={item.bankId} disabled><option value={item.bankId}>{item.bankName} ({item.bankCode})</option></Select></Field>
-                <Field label="Product Category"><Select aria-label="Product Category" value={item.productId} disabled><option value={item.productId}>{item.productName} ({item.productCode})</option></Select></Field>
+                <Field label="Bank"><Select aria-label="Bank" value={item.bankId} disabled><option value={item.bankId}>{item.bankName}</option></Select></Field>
+                <Field label="Product Category"><Select aria-label="Product Category" value={item.productId} disabled><option value={item.productId}>{item.productName}</option></Select></Field>
                 <Field label="Product Variant">
                   {canEditOwn ? (
                     <Select aria-label="Product Variant" value={variantId} disabled={variantSaving} onChange={(event) => setVariantId(event.target.value)}>
                       <option value="">Select product variant</option>
-                      {item.productVariantId && !variants.some((variant) => variant.id === item.productVariantId) ? <option value={item.productVariantId} disabled>{item.productVariantName} ({item.productVariantCode}) — unavailable for new selection</option> : null}
-                      {variants.map((variant) => <option key={variant.id} value={variant.id}>{variant.name} ({variant.code})</option>)}
+                      {item.productVariantId && !variants.some((variant) => variant.id === item.productVariantId) ? <option value={item.productVariantId} disabled>{item.productVariantName} — unavailable for new selection</option> : null}
+                      {variants.map((variant) => <option key={variant.id} value={variant.id}>{variant.name}</option>)}
                     </Select>
-                  ) : <p className="mt-1.5 flex min-h-8 items-center rounded-md border border-brand-border bg-surface-subtle px-3 text-sm">{item.productVariantName ? `${item.productVariantName} (${item.productVariantCode})` : "No Product Variant assigned (legacy application)"}</p>}
+                  ) : <p className="mt-1.5 flex min-h-8 items-center rounded-md border border-brand-border bg-surface-subtle px-3 text-sm">{item.productVariantName ?? "No Product Variant assigned (legacy application)"}</p>}
                 </Field>
               </div>
               {variantFeedback?.tone === "error" ? <div className="mt-3"><ErrorText>{variantFeedback.text}</ErrorText></div> : null}
@@ -868,8 +865,8 @@ export default function ApplicationDetailPage() {
                 >
                   <Field label="Corrected Product Variant">
                     <Select aria-label="Corrected Product Variant" value={correctionVariantId} onChange={(event) => setCorrectionVariantId(event.target.value)}>
-                      <option value="">Keep current — {item.productVariantName ? `${item.productVariantName} (${item.productVariantCode})` : "No Product Variant (legacy)"}</option>
-                      {variants.map((variant) => <option key={variant.id} value={variant.id}>{variant.name} ({variant.code})</option>)}
+                      <option value="">Keep current — {item.productVariantName ?? "No Product Variant (legacy)"}</option>
+                      {variants.map((variant) => <option key={variant.id} value={variant.id}>{variant.name}</option>)}
                     </Select>
                   </Field>
                   <Field label="Corrected requested amount"><TextInput aria-label="Corrected requested amount" placeholder="Leave empty when unchanged" value={correctionAmount} onChange={(event) => setCorrectionAmount(event.target.value)} /></Field>

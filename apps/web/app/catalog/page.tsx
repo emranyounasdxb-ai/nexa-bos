@@ -62,7 +62,6 @@ type StatusDialogState = {
   kind: MasterKind | "mapping" | "variant";
   id: string;
   name: string;
-  code: string;
   nextStatus: "active" | "inactive";
 };
 type RuleDraft = {
@@ -74,8 +73,8 @@ type RuleDraft = {
 };
 
 const tabs: Array<{ key: TabKey; label: string; description: string }> = [
-  { key: "banks", label: "Banks", description: "Maintain bank names, immutable codes, and status." },
-  { key: "products", label: "Products", description: "Maintain product names, immutable codes, and status." },
+  { key: "banks", label: "Banks", description: "Maintain bank names and status." },
+  { key: "products", label: "Products", description: "Maintain product names and status." },
   { key: "variants", label: "Product Variants", description: "Manage the variants available within each active Bank–Product mapping." },
   { key: "rules", label: "Amount & Target Rules", description: "Configure product amount requirements and target measurement." },
   { key: "mappings", label: "Bank–Product Mapping", description: "Choose which products are available for each bank." },
@@ -134,7 +133,7 @@ function sameRuleDraft(left: RuleDraft | null, right: RuleDraft | null): boolean
 }
 
 function fullLabel(item: CatalogItem | null | undefined): string {
-  return item ? `${item.name} (${item.code})` : "Unavailable record";
+  return item?.name ?? "Unavailable record";
 }
 
 function friendlyError(error: unknown, fallback: string): string {
@@ -146,13 +145,13 @@ function friendlyError(error: unknown, fallback: string): string {
       return "Only active banks and products can be mapped or reactivated.";
     }
     if (error.body?.error?.code === "BANK_CODE_DUPLICATE") {
-      return "That bank code already exists. Bank codes must be unique and cannot be changed later.";
+      return "That bank could not be created because its internal identifier conflicts with an existing record.";
     }
     if (error.body?.error?.code === "PRODUCT_CODE_DUPLICATE") {
-      return "That product code already exists. Product codes must be unique and cannot be changed later.";
+      return "That product could not be created because its internal identifier conflicts with an existing record.";
     }
     if (error.body?.error?.code === "PRODUCT_VARIANT_DUPLICATE") {
-      return "A Product Variant with this code or name already exists for the selected Bank and Product Category.";
+      return "A Product Variant with this name already exists for the selected Bank and Product Category.";
     }
     if (error.body?.error?.code === "PRODUCT_VARIANT_PARENT_INACTIVE") {
       return "The Bank, Product Category, and their mapping must be active for this Product Variant action.";
@@ -179,11 +178,9 @@ function CatalogInner() {
   const [imageDialog, setImageDialog] = useState<ImageDialogState | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [masterName, setMasterName] = useState("");
-  const [masterCode, setMasterCode] = useState("");
   const [dialogError, setDialogError] = useState("");
   const [dialogSaving, setDialogSaving] = useState(false);
   const [variantName, setVariantName] = useState("");
-  const [variantCode, setVariantCode] = useState("");
   const [variantDescription, setVariantDescription] = useState("");
   const [variantSearch, setVariantSearch] = useState("");
   const [variantStatus, setVariantStatus] = useState<StatusFilter>("all");
@@ -368,14 +365,12 @@ function CatalogInner() {
   function openMasterDialog(kind: MasterKind, item?: CatalogItem) {
     setMasterDialog({ kind, mode: item ? "edit" : "create", item });
     setMasterName(item?.name ?? "");
-    setMasterCode(item?.code ?? "");
     setDialogError("");
   }
 
   function openVariantDialog(item?: ProductVariantRecord) {
     setVariantDialog({ mode: item ? "edit" : "create", item });
     setVariantName(item?.name ?? "");
-    setVariantCode(item?.code ?? "");
     setVariantDescription(item?.description ?? "");
     setDialogError("");
   }
@@ -435,7 +430,7 @@ function CatalogInner() {
       if (masterDialog.mode === "create") {
         saved = await apiRequest<CatalogItem>(`/api/v1/${plural}`, api, {
           method: "POST",
-          body: JSON.stringify({ name: masterName, code: masterCode }),
+          body: JSON.stringify({ name: masterName }),
         });
       } else {
         saved = await apiRequest<CatalogItem>(`/api/v1/${plural}/${masterDialog.item?.id}`, api, {
@@ -472,7 +467,6 @@ function CatalogInner() {
           body: JSON.stringify({
             bank_product_id: selectedVariantMapping?.id,
             name: variantName,
-            code: variantCode,
             description: variantDescription || null,
           }),
         });
@@ -657,7 +651,6 @@ function CatalogInner() {
               kind: "bank",
               id: item.id,
               name: item.name,
-              code: item.code,
               nextStatus: item.status.toLowerCase() === "active" ? "inactive" : "active",
             })
           }
@@ -688,7 +681,6 @@ function CatalogInner() {
               kind: "product",
               id: item.id,
               name: item.name,
-              code: item.code,
               nextStatus: item.status.toLowerCase() === "active" ? "inactive" : "active",
             })
           }
@@ -732,7 +724,6 @@ function CatalogInner() {
               kind: "variant",
               id: item.id,
               name: item.name,
-              code: item.code,
               nextStatus: item.status.toLowerCase() === "active" ? "inactive" : "active",
             })
           }
@@ -779,7 +770,6 @@ function CatalogInner() {
                   {selectedRuleProduct ? (
                     <div className="mt-3 flex flex-wrap gap-2">
                       <StatusBadge value={selectedRuleProduct.status} />
-                      <Badge>{selectedRuleProduct.code}</Badge>
                     </div>
                   ) : null}
                 </div>
@@ -917,7 +907,6 @@ function CatalogInner() {
               kind: "mapping",
               id: item.id,
               name: `${item.bank?.name ?? "Bank"} – ${item.product?.name ?? "Product"}`,
-              code: `${item.bank?.code ?? "—"} / ${item.product?.code ?? "—"}`,
               nextStatus: item.status.toLowerCase() === "active" ? "inactive" : "active",
             })
           }
@@ -930,7 +919,7 @@ function CatalogInner() {
           description={
             masterDialog.mode === "create"
               ? `Create a new ${masterDialog.kind} master record.`
-              : `Update the ${masterDialog.kind} name. Its code is immutable.`
+              : `Update the ${masterDialog.kind} name.`
           }
           onClose={() => !dialogSaving && setMasterDialog(null)}
         >
@@ -952,26 +941,12 @@ function CatalogInner() {
                 onChange={(event) => setMasterName(event.target.value)}
               />
             </label>
-            <label className="mt-4 block text-sm font-medium text-slate-700">
-              Code
-              <TextInput
-                aria-label={`${masterDialog.kind === "bank" ? "Bank" : "Product"} code`}
-                value={masterCode}
-                maxLength={32}
-                required
-                disabled={dialogSaving || masterDialog.mode === "edit"}
-                onChange={(event) => setMasterCode(event.target.value)}
-              />
-            </label>
-            <p className="mt-1.5 text-xs leading-5 text-slate-500">
-              The code is a unique system identifier and cannot be changed after creation.
-            </p>
             <div className="mt-4"><ErrorText>{dialogError}</ErrorText></div>
             <div className="mt-5 flex items-center justify-end gap-2">
               <Button type="button" variant="secondary" disabled={dialogSaving} onClick={() => setMasterDialog(null)}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={dialogSaving || !masterName.trim() || !masterCode.trim()}>
+              <Button type="submit" disabled={dialogSaving || !masterName.trim()}>
                 {dialogSaving ? "Saving…" : masterDialog.mode === "create" ? `Add ${masterDialog.kind}` : "Save changes"}
               </Button>
             </div>
@@ -1010,20 +985,6 @@ function CatalogInner() {
               />
             </label>
             <label className="mt-4 block text-sm font-medium text-slate-700">
-              Variant code
-              <TextInput
-                aria-label="Variant code"
-                value={variantCode}
-                maxLength={32}
-                required
-                disabled={dialogSaving || variantDialog.mode === "edit"}
-                onChange={(event) => setVariantCode(event.target.value)}
-              />
-            </label>
-            <p className="mt-1.5 text-xs leading-5 text-slate-500">
-              The code is unique within this Bank–Product mapping and cannot be changed after creation.
-            </p>
-            <label className="mt-4 block text-sm font-medium text-slate-700">
               Description (optional)
               <Textarea
                 aria-label="Variant description"
@@ -1041,7 +1002,7 @@ function CatalogInner() {
               </Button>
               <Button
                 type="submit"
-                disabled={dialogSaving || !variantName.trim() || !variantCode.trim() || (variantDialog.mode === "create" && !selectedVariantMapping)}
+                disabled={dialogSaving || !variantName.trim() || (variantDialog.mode === "create" && !selectedVariantMapping)}
               >
                 {dialogSaving ? "Saving…" : variantDialog.mode === "create" ? "Add Product Variant" : "Save changes"}
               </Button>
@@ -1053,7 +1014,7 @@ function CatalogInner() {
       {statusDialog ? (
         <DialogPanel
           title={`Confirm ${statusDialog.nextStatus === "active" ? "activation" : "deactivation"}`}
-          description={`${statusDialog.name} (${statusDialog.code})`}
+          description={statusDialog.name}
           onClose={() => !dialogSaving && setStatusDialog(null)}
         >
           <p className="text-sm leading-6 text-slate-600">
@@ -1079,7 +1040,7 @@ function CatalogInner() {
       {imageDialog ? (
         <DialogPanel
           title={`${imageDialog.item.hasImage ? "Replace" : "Add"} image`}
-          description={`${imageDialog.item.name} (${imageDialog.item.code})`}
+          description={imageDialog.item.name}
           onClose={() => !dialogSaving && setImageDialog(null)}
         >
           <div className="flex min-h-40 items-center justify-center p-3">
@@ -1188,7 +1149,7 @@ function MasterCatalogTab({
                 <TextInput
                   type="search"
                   aria-label={`Search ${title.toLowerCase()}`}
-                  placeholder="Name or code"
+                  placeholder="Name"
                   value={search}
                   onChange={(event) => onSearch(event.target.value)}
                 />
@@ -1223,7 +1184,6 @@ function MasterCatalogTab({
           <TableHead>
             <tr>
               <Th>Full name</Th>
-              <Th>Code</Th>
               <Th>Status</Th>
               <Th className="text-right">Actions</Th>
             </tr>
@@ -1240,7 +1200,6 @@ function MasterCatalogTab({
                       <span className="font-medium text-slate-900">{item.name}</span>
                     </div>
                   </Td>
-                  <Td><span className={styles.mobileLabel} aria-hidden="true">Code</span><code className="text-xs text-slate-600">{item.code}</code></Td>
                   <Td><span className={styles.mobileLabel} aria-hidden="true">Status</span><StatusBadge value={item.status} /></Td>
                   <Td>
                     <div className="flex flex-wrap items-center justify-end gap-1">
@@ -1273,7 +1232,7 @@ function MasterCatalogTab({
             })}
             {items.length === 0 ? (
               <tr>
-                <td className="p-0" colSpan={4}>
+                <td className="p-0" colSpan={3}>
                   <EmptyState>
                     <p>{totalItems === 0 ? `No ${title.toLowerCase()} have been created.` : `No ${title.toLowerCase()} match the current filters.`}</p>
                     {totalItems === 0 && canCreate ? <Button type="button" className="mt-3" onClick={onCreate}>{createLabel}</Button> : null}
@@ -1421,7 +1380,7 @@ function ProductVariantsTab({
                 <TextInput
                   type="search"
                   aria-label="Search Product Variants"
-                  placeholder="Name, code, or description"
+                  placeholder="Name or description"
                   value={search}
                   onChange={(event) => onSearch(event.target.value)}
                 />
@@ -1461,7 +1420,6 @@ function ProductVariantsTab({
                       <CatalogueImage item={item} api={getBrowserApiUrl()} />
                       <span>
                         <span className="block font-medium text-slate-900">{item.name}</span>
-                        <code className="text-xs text-slate-500">{item.code}</code>
                         {item.description ? <span className="mt-1 block text-xs text-slate-500">{item.description}</span> : null}
                       </span>
                     </div>
@@ -1469,12 +1427,10 @@ function ProductVariantsTab({
                   <Td>
                     <span className={styles.mobileLabel} aria-hidden="true">Bank</span>
                     <span className="block text-slate-900">{item.bank?.name ?? "Unavailable bank"}</span>
-                    <code className="text-xs text-slate-500">{item.bank?.code ?? "—"}</code>
                   </Td>
                   <Td>
                     <span className={styles.mobileLabel} aria-hidden="true">Product Category</span>
                     <span className="block text-slate-900">{item.product?.name ?? "Unavailable product"}</span>
-                    <code className="text-xs text-slate-500">{item.product?.code ?? "—"}</code>
                   </Td>
                   <Td><span className={styles.mobileLabel} aria-hidden="true">Status</span><StatusBadge value={item.status} /></Td>
                   <Td>
@@ -1631,7 +1587,7 @@ function MappingTab({
                 <TextInput
                   type="search"
                   aria-label="Search mappings"
-                  placeholder="Bank or product name or code"
+                  placeholder="Bank or product name"
                   value={search}
                   onChange={(event) => onSearch(event.target.value)}
                 />
@@ -1671,7 +1627,6 @@ function MappingTab({
                       <span>
                         <span className={styles.mobileLabel} aria-hidden="true">Bank</span>
                         <span className="block font-medium text-slate-900">{item.bank?.name ?? "Unavailable bank"}</span>
-                        <code className="text-xs text-slate-500">{item.bank?.code ?? "—"}</code>
                       </span>
                     </div>
                   </Td>
@@ -1681,7 +1636,6 @@ function MappingTab({
                       <span>
                         <span className={styles.mobileLabel} aria-hidden="true">Product</span>
                         <span className="block font-medium text-slate-900">{item.product?.name ?? "Unavailable product"}</span>
-                        <code className="text-xs text-slate-500">{item.product?.code ?? "—"}</code>
                       </span>
                     </div>
                   </Td>

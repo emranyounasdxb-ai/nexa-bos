@@ -19,7 +19,7 @@ class CategoryFieldInput(StrictRequest):
 
 
 class AssetCategoryCreateRequest(StrictRequest):
-    code: str = Field(min_length=1, max_length=32, pattern=r"^[A-Za-z0-9_-]+$")
+    code: str | None = Field(default=None, min_length=1, max_length=32, pattern=r"^[A-Za-z0-9_-]+$")
     name: str = Field(min_length=1, max_length=120)
     description: str | None = Field(default=None, max_length=500)
     fields: list[CategoryFieldInput] = Field(default_factory=list, max_length=50)

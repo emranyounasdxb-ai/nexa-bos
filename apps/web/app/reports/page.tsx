@@ -489,14 +489,14 @@ function DashboardInner() {
             Bank
             <Select aria-label="Bank" value={query.bank_id} onChange={(event) => setQuery({ ...query, bank_id: event.target.value })}>
               <option value="">All banks</option>
-              {filters?.banks.map((item) => <option key={item.id} value={item.id}>{item.code}</option>)}
+              {filters?.banks.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
             </Select>
           </label>
           <label className="text-sm font-medium text-slate-700">
             Product
             <Select aria-label="Product" value={query.product_id} onChange={(event) => setQuery({ ...query, product_id: event.target.value })}>
               <option value="">All products</option>
-              {filters?.products.map((item) => <option key={item.id} value={item.id}>{item.code}</option>)}
+              {filters?.products.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
             </Select>
           </label>
           <label className="text-sm font-medium text-slate-700">

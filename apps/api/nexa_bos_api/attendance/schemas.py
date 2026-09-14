@@ -37,7 +37,7 @@ class ScheduleUpdateRequest(BaseModel):
 
 
 class LeaveTypeCreateRequest(BaseModel):
-    code: str = Field(min_length=1, max_length=32)
+    code: str | None = Field(default=None, min_length=1, max_length=32)
     name: str = Field(min_length=1, max_length=120)
 
 

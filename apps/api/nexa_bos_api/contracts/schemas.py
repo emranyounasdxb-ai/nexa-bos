@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field, model_validator
 
 
 class ContractTypeCreate(BaseModel):
-    code: str = Field(min_length=1, max_length=40, pattern=r"^[A-Z0-9_-]+$")
+    code: str | None = Field(default=None, min_length=1, max_length=40, pattern=r"^[A-Z0-9_-]+$")
     name: str = Field(min_length=1, max_length=120)
     description: str | None = Field(default=None, max_length=1000)
 
