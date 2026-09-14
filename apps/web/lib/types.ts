@@ -49,6 +49,7 @@ export type UserRecord = {
   personalMobile?: string | null;
   email: string;
   mobile: string;
+  nationality?: string | null;
   designation: OrgRef | null;
   employmentStatus: string;
   joiningDate: string | null;

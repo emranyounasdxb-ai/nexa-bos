@@ -24,7 +24,6 @@ import {
   ResponsiveFilterPanel,
   SearchActionBar,
   Select,
-  StatusBadge,
   TableHead,
   TableShell,
   Td,
@@ -83,6 +82,24 @@ function initials(name: string): string {
     .slice(0, 2)
     .map((part) => part.charAt(0).toUpperCase())
     .join("");
+}
+
+function DirectoryValue({
+  value,
+  className = "",
+}: {
+  value: string | null | undefined;
+  className?: string;
+}) {
+  const display = value?.trim() || "—";
+  return (
+    <span
+      className={`block min-w-0 truncate ${className}`}
+      title={display === "—" ? undefined : display}
+    >
+      {display}
+    </span>
+  );
 }
 
 function UsersDirectory() {
@@ -282,7 +299,8 @@ function UsersDirectory() {
       {optionsError ? <ErrorText>{optionsError}</ErrorText> : null}
       {error ? <Card><ErrorText>{error}</ErrorText><Button type="button" variant="secondary" className="mt-3" onClick={() => setRequestVersion((value) => value + 1)}>Retry</Button></Card> : null}
 
-      <Card className="!p-0">
+      <div data-testid="users-list-card">
+        <Card className="!p-0">
         <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 border-b border-brand-border px-3 py-2 sm:px-4">
           <div className="min-w-0">
             <h2 className="text-[length:var(--amafh-text-section)] font-semibold text-text-primary">Users in scope</h2>
@@ -297,16 +315,23 @@ function UsersDirectory() {
         {items.length > 0 ? (
           <>
             <div className="hidden sm:block">
-              <TableShell className={loading ? "rounded-none border-0 opacity-70 shadow-none" : "rounded-none border-0 shadow-none"}>
-                <TableHead><tr><Th>User</Th><Th>Organization</Th><Th>User Type</Th><Th>Employment</Th><Th>Account</Th></tr></TableHead>
+              <TableShell
+                data-testid="users-directory-table"
+                className={loading ? "rounded-none border-0 opacity-70 shadow-none [&_table]:min-w-[1480px]" : "rounded-none border-0 shadow-none [&_table]:min-w-[1480px]"}
+              >
+                <TableHead><tr><Th>Code</Th><Th>User</Th><Th>Designation</Th><Th>Phone</Th><Th>Email</Th><Th>Office</Th><Th>Department</Th><Th>Nationality</Th><Th>Joining</Th></tr></TableHead>
                 <tbody>
                   {items.map((user) => (
                     <tr key={user.id}>
-                      <Td><div className="flex min-w-56 items-center gap-3"><span aria-hidden="true" className="inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-brand-soft text-xs font-semibold text-brand-primary">{initials(user.fullName)}</span><span className="min-w-0"><Link className="block truncate font-medium text-brand-link underline" href={`/users/${user.id}`}>{user.fullName}</Link><span className="block truncate text-xs text-text-secondary">{user.email}</span></span></div></Td>
-                      <Td>{user.office?.name ?? "No Office"}<span className="block text-xs text-text-secondary">{user.department?.name ?? "No Department"}</span></Td>
-                      <Td>{user.userType?.name ? <Badge>{user.userType.name}</Badge> : "—"}</Td>
-                      <Td><Badge>{user.employmentStatus}</Badge></Td>
-                      <Td><StatusBadge value={user.accountStatus} /></Td>
+                      <Td className="whitespace-nowrap py-2.5"><DirectoryValue value={user.employeeCode} className="w-36" /></Td>
+                      <Td className="whitespace-nowrap py-2.5"><div className="flex w-60 min-w-0 items-center gap-2.5"><span aria-hidden="true" className="inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-brand-soft text-xs font-semibold text-brand-primary">{initials(user.fullName)}</span><Link className="min-w-0 flex-1 truncate font-medium text-brand-link underline" title={user.fullName} href={`/users/${user.id}`}>{user.fullName}</Link></div></Td>
+                      <Td className="whitespace-nowrap py-2.5"><DirectoryValue value={user.designation?.name} className="w-44" /></Td>
+                      <Td className="whitespace-nowrap py-2.5"><DirectoryValue value={user.mobile} className="w-36" /></Td>
+                      <Td className="whitespace-nowrap py-2.5"><DirectoryValue value={user.email} className="w-60" /></Td>
+                      <Td className="whitespace-nowrap py-2.5"><DirectoryValue value={user.office?.name} className="w-40" /></Td>
+                      <Td className="whitespace-nowrap py-2.5"><DirectoryValue value={user.department?.name} className="w-44" /></Td>
+                      <Td className="whitespace-nowrap py-2.5"><DirectoryValue value={user.nationality} className="w-36" /></Td>
+                      <Td className="whitespace-nowrap py-2.5"><DirectoryValue value={user.joiningDate} className="w-28" /></Td>
                     </tr>
                   ))}
                 </tbody>
@@ -316,12 +341,16 @@ function UsersDirectory() {
             <div className={loading ? "grid gap-2 p-3 opacity-70 sm:hidden" : "grid gap-2 p-3 sm:hidden"}>
               {items.map((user) => (
                 <article key={user.id} className="min-w-0 rounded-[10px] border border-brand-border p-3">
-                  <div className="flex min-w-0 items-start gap-3"><span aria-hidden="true" className="inline-flex size-9 shrink-0 items-center justify-center rounded-full bg-brand-soft text-xs font-semibold text-brand-primary">{initials(user.fullName)}</span><div className="min-w-0 flex-1"><Link className="truncate font-semibold text-brand-link underline" href={`/users/${user.id}`}>{user.fullName}</Link><p className="truncate text-xs text-text-secondary">{user.email}</p></div></div>
+                  <div className="flex min-w-0 items-center gap-3"><span aria-hidden="true" className="inline-flex size-9 shrink-0 items-center justify-center rounded-full bg-brand-soft text-xs font-semibold text-brand-primary">{initials(user.fullName)}</span><Link className="min-w-0 flex-1 truncate font-semibold text-brand-link underline" title={user.fullName} href={`/users/${user.id}`}>{user.fullName}</Link></div>
                   <dl className="mt-3 grid min-w-0 grid-cols-2 gap-2 text-xs">
-                    <div><dt className="text-text-secondary">Organization</dt><dd className="break-words text-text-primary">{user.office?.name ?? "No Office"}<span className="block">{user.department?.name ?? "No Department"}</span></dd></div>
-                    <div><dt className="text-text-secondary">User Type</dt><dd className="text-text-primary">{user.userType?.name ?? "—"}</dd></div>
-                    <div><dt className="text-text-secondary">Employment</dt><dd className="text-text-primary">{user.employmentStatus}</dd></div>
-                    <div><dt className="text-text-secondary">Account</dt><dd><StatusBadge value={user.accountStatus} /></dd></div>
+                    <div><dt className="text-text-secondary">Code</dt><dd className="text-text-primary"><DirectoryValue value={user.employeeCode} /></dd></div>
+                    <div><dt className="text-text-secondary">Designation</dt><dd className="text-text-primary"><DirectoryValue value={user.designation?.name} /></dd></div>
+                    <div><dt className="text-text-secondary">Phone</dt><dd className="text-text-primary"><DirectoryValue value={user.mobile} /></dd></div>
+                    <div><dt className="text-text-secondary">Email</dt><dd className="text-text-primary"><DirectoryValue value={user.email} /></dd></div>
+                    <div><dt className="text-text-secondary">Office</dt><dd className="text-text-primary"><DirectoryValue value={user.office?.name} /></dd></div>
+                    <div><dt className="text-text-secondary">Department</dt><dd className="text-text-primary"><DirectoryValue value={user.department?.name} /></dd></div>
+                    <div><dt className="text-text-secondary">Nationality</dt><dd className="text-text-primary"><DirectoryValue value={user.nationality} /></dd></div>
+                    <div><dt className="text-text-secondary">Joining</dt><dd className="text-text-primary"><DirectoryValue value={user.joiningDate} /></dd></div>
                   </dl>
                 </article>
               ))}
@@ -338,7 +367,8 @@ function UsersDirectory() {
           onPageChange={(nextPage) => updateUrl({ page: nextPage === 1 ? null : String(nextPage) })}
           onPageSizeChange={(value) => { if (value !== "all") updateUrl({ pageSize: value === 10 ? null : String(value), page: null }); }}
         />
-      </Card>
+        </Card>
+      </div>
       </div>
     </section>
   );

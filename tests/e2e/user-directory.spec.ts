@@ -1,6 +1,7 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 
 import { selectBrandedOption } from "./helpers/select";
+import { captureViewportPair } from "./helpers/viewport-capture";
 
 const apiOrigin = `http://127.0.0.1:${process.env.PLAYWRIGHT_API_PORT ?? "8010"}`;
 const secret = process.env.BOOTSTRAP_SECRET ?? "nexa-test-bootstrap-secret";
@@ -74,10 +75,18 @@ async function createUser(
     },
   });
   expect(response.ok(), await response.text()).toBeTruthy();
-  return (await response.json()) as { id: string; userCode: string; fullName: string; email: string };
+  return (await response.json()) as {
+    id: string;
+    userCode: string;
+    employeeCode: string;
+    fullName: string;
+    email: string;
+    mobile: string;
+    joiningDate: string;
+  };
 }
 
-test("User Directory filters and pagination persist in the URL across refresh and back", async ({ page, request }) => {
+test("User Directory filters and pagination persist in the URL across refresh and back", async ({ page, request }, testInfo) => {
   test.setTimeout(180_000);
   const headers = await ownerHeaders(request);
   const { offices, designations, userTypes } = await directoryOptions(request);
@@ -93,11 +102,17 @@ test("User Directory filters and pagination persist in the URL across refresh an
   expect(departmentResponse.ok(), await departmentResponse.text()).toBeTruthy();
   const department = (await departmentResponse.json()) as Ref;
   const target = await createUser(request, headers, designations[0]!.id, `FOCUS${suffix}`, {
-    full_name: `Directory Focus ${suffix}`,
+    full_name: `Directory Focus Employee With A Deliberately Long Name ${suffix}`,
+    email: `directory-focus-with-long-email-address-${suffix}@example.com`,
     employment_status: "Probation",
     office_id: dxb!.id,
     department_id: department.id,
   });
+  const hrUpdate = await request.put(`${apiOrigin}/api/v1/employee-profiles/${target.id}/hr`, {
+    headers,
+    data: { nationality: "Pakistani" },
+  });
+  expect(hrUpdate.ok(), await hrUpdate.text()).toBeTruthy();
   const assign = await request.post(`${apiOrigin}/api/v1/users/${target.id}/assign-type`, {
     headers,
     data: { user_type_id: se!.id },
@@ -139,6 +154,46 @@ test("User Directory filters and pagination persist in the URL across refresh an
   await expect(page.getByRole("link", { name: target.fullName })).toBeVisible();
   await expect(page.getByTestId("authenticated-content")).not.toContainText(target.userCode);
   await expect(page.getByText(other.fullName, { exact: true })).toHaveCount(0);
+
+  const directoryTable = page.getByTestId("users-directory-table");
+  await expect(directoryTable.getByRole("columnheader")).toHaveText([
+    "Code",
+    "User",
+    "Designation",
+    "Phone",
+    "Email",
+    "Office",
+    "Department",
+    "Nationality",
+    "Joining",
+  ]);
+  const targetRow = directoryTable.getByRole("row").filter({ has: page.getByRole("link", { name: target.fullName }) });
+  await expect(targetRow.getByRole("cell")).toHaveCount(9);
+  await expect(targetRow).toContainText(target.employeeCode);
+  await expect(targetRow).toContainText(designations[0]!.name);
+  await expect(targetRow).toContainText(target.mobile);
+  await expect(targetRow).toContainText(target.email);
+  await expect(targetRow).toContainText(dxb!.name);
+  await expect(targetRow).toContainText(department.name);
+  await expect(targetRow).toContainText("Pakistani");
+  await expect(targetRow).toContainText(target.joiningDate);
+  await expect(targetRow.getByTitle(target.fullName)).toBeVisible();
+  await expect(targetRow.getByTitle(target.email)).toBeVisible();
+  expect(await targetRow.getByRole("cell").evaluateAll((cells) => cells.every((cell) => getComputedStyle(cell).whiteSpace === "nowrap"))).toBeTruthy();
+  expect(await directoryTable.evaluate((element) => element.scrollWidth > element.clientWidth)).toBeTruthy();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBeTruthy();
+  await captureViewportPair(page, testInfo, "users-directory-columns", page.getByTestId("users-list-card"));
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  const targetCard = page.locator("article").filter({ has: page.getByRole("link", { name: target.fullName }) });
+  await expect(targetCard).toBeVisible();
+  await expect(targetCard.locator("dt")).toHaveText(["Code", "Designation", "Phone", "Email", "Office", "Department", "Nationality", "Joining"]);
+  await expect(targetCard).toContainText("Pakistani");
+  await expect(targetCard).not.toContainText("User Type");
+  await expect(targetCard).not.toContainText("Employment");
+  await expect(targetCard).not.toContainText("Account");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBeTruthy();
+  await page.setViewportSize({ width: 1440, height: 900 });
 
   await page.reload();
   await expect(page.getByLabel("Search users")).toHaveValue(target.fullName);

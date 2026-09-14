@@ -7,6 +7,7 @@ from uuid import UUID
 from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from nexa_bos_api.core.config import get_settings
 from nexa_bos_api.core.exceptions import AppError
@@ -672,7 +673,7 @@ async def list_users(
 ) -> PageResult[User]:
     stmt = (
         select(User)
-        .options(*user_load_options())
+        .options(*user_load_options(), selectinload(User.hr_profile))
         .outerjoin(Office, User.office_id == Office.id)
         .outerjoin(Department, User.department_id == Department.id)
         .outerjoin(Team, User.team_id == Team.id)

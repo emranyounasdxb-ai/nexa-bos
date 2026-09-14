@@ -6,7 +6,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   IconChevronRight,
-  IconCircleCheck,
   IconEdit,
   IconGitBranch,
   IconInfoCircle,
@@ -434,9 +433,18 @@ export default function WorkflowsPage() {
 
       <div className="flex min-w-0 items-center gap-1 overflow-x-auto rounded-lg border border-brand-border bg-surface px-3 py-2" aria-label="Workflow setup progress">
         {steps.map((step, index) => (
-          <div key={step} className="flex shrink-0 items-center gap-1">
-            <span className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium ${index < currentStep ? "bg-success-soft text-success" : index === currentStep ? "bg-brand-soft text-brand-primary" : "bg-surface-subtle text-text-secondary"}`}>
-              {index < currentStep ? <IconCircleCheck className="size-3.5" /> : <span className="inline-grid size-4 place-items-center rounded-full border border-current text-xs">{index + 1}</span>}
+          <div key={step} className="flex shrink-0 items-center gap-1.5">
+            <span
+              aria-current={index === currentStep ? "step" : undefined}
+              data-workflow-step-state={index < currentStep ? "completed" : index === currentStep ? "active" : "inactive"}
+              className={`inline-flex items-center gap-2 rounded-md px-2 py-1 text-xs font-medium ${index < currentStep ? "bg-success-soft text-success" : index === currentStep ? "bg-brand-soft text-brand-primary" : "bg-surface-subtle text-text-secondary"}`}
+            >
+              <span
+                data-testid="workflow-step-indicator"
+                className={`inline-flex size-5 shrink-0 items-center justify-center rounded-full border text-[11px] font-semibold leading-none ${index < currentStep ? "border-success bg-success text-white" : index === currentStep ? "border-brand-primary bg-brand-fill text-white" : "border-brand-border bg-surface text-text-secondary"}`}
+              >
+                {index + 1}
+              </span>
               {step}
             </span>
             {index < steps.length - 1 ? <IconChevronRight className="size-3.5 text-text-disabled" /> : null}
