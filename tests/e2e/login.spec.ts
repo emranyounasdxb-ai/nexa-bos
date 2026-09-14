@@ -27,36 +27,45 @@ async function ensureOwner(request: APIRequestContext) {
   expect(created.ok()).toBeTruthy();
 }
 
-test("login uses the responsive split layout in both themes", async ({ page, request }, testInfo) => {
+test("login uses the cinematic responsive glass-card layout in both themes", async ({ page, request }, testInfo) => {
   test.setTimeout(90_000);
   await ensureOwner(request);
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/login");
 
-  const brand = page.getByTestId("login-brand-panel");
   const formPanel = page.getByTestId("login-form-panel");
-  await expect(brand).toBeVisible();
   await expect(formPanel).toBeVisible();
-  const desktopWidths = await Promise.all([brand, formPanel].map(async panel => (await panel.boundingBox())!.width));
-  expect(desktopWidths[0] / (desktopWidths[0] + desktopWidths[1])).toBeGreaterThan(0.52);
-  expect(desktopWidths[0] / (desktopWidths[0] + desktopWidths[1])).toBeLessThan(0.58);
-  await expect(page.getByRole("heading", { name: "Sign in to AMAFH CORE", exact: true })).toBeVisible();
+  await expect(page.getByTestId("login-brand-panel")).toHaveCount(0);
+  const desktopCard = (await formPanel.boundingBox())!;
+  expect(desktopCard.width).toBeGreaterThan(450);
+  expect(desktopCard.width).toBeLessThanOrEqual(502);
+  expect(desktopCard.x).toBeGreaterThan(1440 / 2);
+  await expect(page.locator("main")).toHaveCSS("background-image", /amafh-dubai-banking-login\.webp/);
+  await expect(page.getByText("Powering Banking Sales & Operations", { exact: true })).toBeVisible();
+  await expect(page.getByText("Manage customer applications, teams and performance through one secure workspace.", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Welcome Back", exact: true })).toBeVisible();
   await expect(page.getByLabel("Email")).toBeVisible();
   await expect(page.getByLabel("Password")).toBeVisible();
   await expect(page.getByRole("button", { name: "Sign in", exact: true })).toBeVisible();
 
   for (const theme of ["light", "dark"] as const) {
     await setVisualTheme(page, theme);
-    await expect(formPanel).toHaveCSS("background-color", theme === "dark" ? "rgb(27, 25, 31)" : "rgb(255, 255, 255)");
+    const cardColor = await formPanel.evaluate(element => getComputedStyle(element).backgroundColor);
+    expect(cardColor).toContain(theme === "dark" ? "24, 20, 31" : "252, 249, 253");
+    expect(cardColor).toMatch(/rgba\(.+, 0\.(?:88|9)\)/);
+    await expect(formPanel).not.toHaveCSS("box-shadow", "none");
     await expect(page.locator(`[data-logo-theme="${theme}"]`).first()).toBeVisible();
     await expect(page.locator(`[data-logo-theme="${theme === "light" ? "dark" : "light"}"]`).first()).toBeHidden();
   }
 
   await captureViewportPair(page, testInfo, "login-redesign");
   await page.setViewportSize({ width: 390, height: 844 });
-  await expect(brand).toBeHidden();
   await expect(formPanel).toBeVisible();
+  const mobileCard = (await formPanel.boundingBox())!;
+  expect(mobileCard.width).toBeLessThanOrEqual(358);
   await expect(page.getByRole("img", { name: "AMAFH CORE" }).first()).toBeVisible();
+  await setVisualTheme(page, "dark");
+  await expect(page.getByRole("button", { name: "Sign in", exact: true })).toHaveCSS("color", "rgb(255, 255, 255)");
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
 });
 

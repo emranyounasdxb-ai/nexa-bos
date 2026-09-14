@@ -69,52 +69,24 @@ export default function LoginPage() {
 
   return (
     <main className={styles.page}>
-      <section className={styles.brandPanel} data-testid="login-brand-panel" aria-label="AMAFH CORE secure workspace">
-        <div className={styles.brandContent}>
+      <div className={styles.backdrop} aria-hidden="true" />
+      <section className={styles.loginCard} data-testid="login-form-panel" data-amafh-public-surface="">
+        <ThemeControls className={styles.themeControls} />
+        <div className={styles.cardContent}>
           <div className={styles.logoWrap}>
             <BrandLogo />
           </div>
           <div className={styles.brandMessage}>
             <p className={styles.eyebrow}>AMAFH CORE</p>
-            <h2>Secure AMAFH CORE workspace</h2>
+            <h2>Powering Banking Sales &amp; Operations</h2>
+            <p data-testid="page-purpose" className={styles.description}>
+              Manage customer applications, teams and performance through one secure workspace.
+            </p>
           </div>
-          <div className={styles.preview} aria-hidden="true">
-            <div className={styles.previewHeader}>
-              <span />
-              <span />
-              <span />
-            </div>
-            <div className={styles.previewBody}>
-              <div className={styles.previewRail} />
-              <div className={styles.previewCanvas}>
-                <div className={styles.previewMetric} />
-                <div className={styles.previewMetric} />
-                <div className={styles.previewMetric} />
-                <div className={styles.previewChart}>
-                  <span /><span /><span /><span /><span /><span />
-                </div>
-                <div className={styles.previewList}>
-                  <span /><span /><span />
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
 
-      <section className={styles.formPanel} data-testid="login-form-panel" data-amafh-public-surface="">
-        <ThemeControls className={styles.themeControls} />
-        <div className={styles.formContent}>
-          <div className={styles.mobileBrand}>
-            <BrandLogo />
-          </div>
-          <p className={styles.formEyebrow}>Welcome back</p>
-          <h1>Sign in to AMAFH CORE</h1>
-          <p data-testid="page-purpose" className={styles.description}>
-            {mfaToken
-              ? "Enter the authenticator code for this account."
-              : "Email and password. Authenticator challenge is required only when MFA is enabled for the account."}
-          </p>
+          <div className={styles.divider} aria-hidden="true" />
+          <h1>Welcome Back</h1>
+          {mfaToken ? <p className={styles.mfaDescription}>Enter the authenticator code for this account.</p> : null}
 
           <form onSubmit={(event) => void onSubmit(event)} className={styles.form}>
             {mfaToken ? (
@@ -154,8 +126,13 @@ export default function LoginPage() {
               </>
             )}
             <ErrorText>{error}</ErrorText>
-            <Button type="submit" disabled={submitting} className={styles.submit}>
-              {submitting ? "Signing in…" : mfaToken ? "Verify and sign in" : "Sign in"}
+            <Button
+              type="submit"
+              disabled={submitting}
+              className={styles.submit}
+              aria-label={mfaToken ? "Verify and sign in" : "Sign in"}
+            >
+              {submitting ? "Signing in…" : mfaToken ? "Verify and sign in" : "Sign In"}
             </Button>
           </form>
           {bootstrapAvailable && !mfaToken ? (
