@@ -317,21 +317,21 @@ function UsersDirectory() {
             <div className="hidden sm:block">
               <TableShell
                 data-testid="users-directory-table"
-                className={loading ? "rounded-none border-0 opacity-70 shadow-none [&_table]:min-w-[1480px]" : "rounded-none border-0 shadow-none [&_table]:min-w-[1480px]"}
+                className={loading ? "rounded-none border-0 opacity-70 shadow-none [&_table]:!min-w-0 [&_table]:table-fixed" : "rounded-none border-0 shadow-none [&_table]:!min-w-0 [&_table]:table-fixed"}
               >
-                <TableHead><tr><Th>Code</Th><Th>User</Th><Th>Designation</Th><Th>Phone</Th><Th>Email</Th><Th>Office</Th><Th>Department</Th><Th>Nationality</Th><Th>Joining</Th></tr></TableHead>
+                <TableHead><tr><Th className="w-[9%] px-2 [padding-right:4px]">Code</Th><Th className="w-[25%] px-2 [padding-left:4px]">User</Th><Th className="w-[10%] px-2">Designation</Th><Th className="w-[10%] px-2">Phone</Th><Th className="w-[15%] px-2">Email</Th><Th className="w-[8%] px-2">Office</Th><Th className="w-[10%] px-2">Department</Th><Th className="w-[6%] px-2">Nationality</Th><Th className="w-[7%] px-2">Joining</Th></tr></TableHead>
                 <tbody>
                   {items.map((user) => (
                     <tr key={user.id}>
-                      <Td className="whitespace-nowrap py-2.5"><DirectoryValue value={user.employeeCode} className="w-36" /></Td>
-                      <Td className="whitespace-nowrap py-2.5"><div className="flex w-60 min-w-0 items-center gap-2.5"><span aria-hidden="true" className="inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-brand-soft text-xs font-semibold text-brand-primary">{initials(user.fullName)}</span><Link className="min-w-0 flex-1 truncate font-medium text-brand-link underline" title={user.fullName} href={`/users/${user.id}`}>{user.fullName}</Link></div></Td>
-                      <Td className="whitespace-nowrap py-2.5"><DirectoryValue value={user.designation?.name} className="w-44" /></Td>
-                      <Td className="whitespace-nowrap py-2.5"><DirectoryValue value={user.mobile} className="w-36" /></Td>
-                      <Td className="whitespace-nowrap py-2.5"><DirectoryValue value={user.email} className="w-60" /></Td>
-                      <Td className="whitespace-nowrap py-2.5"><DirectoryValue value={user.office?.name} className="w-40" /></Td>
-                      <Td className="whitespace-nowrap py-2.5"><DirectoryValue value={user.department?.name} className="w-44" /></Td>
-                      <Td className="whitespace-nowrap py-2.5"><DirectoryValue value={user.nationality} className="w-36" /></Td>
-                      <Td className="whitespace-nowrap py-2.5"><DirectoryValue value={user.joiningDate} className="w-28" /></Td>
+                      <Td className="overflow-hidden whitespace-nowrap px-2 py-2.5 [padding-right:4px]"><DirectoryValue value={user.employeeCode} className="w-full" /></Td>
+                      <Td className="overflow-hidden whitespace-nowrap px-2 py-2.5 [padding-left:4px]"><div className="flex w-full min-w-0 items-center gap-2"><span aria-hidden="true" className="inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-brand-soft text-xs font-semibold text-brand-primary">{initials(user.fullName)}</span><Link className="min-w-0 flex-1 truncate font-medium text-brand-link underline" title={user.fullName} href={`/users/${user.id}`}>{user.fullName}</Link></div></Td>
+                      <Td className="overflow-hidden whitespace-nowrap px-2 py-2.5"><DirectoryValue value={user.designation?.name} className="w-full" /></Td>
+                      <Td className="overflow-hidden whitespace-nowrap px-2 py-2.5"><DirectoryValue value={user.mobile} className="w-full" /></Td>
+                      <Td className="overflow-hidden whitespace-nowrap px-2 py-2.5"><DirectoryValue value={user.email} className="w-full" /></Td>
+                      <Td className="overflow-hidden whitespace-nowrap px-2 py-2.5"><DirectoryValue value={user.office?.name} className="w-full" /></Td>
+                      <Td className="overflow-hidden whitespace-nowrap px-2 py-2.5"><DirectoryValue value={user.department?.name} className="w-full" /></Td>
+                      <Td className="overflow-hidden whitespace-nowrap px-2 py-2.5"><DirectoryValue value={user.nationality} className="w-full" /></Td>
+                      <Td className="overflow-hidden whitespace-nowrap px-2 py-2.5"><DirectoryValue value={user.joiningDate} className="w-full" /></Td>
                     </tr>
                   ))}
                 </tbody>
