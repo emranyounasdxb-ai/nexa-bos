@@ -10,9 +10,9 @@ export function CatalogueImage({
 }: {
   item: CatalogueImageItem;
   api: string;
-  size?: "thumbnail" | "preview";
+  size?: "select" | "thumbnail" | "preview";
 }) {
-  const placeholderDimensions = size === "preview" ? "h-28 w-full" : "h-10 w-16 shrink-0";
+  const placeholderDimensions = size === "preview" ? "h-28 w-full" : size === "select" ? "h-6 w-10 shrink-0" : "h-10 w-16 shrink-0";
   if (!item.hasImage || !item.imageUrl) {
     return (
       <span
@@ -29,8 +29,8 @@ export function CatalogueImage({
   const version = item.imageUpdatedAt ? `?v=${encodeURIComponent(item.imageUpdatedAt)}` : "";
   const sourceWidth = item.imageWidth && item.imageWidth > 0 ? item.imageWidth : 1;
   const sourceHeight = item.imageHeight && item.imageHeight > 0 ? item.imageHeight : 1;
-  const maxWidth = size === "preview" ? 240 : 64;
-  const maxHeight = size === "preview" ? 112 : 40;
+  const maxWidth = size === "preview" ? 240 : size === "select" ? 40 : 64;
+  const maxHeight = size === "preview" ? 112 : size === "select" ? 24 : 40;
   const scale = Math.min(maxWidth / sourceWidth, maxHeight / sourceHeight);
   const renderedWidth = Math.max(1, Math.round(sourceWidth * scale));
   return (

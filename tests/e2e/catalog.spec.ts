@@ -382,10 +382,18 @@ test("catalog uses task tabs, modal editing, explicit rule saves, and mapping va
   const applicationDialog = page.getByRole("dialog", { name: "Create application" });
   await selectBrandedOption(applicationDialog.getByLabel("Bank", { exact: true }), { label: renamedBank });
   await selectBrandedOption(applicationDialog.getByLabel("Product", { exact: true }), { label: productName });
-  await selectBrandedOption(applicationDialog.getByLabel("Product Variant", { exact: true }), { label: renamedVariant });
+  const applicationVariantSelect = applicationDialog.getByLabel("Product Variant", { exact: true });
+  await applicationVariantSelect.click();
+  const applicationVariantOption = page.getByRole("listbox").getByRole("option", { name: renamedVariant, exact: true });
+  await expectUnframedCatalogueImage(applicationVariantOption.locator(`img[alt=${JSON.stringify(`${renamedVariant} image`)}]`), 0.6);
+  await expect(applicationVariantOption).not.toContainText(variantCode);
+  await applicationVariantOption.click();
+  await expectUnframedCatalogueImage(applicationVariantSelect.locator(`img[alt=${JSON.stringify(`${renamedVariant} image`)}]`), 0.6);
+  await expect(applicationVariantSelect).not.toContainText(variantCode);
+  const selectedCatalogueImages = applicationDialog.getByLabel("Selected catalogue images");
   await expectUnframedCatalogueImage(applicationDialog.getByRole("img", { name: `${renamedBank} image` }), 2);
   await expectUnframedCatalogueImage(applicationDialog.getByRole("img", { name: `${productName} image` }), 2);
-  await expectUnframedCatalogueImage(applicationDialog.getByRole("img", { name: `${renamedVariant} image` }), 0.6);
+  await expectUnframedCatalogueImage(selectedCatalogueImages.getByRole("img", { name: `${renamedVariant} image` }), 0.6);
   await applicationDialog.getByRole("button", { name: "Cancel" }).click();
 
   for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
@@ -444,10 +452,19 @@ test("catalog uses task tabs, modal editing, explicit rule saves, and mapping va
     const responsiveApplicationDialog = page.getByRole("dialog", { name: "Create application" });
     await selectBrandedOption(responsiveApplicationDialog.getByLabel("Bank", { exact: true }), { label: renamedBank });
     await selectBrandedOption(responsiveApplicationDialog.getByLabel("Product", { exact: true }), { label: productName });
-    await selectBrandedOption(responsiveApplicationDialog.getByLabel("Product Variant", { exact: true }), { label: renamedVariant });
+    const responsiveVariantSelect = responsiveApplicationDialog.getByLabel("Product Variant", { exact: true });
+    await responsiveVariantSelect.click();
+    const responsiveVariantOption = page.getByRole("listbox").getByRole("option", { name: renamedVariant, exact: true });
+    await expectUnframedCatalogueImage(responsiveVariantOption.locator(`img[alt=${JSON.stringify(`${renamedVariant} image`)}]`), 0.6);
+    await captureViewportThemes(page, testInfo.outputPath(`application-variant-options-${viewport.width}.png`), responsiveApplicationDialog);
+    await responsiveVariantOption.click();
+    await expectUnframedCatalogueImage(responsiveVariantSelect.locator(`img[alt=${JSON.stringify(`${renamedVariant} image`)}]`), 0.6);
+    await expect(responsiveVariantSelect).not.toContainText(variantCode);
+    await captureViewportThemes(page, testInfo.outputPath(`application-variant-selected-${viewport.width}.png`), responsiveApplicationDialog);
+    const responsiveSelectedImages = responsiveApplicationDialog.getByLabel("Selected catalogue images");
     await expectUnframedCatalogueImage(responsiveApplicationDialog.getByRole("img", { name: `${renamedBank} image` }), 2);
     await expectUnframedCatalogueImage(responsiveApplicationDialog.getByRole("img", { name: `${productName} image` }), 2);
-    await expectUnframedCatalogueImage(responsiveApplicationDialog.getByRole("img", { name: `${renamedVariant} image` }), 0.6);
+    await expectUnframedCatalogueImage(responsiveSelectedImages.getByRole("img", { name: `${renamedVariant} image` }), 0.6);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBeTruthy();
     await responsiveApplicationDialog.getByRole("button", { name: "Cancel" }).click();
   }
