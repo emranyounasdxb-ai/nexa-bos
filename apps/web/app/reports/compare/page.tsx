@@ -103,7 +103,7 @@ export default function ComparePage() {
   return (
     <section className="space-y-4">
       <PageHeader title="Comparisons" description="Compare entities or periods within reporting scope." />
-      <ConfigurationWorkspace controls={
+      <ConfigurationWorkspace wideControls controls={
       <FilterBar>
         <label className="text-sm">
           Comparison type
@@ -122,7 +122,7 @@ export default function ComparePage() {
           </Select>
         </label>
         {kind === "period" ? (
-          <label className="text-sm">
+          <label className="col-span-2 text-sm min-[1200px]:col-span-1">
             Period pair
             <Select aria-label="Period pair" value={period} onChange={(event) => setPeriod(event.target.value)}>
               <option value="month">Current Month vs Previous Month</option>

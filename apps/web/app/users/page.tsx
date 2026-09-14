@@ -314,12 +314,12 @@ function UsersDirectory() {
 
         {items.length > 0 ? (
           <>
-            <div className="hidden sm:block">
+            <div className="hidden min-[1400px]:block">
               <TableShell
                 data-testid="users-directory-table"
                 className={loading ? "rounded-none border-0 opacity-70 shadow-none [&_table]:!min-w-0 [&_table]:table-fixed" : "rounded-none border-0 shadow-none [&_table]:!min-w-0 [&_table]:table-fixed"}
               >
-                <TableHead><tr><Th className="w-[9%] px-2 [padding-right:4px]">Code</Th><Th className="w-[25%] px-2 [padding-left:4px]">User</Th><Th className="w-[10%] px-2">Designation</Th><Th className="w-[10%] px-2">Phone</Th><Th className="w-[15%] px-2">Email</Th><Th className="w-[8%] px-2">Office</Th><Th className="w-[10%] px-2">Department</Th><Th className="w-[6%] px-2">Nationality</Th><Th className="w-[7%] px-2">Joining</Th></tr></TableHead>
+                <TableHead><tr><Th className="w-[8%] px-2 [padding-right:4px]">Code</Th><Th className="w-[24%] px-2 [padding-left:4px]">User</Th><Th className="w-[11%] px-2">Designation</Th><Th className="w-[10%] px-2">Phone</Th><Th className="w-[17%] px-2">Email</Th><Th className="w-[6%] px-2">Office</Th><Th className="w-[8%] px-2">Department</Th><Th className="w-[8%] px-2">Nationality</Th><Th className="w-[8%] px-2">Joining</Th></tr></TableHead>
                 <tbody>
                   {items.map((user) => (
                     <tr key={user.id}>
@@ -338,7 +338,7 @@ function UsersDirectory() {
               </TableShell>
             </div>
 
-            <div className={loading ? "grid gap-2 p-3 opacity-70 sm:hidden" : "grid gap-2 p-3 sm:hidden"}>
+            <div className={loading ? "grid gap-2 p-3 opacity-70 min-[1400px]:hidden" : "grid gap-2 p-3 min-[1400px]:hidden"}>
               {items.map((user) => (
                 <article key={user.id} className="min-w-0 rounded-[10px] border border-brand-border p-3">
                   <div className="flex min-w-0 items-center gap-3"><span aria-hidden="true" className="inline-flex size-9 shrink-0 items-center justify-center rounded-full bg-brand-soft text-xs font-semibold text-brand-primary">{initials(user.fullName)}</span><Link className="min-w-0 flex-1 truncate font-semibold text-brand-link underline" title={user.fullName} href={`/users/${user.id}`}>{user.fullName}</Link></div>

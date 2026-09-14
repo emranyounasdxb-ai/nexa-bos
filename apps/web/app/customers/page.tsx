@@ -147,7 +147,7 @@ function CustomersDirectory() {
       />
 
       <div data-amafh-list-surface="">
-      <FilterBar className="sm:grid-cols-[minmax(0,2fr)_minmax(12rem,1fr)_auto]">
+      <FilterBar className="sm:grid-cols-[minmax(0,2fr)_minmax(12rem,1fr)_auto] lg:grid-cols-[minmax(30rem,2fr)_minmax(12rem,1fr)_auto]">
         <Field label="Search customers">
           <div className="relative">
             <span aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-disabled">⌕</span>

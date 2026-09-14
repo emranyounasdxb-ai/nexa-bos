@@ -227,7 +227,7 @@ function ApplicationsPageInner() {
       ].filter((item): item is { label: string; value: string } => Boolean(item))}>
       <form
         data-testid="application-filters"
-        className="grid min-w-0 grid-cols-2 gap-x-3 gap-y-3 rounded-xl border border-slate-200 bg-surface p-3 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(12rem,1.35fr)_auto] xl:items-end"
+        className="grid min-w-0 grid-cols-2 gap-x-3 gap-y-3 rounded-xl border border-slate-200 bg-surface p-3 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(15.5rem,1.6fr)_auto] xl:items-end"
         onSubmit={(event) => {
           event.preventDefault();
           setPage(1);
