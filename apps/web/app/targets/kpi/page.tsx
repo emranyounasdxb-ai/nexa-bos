@@ -371,12 +371,14 @@ export default function KpiScorecardsPage() {
             <LoadingState>Loading KPI scorecards…</LoadingState>
           ) : items.length === 0 ? (
             <EmptyState>
-              <span>No KPI scorecards are configured.</span>
-              {can("Targets.Create") ? (
-                <Button className="mt-3" type="button" onClick={openCreate}>
-                  Create scorecard
-                </Button>
-              ) : null}
+              <div className="flex flex-col items-start gap-3">
+                <span>No KPI scorecards are configured.</span>
+                {can("Targets.Create") ? (
+                  <Button type="button" onClick={openCreate}>
+                    Create scorecard
+                  </Button>
+                ) : null}
+              </div>
             </EmptyState>
           ) : (
             <>

@@ -3,11 +3,12 @@
 import styles from "./employee-dashboard.module.css";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { IconRefresh } from "@/components/icons";
 import { HrWorkflowSummary } from "@/components/hr-workflow-summary";
-import { Button, Card, EmptyState, ErrorText, LoadingState, PageHeader, SectionHeader, StatusBadge } from "@/components/ui";
+import { Pagination, SERVER_PAGE_SIZE_OPTIONS, useClientPagination } from "@/components/pagination";
+import { Button, Card, EmptyState, ErrorText, Field, LoadingState, PageHeader, SectionHeader, Select, StatusBadge, TextInput } from "@/components/ui";
 import { apiGet } from "@/lib/api";
 import { getBrowserApiUrl } from "@/lib/env";
 
@@ -67,12 +68,39 @@ export function EmployeeDashboard({ mode }: { mode: "hr" | "pro" }) {
       <Card><SectionHeader title="Recent HR activity" />{hr.recentActivity.length ? <ul className="mt-3 divide-y divide-slate-100">{hr.recentActivity.map((row) => <li key={row.id} className="py-3 text-sm"><strong>{row.actor}</strong> · {row.action} · {row.employee}<span className="block text-xs text-text-secondary">{new Date(row.createdAt).toLocaleString("en-AE")}</span></li>)}</ul> : <EmptyState>No recent HR profile activity.</EmptyState>}</Card>
     </> : null}
     {pro ? <>
-      <Card><SectionHeader title="Employee compliance" description="Required Passport, Visa, Emirates ID, Work Permit, Medical and Insurance records." />{pro.compliance.length ? <div className="mt-3 grid gap-3 lg:grid-cols-2">{pro.compliance.map((row) => <article key={row.employeeId} className="rounded-lg border border-brand-border p-3"><Link href={`/users/${row.employeeId}?tab=pro`} className="text-sm font-semibold text-brand-primary hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-primary">{row.employee}</Link><div className="mt-2 flex flex-wrap gap-1.5">{Object.entries(row.documents).map(([kind, document]) => <Link key={kind} href={`/users/${row.employeeId}?tab=pro${document.documentId ? `&document=${document.documentId}` : ""}`} aria-label={`${row.employee} ${kind.replaceAll("_", " ")} ${document.status}`}><StatusBadge value={`${kind.replaceAll("_", " ")}: ${document.status}`} /></Link>)}</div></article>)}</div> : <EmptyState>No employees are visible in the current scope.</EmptyState>}</Card>
+      <ComplianceCard rows={pro.compliance} />
       <div className="grid min-w-0 gap-4 lg:grid-cols-2"><ExpiryCard title="Expiring in 7 days" rows={pro.expiry.within7} /><ExpiryCard title="Expiring in 30 days" rows={pro.expiry.within30} /><ExpiryCard title="Expiring in 60 days" rows={pro.expiry.within60} /><ExpiryCard title="Expired" rows={pro.expiry.expired} /></div>
     </> : null}
     </div>
     </div>
   </section>;
+}
+
+function ComplianceCard({ rows }: { rows: ProDashboard["compliance"] }) {
+  const [search, setSearch] = useState("");
+  const [status, setStatus] = useState("");
+  const filteredRows = useMemo(() => {
+    const normalizedSearch = search.trim().toLocaleLowerCase();
+    return rows.filter((row) => {
+      const matchesSearch = !normalizedSearch || row.employee.toLocaleLowerCase().includes(normalizedSearch);
+      const matchesStatus = !status || Object.values(row.documents).some((document) => document.status === status);
+      return matchesSearch && matchesStatus;
+    });
+  }, [rows, search, status]);
+  const pagination = useClientPagination(filteredRows, `${search.trim()}|${status}`);
+
+  return <Card>
+    <SectionHeader title="Employee compliance" description="Required Passport, Visa, Emirates ID, Work Permit, Medical and Insurance records." />
+    {rows.length ? <>
+      <div className="mt-3 grid min-w-0 gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(12rem,.45fr)]">
+        <Field label="Search employees"><TextInput aria-label="Search employee compliance" placeholder="Search by employee name" value={search} onChange={(event) => setSearch(event.target.value)} /></Field>
+        <Field label="Document status"><Select aria-label="Compliance status" value={status} onChange={(event) => setStatus(event.target.value)}><option value="">All statuses</option><option value="Active">Active</option><option value="Expiring Soon">Expiring Soon</option><option value="Expired">Expired</option><option value="Missing">Missing</option></Select></Field>
+      </div>
+      <p className="mt-3 text-xs text-text-secondary" aria-live="polite">{filteredRows.length.toLocaleString()} matching employee{filteredRows.length === 1 ? "" : "s"}</p>
+      {filteredRows.length ? <div data-testid="employee-compliance-list" className="mt-3 grid gap-3 lg:grid-cols-2">{pagination.pagedItems.map((row) => <article key={row.employeeId} className="rounded-lg border border-brand-border p-3"><Link href={`/users/${row.employeeId}?tab=pro`} className="text-sm font-semibold text-brand-primary hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-primary">{row.employee}</Link><div className="mt-2 flex flex-wrap gap-1.5">{Object.entries(row.documents).map(([kind, document]) => <Link key={kind} href={`/users/${row.employeeId}?tab=pro${document.documentId ? `&document=${document.documentId}` : ""}`} aria-label={`${row.employee} ${kind.replaceAll("_", " ")} ${document.status}`}><StatusBadge value={`${kind.replaceAll("_", " ")}: ${document.status}`} /></Link>)}</div></article>)}</div> : <EmptyState>No employees match the current compliance filters.</EmptyState>}
+      <Pagination page={pagination.page} pageSize={pagination.pageSize} total={pagination.total} totalPages={pagination.totalPages} pageSizeOptions={SERVER_PAGE_SIZE_OPTIONS} onPageChange={pagination.setPage} onPageSizeChange={pagination.setPageSize} />
+    </> : <EmptyState>No employees are visible in the current scope.</EmptyState>}
+  </Card>;
 }
 
 function ListCard({ title, items, collapsible = false }: { title: string; items: { id: string; name: string; detail: string }[]; collapsible?: boolean }) {

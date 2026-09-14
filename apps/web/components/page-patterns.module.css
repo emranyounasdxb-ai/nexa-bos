@@ -16,6 +16,7 @@
   .configurationControls label { min-width: 0; }
 }
 @media (min-width: 1200px) { .configuration { grid-template-columns: 250px minmax(0, 1fr); } .configurationControls { position: sticky; top: 20px; } }
+@media (min-width: 1200px) { .configurationWide { grid-template-columns: 320px minmax(0, 1fr); } }
 .recordSummary, .recordBody, .formBody { min-width: 0; }
 .recordBody { display: flex; flex-direction: column; gap: 16px; }
 .recordSummary > div { overflow-wrap: anywhere; }

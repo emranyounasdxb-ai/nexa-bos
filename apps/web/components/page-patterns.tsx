@@ -10,8 +10,8 @@ export function FormFrame({ title, description, children }: { title: string; des
   return <div className={styles.form}><aside className={styles.formGuide}><span className={styles.marker} aria-hidden="true" /><h2>{title}</h2><p>{description}</p></aside><div className={styles.formBody}>{children}</div></div>;
 }
 
-export function ConfigurationWorkspace({ controls, children }: { controls: ReactNode; children: ReactNode }) {
-  return <div className={styles.configuration}><aside className={styles.configurationControls} aria-label="Configuration context">{controls}</aside><div className={styles.recordBody}>{children}</div></div>;
+export function ConfigurationWorkspace({ controls, children, wideControls = false }: { controls: ReactNode; children: ReactNode; wideControls?: boolean }) {
+  return <div className={`${styles.configuration} ${wideControls ? styles.configurationWide : ""}`}><aside className={styles.configurationControls} aria-label="Configuration context">{controls}</aside><div className={styles.recordBody}>{children}</div></div>;
 }
 
 export function RegisterWorkspace({ editor, children }: { editor: ReactNode; children: ReactNode }) {
