@@ -644,10 +644,10 @@ function DashboardInner() {
         <div data-testid="dashboard-overview" className="space-y-4">
           <div data-testid="dashboard-kpi-charts" className={overview.summary}>
             <div data-testid="dashboard-kpi-grid" className={overview.metrics}>
-              <KpiCard featured label="Submitted" count={data.kpis.submitted.count} value={data.kpis.submitted.value} href={drill("submitted")} tone="blue" icon={IconInbox} context={<DirectionIndicator direction={submittedDirection} comparisonLabel={comparisonLabel} />} />
-              <KpiCard label="Approved" count={data.kpis.approved.count} value={data.kpis.approved.value} href={drill("approved")} tone="violet" icon={IconCircleCheck} context={<span className="text-xs font-medium text-slate-500">Approval conversion {formatPct(data.conversions.submittedToApproved)}</span>} />
-              <KpiCard label="Funded" count={data.kpis.funded.count} value={data.kpis.funded.value} href={drill("funded")} tone="green" icon={IconCashBanknote} context={<DirectionIndicator direction={fundedDirection} comparisonLabel={comparisonLabel} />} />
-              <KpiCard label="Pending" count={data.kpis.pending.count} href={drill("pending")} tone="amber" icon={IconClock} context={<span className="text-xs font-medium text-slate-500">Open at reporting cutoff</span>} />
+              <KpiCard featured empty={data.empty} label="Submitted" count={data.kpis.submitted.count} value={data.kpis.submitted.value} href={drill("submitted")} tone="blue" icon={IconInbox} context={<DirectionIndicator direction={submittedDirection} comparisonLabel={comparisonLabel} />} />
+              <KpiCard empty={data.empty} label="Approved" count={data.kpis.approved.count} value={data.kpis.approved.value} href={drill("approved")} tone="violet" icon={IconCircleCheck} context={<span className="text-xs font-medium text-slate-500">Approval conversion {formatPct(data.conversions.submittedToApproved)}</span>} />
+              <KpiCard empty={data.empty} label="Funded" count={data.kpis.funded.count} value={data.kpis.funded.value} href={drill("funded")} tone="green" icon={IconCashBanknote} context={<DirectionIndicator direction={fundedDirection} comparisonLabel={comparisonLabel} />} />
+              <KpiCard empty={data.empty} label="Pending" count={data.kpis.pending.count} href={drill("pending")} tone="amber" icon={IconClock} context={<span className="text-xs font-medium text-slate-500">Open at reporting cutoff</span>} />
             </div>
 
             <Card className={`${overview.pipeline} p-3 sm:p-3.5`}>
@@ -659,14 +659,14 @@ function DashboardInner() {
                 <Badge>{data.currency}</Badge>
               </div>
               <div className={overview.pipelineItems}>
-                <PipelineMetric label="Booked" count={data.kpis.booked.count} value={data.kpis.booked.value} href={drill("booked")} tone="green" icon={IconBook2} />
-                <PipelineMetric label="Returned / Requirement Pending" count={data.kpis.returnedRequirementPending.count} href={drill("returned")} tone="amber" icon={IconArrowBackUp} />
-                <PipelineMetric label="Final Rejected" count={data.kpis.finalRejected.count} href={drill("final_rejected")} tone="red" icon={IconCircleX} />
-                <PipelineMetric label="Cancelled" count={data.kpis.cancelled.count} href={drill("cancelled")} tone="red" icon={IconBan} />
-                <PipelineMetric label="Withdrawn" count={data.kpis.withdrawn.count} href={drill("withdrawn")} tone="red" icon={IconArrowBack} />
-                <PipelineMetric label="Completed" count={data.kpis.completed.count} href={drill("completed")} tone="green" icon={IconCircleCheck} />
-                <PipelineMetric label="PF Count / Value" count={data.kpis.personalFinance.count} value={data.kpis.personalFinance.value} href={drill("pf_value")} icon={IconCashBanknote} />
-                <PipelineMetric label="CC Count" count={data.kpis.creditCard.count} href={drill("cc_count")} icon={IconCreditCard} />
+                <PipelineMetric empty={data.empty} label="Booked" count={data.kpis.booked.count} value={data.kpis.booked.value} href={drill("booked")} tone="green" icon={IconBook2} />
+                <PipelineMetric empty={data.empty} label="Returned / Requirement Pending" count={data.kpis.returnedRequirementPending.count} href={drill("returned")} tone="amber" icon={IconArrowBackUp} />
+                <PipelineMetric empty={data.empty} label="Final Rejected" count={data.kpis.finalRejected.count} href={drill("final_rejected")} tone="red" icon={IconCircleX} />
+                <PipelineMetric empty={data.empty} label="Cancelled" count={data.kpis.cancelled.count} href={drill("cancelled")} tone="red" icon={IconBan} />
+                <PipelineMetric empty={data.empty} label="Withdrawn" count={data.kpis.withdrawn.count} href={drill("withdrawn")} tone="red" icon={IconArrowBack} />
+                <PipelineMetric empty={data.empty} label="Completed" count={data.kpis.completed.count} href={drill("completed")} tone="green" icon={IconCircleCheck} />
+                <PipelineMetric empty={data.empty} label="PF Count / Value" count={data.kpis.personalFinance.count} value={data.kpis.personalFinance.value} href={drill("pf_value")} icon={IconCashBanknote} />
+                <PipelineMetric empty={data.empty} label="CC Count" count={data.kpis.creditCard.count} href={drill("cc_count")} icon={IconCreditCard} />
               </div>
             </Card>
 
@@ -716,7 +716,7 @@ function DashboardInner() {
             ) : (
               <Card className="min-w-0 p-4 sm:p-4">
                 <SectionHeader title="Target performance" description="Progress against effective targets in scope." />
-                <CompactEmpty>No target results for the selected period.</CompactEmpty>
+                <CompactEmpty>No performance data for this period</CompactEmpty>
               </Card>
             )}
           </div>

@@ -224,7 +224,7 @@ test("non-application user receives honest personal empty states without sales f
   await page.getByLabel("Password").fill(userPassword);
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByTestId("my-performance")).toContainText("No target or KPI scorecard is assigned");
+  await expect(page.getByTestId("my-performance")).toContainText("No performance data for this period");
   await expect(page.getByTestId("my-performance")).toContainText("Sales figures are not shown");
   await expect(page.getByTestId("my-attendance")).toContainText("No attendance records are available");
   await expect(page.getByText("My application performance")).toHaveCount(0);

@@ -8,7 +8,7 @@ import type {
   TextareaHTMLAttributes,
 } from "react";
 
-import { IconAlertTriangle, IconInfoCircle, IconX } from "@/components/icons";
+import { IconAlertTriangle, IconChartBar, IconFilter, IconInbox, IconInfoCircle, IconX } from "@/components/icons";
 import { BrandedSelect, type BrandedSelectProps } from "@/components/select";
 import { Tooltip } from "@/components/tooltip";
 import { ThemeControls } from "@/components/theme-controls";
@@ -348,11 +348,31 @@ export function LoadingState({ children = "Loading…" }: { children?: ReactNode
   );
 }
 
-export function EmptyState({ children }: { children: ReactNode }) {
+type EmptyStateKind = "generic" | "chart" | "records" | "search";
+
+export function EmptyState({
+  children,
+  title,
+  description,
+  action,
+  kind = "generic",
+}: {
+  children?: ReactNode;
+  title?: ReactNode;
+  description?: ReactNode;
+  action?: ReactNode;
+  kind?: EmptyStateKind;
+}) {
+  const EmptyIcon = kind === "chart" ? IconChartBar : kind === "records" ? IconInbox : kind === "search" ? IconFilter : IconInfoCircle;
   return (
     <div data-amafh-empty-state="" className="flex min-h-20 items-center justify-center gap-3 px-4 py-4 text-left text-sm text-text-secondary">
-      <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-surface-subtle"><IconInfoCircle className="size-4 text-text-secondary" /></span>
-      <div className="max-w-md">{children}</div>
+      <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-surface-subtle" aria-hidden="true"><EmptyIcon className="size-4 text-text-secondary" /></span>
+      <div className="max-w-md">
+        {title ? <p className="font-medium text-text-primary">{title}</p> : null}
+        {description ? <p className={title ? "mt-0.5" : undefined}>{description}</p> : null}
+        {children}
+        {action ? <div className="mt-2.5 flex flex-wrap items-center gap-2">{action}</div> : null}
+      </div>
     </div>
   );
 }

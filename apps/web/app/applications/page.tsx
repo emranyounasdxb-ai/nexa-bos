@@ -157,6 +157,8 @@ function ApplicationsPageInner() {
     };
   }, [api, applied, dashboardFilter, page, pageSize, query, requestVersion]);
 
+  const hasResultFilters = Boolean(query || dashboardFilter.metric || Object.values(applied).some(Boolean));
+
   return (
     <section className="space-y-4">
       <PageHeader
@@ -350,7 +352,12 @@ function ApplicationsPageInner() {
           ) : items.length === 0 ? (
             <tr>
               <td colSpan={9}>
-                <EmptyState>No applications match the current filters.</EmptyState>
+                {hasResultFilters ? (
+                  <EmptyState
+                    kind="search"
+                    title="No records match the selected filters"
+                  />
+                ) : <EmptyState kind="records">No applications are available in your authorized scope.</EmptyState>}
               </td>
             </tr>
           ) : (

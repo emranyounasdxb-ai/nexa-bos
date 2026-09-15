@@ -266,7 +266,8 @@ test("User Directory filters and pagination persist in the URL across refresh an
   await expect(page.getByRole("combobox", { name: "User Type" })).toHaveAttribute("value", se!.id);
 
   await selectBrandedOption(page.getByRole("combobox", { name: "Account status" }), "active");
-  await expect(page.getByText("No Users match the current filters.")).toBeVisible();
+  await expect(page.getByText("No records match the selected filters")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Clear filters" })).toBeVisible();
   await page.goBack();
   await expect(page.getByRole("link", { name: target.fullName })).toBeVisible();
   await expect(page.getByRole("combobox", { name: "Account status" })).toHaveAttribute("value", "pending");

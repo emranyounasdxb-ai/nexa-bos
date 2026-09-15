@@ -675,7 +675,7 @@ test("DXB and AUH TL review: scope, tabs, charts, breadcrumbs and responsive que
         await expect(workedHistory).toBeFocused();
         await expect(workedHistory.getByRole("tooltip")).toHaveCount(0);
       } else {
-        await expect(personal).toContainText("No target or KPI scorecard is assigned for this period.");
+        await expect(personal).toContainText("No performance data for this period");
         await expect(personal.getByRole("progressbar")).toHaveCount(0);
         await expect(attendance).toContainText("Not recorded");
         await expect(attendance).toContainText("No recorded daily values for Worked, Late arrival, Early departure in this period.");
@@ -853,7 +853,7 @@ test("DXB and AUH TL review: scope, tabs, charts, breadcrumbs and responsive que
     await page.getByRole("tab", { name: "My Performance & Attendance", exact: true }).click();
     await expectTabFrame(page, "personal", viewport.width);
     await expectAlignedPanels(page, ["My Performance", "My Attendance"], viewport.width);
-    await expect(page.getByTestId("my-performance")).toContainText("No target or KPI scorecard is assigned for this period.");
+    await expect(page.getByTestId("my-performance")).toContainText("No performance data for this period");
     await expect(page.getByTestId("my-performance").getByRole("progressbar")).toHaveCount(0);
     await capturePreview(page, testInfo, `tl-empty-${viewport.width}-personal`);
     await signOut(page);

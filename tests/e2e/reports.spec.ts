@@ -59,6 +59,49 @@ async function openDashboardFilters(page: Page) {
   return filters;
 }
 
+test("dashboard distinguishes missing-period data from genuine operational zero", async ({ page, request }, testInfo) => {
+  test.setTimeout(120_000);
+  await ownerHeaders(request);
+  let missingPeriodData = true;
+  await page.route("**/api/v1/reports/dashboard?**", async (route) => {
+    const response = await route.fetch();
+    const body = await response.json();
+    const zeroKpis = Object.fromEntries(
+      Object.entries(body.kpis).map(([key, value]) => [
+        key,
+        typeof value === "object" && value !== null ? { ...value, count: 0, value: null } : value,
+      ]),
+    );
+    await route.fulfill({
+      response,
+      json: {
+        ...body,
+        empty: missingPeriodData,
+        kpis: { ...zeroKpis, totalBusinessValue: "0" },
+        conversions: Object.fromEntries(Object.keys(body.conversions).map((key) => [key, null])),
+        trend: [],
+        stageBreakdown: [],
+        rankings: { ...body.rankings, employees: [], teams: [], offices: [], bankProducts: [] },
+        targetsSummary: null,
+      },
+    });
+  });
+
+  await signIn(page);
+  await page.goto("/reports");
+  await expect(page.getByRole("link", { name: "Submitted KPI" })).toContainText("—");
+  await expect(page.getByRole("link", { name: "Submitted KPI" })).toContainText("No data yet");
+  await expect(page.getByText("Insights will appear when activity begins")).toBeVisible();
+  await expect(page.getByTestId("dashboard-analysis-grid").getByText("No performance data for this period")).toBeVisible();
+  await captureViewportPair(page, testInfo, "dashboard-empty-data");
+
+  missingPeriodData = false;
+  await page.reload();
+  await expect(page.getByRole("link", { name: "Pending KPI", exact: true })).toContainText("0");
+  await expect(page.getByRole("link", { name: "Final Rejected KPI" })).toContainText("0");
+  await expect(page.getByRole("link", { name: "Pending KPI", exact: true })).not.toContainText("No data yet");
+});
+
 test("owner dashboard periods, drill-down, profile, ranking, comparison, delay, and refresh", async ({
   page,
   request,

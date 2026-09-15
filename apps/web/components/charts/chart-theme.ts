@@ -106,7 +106,7 @@ export function formatAed(value: string | number | null | undefined): string {
 }
 
 export function formatPercentage(value: number | null | undefined): string {
-  if (value === null || value === undefined || !Number.isFinite(value)) return "n/a";
+  if (value === null || value === undefined || !Number.isFinite(value)) return "—";
   return `${value.toLocaleString("en-US", { maximumFractionDigits: 1 })}%`;
 }
 

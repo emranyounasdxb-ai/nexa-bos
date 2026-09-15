@@ -1,4 +1,4 @@
-import { Badge, Card, SectionHeader } from "@/components/ui";
+import { Badge, Card, EmptyState, SectionHeader } from "@/components/ui";
 import styles from "./personal-dashboard.module.css";
 import { HrWorkflowSummary } from "@/components/hr-workflow-summary";
 import { formatAed, formatPct, type PersonalAttendance, type PersonalPerformance } from "@/lib/reports";
@@ -37,9 +37,7 @@ export function MyPerformance({ data }: { data: PersonalPerformance }) {
     <Card className="min-w-0 p-4">
       <SectionHeader title="My Performance" description="Your assigned targets and authorized personal results." />
       {target.count === 0 && !target.kpi ? (
-        <p className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-4 text-sm text-slate-500">
-          No target or KPI scorecard is assigned for this period.
-        </p>
+        <div className="mt-3 rounded-lg border border-brand-border bg-surface-subtle"><EmptyState kind="records">No performance data for this period</EmptyState></div>
       ) : (
         <>
           <dl className={styles.targetMetrics}>

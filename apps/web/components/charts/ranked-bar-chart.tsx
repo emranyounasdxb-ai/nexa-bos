@@ -101,7 +101,7 @@ export function RankedBarChart({
         option={option}
         accessibleDescription={accessibleDescription}
         empty={ranked.length === 0}
-        emptyMessage="No ranked data is available."
+        emptyMessage="Insights will appear when activity begins"
         testId={testId}
         height={Math.max(198, ranked.length * 34)}
       />

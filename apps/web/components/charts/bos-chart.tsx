@@ -59,7 +59,7 @@ export function BosChart({
   loading = false,
   loadingMessage = "Loading chart…",
   empty = false,
-  emptyMessage = "No chart data is available.",
+  emptyMessage = "Insights will appear when activity begins",
   testId,
 }: BosChartProps) {
   const theme = useTheme();
@@ -151,7 +151,7 @@ export function BosChart({
   if (empty) {
     return (
       <div className={className} data-testid={testId}>
-        <EmptyState>{emptyMessage}</EmptyState>
+        <EmptyState kind="chart" title={emptyMessage} />
       </div>
     );
   }
