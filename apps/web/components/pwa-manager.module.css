@@ -1,0 +1,88 @@
+.installCard {
+  position: fixed;
+  right: max(1rem, env(safe-area-inset-right));
+  bottom: max(1rem, env(safe-area-inset-bottom));
+  z-index: 1000;
+  display: grid;
+  width: min(21rem, calc(100vw - 2rem));
+  gap: 0.625rem;
+  padding: 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--amafh-primary) 28%, var(--amafh-border));
+  border-radius: 0.625rem;
+  background: color-mix(in srgb, var(--amafh-surface) 95%, transparent);
+  box-shadow: var(--amafh-shadow-elevated);
+  color: var(--amafh-text);
+  backdrop-filter: blur(14px);
+}
+
+.installButton {
+  display: inline-flex;
+  min-height: 2.25rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.75rem;
+  border: 0;
+  border-radius: 0.5rem;
+  background: var(--amafh-gradient);
+  color: #ffffff;
+  font-size: 0.875rem;
+  font-weight: 700;
+  line-height: 1.25rem;
+}
+
+.installButton:hover {
+  filter: brightness(1.06);
+}
+
+.installButton:focus-visible,
+.dismissButton:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--amafh-primary) 36%, transparent);
+  outline-offset: 2px;
+}
+
+.guidance {
+  margin: 0;
+  color: var(--amafh-text-secondary);
+  font-size: 0.8125rem;
+  line-height: 1.35;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.dismissButton {
+  min-height: 2.25rem;
+  padding: 0.35rem 0.65rem;
+  border: 1px solid var(--amafh-border-strong);
+  border-radius: 0.5rem;
+  background: transparent;
+  color: var(--amafh-text-secondary);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+@media (max-width: 480px) {
+  .installCard {
+    right: max(0.75rem, env(safe-area-inset-right));
+    bottom: max(0.75rem, env(safe-area-inset-bottom));
+    width: calc(100vw - 1.5rem);
+  }
+
+  .actions {
+    align-items: stretch;
+  }
+
+  .installButton {
+    flex: 1;
+  }
+}
+
+@media (display-mode: standalone) {
+  .installCard {
+    display: none;
+  }
+}

@@ -66,6 +66,7 @@ export default defineConfig({
       env: {
         ...process.env,
         NEXT_PUBLIC_API_URL: apiOrigin,
+        NEXT_PUBLIC_PWA_TEST: "1",
       },
     },
   ],

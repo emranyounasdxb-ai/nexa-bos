@@ -1,7 +1,8 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 
 import { AppShell } from "@/components/app-shell";
+import { PwaManager } from "@/components/pwa-manager";
 import { ThemeSync } from "@/components/theme-controls";
 import { themeBootstrapScript } from "@/lib/theme-bootstrap";
 
@@ -10,6 +11,20 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "AMAFH CORE",
   description: "AMAFH CORE business operations workspace",
+  applicationName: "AMAFH CORE",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "AMAFH CORE",
+  },
+};
+
+export const viewport: Viewport = {
+  colorScheme: "light dark",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#6f0d83" },
+    { media: "(prefers-color-scheme: dark)", color: "#1b191f" },
+  ],
 };
 
 export default function RootLayout({ children, modal }: { children: ReactNode; modal: ReactNode }) {
@@ -22,6 +37,7 @@ export default function RootLayout({ children, modal }: { children: ReactNode; m
           {children}
           {modal}
         </AppShell>
+        <PwaManager />
       </body>
     </html>
   );
