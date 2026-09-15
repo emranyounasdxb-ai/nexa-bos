@@ -19,7 +19,6 @@ import {
   EmptyState,
   ErrorText,
   Field,
-  LoadingState,
   PageHeader,
   SearchActionBar,
   SectionHeader,
@@ -120,6 +119,30 @@ function InlineError({ id, children }: { id: string; children?: string }) {
     <p id={id} role="alert" className="mt-1 text-xs font-medium text-danger">
       {children}
     </p>
+  );
+}
+
+function OrganizationLoadingState() {
+  return (
+    <div role="status" aria-label="Loading organization masters" className="grid min-w-0 gap-4 lg:grid-cols-[260px_minmax(0,1fr)]">
+      <span className="sr-only">Loading organization masters…</span>
+      <Card className="space-y-3" aria-hidden="true">
+        <div className="h-5 w-28 animate-pulse rounded bg-surface-subtle" />
+        <div className="grid grid-cols-2 gap-2 lg:grid-cols-1">
+          {MASTER_TABS.map((kind) => <div key={kind} className="h-16 animate-pulse rounded-lg bg-surface-subtle" />)}
+        </div>
+      </Card>
+      <div className="min-w-0 space-y-3" aria-hidden="true">
+        <div className="grid grid-cols-2 gap-2 rounded-[10px] border border-brand-border bg-surface p-1 sm:grid-cols-5">
+          {MASTER_TABS.map((kind) => <div key={kind} className="h-8 animate-pulse rounded-md bg-surface-subtle" />)}
+        </div>
+        <Card className="space-y-3">
+          <div className="h-5 w-40 animate-pulse rounded bg-surface-subtle" />
+          <div className="h-8 w-full animate-pulse rounded-lg bg-surface-subtle" />
+          {[0, 1, 2, 3].map((row) => <div key={row} className="h-10 animate-pulse rounded-lg bg-surface-subtle" />)}
+        </Card>
+      </div>
+    </div>
   );
 }
 
@@ -465,7 +488,7 @@ export default function OrganizationPage() {
       <ErrorText>{pageError}</ErrorText>
 
       {loading ? (
-        <LoadingState>Loading organization masters…</LoadingState>
+        <OrganizationLoadingState />
       ) : (
         <RecordFrame summary={<section className="space-y-3 rounded-[20px] bg-surface p-3">
           <h2 className="px-2 py-1 text-[17px] font-medium">Organization</h2>

@@ -4,6 +4,10 @@ import { useEffect, useState } from "react";
 
 import styles from "./pwa-manager.module.css";
 
+const DISMISSAL_KEY = "amafh-core-install-dismissed-until";
+const DISMISSAL_DURATION_MS = 14 * 24 * 60 * 60 * 1000;
+const ENGAGEMENT_DELAY_MS = process.env.NEXT_PUBLIC_PWA_TEST === "1" ? 50 : 8_000;
+
 type InstallChoice = { outcome: "accepted" | "dismissed"; platform: string };
 
 interface BeforeInstallPromptEvent extends Event {
@@ -40,6 +44,7 @@ export function PwaManager() {
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [showSafariGuidance, setShowSafariGuidance] = useState(false);
   const [dismissed, setDismissed] = useState(false);
+  const [engaged, setEngaged] = useState(false);
 
   useEffect(() => {
     document.documentElement.dataset.pwaReady = "true";
@@ -47,6 +52,13 @@ export function PwaManager() {
       delete document.documentElement.dataset.pwaReady;
     };
     if (isStandalone()) return;
+
+    const dismissedUntil = Number(window.localStorage.getItem(DISMISSAL_KEY));
+    if (Number.isFinite(dismissedUntil) && dismissedUntil > Date.now()) {
+      setDismissed(true);
+    } else {
+      window.localStorage.removeItem(DISMISSAL_KEY);
+    }
 
     const displayMode = window.matchMedia("(display-mode: standalone)");
     const onInstallPrompt = (event: Event) => {
@@ -74,6 +86,25 @@ export function PwaManager() {
       displayMode.removeEventListener("change", onDisplayModeChange);
     };
   }, []);
+
+  useEffect(() => {
+    if (dismissed || (!installPrompt && !showSafariGuidance)) {
+      setEngaged(false);
+      return;
+    }
+    const timer = window.setTimeout(() => setEngaged(true), ENGAGEMENT_DELAY_MS);
+    return () => window.clearTimeout(timer);
+  }, [dismissed, installPrompt, showSafariGuidance]);
+
+  const visible = engaged && !dismissed && Boolean(installPrompt || showSafariGuidance);
+
+  useEffect(() => {
+    if (visible) document.documentElement.dataset.pwaInstallVisible = "true";
+    else delete document.documentElement.dataset.pwaInstallVisible;
+    return () => {
+      delete document.documentElement.dataset.pwaInstallVisible;
+    };
+  }, [visible]);
 
   useEffect(() => {
     const pwaRuntimeEnabled = process.env.NODE_ENV === "production" || process.env.NEXT_PUBLIC_PWA_TEST === "1";
@@ -109,7 +140,12 @@ export function PwaManager() {
     setInstallPrompt(null);
   }
 
-  if (dismissed || (!installPrompt && !showSafariGuidance)) return null;
+  function dismiss() {
+    window.localStorage.setItem(DISMISSAL_KEY, String(Date.now() + DISMISSAL_DURATION_MS));
+    setDismissed(true);
+  }
+
+  if (!visible) return null;
 
   return (
     <aside className={styles.installCard} aria-label="Install AMAFH CORE" data-testid="pwa-install-card">
@@ -125,7 +161,7 @@ export function PwaManager() {
             Install AMAFH CORE
           </strong>
         )}
-        <button type="button" className={styles.dismissButton} onClick={() => setDismissed(true)} aria-label="Dismiss install suggestion">
+        <button type="button" className={styles.dismissButton} onClick={dismiss} aria-label="Dismiss install suggestion">
           Not now
         </button>
       </div>

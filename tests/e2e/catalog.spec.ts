@@ -100,7 +100,9 @@ async function uploadCatalogueImage(
   file: { buffer: Buffer; extension: "png" | "webp"; mimeType: "image/png" | "image/webp"; ratio: number },
   testInfo?: TestInfo,
 ) {
-  await row.getByRole("button", { name: `Manage image for ${name}` }).click();
+  const manageImage = row.getByRole("button", { name: `Manage image for ${name}` });
+  await expect(manageImage).toHaveText("Manage Image");
+  await manageImage.click();
   const dialog = page.getByRole("dialog", { name: "Add image" });
   await expect(dialog.getByLabel(`No image for ${name}`)).toBeVisible();
   await dialog.getByLabel("PNG, JPEG, or WebP image").setInputFiles({

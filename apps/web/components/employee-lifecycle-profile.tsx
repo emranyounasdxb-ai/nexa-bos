@@ -21,7 +21,7 @@ import {
 } from "@/components/ui";
 import { apiDownload, apiGet, apiRequest } from "@/lib/api";
 import { getBrowserApiUrl } from "@/lib/env";
-import { formatLocalDateTime } from "@/lib/presentation";
+import { formatLocalDateTime, formatStatusLabel } from "@/lib/presentation";
 import type { ManagerOption, OrgRef } from "@/lib/types";
 
 type Completion = { state: string; completed: number; required: number; missing: string[] };
@@ -132,7 +132,7 @@ function completionCard(title: string, completion: Completion) {
     <Card className="!p-3">
       <div className="flex items-start justify-between gap-2">
         <h2 className="text-[length:var(--amafh-text-section)] font-semibold text-text-primary">{title}</h2>
-        <StatusBadge value={completion.state} />
+        <StatusBadge value={formatStatusLabel(completion.state)} />
       </div>
       <p className="mt-2 text-xs text-text-secondary">
         {completion.completed} of {completion.required} required fields complete
@@ -460,7 +460,7 @@ export function EmployeeLifecycleProfile({ userId, section }: { userId: string; 
             <SectionHeader title="PRO compliance records" description="Passport and Emirates ID are canonical here and are not duplicated in HR." />
             {profile.pro?.documents.length ? <div className="mt-3 grid min-w-0 gap-3 lg:grid-cols-2">{profile.pro.documents.map((row) => (
               <article id={`employee-document-${row.id}`} tabIndex={-1} key={row.id} className="min-w-0 rounded-lg border border-brand-border bg-surface-subtle p-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-primary">
-                <div className="flex flex-wrap items-start justify-between gap-2"><div><h3 className="text-sm font-semibold">{row.label}</h3><p className="text-xs text-text-secondary">Version {row.version} · {row.documentNumber || "No number recorded"}</p></div><StatusBadge value={row.status} /></div>
+                <div className="flex flex-wrap items-start justify-between gap-2"><div><h3 className="text-sm font-semibold">{row.label}</h3><p className="text-xs text-text-secondary">Version {row.version} · {row.documentNumber || "No number recorded"}</p></div><StatusBadge value={formatStatusLabel(row.status)} /></div>
                 <dl className="mt-3 grid grid-cols-2 gap-2 text-xs"><div><dt className="text-text-secondary">Expiry</dt><dd className="font-medium">{row.expiryDate ?? "Not recorded"}</dd></div><div><dt className="text-text-secondary">Attachment</dt><dd className="font-medium">{row.hasAttachment ? row.originalFilename ?? "Available" : "Missing"}</dd></div></dl>
                 <div className="mt-3 flex flex-wrap items-center gap-2">
                   {profile.canUpdatePro ? <Button type="button" size="compact" variant="secondary" onClick={() => editDocument(row)}>Edit metadata</Button> : null}

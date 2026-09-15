@@ -160,6 +160,7 @@ test("User Directory filters and pagination persist in the URL across refresh an
     expect(await topbar.evaluate((element) => getComputedStyle(element).backgroundColor)).not.toBe("rgba(0, 0, 0, 0)");
   }
   await setVisualTheme(page, "light");
+  const employment = page.getByRole("combobox", { name: "Employment status" });
   for (const width of [1440, 1280, 1024]) {
     await page.setViewportSize({ width, height: 900 });
     expect(await topNavigation.evaluate((element) => ({
@@ -173,6 +174,7 @@ test("User Directory filters and pagination persist in the URL across refresh an
         return box.left >= navBox.left - 1 && box.right <= navBox.right + 1;
       });
     })).toBeTruthy();
+    await expect(employment).toContainText("All employment states");
   }
   await page.setViewportSize({ width: 1440, height: 900 });
   const initialTopbarBox = (await topbar.boundingBox())!;
@@ -183,7 +185,6 @@ test("User Directory filters and pagination persist in the URL across refresh an
   expect((await topbar.boundingBox())!.y).toBeCloseTo(0, 0);
   await page.evaluate(() => window.scrollTo(0, 0));
 
-  const employment = page.getByRole("combobox", { name: "Employment status" });
   await employment.focus();
   await page.keyboard.press("Enter");
   await expect(page.getByRole("listbox", { name: "Employment status" })).toBeVisible();
@@ -245,6 +246,17 @@ test("User Directory filters and pagination persist in the URL across refresh an
   expect(await targetRow.getByRole("link", { name: target.fullName }).evaluate((element) => element.scrollWidth <= element.clientWidth)).toBeTruthy();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBeTruthy();
   await captureViewportPair(page, testInfo, "users-directory-columns", page.getByTestId("users-list-card"));
+
+  for (const width of [1363, 1024]) {
+    await page.setViewportSize({ width, height: 900 });
+    await expect(directoryTable).toBeHidden();
+    const compactCard = page.locator("article").filter({ has: page.getByRole("link", { name: target.fullName }) });
+    await expect(compactCard).toBeVisible();
+    await expect(compactCard.getByRole("link", { name: target.fullName })).toHaveText(target.fullName);
+    expect(await compactCard.locator("..").evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(" ").length)).toBe(2);
+    await expect(page.getByRole("combobox", { name: "Employment status" })).toContainText("Probation");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBeTruthy();
+  }
 
   await page.setViewportSize({ width: 390, height: 844 });
   const targetCard = page.locator("article").filter({ has: page.getByRole("link", { name: target.fullName }) });

@@ -11,9 +11,9 @@ async function ensureOwner(request: APIRequestContext) {
   const created = await request.post(`${apiOrigin}/api/v1/auth/bootstrap`, {
     data: {
       secret,
-      full_name: "PWA Test Owner",
-      employee_code: "EMP-PWA-OWNER",
-      email: "pwa.owner@example.com",
+      full_name: "Platform Owner",
+      employee_code: "EMP-OWNER",
+      email: "owner@example.com",
       mobile: "+971500000099",
       joining_date: "2026-01-01",
       employment_status: "Active",
@@ -26,6 +26,7 @@ async function ensureOwner(request: APIRequestContext) {
 }
 
 async function dispatchInstallPrompt(page: Page, outcome: "accepted" | "dismissed" = "accepted") {
+  await page.waitForFunction(() => document.documentElement.dataset.pwaReady === "true");
   await page.evaluate((choice) => {
     const event = new Event("beforeinstallprompt", { cancelable: true });
     Object.assign(event, {
@@ -82,6 +83,7 @@ test("Chromium install action requires a user gesture and hides after installati
 
   await dispatchInstallPrompt(page);
   const installCard = page.getByTestId("pwa-install-card");
+  await expect(installCard).toHaveCount(0);
   await expect(installCard).toBeVisible();
   await expect(installCard.getByRole("button", { name: "Install AMAFH CORE" })).toBeVisible();
   await installCard.getByRole("button", { name: "Install AMAFH CORE" }).click();
@@ -91,6 +93,27 @@ test("Chromium install action requires a user gesture and hides after installati
   await expect(page.getByTestId("pwa-install-card")).toBeVisible();
   await page.evaluate(() => window.dispatchEvent(new Event("appinstalled")));
   await expect(page.getByTestId("pwa-install-card")).toHaveCount(0);
+});
+
+test("Not now persists for a bounded period across navigation and reload", async ({ page }) => {
+  await page.goto("/login");
+  await dispatchInstallPrompt(page);
+  const installCard = page.getByTestId("pwa-install-card");
+  await expect(installCard).toBeVisible();
+  await installCard.getByRole("button", { name: "Dismiss install suggestion", exact: true }).click();
+  await expect(installCard).toHaveCount(0);
+
+  const dismissedUntil = await page.evaluate(() => Number(localStorage.getItem("amafh-core-install-dismissed-until")));
+  expect(dismissedUntil).toBeGreaterThan(Date.now() + 13 * 24 * 60 * 60 * 1000);
+  await page.reload();
+  await dispatchInstallPrompt(page);
+  await page.waitForTimeout(100);
+  await expect(installCard).toHaveCount(0);
+
+  await page.evaluate(() => localStorage.setItem("amafh-core-install-dismissed-until", String(Date.now() - 1)));
+  await page.reload();
+  await dispatchInstallPrompt(page);
+  await expect(installCard).toBeVisible();
 });
 
 test("macOS Safari receives Add to Dock guidance while standalone mode stays quiet", async ({ page }) => {
@@ -132,7 +155,7 @@ test("installed-style navigation preserves protected redirects, refresh and logo
   await ensureOwner(request);
   await page.goto("/users");
   await expect(page).toHaveURL(/\/login$/);
-  await page.getByLabel("Email").fill("pwa.owner@example.com");
+  await page.getByLabel("Email").fill("owner@example.com");
   await page.getByLabel("Password").fill("OwnerPass1!");
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page).toHaveURL(/\/reports$/);
@@ -154,12 +177,21 @@ test("installed-style navigation preserves protected redirects, refresh and logo
   expect(cachedPaths).not.toEqual(expect.arrayContaining(["/login", "/reports", "/users"]));
 });
 
-test("install surface is responsive and theme-compatible", async ({ page }) => {
+test("install surface is responsive, non-overlapping and theme-compatible", async ({ page, request }) => {
+  await ensureOwner(request);
   await page.goto("/login");
+  await page.getByLabel("Email").fill("owner@example.com");
+  await page.getByLabel("Password").fill("OwnerPass1!");
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
   for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
     await page.setViewportSize(viewport);
     for (const theme of ["light", "dark"] as const) {
-      await page.getByRole("button", { name: `${theme === "light" ? "Light" : "Dark"} theme` }).click();
+      await page.evaluate((nextTheme) => {
+        window.localStorage.setItem("amafh-core-theme", nextTheme);
+        document.documentElement.dataset.theme = nextTheme;
+      }, theme);
+      await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
       await dispatchInstallPrompt(page, "dismissed");
       const card = page.getByTestId("pwa-install-card");
       await expect(card).toBeVisible();
@@ -167,6 +199,8 @@ test("install surface is responsive and theme-compatible", async ({ page }) => {
       expect(box).not.toBeNull();
       expect(box!.x).toBeGreaterThanOrEqual(0);
       expect(box!.x + box!.width).toBeLessThanOrEqual(viewport.width);
+      const reservedBottomSpace = await page.getByTestId("authenticated-content").evaluate((element) => Number.parseFloat(getComputedStyle(element).paddingBottom));
+      expect(reservedBottomSpace).toBeGreaterThanOrEqual(box!.height + 12);
       expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
       await card.getByRole("button", { name: "Install AMAFH CORE" }).click();
     }

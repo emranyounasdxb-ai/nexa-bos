@@ -118,6 +118,59 @@ test("PRO compliance renders only the filtered current page", async ({ page, req
   await expect(page.getByText("8 matching employees", { exact: true })).toBeVisible();
 });
 
+test("HR dashboard keeps action and activity previews compact and summarizes missing profile data", async ({ page, request }) => {
+  await signIn(page, request);
+  const pendingActions = Array.from({ length: 8 }, (_, index) => ({
+    id: `00000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`,
+    name: `HR Review Employee ${index + 1}`,
+    completion: { state: "incomplete", missing: ["Nationality", "Gender"] },
+  }));
+  const recentActivity = Array.from({ length: 9 }, (_, index) => ({
+    id: `activity-${index + 1}`,
+    actor: "HR Operator",
+    action: "employee_profile_updated",
+    employee: `Activity Employee ${index + 1}`,
+    createdAt: "2026-09-15T08:00:00Z",
+  }));
+  await page.route("**/api/v1/employee-profiles/dashboards/hr", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        generatedAt: "2026-09-15T08:00:00Z",
+        cards: { totalEmployees: 12, activeEmployees: 10, onProbation: 2, newJoiners: 1, pendingHrActions: 8 },
+        breakdowns: {
+          nationality: [{ label: "Pakistani", count: 7 }, { label: "Not recorded", count: 5 }],
+          maritalStatus: [{ label: "Single", count: 4 }, { label: "Not recorded", count: 8 }],
+        },
+        newJoiners: [],
+        probation: [],
+        pendingActions,
+        recentActivity,
+      }),
+    });
+  });
+
+  for (const theme of ["light", "dark"] as const) {
+    await setVisualTheme(page, theme);
+    for (const width of [1440, 1024, 390]) {
+      await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
+      await page.goto("/hr");
+      await expect(page.getByRole("heading", { name: "Profile Data Completeness" })).toBeVisible();
+      await expect(page.getByText("7 complete · 5 missing", { exact: true })).toBeVisible();
+      await expect(page.getByText("Not recorded", { exact: true })).toHaveCount(0);
+      await expect(page.getByRole("list", { name: "Pending HR Actions" }).getByRole("listitem")).toHaveCount(5);
+      await expect(page.getByRole("button", { name: "View All (8)" })).toBeVisible();
+      await expect(page.getByText("Activity Employee 7", { exact: false })).toHaveCount(0);
+      await expect(page.getByRole("button", { name: "View All (9)" })).toBeVisible();
+      await expectNoPageOverflow(page);
+    }
+  }
+
+  await page.getByRole("button", { name: "View All (8)" }).click();
+  await expect(page.getByRole("list", { name: "Pending HR Actions" }).getByRole("listitem")).toHaveCount(8);
+  await expect(page.getByRole("button", { name: "Show Fewer" }).first()).toBeVisible();
+});
+
 test("audited desktop fields remain readable and responsive fallbacks avoid page overflow", async ({ page, request }) => {
   test.setTimeout(120_000);
   await page.setViewportSize({ width: 1440, height: 900 });

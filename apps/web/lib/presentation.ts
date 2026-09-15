@@ -93,6 +93,19 @@ export function humanizeTechnicalLabel(value: string): string {
   return text ? text.charAt(0).toUpperCase() + text.slice(1) : "Recorded update";
 }
 
+export function formatStatusLabel(value: string): string {
+  return value
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/[._-]+/g, " ")
+    .trim()
+    .toLowerCase()
+    .replace(/\b\w/g, (letter) => letter.toUpperCase())
+    .replace(/\bId\b/g, "ID")
+    .replace(/\bHr\b/g, "HR")
+    .replace(/\bPro\b/g, "PRO")
+    .replace(/\bMfa\b/g, "MFA");
+}
+
 export function auditFieldLabel(key: string): string {
   return FIELD_LABELS[key] ?? humanizeTechnicalLabel(key);
 }

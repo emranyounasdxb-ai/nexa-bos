@@ -58,6 +58,11 @@ test("saved profile photo replaces immediately and survives refresh, navigation,
   await signIn(page, request);
   await page.goto("/account");
 
+  const profileEmail = page.getByText("owner@example.com", { exact: true });
+  await expect(profileEmail).toBeVisible();
+  expect(await profileEmail.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBeTruthy();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBeTruthy();
+
   const picker = page.locator('[data-file-picker]').filter({ has: page.getByLabel("Profile photo", { exact: true }) });
   const identityPhoto = page.getByLabel("Profile photo for Platform Owner");
   await page.getByLabel("Profile photo", { exact: true }).setInputFiles({ name: "owner-photo.png", mimeType: "image/png", buffer: firstPhoto });
