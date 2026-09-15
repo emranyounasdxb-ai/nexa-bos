@@ -254,8 +254,8 @@ function UsersDirectory() {
         userTypeId ? { label: "User type", value: options.userTypes.find((item) => item.id === userTypeId)?.name ?? userTypeId } : null,
       ].filter((item): item is { label: string; value: string } => Boolean(item))}>
       <FilterBar className="grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-        <Field label="Employment status" className="col-span-2 sm:col-span-1">
-          <Select aria-label="Employment status" value={employmentStatus} onChange={(event) => updateUrl({ employmentStatus: event.target.value || null, page: null })}>
+        <Field label="Employment status" className="col-span-2 min-w-[12rem] sm:col-span-1">
+          <Select className="min-w-[12rem]" aria-label="Employment status" value={employmentStatus} onChange={(event) => updateUrl({ employmentStatus: event.target.value || null, page: null })}>
             <option value="">All employment states</option>
             {EMPLOYMENT_STATUSES.map((value) => <option key={value}>{value}</option>)}
           </Select>
@@ -339,11 +339,11 @@ function UsersDirectory() {
               </TableShell>
             </div>
 
-            <div className={loading ? "grid gap-2 p-3 opacity-70 min-[1400px]:hidden" : "grid gap-2 p-3 min-[1400px]:hidden"}>
+            <div className={loading ? "grid gap-2 p-2 opacity-70 min-[1024px]:grid-cols-2 min-[1400px]:hidden sm:p-3" : "grid gap-2 p-2 min-[1024px]:grid-cols-2 min-[1400px]:hidden sm:p-3"}>
               {items.map((user) => (
-                <article key={user.id} className="min-w-0 rounded-[10px] border border-brand-border p-3">
-                  <div className="flex min-w-0 items-center gap-3"><ProfilePhoto userId={user.id} fullName={user.fullName} hasPhoto={user.hasPhoto} version={user.updatedAt} size="list" /><Link className="min-w-0 flex-1 truncate font-semibold text-brand-link underline" title={user.fullName} href={`/users/${user.id}`}>{user.fullName}</Link></div>
-                  <dl className="mt-3 grid min-w-0 grid-cols-2 gap-2 text-xs">
+                <article key={user.id} className="min-w-0 rounded-[10px] border border-brand-border p-2.5">
+                  <div className="flex min-w-0 items-center gap-2.5"><ProfilePhoto userId={user.id} fullName={user.fullName} hasPhoto={user.hasPhoto} version={user.updatedAt} size="list" /><Link className="min-w-0 flex-1 break-words font-semibold leading-5 text-brand-link underline" title={user.fullName} href={`/users/${user.id}`}>{user.fullName}</Link></div>
+                  <dl className="mt-2 grid min-w-0 grid-cols-2 gap-x-3 gap-y-1.5 text-xs">
                     <div><dt className="text-text-secondary">Code</dt><dd className="text-text-primary"><DirectoryValue value={user.employeeCode} /></dd></div>
                     <div><dt className="text-text-secondary">Designation</dt><dd className="text-text-primary"><DirectoryValue value={user.designation?.name} /></dd></div>
                     <div><dt className="text-text-secondary">Phone</dt><dd className="text-text-primary"><DirectoryValue value={user.mobile} /></dd></div>

@@ -15,6 +15,10 @@
   backdrop-filter: blur(14px);
 }
 
+:global(html[data-pwa-install-visible] [data-testid="authenticated-content"]) {
+  padding-bottom: max(7rem, calc(5rem + env(safe-area-inset-bottom)));
+}
+
 .installButton {
   display: inline-flex;
   min-height: 2.25rem;
@@ -78,6 +82,10 @@
 
   .installButton {
     flex: 1;
+  }
+
+  :global(html[data-pwa-install-visible] [data-testid="authenticated-content"]) {
+    padding-bottom: max(8.5rem, calc(6.5rem + env(safe-area-inset-bottom)));
   }
 }
 

@@ -32,7 +32,7 @@ import {
 import { apiGet, apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { getBrowserApiUrl } from "@/lib/env";
-import { auditDisplayEntries, auditEventSummary, auditFieldLabel, formatDateRange, formatLocalDateTime, humanizeTechnicalLabel } from "@/lib/presentation";
+import { auditDisplayEntries, auditEventSummary, auditFieldLabel, formatDateRange, formatLocalDateTime, formatStatusLabel, humanizeTechnicalLabel } from "@/lib/presentation";
 import type { AssetAllocationRecord, AssetRecord, UserRecord, UserTypeSummary } from "@/lib/types";
 
 type ProfileTab = "overview" | "hr" | "pro" | "organization" | "assets" | "history";
@@ -356,9 +356,9 @@ export default function UserProfilePage() {
           <div className="min-w-0 flex-1">
             <div className="flex min-w-0 flex-wrap items-center gap-2">
               <h2 className="break-words text-xl font-semibold text-text-primary">{user.fullName}</h2>
-              <StatusBadge value={user.employmentStatus} />
-              <StatusBadge value={user.accountStatus} />
-              {locked ? <StatusBadge value="locked" /> : null}
+              <StatusBadge value={`Employment: ${formatStatusLabel(user.employmentStatus)}`} />
+              <StatusBadge value={`Account: ${formatStatusLabel(user.accountStatus)}`} />
+              {locked ? <StatusBadge value="Locked" /> : null}
             </div>
             <p className="mt-1 break-words text-sm text-text-secondary">
               {user.designation?.name ?? "No designation"} · {user.office?.name ?? "No office"}{user.department ? ` / ${user.department.name}` : ""}
@@ -422,7 +422,7 @@ export default function UserProfilePage() {
                 <div className="mt-4 space-y-4">
                   <dl className="grid min-w-0 gap-4 sm:grid-cols-3">
                     <Definition label="Login email">{user.email}</Definition>
-                    <Definition label="Account"><StatusBadge value={user.accountStatus} /></Definition>
+                    <Definition label="Account"><StatusBadge value={formatStatusLabel(user.accountStatus)} /></Definition>
                     <Definition label="MFA enabled">{user.mfaEnabled ? "Yes" : "No"}</Definition>
                     <Definition label="Lock state">{locked ? `Locked until ${formatLocalDateTime(user.lockedUntil!)}` : "Not locked"}</Definition>
                   </dl>
@@ -566,7 +566,7 @@ function Overview({ user }: { user: UserRecord }) {
   return (
     <div className="grid min-w-0 gap-4 xl:grid-cols-2">
       <Card><SectionHeader title="Contact details" description="Work and personal contact information on the employee record." /><dl className="mt-4 grid min-w-0 gap-4 sm:grid-cols-2"><Definition label="Work email">{user.workEmail ?? "Not recorded"}</Definition><Definition label="Work mobile">{user.workMobile ?? "Not recorded"}</Definition><Definition label="Personal email">{user.personalEmail ?? "Not recorded"}</Definition><Definition label="Personal mobile">{user.personalMobile ?? "Not recorded"}</Definition><Definition label="Employee code">{user.employeeCode ?? "Not assigned"}</Definition></dl></Card>
-      <Card><SectionHeader title="Employment" description="Current employment dates and lifecycle status." /><dl className="mt-4 grid min-w-0 gap-4 sm:grid-cols-2"><Definition label="Joining date">{user.joiningDate}</Definition><Definition label="Last working date">{user.lastWorkingDate ?? "—"}</Definition><Definition label="Employment status"><StatusBadge value={user.employmentStatus} /></Definition><Definition label="Account status"><StatusBadge value={user.accountStatus} /></Definition></dl></Card>
+      <Card><SectionHeader title="Employment" description="Current employment dates and lifecycle status." /><dl className="mt-4 grid min-w-0 gap-4 sm:grid-cols-2"><Definition label="Joining date">{user.joiningDate}</Definition><Definition label="Last working date">{user.lastWorkingDate ?? "—"}</Definition><Definition label="Employment status"><StatusBadge value={formatStatusLabel(user.employmentStatus)} /></Definition><Definition label="Account status"><StatusBadge value={formatStatusLabel(user.accountStatus)} /></Definition></dl></Card>
     </div>
   );
 }

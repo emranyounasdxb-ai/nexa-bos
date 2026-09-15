@@ -218,6 +218,8 @@ test("employee profile organizes identity, access, assets, and filtered audit hi
 
   await expect(page).toHaveURL(new RegExp(`/users/${seeded.userId}\\?tab=overview$`));
   await expect(page.getByRole("heading", { name: seeded.fullName, exact: true })).toBeVisible();
+  await expect(page.getByText("Employment: Active", { exact: true })).toBeVisible();
+  await expect(page.getByText("Account: Active", { exact: true })).toBeVisible();
   await expect(page.getByLabel(`Profile photo for ${seeded.fullName}`).locator("img")).toBeVisible();
   await expect(page.getByTestId("authenticated-content")).not.toContainText(seeded.userCode);
   await expect(page.getByRole("link", { name: "Edit profile" })).toBeVisible();
@@ -504,6 +506,10 @@ test("HR and PRO dashboards expose only implemented profile work", async ({ brow
   await expect(page).not.toHaveURL(/\/login$/, { timeout: 30_000 });
   await page.goto("/hr");
   await expect(page.getByRole("heading", { name: "HR Dashboard" })).toBeVisible();
+  await expect(page.getByText("Monitor workforce readiness, profile completeness, new joiners and actions requiring HR attention.", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Pending HR Actions", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Profile Data Completeness", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Recent HR Activity", exact: true })).toBeVisible();
   // Phase 2 adds the authorized operational summary, not a personal leave panel.
   await expect(page.getByRole("heading", { name: "HR workflows" })).toBeVisible();
   await expect(page.getByText("On leave today", { exact: true })).toBeVisible();
@@ -522,6 +528,9 @@ test("HR and PRO dashboards expose only implemented profile work", async ({ brow
     await proPage.goto("/pro");
     await expect(proPage.getByRole("heading", { name: "PRO Dashboard" })).toBeVisible();
     await expect(proPage.getByText("Pending Documents")).toBeVisible();
+    await expect(proPage.getByText(/^Passport:/).first()).toBeVisible();
+    await expect(proPage.getByText(/^Visa:/).first()).toBeVisible();
+    await expect(proPage.getByText(/^Emirates ID:/).first()).toBeVisible();
     await expectNoHorizontalOverflow(proPage);
     for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
       for (const [mode, target] of [["hr", page], ["pro", proPage]] as const) {

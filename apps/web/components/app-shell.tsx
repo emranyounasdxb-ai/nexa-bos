@@ -90,7 +90,7 @@ const routeContext = (pathname: string): RouteContext => {
     { prefix: "/assets/reports", group: "Assets", title: "Asset Reports", parent: { href: "/assets", label: "Assets" } },
     { prefix: "/assets", group: "Assets", title: "Asset Register" },
     { prefix: "/notifications/manage", group: "Administration", title: "Notification administration", parent: { href: "/notifications", label: "Notifications" } },
-    { prefix: "/notifications", group: "Administration", title: "Notifications" },
+    { prefix: "/notifications", group: "Notifications", title: "Notifications" },
     { prefix: "/catalog", group: "Administration", title: "Banks and products" },
     { prefix: "/user-types", group: "Administration", title: "User types" },
     { prefix: "/security", group: "Administration", title: "Security settings" },

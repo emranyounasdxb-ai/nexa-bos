@@ -33,8 +33,7 @@ async function ensureOwner(request: APIRequestContext) {
 async function signIn(page: Page, request: APIRequestContext) {
   await ensureOwner(request);
   await page.goto("/login");
-  await expect(page.getByRole("heading", { name: "Sign in to AMAFH CORE" })).toBeVisible();
-  await expect(page.getByText("Authenticator challenge is required only when MFA is enabled")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Welcome Back" })).toBeVisible();
   await page.getByLabel("Email").fill("owner@example.com");
   await page.getByLabel("Password").fill("OwnerPass1!");
   await page.getByRole("button", { name: "Sign in" }).click();
@@ -257,7 +256,7 @@ test("owner can log in, navigate major screens, sign out, and log in again", asy
   await signIn(page, request);
   await openGroup(page, "People");
   await page.locator("#workspace-submenu, nav[aria-label=Primary]").getByRole("link", { name: "Users", exact: true }).click();
-  await expect(page.getByRole("link", { name: "USR-000001" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Platform Owner", exact: true })).toBeVisible();
   await expect(page.getByLabel("Authenticator code")).toHaveCount(0);
 
   await openGroup(page, "Operations");
@@ -294,6 +293,9 @@ test("owner can log in, navigate major screens, sign out, and log in again", asy
   await expect(page.getByRole("link", { name: "Notifications", exact: true })).toHaveCount(0);
   await page.getByRole("link", { name: /Notifications, \d+ unread/ }).click();
   await expect(page.getByRole("heading", { name: "Notifications" })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Workspace pages" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Banks & products", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "User types", exact: true })).toHaveCount(0);
 
   await openGroup(page, "Assets");
   await page.locator("#workspace-submenu, nav[aria-label=Primary]").getByRole("link", { name: "Assets", exact: true }).click();
@@ -330,7 +332,7 @@ test("owner can log in, navigate major screens, sign out, and log in again", asy
   await signOut.waitFor({ state: "visible" });
   await signOut.click();
   await expect(page).toHaveURL(/\/login/, { timeout: 20_000 });
-  await expect(page.getByRole("heading", { name: "Sign in to AMAFH CORE" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Welcome Back" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Sign in", exact: true })).toBeVisible();
   await expect(page.getByLabel("Email")).toBeVisible();
 

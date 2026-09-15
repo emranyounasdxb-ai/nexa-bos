@@ -133,8 +133,13 @@ test("Organization masters use URL tabs, filters, dependent drawers, and accessi
   const seeded = await seedMasters(request);
   await page.setViewportSize({ width: 1440, height: 900 });
   await signIn(page);
+  await page.route("**/api/v1/offices?includeInactive=true", async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    await route.continue();
+  }, { times: 1 });
   await page.goto("/organization");
 
+  await expect(page.getByRole("status", { name: "Loading organization masters" })).toBeVisible();
   await expect(page).toHaveURL(/\/organization\?tab=offices$/);
   await expect(page.getByRole("heading", { name: "Organization masters", exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "View hierarchy" })).toBeVisible();

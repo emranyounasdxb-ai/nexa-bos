@@ -47,6 +47,7 @@ import {
 import { ApiClientError, apiGet, apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { getBrowserApiUrl } from "@/lib/env";
+import { formatStatusLabel } from "@/lib/presentation";
 import { canReadCatalog } from "@/lib/role-access";
 import type { BankProductRecord, CatalogItem, ProductVariantRecord } from "@/lib/types";
 
@@ -770,7 +771,7 @@ function CatalogInner() {
                   </p>
                   {selectedRuleProduct ? (
                     <div className="mt-3 flex flex-wrap gap-2">
-                      <StatusBadge value={selectedRuleProduct.status} />
+                      <StatusBadge value={formatStatusLabel(selectedRuleProduct.status)} />
                     </div>
                   ) : null}
                 </div>
@@ -1202,13 +1203,13 @@ function MasterCatalogTab({
                       <span className="font-medium text-slate-900">{item.name}</span>
                     </div>
                   </Td>
-                  <Td><span className={styles.mobileLabel} aria-hidden="true">Status</span><StatusBadge value={item.status} /></Td>
+                  <Td><span className={styles.mobileLabel} aria-hidden="true">Status</span><StatusBadge value={formatStatusLabel(item.status)} /></Td>
                   <Td>
                     <div className="flex flex-wrap items-center justify-end gap-1">
                       {canEdit ? (
                         <>
                           <Button type="button" variant="ghost" size="compact" aria-label={`Manage image for ${item.name}`} onClick={() => onImage(item)}>
-                            Image
+                            Manage Image
                           </Button>
                           <Button type="button" variant="ghost" size="compact" aria-label={`Edit ${item.name}`} onClick={() => onEdit(item)}>
                             <IconEdit className="size-4" />
@@ -1434,13 +1435,13 @@ function ProductVariantsTab({
                     <span className={styles.mobileLabel} aria-hidden="true">Product Category</span>
                     <span className="block text-slate-900">{item.product?.name ?? "Unavailable product"}</span>
                   </Td>
-                  <Td><span className={styles.mobileLabel} aria-hidden="true">Status</span><StatusBadge value={item.status} /></Td>
+                  <Td><span className={styles.mobileLabel} aria-hidden="true">Status</span><StatusBadge value={formatStatusLabel(item.status)} /></Td>
                   <Td>
                     <div className="flex flex-wrap items-center justify-end gap-1">
                       {canEdit ? (
                         <>
                           <Button type="button" variant="ghost" size="compact" aria-label={`Manage image for ${item.name}`} onClick={() => onImage(item)}>
-                            Image
+                            Manage Image
                           </Button>
                           <Button type="button" variant="ghost" size="compact" aria-label={`Edit ${item.name}`} onClick={() => onEdit(item)}>
                             <IconEdit className="size-4" />
@@ -1641,7 +1642,7 @@ function MappingTab({
                       </span>
                     </div>
                   </Td>
-                  <Td><span className={styles.mobileLabel} aria-hidden="true">Status</span><StatusBadge value={item.status} /></Td>
+                  <Td><span className={styles.mobileLabel} aria-hidden="true">Status</span><StatusBadge value={formatStatusLabel(item.status)} /></Td>
                   <Td>
                     <div className="flex justify-end">
                       {canChangeStatus ? (
