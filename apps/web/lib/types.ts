@@ -305,6 +305,8 @@ export type HierarchyNode = {
   team: OrgRef | null;
   reportingManagerId: string | null;
   employmentStatus: string;
+  hasPhoto: boolean;
+  photoUpdatedAt: string;
   directReportIds: string[];
   contextOnly: boolean;
 };

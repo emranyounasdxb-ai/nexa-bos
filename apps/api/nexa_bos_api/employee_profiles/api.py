@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, Form, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Query, UploadFile
 from fastapi.responses import FileResponse, Response
 
 from nexa_bos_api.api.v1.deps import CurrentUser, require_permission
@@ -47,8 +47,19 @@ async def hr_dashboard_route(
 async def pro_dashboard_route(
     session: SessionDep,
     actor: Annotated[CurrentUser, Depends(require_permission(USER_PROFILES_PRO_VIEW))],
+    q: str | None = Query(default=None, max_length=120),
+    status: str | None = Query(default=None),
+    page: int | None = Query(default=None, ge=1),
+    page_size: int | None = Query(default=None, alias="pageSize", ge=10, le=100),
 ) -> dict[str, object]:
-    return await pro_dashboard(session, actor)
+    return await pro_dashboard(
+        session,
+        actor,
+        query=q,
+        status=status,
+        page=page,
+        page_size=page_size,
+    )
 
 
 @router.get("/{user_id}")

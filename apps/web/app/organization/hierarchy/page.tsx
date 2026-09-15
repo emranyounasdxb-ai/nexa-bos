@@ -36,7 +36,7 @@ export default function OrganizationHierarchyPage() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [error, setError] = useState("");
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (signal?: AbortSignal) => {
     const params = new URLSearchParams();
     if (officeId) params.set("officeId", officeId);
     if (departmentId) params.set("departmentId", departmentId);
@@ -48,6 +48,7 @@ export default function OrganizationHierarchyPage() {
     const loaded = await apiGet<HierarchyPayload>(
       `/api/v1/organization/hierarchy${params.size ? `?${params.toString()}` : ""}`,
       api,
+      { signal },
     );
     setData(loaded);
     setExpanded((current) => {
@@ -59,9 +60,13 @@ export default function OrganizationHierarchyPage() {
   }, [api, departmentId, businessUnitId, includeInactive, officeId, searchQuery, selectedId, teamId]);
 
   useEffect(() => {
-    void load().catch((reason: unknown) =>
-      setError(reason instanceof Error ? reason.message : "Unable to load hierarchy"),
-    );
+    const controller = new AbortController();
+    void load(controller.signal).catch((reason: unknown) => {
+      if (!controller.signal.aborted) {
+        setError(reason instanceof Error ? reason.message : "Unable to load hierarchy");
+      }
+    });
+    return () => controller.abort();
   }, [load, refreshKey]);
 
   useEffect(() => {
@@ -349,7 +354,7 @@ function HierarchyBranch({
           onClick={() => onSelect(node.id)}
         >
           <span data-testid={`hierarchy-avatar-${node.id}`}>
-            <ProfilePhoto userId={node.id} fullName={node.fullName} size="list" />
+            <ProfilePhoto userId={node.id} fullName={node.fullName} hasPhoto={node.hasPhoto} version={node.photoUpdatedAt} size="list" />
           </span>
           <span className="min-w-0 flex-1">
             <span

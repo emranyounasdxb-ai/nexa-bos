@@ -11,6 +11,7 @@ import { Button, ButtonLink, Card, ErrorText, PageHeader, TextInput } from "@/co
 import { apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { getBrowserApiUrl } from "@/lib/env";
+import { invalidateProfilePhoto } from "@/lib/profile-photo-cache";
 
 export default function AccountPage() {
   const { user, setUser } = useAuth();
@@ -37,6 +38,8 @@ export default function AccountPage() {
 
   async function uploadPhoto() {
     if (!photoFile) return;
+    const userId = user?.id;
+    if (!userId) return;
     setPhotoSaving(true);
     setError("");
     setMessage("");
@@ -47,6 +50,7 @@ export default function AccountPage() {
         method: "POST",
         body,
       });
+      invalidateProfilePhoto(userId);
       setUser(updated);
       setPhotoFile(null);
       setMessage("Photo updated");

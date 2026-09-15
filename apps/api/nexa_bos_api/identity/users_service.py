@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+import os
+import secrets
 from datetime import UTC, date, datetime
+from io import BytesIO
 from pathlib import Path
 from uuid import UUID
 
+from PIL import Image, ImageOps, UnidentifiedImageError
 from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -54,6 +58,12 @@ from nexa_bos_api.identity.permissions import USER_PROFILES_HR_UPDATE, USERS_ASS
 from nexa_bos_api.identity.schemas import RehireRequest, UserCreateRequest, UserUpdateRequest
 
 REPORTING_HIERARCHY_LOCK_KEY = 0x4E45584148494552  # ASCII: NEXAHIER
+
+PROFILE_PHOTO_VARIANT_WIDTHS = {
+    "avatar": 96,
+    "card": 192,
+    "profile": 384,
+}
 
 
 def _can_assign_final_user_type(actor: User) -> bool:
@@ -1313,6 +1323,9 @@ async def save_photo(
     filename = f"{target.id}{suffix}"
     path = storage_dir() / filename
     path.write_bytes(data)
+    _remove_photo_variants(target.id)
+    for variant in PROFILE_PHOTO_VARIANT_WIDTHS:
+        profile_photo_variant_path(target, variant, source_path=path)
     target.profile_photo_key = filename
     target.profile_photo_content_type = content_type
     target.profile_photo_original_name = original_name
@@ -1337,6 +1350,49 @@ def photo_path(user: User) -> Path | None:
     if not path.is_file():
         return None
     return path
+
+
+def _photo_variant_path(user_id: UUID, variant: str) -> Path:
+    return storage_dir() / f"{user_id}-{variant}.webp"
+
+
+def _remove_photo_variants(user_id: UUID) -> None:
+    for variant in PROFILE_PHOTO_VARIANT_WIDTHS:
+        _photo_variant_path(user_id, variant).unlink(missing_ok=True)
+
+
+def profile_photo_variant_path(
+    user: User,
+    variant: str,
+    *,
+    source_path: Path | None = None,
+) -> Path | None:
+    """Return a small WebP derivative while preserving the uploaded original."""
+    if variant not in PROFILE_PHOTO_VARIANT_WIDTHS:
+        return None
+    source = source_path or photo_path(user)
+    if source is None:
+        return None
+    destination = _photo_variant_path(user.id, variant)
+    if destination.is_file() and destination.stat().st_mtime_ns >= source.stat().st_mtime_ns:
+        return destination
+
+    temporary = destination.with_name(f".{destination.name}.{secrets.token_hex(6)}.tmp")
+    try:
+        with Image.open(source) as decoded:
+            normalized = ImageOps.exif_transpose(decoded)
+            normalized.thumbnail(
+                (PROFILE_PHOTO_VARIANT_WIDTHS[variant], PROFILE_PHOTO_VARIANT_WIDTHS[variant]),
+                Image.Resampling.LANCZOS,
+            )
+            output = BytesIO()
+            normalized.convert("RGB").save(output, "WEBP", quality=82, method=6)
+        temporary.write_bytes(output.getvalue())
+        os.replace(temporary, destination)
+        return destination
+    except UnidentifiedImageError, OSError, SyntaxError, ValueError:
+        temporary.unlink(missing_ok=True)
+        return source
 
 
 async def profile_history(session: AsyncSession, user_id: UUID) -> dict[str, object]:

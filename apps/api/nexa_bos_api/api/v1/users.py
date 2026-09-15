@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, Query, Response, UploadFile
+from fastapi import APIRouter, Depends, File, Query, Request, Response, UploadFile
 from fastapi.responses import FileResponse
 
 from nexa_bos_api.api.v1.deps import CurrentUser, require_permission
@@ -55,6 +56,7 @@ from nexa_bos_api.identity.users_service import (
     list_users,
     photo_path,
     profile_history,
+    profile_photo_variant_path,
     rehire_user,
     save_photo,
     set_account_status,
@@ -365,7 +367,13 @@ async def upload_photo(
 
 
 @router.get("/{user_id}/photo")
-async def get_photo(user_id: UUID, session: SessionDep, actor: CurrentUser) -> FileResponse:
+async def get_photo(
+    user_id: UUID,
+    request: Request,
+    session: SessionDep,
+    actor: CurrentUser,
+    size: Literal["original", "avatar", "card", "profile"] = Query(default="original"),
+) -> Response:
     target = await get_visible_user(session, actor, user_id)
     if actor.id != target.id and not has_permission(actor, USERS_VIEW):
         raise AppError(
@@ -377,10 +385,32 @@ async def get_photo(user_id: UUID, session: SessionDep, actor: CurrentUser) -> F
     path = photo_path(target)
     if path is None:
         raise AppError(status_code=404, code="PHOTO_NOT_FOUND", message="No profile photo")
+    selected_path = path if size == "original" else profile_photo_variant_path(target, size)
+    if selected_path is None:
+        raise AppError(status_code=404, code="PHOTO_NOT_FOUND", message="No profile photo")
+    is_variant = selected_path != path
+    stat = selected_path.stat()
+    version = target.updated_at.isoformat() if target.updated_at else "unknown"
+    etag = (
+        f'"{hashlib.sha256(f"{target.id}:{version}:{size}:{stat.st_size}".encode()).hexdigest()}"'
+    )
+    headers = {
+        "Cache-Control": "private, max-age=0, must-revalidate",
+        "ETag": etag,
+        "Vary": "Cookie",
+        "X-Content-Type-Options": "nosniff",
+    }
+    if request.headers.get("if-none-match") == etag:
+        return Response(status_code=304, headers=headers)
     return FileResponse(
-        path,
-        media_type=target.profile_photo_content_type or "application/octet-stream",
-        filename=target.profile_photo_original_name or path.name,
+        selected_path,
+        media_type="image/webp"
+        if is_variant
+        else target.profile_photo_content_type or "application/octet-stream",
+        filename=selected_path.name
+        if is_variant
+        else target.profile_photo_original_name or path.name,
+        headers=headers,
     )
 
 

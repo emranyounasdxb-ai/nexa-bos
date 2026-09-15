@@ -30,6 +30,7 @@ import { WorkspaceFrame } from "@/components/workspace-frame";
 import { apiGet, apiRequest, getCsrfToken, setCsrfToken } from "@/lib/api";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
 import { getBrowserApiUrl } from "@/lib/env";
+import { setProfilePhotoSession } from "@/lib/profile-photo-cache";
 import type { UserRecord } from "@/lib/types";
 import { canManageCustomers, canReadCatalog, canReadOrganization, canReadWorkflows } from "@/lib/role-access";
 
@@ -150,6 +151,7 @@ function Shell({ children }: { children: ReactNode }) {
       /* The local session is already gone. */
     }
     setCsrfToken(null);
+    setProfilePhotoSession(null);
     setUser(null);
     router.replace("/login");
     router.refresh();
@@ -249,8 +251,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
+    const controller = new AbortController();
     let cancelled = false;
-    void apiGet<UserRecord>("/api/v1/auth/me", getBrowserApiUrl())
+    void apiGet<UserRecord>("/api/v1/auth/me", getBrowserApiUrl(), { signal: controller.signal })
       .then((current) => {
         if (cancelled) {
           return;
@@ -258,6 +261,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         if (current.csrfToken) {
           setCsrfToken(current.csrfToken);
         }
+        setProfilePhotoSession(current.id);
         setUser(current);
         setReady(true);
         if (pathname === "/login" || pathname === "/bootstrap") {
@@ -269,6 +273,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           return;
         }
         setCsrfToken(null);
+        setProfilePhotoSession(null);
         setUser(null);
         setReady(true);
         if (!PUBLIC_PATHS.includes(pathname)) {
@@ -289,6 +294,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       });
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [pathname, router]);
 

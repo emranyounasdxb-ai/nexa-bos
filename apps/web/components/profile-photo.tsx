@@ -1,11 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 
-import { apiDownload } from "@/lib/api";
-import { getBrowserApiUrl } from "@/lib/env";
 import { cx } from "@/components/ui";
+import { acquireProfilePhoto } from "@/lib/profile-photo-cache";
 
 function initials(name: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -22,6 +21,7 @@ export function ProfilePhoto({
   version,
   size = "header",
   labelled = false,
+  eager,
   className,
 }: {
   userId: string;
@@ -30,22 +30,41 @@ export function ProfilePhoto({
   version?: string;
   size?: "header" | "identity" | "list";
   labelled?: boolean;
+  eager?: boolean;
   className?: string;
 }) {
   const [source, setSource] = useState<string | null>(null);
+  const container = useRef<HTMLSpanElement>(null);
+  const shouldLoadImmediately = eager ?? size !== "list";
+  const [visible, setVisible] = useState(shouldLoadImmediately);
+
+  useEffect(() => {
+    setVisible(shouldLoadImmediately);
+    if (shouldLoadImmediately || hasPhoto === false || !container.current) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry.isIntersecting) return;
+        setVisible(true);
+        observer.disconnect();
+      },
+      { rootMargin: "240px" },
+    );
+    observer.observe(container.current);
+    return () => observer.disconnect();
+  }, [hasPhoto, shouldLoadImmediately, userId, version]);
 
   useEffect(() => {
     let active = true;
-    let objectUrl: string | null = null;
     setSource(null);
-    if (hasPhoto === false) return;
+    if (hasPhoto === false || !visible) return;
 
-    void apiDownload(`/api/v1/users/${userId}/photo?v=${encodeURIComponent(version ?? "current")}`, getBrowserApiUrl())
-      .then(async ({ blob, contentType }) => {
-        if (!contentType.startsWith("image/") && !blob.type.startsWith("image/")) {
-          throw new Error("Profile photo response is not an image");
-        }
-        objectUrl = URL.createObjectURL(blob);
+    const acquisition = acquireProfilePhoto({
+      userId,
+      version,
+      variant: size === "identity" ? "profile" : "avatar",
+    });
+    void acquisition.promise
+      .then(async (objectUrl) => {
         const preview = new window.Image();
         preview.src = objectUrl;
         await preview.decode();
@@ -57,12 +76,13 @@ export function ProfilePhoto({
 
     return () => {
       active = false;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
+      acquisition.release();
     };
-  }, [hasPhoto, userId, version]);
+  }, [hasPhoto, size, userId, version, visible]);
 
   return (
     <span
+      ref={container}
       data-profile-photo=""
       className={cx(
         "grid shrink-0 place-items-center overflow-hidden rounded-full bg-surface-subtle font-semibold text-text-primary",
@@ -73,7 +93,16 @@ export function ProfilePhoto({
       aria-hidden={labelled ? undefined : true}
     >
       {source ? (
-        <Image className="size-full object-cover" src={source} alt="" width={64} height={64} unoptimized />
+        <Image
+          className="size-full object-cover"
+          src={source}
+          alt=""
+          width={size === "identity" ? 384 : 96}
+          height={size === "identity" ? 384 : 96}
+          loading={shouldLoadImmediately ? "eager" : "lazy"}
+          unoptimized
+          onError={() => setSource(null)}
+        />
       ) : (
         <span aria-hidden="true">{initials(fullName)}</span>
       )}
