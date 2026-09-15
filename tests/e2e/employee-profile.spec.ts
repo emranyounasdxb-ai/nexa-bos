@@ -290,7 +290,7 @@ test("employee profile organizes identity, access, assets, and filtered audit hi
   await selectBrandedOption(page.getByLabel("Audit action filter"), "user.activate");
   await expect(page.getByText("User activate", { exact: true }).first()).toBeVisible();
   await page.getByLabel("Search audit events").fill("no-such-audit-event");
-  await expect(page.getByText("No audit events match the current filters.")).toBeVisible();
+  await expect(page.getByText("No records match the selected filters")).toBeVisible();
   await page.getByLabel("Search audit events").fill("");
   await page.goBack();
   await expect(page).toHaveURL(/tab=assets$/);

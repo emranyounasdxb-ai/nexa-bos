@@ -140,8 +140,8 @@ test("User Type editor groups permissions and saves existing settings without ch
   await page.getByRole("button", { name: "Selected", exact: true }).click();
   await expect(urgentPermission).toBeVisible();
   await page.getByRole("button", { name: "Unselected", exact: true }).click();
-  await expect(page.getByText("No permissions match the current search and filter.").filter({ visible: true })).toBeVisible();
-  await captureViewportPair(page, testInfo, "user-type-filtered-empty", page.getByText("No permissions match the current search and filter.").filter({ visible: true }));
+  await expect(page.getByText("No records match the selected filters").filter({ visible: true })).toBeVisible();
+  await captureViewportPair(page, testInfo, "user-type-filtered-empty", page.getByText("No records match the selected filters").filter({ visible: true }));
   await page.getByRole("button", { name: "All", exact: true }).click();
   await page.getByLabel("Search permissions").fill("");
 

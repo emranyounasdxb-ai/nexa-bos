@@ -212,7 +212,7 @@ export default function AssetReportsPage() {
 
       {error ? <ErrorText>{error}</ErrorText> : null}
       {loading && !data ? <p className="text-sm text-slate-500">Loading report…</p> : null}
-      {!loading && data && data.items.length === 0 ? <EmptyState>No rows match the authorized filters.</EmptyState> : null}
+      {!loading && data && data.items.length === 0 ? <EmptyState kind="search" title="No records match the selected filters" /> : null}
       {data && data.items.length ? (
         <div className={loading ? "opacity-60" : undefined} aria-busy={loading}>
         <TableShell className={styles.records}>

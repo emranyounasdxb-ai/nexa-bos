@@ -109,7 +109,7 @@ function DrillDownInner() {
         </dl>
       </Card> : null}>
       {data && data.items.length === 0 ? (
-        <EmptyState>No applications match this metric, period, and reporting scope.</EmptyState>
+        <EmptyState kind="search" title="No records match the selected filters" />
       ) : null}
       {data && data.items.length > 0 ? (
         <div className={loading ? "opacity-60" : undefined} aria-busy={loading}>

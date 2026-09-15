@@ -594,7 +594,7 @@ export default function OrganizationPage() {
               <Card>
                 <EmptyState>
                   {currentSearch || currentStatus !== "all"
-                    ? `No ${currentConfig.label.toLowerCase()} match the current filters.`
+                    ? "No records match the selected filters"
                     : `No ${currentConfig.label.toLowerCase()} are available yet.`}
                 </EmptyState>
               </Card>

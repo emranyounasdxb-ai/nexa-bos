@@ -108,7 +108,7 @@ test("latest target filter survives an older real response finishing last", asyn
     const month = page.getByLabel("Target month filter");
     await month.fill(emptyMonth);
     await month.press("Enter");
-    const empty = page.getByText("No targets are in scope for the selected filters. Adjust the filters or use the page-level Create target action.", { exact: true });
+    const empty = page.getByText("No records match the selected filters", { exact: true });
     await expect(empty).toBeVisible();
     release();
     await expect.poll(() => finished === received && received > 0).toBe(true);
@@ -162,7 +162,7 @@ test("Targets workspace keeps URL tabs, compact filters, results, and drawer foc
 
   await targetMonth.fill(emptyMonth);
   await targetMonth.press("Enter");
-  await expect(page.getByText(/No targets are in scope for the selected filters\./)).toBeVisible();
+  await expect(page.getByText("No records match the selected filters", { exact: true })).toBeVisible();
   await targetMonth.fill(month);
   await targetMonth.press("Enter");
   await expect(page.getByRole("row").filter({ hasText: seeded.employee.fullName ?? "Platform Owner" })).toBeVisible();

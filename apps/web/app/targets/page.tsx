@@ -517,9 +517,7 @@ export default function TargetsPage() {
                   Loading targets…
                 </div>
               ) : items.length === 0 ? (
-                <div className="rounded-[10px] border border-dashed border-brand-border px-4 py-5 text-center text-sm text-text-secondary">
-                  No targets are in scope for the selected filters. Adjust the filters or use the page-level Create target action.
-                </div>
+                <EmptyState kind="search" title="No records match the selected filters" />
               ) : (
                 <>
                   <TableShell className={cx("hidden lg:block", loading && "opacity-70")}>

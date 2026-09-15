@@ -949,7 +949,7 @@ test("empty table messages remain readable inside mobile horizontal scrollers", 
     await page.setViewportSize(viewport);
     await page.goto("/attendance/reports");
     // This is the existing initial report placeholder, not a submitted empty report.
-    const message = page.getByText("No attendance rows for the selected filters.", { exact: true });
+    const message = page.getByText("No records match the selected filters", { exact: true });
     const shell = page.locator("[data-amafh-table-shell]").filter({ has: message });
     await expect(message).toBeVisible();
     await message.scrollIntoViewIfNeeded();

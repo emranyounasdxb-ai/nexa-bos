@@ -1236,7 +1236,7 @@ function MasterCatalogTab({
               <tr>
                 <td className="p-0" colSpan={3}>
                   <EmptyState>
-                    <p>{totalItems === 0 ? `No ${title.toLowerCase()} have been created.` : `No ${title.toLowerCase()} match the current filters.`}</p>
+                    <p>{totalItems === 0 ? `No ${title.toLowerCase()} have been created.` : "No records match the selected filters"}</p>
                     {totalItems === 0 && canCreate ? <Button type="button" className="mt-3" onClick={onCreate}>{createLabel}</Button> : null}
                   </EmptyState>
                 </td>
@@ -1474,7 +1474,7 @@ function ProductVariantsTab({
                         ? canCreate && parentActive
                           ? "No Product Variants exist for this mapping. Add the first variant above."
                           : "No Product Variants are available for this mapping."
-                        : "No Product Variants match the current filters."}
+                        : "No records match the selected filters"}
                   </EmptyState>
                 </td>
               </tr>
@@ -1668,7 +1668,7 @@ function MappingTab({
                       ? canCreate
                         ? "No mappings exist. Choose a bank and product above to add the first mapping."
                         : "No mappings are available."
-                      : "No mappings match the current filters."}
+                      : "No records match the selected filters"}
                   </EmptyState>
                 </td>
               </tr>

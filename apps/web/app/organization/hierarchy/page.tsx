@@ -272,7 +272,7 @@ export default function OrganizationHierarchyPage() {
                 ))}
               </ul>
             ) : (
-              <EmptyState>No employees match the authorized hierarchy filters.</EmptyState>
+              <EmptyState kind="search" title="No records match the selected filters" />
             )}
           </Card>
         </div>

@@ -271,7 +271,7 @@ export default function AttendanceReportsPage() {
           {items.length === 0 ? (
             <tr>
               <td colSpan={6}>
-                <EmptyState>No attendance rows for the selected filters.</EmptyState>
+                <EmptyState kind="search" title="No records match the selected filters" />
               </td>
             </tr>
           ) : (

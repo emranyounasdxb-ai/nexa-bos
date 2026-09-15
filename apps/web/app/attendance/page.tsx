@@ -338,7 +338,7 @@ export default function AttendancePage() {
           {items.length === 0 ? (
             <tr>
               <td colSpan={7}>
-                <EmptyState>No employees in scope for this date and filter.</EmptyState>
+                <EmptyState kind="search" title="No records match the selected filters" />
               </td>
             </tr>
           ) : (

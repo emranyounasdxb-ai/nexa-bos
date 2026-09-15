@@ -593,7 +593,7 @@ test("application detail sections, confirmations, timeline filters, permissions,
   await selectBrandedOption(page.getByLabel("Filter timeline by event type"), "application_created");
   await expect(page.getByText(/1 of \d+ events/)).toBeVisible();
   await page.getByLabel("Search timeline").fill("no matching lifecycle event");
-  await expect(page.getByText("No timeline events match the current filters.")).toBeVisible();
+  await expect(page.getByText("No records match the selected filters")).toBeVisible();
   await captureViewportPair(page, testInfo, "application-timeline-empty", page.getByRole("tabpanel", { name: "Timeline", exact: true }));
   await page.getByRole("button", { name: "Clear timeline filters" }).click();
 
