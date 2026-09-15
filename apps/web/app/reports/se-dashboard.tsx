@@ -71,7 +71,7 @@ function ApplicationTrend({ rows }: { rows: SeDashboardWorkspace["trend"] }) {
   const total = rows.reduce((sum, row) => sum + row.created + row.submitted + row.approved + row.funded, 0);
   return (
     <div className="mt-3" data-testid="se-application-trend">
-      <BosChart option={option} accessibleDescription="Created, submitted, approved and funded own Applications over the last six months." empty={total === 0} emptyMessage="No Application activity is available for the last six months." testId="se-application-trend-chart" height={250} />
+      <BosChart option={option} accessibleDescription="Created, submitted, approved and funded own Applications over the last six months." empty={total === 0} emptyMessage="Insights will appear when activity begins" testId="se-application-trend-chart" height={250} />
     </div>
   );
 }

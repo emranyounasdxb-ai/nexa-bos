@@ -109,7 +109,7 @@ function TrendChart({ rows }: { rows: CodDashboardWorkspace["charts"]["trend"] }
       option={option}
       accessibleDescription="Created and submitted authorized office Applications over the last six months."
       empty={total === 0}
-      emptyMessage="No created or submitted Applications are available for the last six months."
+      emptyMessage="Insights will appear when activity begins"
       testId="cod-created-submitted-chart"
       height={245}
     />

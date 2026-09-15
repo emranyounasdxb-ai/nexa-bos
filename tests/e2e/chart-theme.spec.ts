@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
-import { chartPalette, withChartTheme } from "../../apps/web/components/charts/chart-theme";
+import { chartPalette, formatPercentage, withChartTheme } from "../../apps/web/components/charts/chart-theme";
+import { formatPct } from "../../apps/web/lib/reports";
 
 test("chart themes change presentation colors without changing data or formatters", () => {
   const formatter = (value: unknown) => String(value);
@@ -24,4 +25,11 @@ test("chart themes change presentation colors without changing data or formatter
   expect(dark.tooltip.formatter).toBe(formatter);
   expect(dark.customDate).toBe(dates);
   expect(JSON.stringify(option)).toBe(original);
+});
+
+test("missing percentages use a dash while genuine zero percentages remain visible", () => {
+  expect(formatPercentage(null)).toBe("—");
+  expect(formatPercentage(0)).toBe("0%");
+  expect(formatPct(undefined)).toBe("—");
+  expect(formatPct(0)).toBe("0%");
 });

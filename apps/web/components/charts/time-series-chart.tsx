@@ -90,7 +90,7 @@ export function TimeSeriesChart({ rows }: { rows: DashboardPayload["trend"] }) {
         option={option}
         accessibleDescription={description}
         empty={rows.length < 2}
-        emptyMessage="At least two authoritative monthly points are required to show a trend."
+        emptyMessage={rows.length === 0 ? "Insights will appear when activity begins" : "At least two authoritative monthly points are required to show a trend."}
         testId={rows.length < 2 ? "dashboard-trend-insufficient" : "dashboard-trend-chart"}
         height={240}
       />

@@ -310,7 +310,14 @@ function UsersDirectory() {
         </div>
 
         {loading && items.length === 0 ? <LoadingState>Loading Users…</LoadingState> : null}
-        {!loading && !error && items.length === 0 ? <EmptyState>No Users match the current filters.</EmptyState> : null}
+        {!loading && !error && items.length === 0 ? (
+          hasFilters ? (
+            <EmptyState
+              kind="search"
+              title="No records match the selected filters"
+            />
+          ) : <EmptyState kind="records">No users are available in your authorized scope.</EmptyState>
+        ) : null}
 
         {items.length > 0 ? (
           <>

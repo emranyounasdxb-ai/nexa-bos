@@ -204,7 +204,14 @@ function CustomersDirectory() {
         </div>
 
         {loading && items.length === 0 ? <LoadingState>Loading Customers…</LoadingState> : null}
-        {!loading && !error && items.length === 0 ? <EmptyState>No Customers match the current filters.</EmptyState> : null}
+        {!loading && !error && items.length === 0 ? (
+          hasFilters ? (
+            <EmptyState
+              kind="search"
+              title="No records match the selected filters"
+            />
+          ) : <EmptyState kind="records">No customers are available in your authorized scope.</EmptyState>
+        ) : null}
 
         {items.length > 0 ? (
           <>

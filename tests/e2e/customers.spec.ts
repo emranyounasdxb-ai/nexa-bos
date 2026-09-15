@@ -267,7 +267,8 @@ test("customer directory search, status, and pagination persist in the URL", asy
   await expect(page.getByLabel("Search customers")).toHaveValue(inactive.customerCode);
   await expect(status).toHaveAttribute("value", "Inactive");
   await selectBrandedOption(status, "Active");
-  await expect(page.getByText("No Customers match the current filters.")).toBeVisible();
+  await expect(page.getByText("No records match the selected filters")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Clear filters" })).toBeVisible();
   await page.goBack();
   await expect(page.getByRole("link", { name: inactive.customerCode })).toBeVisible();
   await expect(status).toHaveAttribute("value", "Inactive");

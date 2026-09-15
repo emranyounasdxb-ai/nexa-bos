@@ -336,7 +336,7 @@ export function formatAed(value: string | number | null | undefined): string {
 
 export function formatPct(value: number | null | undefined): string {
   if (value === null || value === undefined) {
-    return "n/a";
+    return "—";
   }
   return `${value}%`;
 }

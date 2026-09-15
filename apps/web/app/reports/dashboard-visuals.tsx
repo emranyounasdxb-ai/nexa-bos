@@ -10,7 +10,7 @@ import {
   IconTrendingUp,
   type IconComponent,
 } from "@/components/icons";
-import { Badge, SectionHeader } from "@/components/ui";
+import { Badge, EmptyState, SectionHeader } from "@/components/ui";
 import { formatPct, type DashboardPayload, type RankingRow } from "@/lib/reports";
 import overview from "./overview.module.css";
 
@@ -26,7 +26,7 @@ export const metricToneClasses: Record<MetricTone, { icon: string }> = {
 };
 
 export function CompactEmpty({ children }: { children: ReactNode }) {
-  return <p className="mt-4 border-t border-slate-100 py-4 text-sm text-slate-500">{children}</p>;
+  return <div className="mt-3 border-t border-slate-100"><EmptyState kind="records">{children}</EmptyState></div>;
 }
 
 export function DashboardBreakdown({ rows, description, testId }: { rows: { id: string; label: string; value: number }[]; description: string; testId: string }) {
@@ -85,6 +85,7 @@ export function KpiCard({
   icon,
   context,
   featured = false,
+  empty = false,
 }: {
   label: string;
   count: number;
@@ -94,6 +95,7 @@ export function KpiCard({
   icon: IconComponent;
   context?: ReactNode;
   featured?: boolean;
+  empty?: boolean;
 }) {
   const MetricIcon = icon;
   return (
@@ -108,10 +110,10 @@ export function KpiCard({
         <IconArrowUpRight className="size-4 shrink-0" />
       </div>
       <div className={overview.metricValue}>
-        <strong>{count.toLocaleString()}</strong>
-        {value !== undefined ? <small>{formatCurrencyValue(value)}</small> : null}
+        <strong>{empty ? "—" : count.toLocaleString()}</strong>
+        {!empty && value !== undefined ? <small>{formatCurrencyValue(value)}</small> : null}
       </div>
-      <div className={overview.metricContext}>{context ?? <span>Selected period</span>}</div>
+      <div className={overview.metricContext}>{empty ? <span>No data yet</span> : context ?? <span>Selected period</span>}</div>
     </Link>
   );
 }
@@ -123,6 +125,7 @@ export function PipelineMetric({
   href,
   tone = "blue",
   icon,
+  empty = false,
 }: {
   label: string;
   count: number;
@@ -130,6 +133,7 @@ export function PipelineMetric({
   href: string;
   tone?: MetricTone;
   icon: IconComponent;
+  empty?: boolean;
 }) {
   const MetricIcon = icon;
   return (
@@ -143,9 +147,9 @@ export function PipelineMetric({
       </span>
       <span className="min-w-0 flex-1">
         <span className="block text-sm font-semibold text-slate-600">{label}</span>
-        {value !== undefined ? <span className="block truncate text-xs text-slate-500">{formatCurrencyValue(value)}</span> : null}
+        {empty ? <span className="block truncate text-xs text-slate-500">No data yet</span> : value !== undefined ? <span className="block truncate text-xs text-slate-500">{formatCurrencyValue(value)}</span> : null}
       </span>
-      <span className="text-base font-semibold tabular-nums text-slate-950">{count.toLocaleString()}</span>
+      <span className="text-base font-semibold tabular-nums text-slate-950">{empty ? "—" : count.toLocaleString()}</span>
     </Link>
   );
 }
@@ -197,6 +201,9 @@ export function ConversionSummary({ values, drill }: { values: DashboardPayload[
     ["Submitted → Final Rejected", values.submittedToFinalRejected, "conversion_submitted_rejected", "bg-red-500"],
     ["Submitted → Cancelled / Withdrawn", values.submittedToCancelledWithdrawn, "conversion_submitted_cancelled_withdrawn", "bg-amber-500"],
   ] as const;
+  if (rows.every(([, value]) => value === null || value === undefined)) {
+    return <div className="mt-3"><EmptyState title="—" description="No data yet" /></div>;
+  }
   return (
     <div className="mt-3 space-y-2">
       {rows.map(([label, value, metric, color]) => {
@@ -253,7 +260,7 @@ export function RankingList({ title, rows, metric, hrefFor }: { title: string; r
   return (
     <section className="min-w-0 border-t border-slate-200">
       <div className="flex items-center justify-between border-b border-slate-200 px-3 py-2.5"><h3 className="text-sm font-semibold text-slate-950">{title}</h3>{rows.length > 0 ? <Badge>{Math.min(rows.length, 8)} shown</Badge> : null}</div>
-      {rows.length === 0 ? <p className="px-3 py-4 text-sm text-slate-500">No ranking rows for the selected period.</p> : (
+      {rows.length === 0 ? <EmptyState kind="records">No ranking rows for the selected period.</EmptyState> : (
         <div className="max-h-56 divide-y divide-slate-100 overflow-y-auto px-1.5 py-1">
           {rows.slice(0, 8).map((row) => (
             <Link key={row.id} href={hrefFor(row)} className="group flex items-center gap-2 rounded-md px-2 py-2 hover:bg-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary">
