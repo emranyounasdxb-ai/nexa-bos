@@ -104,6 +104,9 @@ export default function WorkflowsPage() {
   const [createProductId, setCreateProductId] = useState("");
   const [stageName, setStageName] = useState("");
   const [stageOrder, setStageOrder] = useState("80");
+  const [stageTimeframe, setStageTimeframe] = useState("");
+  const [stageTimeframeUnit, setStageTimeframeUnit] = useState<"hours" | "days">("hours");
+  const [stageSuccessful, setStageSuccessful] = useState(false);
   const [editingStage, setEditingStage] = useState<WorkflowStageRecord | null>(null);
   const [fromStage, setFromStage] = useState("");
   const [toStage, setToStage] = useState("");
@@ -265,10 +268,16 @@ export default function WorkflowsPage() {
       setEditingStage(null);
       setStageName("");
       setStageOrder(String((stages.at(-1)?.sortOrder ?? 70) + 10));
+      setStageTimeframe("");
+      setStageTimeframeUnit("hours");
+      setStageSuccessful(false);
     } else if (next === "edit-stage" && stage) {
       setEditingStage(stage);
       setStageName(stage.name);
       setStageOrder(String(stage.sortOrder));
+      setStageTimeframe(stage.timeframeValue ? String(stage.timeframeValue) : "");
+      setStageTimeframeUnit(stage.timeframeUnit ?? "hours");
+      setStageSuccessful(Boolean(stage.isSuccessful));
     } else if (next === "add-transition") {
       setFromStage("");
       setToStage("");
@@ -340,13 +349,29 @@ export default function WorkflowsPage() {
       if (editingStage) {
         await apiRequest(`/api/v1/workflows/stages/${editingStage.id}`, api, {
           method: "PATCH",
-          body: JSON.stringify({ name: stageName.trim(), sort_order: Number(stageOrder) }),
+          body: JSON.stringify({
+            name: stageName.trim(),
+            sort_order: Number(stageOrder),
+            ...(stageTimeframe ? {
+              timeframe_value: Number(stageTimeframe),
+              timeframe_unit: stageTimeframeUnit,
+            } : {}),
+            is_successful: stageSuccessful,
+          }),
         });
         setMessage(`${stageName.trim()} was updated.`);
       } else {
         await apiRequest(`/api/v1/workflows/${selected.id}/stages`, api, {
           method: "POST",
-          body: JSON.stringify({ name: stageName.trim(), sort_order: Number(stageOrder) }),
+          body: JSON.stringify({
+            name: stageName.trim(),
+            sort_order: Number(stageOrder),
+            ...(stageTimeframe ? {
+              timeframe_value: Number(stageTimeframe),
+              timeframe_unit: stageTimeframeUnit,
+            } : {}),
+            is_successful: stageSuccessful,
+          }),
         });
         setMessage(`${stageName.trim()} was added to version ${selected.version}.`);
       }
@@ -528,8 +553,10 @@ export default function WorkflowsPage() {
                         <div className="min-w-0 flex-1">
                           <div className="flex min-w-0 flex-wrap items-center gap-1.5">
                             <h3 className="truncate text-sm font-semibold text-text-primary">{stage.name}</h3><StatusBadge value={stage.status ?? "active"} />
+                            {stage.isSuccessful ? <Badge tone="green">Successful stage</Badge> : null}
                             {fixed ? <span className="inline-flex items-center gap-1"><Badge tone="purple">Fixed entry stage</Badge><Tooltip label="About the fixed entry stage" text="Application Created is the system-defined entry stage. Its name, order, and active status cannot be changed." /></span> : null}
                           </div>
+                          <p className="mt-1 text-xs text-text-secondary">{stage.timeframeValue ? `Deadline: ${stage.timeframeValue} ${stage.timeframeUnit}` : "No overdue deadline"}</p>
                           {!fixed && (can("WorkflowStages.Edit") || canActivate || canDeactivate) ? (
                             <div className="mt-2 flex flex-wrap gap-1">
                               {can("WorkflowStages.Edit") ? <Button type="button" size="compact" variant="ghost" onClick={() => openDrawer("edit-stage", stage)}><IconEdit className="size-3.5" /> Edit</Button> : null}
@@ -609,6 +636,9 @@ export default function WorkflowsPage() {
                 <fieldset className="grid content-start gap-4 rounded-2xl bg-surface-subtle p-4 sm:grid-cols-2"><legend className="px-1 text-sm font-medium">Stage identity and sequence</legend>
                   <Field label="Stage name" htmlFor="workflow-stage-name" className="sm:col-span-2"><TextInput id="workflow-stage-name" autoFocus required value={stageName} onChange={(event) => { setStageName(event.target.value); setDrawerDirty(true); }} /></Field>
                   <Field label="Sort order" htmlFor="workflow-stage-order" help="Lower numbers appear earlier in the workflow stage sequence."><TextInput id="workflow-stage-order" type="number" min={1} max={10000} required value={stageOrder} onChange={(event) => { setStageOrder(event.target.value); setDrawerDirty(true); }} /></Field>
+                  <Field label="Stage timeframe" htmlFor="workflow-stage-timeframe" help="Overdue visibility begins only after this deadline."><TextInput id="workflow-stage-timeframe" type="number" min={1} max={8760} value={stageTimeframe} placeholder="No deadline" onChange={(event) => { setStageTimeframe(event.target.value); setDrawerDirty(true); }} /></Field>
+                  <Field label="Timeframe unit" htmlFor="workflow-stage-timeframe-unit"><Select id="workflow-stage-timeframe-unit" value={stageTimeframeUnit} onChange={(event) => { setStageTimeframeUnit(event.target.value as "hours" | "days"); setDrawerDirty(true); }}><option value="hours">Hours</option><option value="days">Days</option></Select></Field>
+                  <label className="flex items-center gap-2 text-sm text-text-primary sm:col-span-2"><input type="checkbox" checked={stageSuccessful} onChange={(event) => { setStageSuccessful(event.target.checked); setDrawerDirty(true); }} />Post PF commission when a case enters this successful stage</label>
                 </fieldset>
               ) : (
                 <fieldset className="grid content-start gap-4 rounded-2xl bg-surface-subtle p-4 sm:grid-cols-2"><legend className="px-1 text-sm font-medium">Transition direction</legend>

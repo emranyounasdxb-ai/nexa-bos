@@ -41,9 +41,10 @@ async function seed(request: APIRequestContext) {
   const headers = await owner(request);
   const types = await getItems(request, "user-types");
   const sales = ["Dashboard.View", "Applications.View", "Applications.Create", "Applications.Edit", "Customers.Create", "Customers.Edit", "Customers.View", "Notifications.View"];
-  for (const [role, scope] of [["TL", "team"], ["SE", "own"], ["COD", "office"]]) {
+  for (const [role, scope] of [["TL", "team"], ["SE", "own"], ["SM", "office"], ["COD", "office"]]) {
     const id = types.find(type => type.code === role)!.id;
-    await save(request, `user-types/${id}/permissions`, headers, { permissions: role === "COD" ? [...sales, "Applications.Submit", "Applications.UpdateStage"] : sales }, "put");
+    const casePermissions = role === "TL" || role === "SM" || role === "COD" ? ["CaseOperations.ViewRouting"] : [];
+    await save(request, `user-types/${id}/permissions`, headers, { permissions: role === "COD" ? [...sales, ...casePermissions, "Applications.Submit", "Applications.UpdateStage"] : [...sales, ...casePermissions] }, "put");
     for (const [suffix, field] of [["scope", "visibility_scope"], ["application-scope", "application_visibility_scope"], ["customer-scope", "customer_visibility_scope"], ["reporting-scope", "reporting_visibility_scope"]]) {
       await save(request, `user-types/${id}/${suffix}`, headers, { [field]: scope }, "put");
     }
@@ -68,12 +69,10 @@ async function seed(request: APIRequestContext) {
     const businessUnit = await save(request, "business-units", headers, { code: `TB${code}${stamp}`, name: `TL review unit ${code}`, office_id: office.id, department_id: department.id });
     const team = await save(request, "teams", headers, { code: `TT${code}${stamp}`, name: `Team ${code} ${stamp}`, office_id: office.id, department_id: department.id, business_unit_id: businessUnit.id });
     const users: Record<string, RecordId> = {};
-    let manager: string | undefined;
-    for (const role of ["COD", "TL", "SE"]) {
-      const user = await createUser(role, role, office, department.id, team, manager);
-      users[role] = user;
-      manager = user.id;
-    }
+    users.SM = await createUser("SM", "SM", office, department.id, team);
+    users.COD = await createUser("COD", "COD", office, department.id, team);
+    users.TL = await createUser("TL", "TL", office, department.id, team, users.SM.id);
+    users.SE = await createUser("SE", "SE", office, department.id, team, users.TL.id);
     const targetUsers: Record<string, RecordId> = {};
     if (code === "DXB") {
       for (const tag of ["OVER", "MIXED", "ZERO", "NONE"]) targetUsers[tag] = await createUser("SE", tag, office, department.id, team, users.TL.id);
@@ -92,6 +91,14 @@ async function seed(request: APIRequestContext) {
   }
   const mapping = (await getItems(request, `bank-products?bankId=${bank.id}&productId=${product.id}`))[0];
   const variant = await save(request, "product-variants", headers, { bank_product_id: mapping.id, code: `TL-${stamp}`, name: `TL disposable variant ${stamp}` });
+  for (const group of groups) {
+    await save(request, "case-operations/routing", headers, {
+      office_id: group.office.id,
+      product_id: product.id,
+      sales_manager_id: group.users.SM.id,
+      coordinator_id: group.users.COD.id,
+    }, "put");
+  }
   async function create(email: string, requestedAmount = "12500") {
     return save(request, "applications", await login(request, email), {
       customer: { customer_type: "individual", full_name: `TL disposable customer ${stamp}`, mobile: "+971500000012" }, bank_id: bank.id, product_id: product.id, product_variant_id: variant.id, requested_amount: requestedAmount,
@@ -799,9 +806,9 @@ test("DXB and AUH TL review: scope, tabs, charts, breadcrumbs and responsive que
       await page.getByRole("button", { name: "Resubmitted queue", exact: true }).click();
       await expect(page.getByText(app.applicationCode).first()).toBeVisible();
       await page.goto(`/applications/${app.id}`);
-      await page.getByRole("button", { name: "Forward to COD", exact: true }).click();
+      await page.getByRole("button", { name: "Book case", exact: true }).click();
       await page.getByRole("dialog").getByRole("button", { name: "Confirm", exact: true }).click();
-      await expect(page.getByTestId("internal-review")).toContainText("Forwarded to COD");
+      await expect(page.getByTestId("internal-review")).toContainText("Booked by TL");
       const stored = await (await page.request.get(`${api}/api/v1/applications/${app.id}`)).json();
       expect(stored.caseOwnerId).toBe(group.users.SE.id);
       expect(stored.requestedAmount).toBe("15000.00");

@@ -133,6 +133,15 @@ FINANCE_FINALIZE = "Finance.Finalize"
 FINANCE_REOPEN_PERIOD = "Finance.ReopenPeriod"
 FINANCE_VIEW_COMMISSION_RULES = "Finance.ViewCommissionRules"
 FINANCE_MANAGE_COMMISSION_RULES = "Finance.ManageCommissionRules"
+CASE_RULES_VIEW = "CaseOperations.ViewRules"
+CASE_RULES_MANAGE = "CaseOperations.ManageRules"
+CASE_ROUTING_VIEW = "CaseOperations.ViewRouting"
+CASE_ROUTING_MANAGE = "CaseOperations.ManageRouting"
+CASE_CLAWBACK_SUBMIT = "CaseOperations.SubmitClawback"
+CASE_CLAWBACK_APPROVE = "CaseOperations.ApproveClawback"
+CASE_STAGE_CSV = "CaseOperations.StageCsv"
+CASE_REPORTS_VIEW = "CaseOperations.ViewReports"
+CASE_REPORTS_EXPORT = "CaseOperations.ExportReports"
 ASSETS_VIEW = "Assets.View"
 ASSETS_MANAGE_MASTER = "Assets.ManageMaster"
 ASSETS_MANAGE_STOCK = "Assets.ManageStock"
@@ -287,6 +296,15 @@ PERMISSION_CATALOG: tuple[tuple[str, str], ...] = (
     (FINANCE_REOPEN_PERIOD, "Reopen a finalized Finance payout period with a reason"),
     (FINANCE_VIEW_COMMISSION_RULES, "View commission and incentive configuration versions"),
     (FINANCE_MANAGE_COMMISSION_RULES, "Create and activate Finance configuration versions"),
+    (CASE_RULES_VIEW, "View effective-dated card point and PF commission rules"),
+    (CASE_RULES_MANAGE, "Manage effective-dated card point and PF commission rules"),
+    (CASE_ROUTING_VIEW, "View Office and Product Lane routing assignments"),
+    (CASE_ROUTING_MANAGE, "Manage Office and Product Lane routing assignments"),
+    (CASE_CLAWBACK_SUBMIT, "Submit case earning clawbacks"),
+    (CASE_CLAWBACK_APPROVE, "Approve or reject case earning clawbacks"),
+    (CASE_STAGE_CSV, "Validate and import scoped case stage CSV files"),
+    (CASE_REPORTS_VIEW, "View operational case and employee performance reports"),
+    (CASE_REPORTS_EXPORT, "Export authorized operational case reports"),
     (ASSETS_VIEW, "View authorized Asset data"),
     (ASSETS_MANAGE_MASTER, "Manage Asset categories and master details within scope"),
     (ASSETS_MANAGE_STOCK, "Create and maintain authorized Asset stock and condition metadata"),
@@ -359,6 +377,41 @@ PERMISSION_CATALOG += tuple(
 )
 SYSTEM_APPROVAL_PERMISSION_DEFAULTS = {
     code: APPROVAL_PERMISSIONS for code in ("HR", "GM", "BDM", "SM", "COD", "TL")
+}
+
+SYSTEM_CASE_OPERATIONS_PERMISSION_DEFAULTS = {
+    "GM": (
+        CASE_RULES_VIEW,
+        CASE_RULES_MANAGE,
+        CASE_ROUTING_VIEW,
+        CASE_ROUTING_MANAGE,
+        CASE_CLAWBACK_APPROVE,
+        CASE_REPORTS_VIEW,
+        CASE_REPORTS_EXPORT,
+    ),
+    "BDM": (
+        CASE_RULES_VIEW,
+        CASE_ROUTING_VIEW,
+        CASE_REPORTS_VIEW,
+        CASE_REPORTS_EXPORT,
+    ),
+    "SM": (
+        CASE_RULES_VIEW,
+        CASE_ROUTING_VIEW,
+        CASE_CLAWBACK_APPROVE,
+        CASE_REPORTS_VIEW,
+        CASE_REPORTS_EXPORT,
+    ),
+    "COD": (
+        CASE_RULES_VIEW,
+        CASE_ROUTING_VIEW,
+        CASE_CLAWBACK_SUBMIT,
+        CASE_STAGE_CSV,
+        CASE_REPORTS_VIEW,
+        CASE_REPORTS_EXPORT,
+    ),
+    "TL": (CASE_ROUTING_VIEW, CASE_REPORTS_VIEW),
+    "SE": (CASE_REPORTS_VIEW,),
 }
 
 ALL_PERMISSION_CODES: tuple[str, ...] = tuple(code for code, _ in PERMISSION_CATALOG)

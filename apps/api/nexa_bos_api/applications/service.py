@@ -142,6 +142,44 @@ async def serialize_application(
         if context is not None
         else await session.get(User, application.case_owner_id)
     )
+    sales_manager = (
+        context.users.get(application.routed_sales_manager_id)
+        if context is not None and application.routed_sales_manager_id
+        else await session.get(User, application.routed_sales_manager_id)
+        if application.routed_sales_manager_id
+        else None
+    )
+    coordinator = (
+        context.users.get(application.routed_coordinator_id)
+        if context is not None and application.routed_coordinator_id
+        else await session.get(User, application.routed_coordinator_id)
+        if application.routed_coordinator_id
+        else None
+    )
+    open_occupancy = next(
+        (
+            row
+            for row in (context.occupancies.get(application.id, []) if context else [])
+            if row.exited_at is None
+        ),
+        None,
+    )
+    if context is None:
+        open_occupancy = await session.scalar(
+            select(ApplicationStageOccupancy).where(
+                ApplicationStageOccupancy.application_id == application.id,
+                ApplicationStageOccupancy.exited_at.is_(None),
+            )
+        )
+    overdue = None
+    if open_occupancy and stage and stage.timeframe_seconds:
+        elapsed = max(0, int((utcnow() - open_occupancy.entered_at).total_seconds()))
+        if elapsed > stage.timeframe_seconds:
+            overdue = {
+                "isOverdue": True,
+                "overdueSeconds": elapsed - stage.timeframe_seconds,
+                "stageEnteredAt": open_occupancy.entered_at.isoformat(),
+            }
     return {
         "id": str(application.id),
         "applicationCode": application.application_code,
@@ -175,6 +213,26 @@ async def serialize_application(
         if owner and owner.department_id
         else None,
         "caseOwnerTeamId": str(owner.team_id) if owner and owner.team_id else None,
+        "processingOfficeId": (
+            str(application.processing_office_id) if application.processing_office_id else None
+        ),
+        "routedSalesManagerId": (
+            str(application.routed_sales_manager_id)
+            if application.routed_sales_manager_id
+            else None
+        ),
+        "routedSalesManagerName": sales_manager.full_name if sales_manager else None,
+        "routedCoordinatorId": (
+            str(application.routed_coordinator_id) if application.routed_coordinator_id else None
+        ),
+        "routedCoordinatorName": coordinator.full_name if coordinator else None,
+        "routingStatus": application.routing_status,
+        "bookedByTlId": str(application.booked_by_tl_id) if application.booked_by_tl_id else None,
+        "salesManagerApprovedAt": (
+            application.sales_manager_approved_at.isoformat()
+            if application.sales_manager_approved_at
+            else None
+        ),
         "requestedAmount": _money(application.requested_amount),
         "approvedAmount": _money(application.approved_amount),
         "bookedAmount": _money(application.booked_amount),
@@ -192,6 +250,7 @@ async def serialize_application(
         "updatedAt": application.updated_at.isoformat(),
         "submitted": application.submitted_at is not None,
         "terminal": application.terminal_outcome is not None,
+        "overdue": overdue,
         **(
             await tat_fields(
                 session,
@@ -237,6 +296,12 @@ async def serialize_applications(
     stage_ids.update(row.stage_id for row in occupancies)
     stage_ids.update(row.stage_id for row in delays)
     user_ids = {row.case_owner_id for row in applications}
+    user_ids.update(
+        user_id
+        for row in applications
+        for user_id in (row.routed_sales_manager_id, row.routed_coordinator_id)
+        if user_id is not None
+    )
     user_ids.update(row.updated_by_id for row in occupancies)
     user_ids.update(row.marked_by_id for row in delays)
 
@@ -575,11 +640,11 @@ async def create_application(
                 )
             await update_application_contact_details(session, actor, customer, payload.customer)
     else:
-        if not has_user_type(actor, "OWNER", "GM") or not has_permission(actor, CUSTOMERS_VIEW):
+        if not has_permission(actor, CUSTOMERS_VIEW):
             raise AppError(
                 status_code=403,
                 code="FORBIDDEN",
-                message="Direct customer linking is restricted to Owners and General Managers",
+                message="Customer view permission is required to link an existing customer",
             )
         assert payload.customer_id is not None
         customer = await get_visible_customer(session, actor, payload.customer_id)
@@ -730,7 +795,7 @@ async def _first_or_correct_case_number(
     value: str,
     *,
     reason: str | None,
-) -> None:
+) -> ApplicationEvent:
     normalized = value.strip()
     duplicate = (
         await session.execute(
@@ -803,7 +868,7 @@ async def _first_or_correct_case_number(
             "caseOwnerId": str(application.case_owner_id),
             "requestedAmount": _money(application.requested_amount),
         }
-        await _add_event(
+        event = await _add_event(
             session,
             application=application,
             event_type=ApplicationEventType.SUBMISSION,
@@ -822,7 +887,7 @@ async def _first_or_correct_case_number(
             new_stage_id=submitted.id,
         )
     else:
-        await _add_event(
+        event = await _add_event(
             session,
             application=application,
             event_type=ApplicationEventType.CASE_NUMBER_CORRECTED,
@@ -830,6 +895,7 @@ async def _first_or_correct_case_number(
             payload={"bankCaseNumber": normalized},
             reason=reason,
         )
+    return event
 
 
 def _list_stmt() -> Select:
@@ -1134,6 +1200,12 @@ async def update_application(
     _reject_terminal(application)
     submitted = application.submitted_at is not None
     data = payload.model_dump(exclude_unset=True)
+    if application.booked_by_tl_id and data:
+        raise AppError(
+            status_code=422,
+            code="CASE_OWNER_DATA_LOCKED",
+            message="Booked case data is locked. GM/Owner must use an audited correction flow.",
+        )
     if (
         has_user_type(actor, "TL", "SE")
         and (await get_review(session, application))["status"] != "legacy"
@@ -1232,9 +1304,23 @@ async def update_application(
 
 
 async def save_case_number(
-    session: AsyncSession, actor: User, application: Application, value: str, reason: str | None
+    session: AsyncSession,
+    actor: User,
+    application: Application,
+    value: str,
+    reason: str | None,
+    *,
+    commit: bool = True,
 ) -> Application:
-    _reject_terminal(application)
+    if application.terminal_outcome:
+        if not has_user_type(actor, "GM", "OWNER"):
+            _reject_terminal(application)
+        if not _blank(reason):
+            raise AppError(
+                status_code=422,
+                code="OVERRIDE_REASON_REQUIRED",
+                message="GM/Owner must provide a reason to override a closed case",
+            )
     if application.submitted_at is not None and not reason:
         raise AppError(
             status_code=422,
@@ -1242,19 +1328,27 @@ async def save_case_number(
             message="A reason is required to correct a Bank File / Case Number",
         )
     await _first_or_correct_case_number(session, actor, application, value, reason=reason)
-    await session.commit()
+    if commit:
+        await session.commit()
     return application
 
 
 async def correct_submitted(
     session: AsyncSession, actor: User, application: Application, payload: CorrectSubmittedRequest
 ) -> Application:
-    _reject_terminal(application)
-    if application.submitted_at is None:
+    if application.terminal_outcome and not has_user_type(actor, "GM", "OWNER"):
+        _reject_terminal(application)
+    if application.booked_by_tl_id and not has_user_type(actor, "GM", "OWNER"):
+        raise AppError(
+            status_code=422,
+            code="BOOKED_CASE_LOCKED",
+            message="Booked case business fields are locked; GM/Owner override is required",
+        )
+    if application.submitted_at is None and application.booked_by_tl_id is None:
         raise AppError(
             status_code=422,
             code="NOT_SUBMITTED",
-            message="Submitted-data correction applies after submission",
+            message="Audited data correction applies after booking or submission",
         )
     old_variant = (
         await session.get(ProductVariant, application.product_variant_id)
@@ -1338,6 +1432,19 @@ async def reassign_case_owner(
     session: AsyncSession, actor: User, application: Application, owner_id: UUID, reason: str | None
 ) -> Application:
     _reject_terminal(application)
+    if application.booked_by_tl_id:
+        if not has_user_type(actor, "GM", "OWNER"):
+            raise AppError(
+                status_code=422,
+                code="CASE_OWNER_LOCKED",
+                message="The Case Owner is locked after TL booking",
+            )
+        if _blank(reason) is None:
+            raise AppError(
+                status_code=422,
+                code="OVERRIDE_REASON_REQUIRED",
+                message="GM/Owner must provide a reason to override the locked Case Owner",
+            )
     owner = await _require_case_owner(session, owner_id)
     allowed = await visible_case_owner_ids(session, actor)
     if allowed is not None and owner.id not in allowed:
@@ -1449,6 +1556,8 @@ async def update_stage(
     payload: StageUpdateRequest,
     *,
     correction: bool = False,
+    commit: bool = True,
+    source: str = "Manual",
 ) -> Application:
     _reject_terminal(application)
     await _validate_bank_date(
@@ -1462,9 +1571,24 @@ async def update_stage(
     if target.status != MasterStatus.ACTIVE:
         raise AppError(status_code=422, code="STAGE_INACTIVE", message="Target stage is inactive")
     previous = application.current_stage_id
-    if previous != target.id and not await _transition_allowed(
+    allowed_transition = previous == target.id or await _transition_allowed(
         session, application.workflow_id, previous, target.id
-    ):
+    )
+    privileged = has_user_type(actor, "GM", "OWNER")
+    if application.booked_by_tl_id:
+        if not privileged and application.routed_coordinator_id != actor.id:
+            raise AppError(
+                status_code=404,
+                code="APPLICATION_NOT_FOUND",
+                message="Application not found",
+            )
+        if privileged and not allowed_transition and _blank(payload.override_reason) is None:
+            raise AppError(
+                status_code=422,
+                code="OVERRIDE_REASON_REQUIRED",
+                message="A reason is required to skip or move backward",
+            )
+    if not allowed_transition and (not privileged or application.booked_by_tl_id is None):
         raise AppError(
             status_code=422,
             code="TRANSITION_NOT_ALLOWED",
@@ -1486,9 +1610,15 @@ async def update_stage(
         new_stage_id=target.id,
         bank_stage_date=payload.bank_stage_date,
         stage_note=stage_note,
-        payload={"resubmittedAt": now.isoformat()}
-        if event_type == ApplicationEventType.RESUBMISSION
-        else None,
+        payload={
+            "source": source,
+            **(
+                {"resubmittedAt": now.isoformat()}
+                if event_type == ApplicationEventType.RESUBMISSION
+                else {}
+            ),
+        },
+        reason=_blank(payload.override_reason),
         at=now,
     )
     if event_type == ApplicationEventType.FUND_RELEASE:
@@ -1516,8 +1646,30 @@ async def update_stage(
         entity_type="application",
         entity_id=str(application.id),
         actor_id=actor.id,
-        new_values={"stageId": str(target.id), "eventType": event_type},
+        old_values={"stageId": str(previous)},
+        new_values={
+            "stageId": str(target.id),
+            "eventType": event_type,
+            "source": source,
+        },
+        note=_blank(payload.override_reason),
     )
+    product = await session.get(Product, application.product_id)
+    if (
+        target.is_successful
+        and product
+        and product.code == "PF"
+        and application.booked_by_tl_id is not None
+    ):
+        from nexa_bos_api.case_operations.service import post_case_earning
+
+        await post_case_earning(
+            session,
+            application,
+            stage_event,
+            product_code="PF",
+            at=now,
+        )
     from nexa_bos_api.notifications.enums import NotificationEventType
     from nexa_bos_api.notifications.service import dispatch_source_event
 
@@ -1531,13 +1683,20 @@ async def update_stage(
         contextual_link=f"/applications/{application.id}",
         actor_id=actor.id,
     )
-    await session.commit()
+    if commit:
+        await session.commit()
     return application
 
 
 async def correct_stage(
     session: AsyncSession, actor: User, application: Application, payload: StageCorrectionRequest
 ) -> Application:
+    if application.booked_by_tl_id and not has_user_type(actor, "GM", "OWNER"):
+        raise AppError(
+            status_code=403,
+            code="STAGE_OVERRIDE_FORBIDDEN",
+            message="Only GM or Owner can correct a booked case stage",
+        )
     _reject_terminal(application)
     await _validate_bank_date(session, application.id, payload.bank_stage_date, correction=True)
     target = await session.get(WorkflowStage, payload.stage_id)

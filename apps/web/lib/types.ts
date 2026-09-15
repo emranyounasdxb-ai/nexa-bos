@@ -178,6 +178,15 @@ export type ApplicationRecord = {
   terminalReason: string | null;
   caseOwnerId: string;
   caseOwnerName: string | null;
+  processingOfficeId?: string | null;
+  routedSalesManagerId?: string | null;
+  routedSalesManagerName?: string | null;
+  routedCoordinatorId?: string | null;
+  routedCoordinatorName?: string | null;
+  routingStatus?: string | null;
+  bookedByTlId?: string | null;
+  salesManagerApprovedAt?: string | null;
+  overdue?: { isOverdue: true; overdueSeconds: number; stageEnteredAt: string } | null;
   requestedAmount: string | null;
   approvedAmount: string | null;
   bookedAmount: string | null;
@@ -255,6 +264,10 @@ export type WorkflowStageRecord = {
   kind?: string;
   systemKey?: string | null;
   sortOrder: number;
+  timeframeSeconds?: number | null;
+  timeframeValue?: number | null;
+  timeframeUnit?: "hours" | "days";
+  isSuccessful?: boolean;
   status?: string;
   current?: boolean;
   enteredAt?: string | null;

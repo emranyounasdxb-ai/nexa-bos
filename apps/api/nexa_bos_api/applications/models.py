@@ -5,6 +5,7 @@ from datetime import date, datetime
 from decimal import Decimal
 
 from sqlalchemy import (
+    CheckConstraint,
     Date,
     DateTime,
     ForeignKey,
@@ -51,6 +52,12 @@ class Workflow(Base):
 
 class WorkflowStage(Base):
     __tablename__ = "workflow_stages"
+    __table_args__ = (
+        CheckConstraint(
+            "timeframe_seconds IS NULL OR timeframe_seconds > 0",
+            name="workflow_stages_timeframe_check",
+        ),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_uuid)
     workflow_id: Mapped[uuid.UUID] = mapped_column(
@@ -62,6 +69,8 @@ class WorkflowStage(Base):
     system_key: Mapped[str | None] = mapped_column(String(64))
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False)
     status: Mapped[str] = mapped_column(String(20), nullable=False)
+    timeframe_seconds: Mapped[int | None] = mapped_column(Integer)
+    is_successful: Mapped[bool] = mapped_column(default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
@@ -134,6 +143,15 @@ class Application(Base):
     submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     submitted_by_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"))
     submitted_snapshot: Mapped[dict | None] = mapped_column(JSONB)
+    processing_office_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("offices.id"))
+    routed_sales_manager_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"))
+    routed_coordinator_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"))
+    booked_by_tl_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.id"))
+    routing_status: Mapped[str | None] = mapped_column(String(32))
+    sales_manager_approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    sales_manager_approved_by_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("users.id")
+    )
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     booked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     fund_released_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

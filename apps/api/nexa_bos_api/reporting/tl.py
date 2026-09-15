@@ -95,6 +95,7 @@ def _metric_history(facts: list[AppFact], window: PeriodWindow, now: datetime) -
             "returned",
             "resubmitted",
             "forwarded",
+            "booked",
         }:
             return status
         return None

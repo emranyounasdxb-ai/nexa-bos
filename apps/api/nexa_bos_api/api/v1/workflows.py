@@ -101,7 +101,15 @@ async def workflows_add_stage(
 ) -> dict[str, object]:
     workflow = await load_workflow(session, workflow_id)
     stage = await add_stage(
-        session, actor, workflow, payload.name, payload.code, payload.sort_order
+        session,
+        actor,
+        workflow,
+        payload.name,
+        payload.code,
+        payload.sort_order,
+        payload.timeframe_value,
+        payload.timeframe_unit,
+        payload.is_successful,
     )
     return serialize_stage(stage)
 
@@ -131,7 +139,14 @@ async def workflows_update_stage(
 ) -> dict[str, object]:
     stage = await load_stage(session, stage_id)
     updated = await update_stage(
-        session, actor, stage, name=payload.name, sort_order=payload.sort_order
+        session,
+        actor,
+        stage,
+        name=payload.name,
+        sort_order=payload.sort_order,
+        timeframe_value=payload.timeframe_value,
+        timeframe_unit=payload.timeframe_unit,
+        is_successful=payload.is_successful,
     )
     return serialize_stage(updated)
 

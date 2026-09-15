@@ -42,6 +42,7 @@ class CommissionRecipientInput(StrictRequest):
 class CommissionRuleCreateRequest(StrictRequest):
     bank_id: UUID
     product_id: UUID
+    product_variant_id: UUID | None = None
     eligibility_milestone: EligibilityMilestone
     effective_from: date
     effective_to: date | None = None

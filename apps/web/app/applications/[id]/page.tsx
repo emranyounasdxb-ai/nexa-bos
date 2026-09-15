@@ -157,9 +157,11 @@ export default function ApplicationDetailPage() {
   } | null>(null);
   const [caseNumber, setCaseNumber] = useState("");
   const [caseReason, setCaseReason] = useState("");
+  const [salesManagerReason, setSalesManagerReason] = useState("");
   const [stageId, setStageId] = useState("");
   const [bankDate, setBankDate] = useState(today());
   const [stageNote, setStageNote] = useState("");
+  const [stageOverrideReason, setStageOverrideReason] = useState("");
   const [requirement, setRequirement] = useState("");
   const [approvedAmount, setApprovedAmount] = useState("");
   const [bookedAmount, setBookedAmount] = useState("");
@@ -297,15 +299,22 @@ export default function ApplicationDetailPage() {
   useEffect(() => setTimelinePage(1), [timelineQuery, timelineType]);
 
   const nextStages = useMemo(
-    () =>
-      (workflow?.transitions ?? [])
+    () => {
+      const configured = (workflow?.transitions ?? [])
         .filter((row) => row.fromStageId === item?.currentStageId)
         .map((row) => workflow?.stages.find((stage) => stage.id === row.toStageId))
         .filter(
           (stage): stage is WorkflowStageRecord =>
             Boolean(stage && stage.status === "active"),
-        ),
-    [item?.currentStageId, workflow],
+        );
+      if (item?.bookedByTlId && ["GM", "OWNER"].includes(user?.userType?.code ?? "")) {
+        return (workflow?.stages ?? []).filter(
+          (stage) => stage.status === "active" && stage.id !== item.currentStageId,
+        );
+      }
+      return configured;
+    },
+    [item, user?.userType?.code, workflow],
   );
   const timelineTypes = useMemo(
     () => Array.from(new Set(timeline.map((event) => event.eventType))).sort(),
@@ -482,7 +491,10 @@ export default function ApplicationDetailPage() {
     (item.submitted && can("Applications.CorrectSubmittedData")) ||
     can("Applications.ReassignCaseOwner") ||
     can("Workflows.MigrateApplication") ||
-    can("Applications.SetOutcome");
+    can("Applications.SetOutcome") ||
+    (user?.userType?.code === "TL" && Boolean(review?.eventId) && ["pending_review", "resubmitted"].includes(review?.status ?? "")) ||
+    (user?.id === item.routedSalesManagerId && item.routingStatus === "booked") ||
+    (user?.id === item.routedCoordinatorId && ["booked", "sm_approved"].includes(item.routingStatus ?? ""));
 
   return (
     <section className="min-w-0 space-y-4" aria-busy={loading}>
@@ -663,6 +675,8 @@ export default function ApplicationDetailPage() {
         {activeTab === "actions" ? (
           <div className="grid min-w-0 gap-4 xl:grid-cols-2">
             {!hasActions ? <Card className="xl:col-span-2"><EmptyState>No application actions are available for your permissions.</EmptyState></Card> : null}
+            {user?.id === item.routedSalesManagerId && item.routingStatus === "booked" ? <Card><h3 className="text-lg font-semibold">Sales Manager Review</h3><p className="mt-1 text-sm text-text-secondary">Approve the booked case for Coordinator processing, or return it with a reason.</p><Field className="mt-3" label="Return reason"><Textarea value={salesManagerReason} onChange={(event) => setSalesManagerReason(event.target.value)} placeholder="Required only when returning" /></Field><div className="mt-3 flex gap-2"><Button disabled={busy} onClick={() => void post(`/api/v1/case-operations/applications/${item.id}/sales-manager-decision`, { decision: "approve" }, "Case approved for processing.")}>Approve</Button><Button variant="secondary" disabled={busy || !salesManagerReason.trim()} onClick={() => void post(`/api/v1/case-operations/applications/${item.id}/sales-manager-decision`, { decision: "return", reason: salesManagerReason }, "Case returned to the Case Owner.")}>Return</Button></div></Card> : null}
+            {user?.id === item.routedCoordinatorId && ((item.productCode === "CC" && item.routingStatus === "sm_approved") || (item.productCode === "PF" && item.routingStatus === "booked")) ? <Card><h3 className="text-lg font-semibold">Bank Submission</h3><p className="mt-1 text-sm text-text-secondary">Add the unique Bank File Number. Credit Card cases close automatically after submission.</p><Field className="mt-3" label="Bank File Number"><TextInput value={caseNumber} onChange={(event) => setCaseNumber(event.target.value)} /></Field><Button className="mt-3" disabled={busy || !caseNumber.trim()} onClick={() => void post(`/api/v1/case-operations/applications/${item.id}/bank-submission`, { bank_file_number: caseNumber }, "Bank submission recorded.")}>Submit to Bank</Button></Card> : null}
             {item.activeDelay && !item.terminal && can("Applications.CorrectDelay") ? (
               <Card>
                 <h3 className="text-lg font-semibold">Correct active delay</h3>
@@ -783,6 +797,7 @@ export default function ApplicationDetailPage() {
                         approved_amount: approvedAmount || null,
                         booked_amount: bookedAmount || null,
                         funded_amount: fundedAmount || null,
+                        override_reason: stageOverrideReason || null,
                       },
                       "Stage updated",
                     );
@@ -796,6 +811,7 @@ export default function ApplicationDetailPage() {
                   </Field>
                   <Field label="Bank Stage Date"><DatePicker required aria-label="Bank Stage Date" value={bankDate} onChange={setBankDate} /></Field>
                   <Field label="Stage note"><TextInput aria-label="Stage note" placeholder="Optional note" value={stageNote} onChange={(event) => setStageNote(event.target.value)} /></Field>
+                  {item.bookedByTlId && ["GM", "OWNER"].includes(user?.userType?.code ?? "") ? <Field label="Override reason"><Textarea aria-label="Override reason" placeholder="Required when skipping or moving backward" value={stageOverrideReason} onChange={(event) => setStageOverrideReason(event.target.value)} /></Field> : null}
                   {selectedNext?.systemKey === "returned_requirement_pending" ? <Field label="Requirement reason"><Textarea aria-label="Requirement reason" placeholder="Requirement or query" value={requirement} onChange={(event) => setRequirement(event.target.value)} required /></Field> : null}
                   {selectedNext?.systemKey === "approved" ? <Field label="Approved amount"><TextInput aria-label="Approved amount" value={approvedAmount} onChange={(event) => setApprovedAmount(event.target.value)} /></Field> : null}
                   {selectedNext?.systemKey === "booked" ? <Field label="Booked amount"><TextInput aria-label="Booked amount" value={bookedAmount} onChange={(event) => setBookedAmount(event.target.value)} /></Field> : null}

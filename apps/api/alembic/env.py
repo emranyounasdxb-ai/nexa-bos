@@ -9,6 +9,7 @@ from alembic import context
 from nexa_bos_api.applications import models as _application_models  # noqa: F401
 from nexa_bos_api.assets import models as _asset_models  # noqa: F401
 from nexa_bos_api.attendance import models as _attendance_models  # noqa: F401
+from nexa_bos_api.case_operations import models as _case_operations_models  # noqa: F401
 from nexa_bos_api.catalog import models as _catalog_models  # noqa: F401
 from nexa_bos_api.contracts import models as _contract_models  # noqa: F401
 from nexa_bos_api.core.config import get_settings

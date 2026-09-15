@@ -68,6 +68,7 @@ const routeContext = (pathname: string): RouteContext => {
     { prefix: "/applications/new", group: "Operations", title: "Create application", parent: { href: "/applications", label: "Applications" } },
     { prefix: "/applications", group: "Operations", title: "Applications" },
     { prefix: "/workflows", group: "Operations", title: "Workflow Designer" },
+    { prefix: "/case-operations", group: "Operations", title: "Case Operations" },
     { prefix: "/users/new", group: "People", title: "Create user", parent: { href: "/users", label: "Users" } },
     { prefix: "/users", group: "People", title: "Users" },
     { prefix: "/hr", group: "People", title: "HR Dashboard" },
@@ -170,6 +171,7 @@ function Shell({ children }: { children: ReactNode }) {
         { href: "/customers", label: "Customers", icon: IconUser, show: canManageCustomers(user) },
         { href: "/applications", label: "Applications", icon: IconFileDescription, show: can("Applications.View") },
         { href: "/workflows", label: "Workflows", icon: IconGitBranch, show: canReadWorkflows(user) },
+        { href: "/case-operations", label: "Case Operations", icon: IconHierarchy3, show: can("CaseOperations.ViewRules") || can("CaseOperations.ViewRouting") || can("CaseOperations.StageCsv") || can("CaseOperations.ViewReports") },
       ],
     },
     {
