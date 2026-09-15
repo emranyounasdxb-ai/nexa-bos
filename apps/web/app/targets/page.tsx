@@ -39,6 +39,7 @@ import {
 import { apiGet, apiRequest, ApiClientError } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { getBrowserApiUrl } from "@/lib/env";
+import { formatLocalDateTime } from "@/lib/presentation";
 import { ConfigurationWorkspace } from "@/components/page-patterns";
 import { formatAed, formatPct } from "@/lib/reports";
 
@@ -677,7 +678,7 @@ export default function TargetsPage() {
 
       {historyId ? (
         <DialogPanel title="Edit history" description="Recorded changes for this target." onClose={() => setHistoryId(null)}>
-          {history && history.length > 0 ? <ul className="space-y-2 text-sm">{history.map((row) => <li key={row.id} className="rounded-md border border-slate-200 p-3"><span className="block font-medium text-slate-900">{row.reason}</span><span className="mt-1 block text-xs text-slate-500">{row.createdAt}</span></li>)}</ul> : <EmptyState>No edits recorded.</EmptyState>}
+          {history && history.length > 0 ? <ul className="space-y-2 text-sm">{history.map((row) => <li key={row.id} className="rounded-md border border-slate-200 p-3"><span className="block font-medium text-slate-900">{row.reason}</span><span className="mt-1 block text-xs text-slate-500">{formatLocalDateTime(row.createdAt)}</span></li>)}</ul> : <EmptyState>No edits recorded.</EmptyState>}
         </DialogPanel>
       ) : null}
 

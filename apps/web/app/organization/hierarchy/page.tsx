@@ -18,6 +18,7 @@ import {
 import { apiGet } from "@/lib/api";
 import { getBrowserApiUrl } from "@/lib/env";
 import { ConfigurationWorkspace } from "@/components/page-patterns";
+import { ProfilePhoto } from "@/components/profile-photo";
 import type { HierarchyNode, HierarchyPayload } from "@/lib/types";
 
 export default function OrganizationHierarchyPage() {
@@ -347,12 +348,8 @@ function HierarchyBranch({
           className="flex min-w-0 flex-1 items-center gap-2 rounded-sm text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand-primary"
           onClick={() => onSelect(node.id)}
         >
-          <span
-            data-testid={`hierarchy-avatar-${node.id}`}
-            aria-hidden="true"
-            className="inline-flex size-9 shrink-0 items-center justify-center rounded-full bg-slate-200 text-xs font-semibold text-slate-700"
-          >
-            {employeeInitials(node.fullName)}
+          <span data-testid={`hierarchy-avatar-${node.id}`}>
+            <ProfilePhoto userId={node.id} fullName={node.fullName} size="list" />
           </span>
           <span className="min-w-0 flex-1">
             <span
@@ -414,15 +411,6 @@ function HierarchyBranch({
       ) : null}
     </li>
   );
-}
-
-function employeeInitials(fullName: string) {
-  return fullName
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((part) => part.charAt(0).toUpperCase())
-    .join("") || "?";
 }
 
 function SelectedContext({

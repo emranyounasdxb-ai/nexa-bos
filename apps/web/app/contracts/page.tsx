@@ -29,6 +29,7 @@ import {
 import { apiDownload, apiGet, apiRequest, ApiClientError } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { getBrowserApiUrl } from "@/lib/env";
+import { formatLocalDateTime, humanizeTechnicalLabel } from "@/lib/presentation";
 
 type ContractType = {
   id: string;
@@ -585,7 +586,7 @@ export default function ContractsPage() {
                 <button key={file.id} type="button" onClick={() => void download(selected, file)} className={cx("mt-2 block text-sm text-brand-primary underline", focusRing)}>{file.name} · version {file.version}{file.isActive ? " · current" : ""}</button>
               )) : <p className="mt-1 text-sm text-text-secondary">No signed attachment uploaded.</p>}
             </div>
-            {can("Contracts.History") ? <div><h3 className="text-lg font-semibold">History</h3>{selected.history.map((item) => <div key={item.id} className="mt-2 border-l-2 border-brand-border pl-3 text-sm"><p className="font-medium">{item.action} · {item.toStatus}</p><p className="text-xs text-text-secondary">{item.actor} · {new Date(item.createdAt).toLocaleString("en-AE")}</p>{item.comment ? <p>{item.comment}</p> : null}</div>)}</div> : null}
+            {can("Contracts.History") ? <div><h3 className="text-lg font-semibold">History</h3>{selected.history.map((item) => <div key={item.id} className="mt-2 border-l-2 border-brand-border pl-3 text-sm"><p className="font-medium">{humanizeTechnicalLabel(item.action)} · {humanizeTechnicalLabel(item.toStatus)}</p><p className="text-xs text-text-secondary">{item.actor} · {formatLocalDateTime(item.createdAt)}</p>{item.comment ? <p>{item.comment}</p> : null}</div>)}</div> : null}
           </div>
         </DialogPanel>
       ) : null}

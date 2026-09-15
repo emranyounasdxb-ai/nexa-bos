@@ -538,7 +538,7 @@ export default function CustomerDetailPage() {
                       <span className="font-medium text-text-primary">{item.sourceCustomerCode} merged into primary record</span>
                       <time className="text-xs text-text-secondary">{formatDate(item.mergedAt)}</time>
                     </div>
-                    <p className="mt-1 break-all text-xs text-text-secondary">Primary ID: {item.primaryCustomerId}</p>
+                    <p className="mt-1 text-xs text-text-secondary">Merged into the selected primary customer record.</p>
                   </li>
                 ))}
               </ul>

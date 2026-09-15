@@ -45,6 +45,10 @@ function accountAvatar(page: Page) {
   return page.getByRole("button", { name: "Open user menu" }).locator("[data-profile-photo]");
 }
 
+function sidebarAvatar(page: Page) {
+  return page.locator('#application-sidebar a[aria-label="My profile"] [data-profile-photo]');
+}
+
 test("saved profile photo replaces immediately and survives refresh, navigation, and re-login", async ({
   page,
   request,
@@ -61,7 +65,10 @@ test("saved profile photo replaces immediately and survives refresh, navigation,
   await expect(page.getByText("Photo updated", { exact: true })).toBeVisible();
   await expect(identityPhoto.locator("img")).toBeVisible();
   await expect(accountAvatar(page).locator("img")).toBeVisible();
+  await expect(sidebarAvatar(page).locator("img")).toBeVisible();
   const firstSource = await identityPhoto.locator("img").getAttribute("src");
+  const firstAccountSource = await accountAvatar(page).locator("img").getAttribute("src");
+  const firstSidebarSource = await sidebarAvatar(page).locator("img").getAttribute("src");
   expect(firstSource).toMatch(/^blob:/);
 
   await page.getByLabel("Profile photo", { exact: true }).setInputFiles(replacementPhoto);
@@ -69,18 +76,27 @@ test("saved profile photo replaces immediately and survives refresh, navigation,
   await expect(page.getByText("Photo updated", { exact: true })).toBeVisible();
   await expect(identityPhoto.locator("img")).toBeVisible();
   await expect(identityPhoto.locator("img")).not.toHaveAttribute("src", firstSource!);
+  await expect(accountAvatar(page).locator("img")).not.toHaveAttribute("src", firstAccountSource!);
+  await expect(sidebarAvatar(page).locator("img")).not.toHaveAttribute("src", firstSidebarSource!);
 
   await page.reload();
   await expect(identityPhoto.locator("img")).toBeVisible();
   await expect(accountAvatar(page).locator("img")).toBeVisible();
+  await expect(sidebarAvatar(page).locator("img")).toBeVisible();
   await page.goto("/reports");
   await expect(accountAvatar(page).locator("img")).toBeVisible();
+  await expect(sidebarAvatar(page).locator("img")).toBeVisible();
+
+  await page.goto("/users");
+  const ownerEntry = page.getByRole("row").filter({ hasText: "Platform Owner" });
+  await expect(ownerEntry.locator("[data-profile-photo] img")).toBeVisible();
 
   await page.getByRole("button", { name: "Open user menu" }).click();
   await page.getByRole("menuitem", { name: "Sign out" }).click();
   await expect(page).toHaveURL(/\/login/);
   await signIn(page, request);
   await expect(accountAvatar(page).locator("img")).toBeVisible();
+  await expect(sidebarAvatar(page).locator("img")).toBeVisible();
 
   await page.goto("/account");
   for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
@@ -101,6 +117,8 @@ test("an unavailable saved photo falls back to initials without rendering a brok
   await expect(identityPhoto).toContainText("PO");
   await expect(accountAvatar(page).locator("img")).toHaveCount(0);
   await expect(accountAvatar(page)).toContainText("PO");
+  await expect(sidebarAvatar(page).locator("img")).toHaveCount(0);
+  await expect(sidebarAvatar(page)).toContainText("PO");
 });
 
 test("My Profile distinguishes unassigned leave from a genuine zero balance and uses compact empty sections", async ({

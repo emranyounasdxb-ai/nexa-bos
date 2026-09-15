@@ -22,13 +22,15 @@ export function ProfilePhoto({
   version,
   size = "header",
   labelled = false,
+  className,
 }: {
   userId: string;
   fullName: string;
-  hasPhoto: boolean;
+  hasPhoto?: boolean;
   version?: string;
-  size?: "header" | "identity";
+  size?: "header" | "identity" | "list";
   labelled?: boolean;
+  className?: string;
 }) {
   const [source, setSource] = useState<string | null>(null);
 
@@ -36,9 +38,9 @@ export function ProfilePhoto({
     let active = true;
     let objectUrl: string | null = null;
     setSource(null);
-    if (!hasPhoto) return;
+    if (hasPhoto === false) return;
 
-    void apiDownload(`/api/v1/users/${userId}/photo`, getBrowserApiUrl())
+    void apiDownload(`/api/v1/users/${userId}/photo?v=${encodeURIComponent(version ?? "current")}`, getBrowserApiUrl())
       .then(async ({ blob, contentType }) => {
         if (!contentType.startsWith("image/") && !blob.type.startsWith("image/")) {
           throw new Error("Profile photo response is not an image");
@@ -64,7 +66,8 @@ export function ProfilePhoto({
       data-profile-photo=""
       className={cx(
         "grid shrink-0 place-items-center overflow-hidden rounded-full bg-surface-subtle font-semibold text-text-primary",
-        size === "identity" ? "size-16 text-base" : "size-[30px] text-[10px]",
+        size === "identity" ? "size-16 text-base" : size === "list" ? "size-8 text-xs" : "size-[30px] text-[10px]",
+        className,
       )}
       aria-label={labelled ? `Profile photo for ${fullName}` : undefined}
       aria-hidden={labelled ? undefined : true}

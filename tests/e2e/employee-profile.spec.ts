@@ -9,6 +9,10 @@ import { profileCountries } from "../../apps/web/lib/profile-countries";
 
 const apiOrigin = `http://127.0.0.1:${process.env.PLAYWRIGHT_API_PORT ?? "8010"}`;
 const secret = process.env.BOOTSTRAP_SECRET ?? "nexa-test-bootstrap-secret";
+const employeePhoto = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M/wHwAEAQH/2c2pWQAAAABJRU5ErkJggg==",
+  "base64",
+);
 
 type Ref = { id: string; code: string; name: string };
 type SeededProfile = {
@@ -105,6 +109,10 @@ async function seedProfile(request: APIRequestContext): Promise<SeededProfile> {
     data: { user_type_id: userType.id },
   }));
   await expectOk(await request.post(`${apiOrigin}/api/v1/users/${user.id}/activate`, { headers }));
+  await expectOk(await request.post(`${apiOrigin}/api/v1/users/${user.id}/photo`, {
+    headers,
+    multipart: { file: { name: "profile-employee.png", mimeType: "image/png", buffer: employeePhoto } },
+  }));
   const setup = await expectOk(await request.post(`${apiOrigin}/api/v1/auth/users/${user.id}/setup-link`, { headers }));
   const setupToken = ((await setup.json()) as { token: string }).token;
   await expectOk(await request.post(`${apiOrigin}/api/v1/auth/setup`, {
@@ -210,6 +218,7 @@ test("employee profile organizes identity, access, assets, and filtered audit hi
 
   await expect(page).toHaveURL(new RegExp(`/users/${seeded.userId}\\?tab=overview$`));
   await expect(page.getByRole("heading", { name: seeded.fullName, exact: true })).toBeVisible();
+  await expect(page.getByLabel(`Profile photo for ${seeded.fullName}`).locator("img")).toBeVisible();
   await expect(page.getByTestId("authenticated-content")).not.toContainText(seeded.userCode);
   await expect(page.getByRole("link", { name: "Edit profile" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Performance profile" })).toBeVisible();
@@ -287,8 +296,16 @@ test("employee profile organizes identity, access, assets, and filtered audit hi
   await expect(page).toHaveURL(/tab=history$/);
   await expect(page.getByRole("heading", { name: "Audit events" })).toBeVisible();
   await expect(page.getByRole("navigation", { name: "List pagination" })).toBeVisible();
-  await selectBrandedOption(page.getByLabel("Audit action filter"), "user.activate");
-  await expect(page.getByText("User activate", { exact: true }).first()).toBeVisible();
+  await selectBrandedOption(page.getByLabel("Audit action filter"), { label: "Account activated" });
+  await expect(page.getByText("Account activated", { exact: true }).first()).toBeVisible();
+  await expect(page.getByTestId("authenticated-content")).not.toContainText("user.activate");
+  await selectBrandedOption(page.getByLabel("Audit action filter"), { label: "Profile photo updated" });
+  await expect(page.getByRole("table").getByText("Profile photo was updated.", { exact: true })).toBeVisible();
+  const auditPanel = page.locator("#profile-panel-history");
+  await expect(auditPanel).not.toContainText("image/png");
+  await expect(auditPanel).not.toContainText("profile-employee.png");
+  await expect(auditPanel).not.toContainText(/\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/i);
+  await expect(auditPanel).not.toContainText(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/);
   await page.getByLabel("Search audit events").fill("no-such-audit-event");
   await expect(page.getByText("No records match the selected filters")).toBeVisible();
   await page.getByLabel("Search audit events").fill("");
