@@ -23,6 +23,7 @@ requireSafeTestDatabaseUrl(process.env.DATABASE_URL);
 
 const webPort = process.env.PLAYWRIGHT_WEB_PORT ?? "3010";
 const apiPort = process.env.PLAYWRIGHT_API_PORT ?? "8010";
+const browserChannel = process.env.PLAYWRIGHT_BROWSER_CHANNEL;
 const apiOrigin = `http://127.0.0.1:${apiPort}`;
 const webOrigin = `http://127.0.0.1:${webPort}`;
 
@@ -43,7 +44,10 @@ export default defineConfig({
     timezoneId: "UTC",
     trace: "on-first-retry",
   },
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  projects: [{
+    name: browserChannel ?? "chromium",
+    use: { ...devices["Desktop Chrome"], ...(browserChannel ? { channel: browserChannel } : {}) },
+  }],
   webServer: [
     {
       command: apiCommand,

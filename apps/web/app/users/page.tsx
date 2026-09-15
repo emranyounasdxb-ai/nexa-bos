@@ -253,9 +253,9 @@ function UsersDirectory() {
         departmentId ? { label: "Department", value: options.departments.find((item) => item.id === departmentId)?.name ?? departmentId } : null,
         userTypeId ? { label: "User type", value: options.userTypes.find((item) => item.id === userTypeId)?.name ?? userTypeId } : null,
       ].filter((item): item is { label: string; value: string } => Boolean(item))}>
-      <FilterBar className="grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-        <Field label="Employment status" className="col-span-2 min-w-[12rem] sm:col-span-1">
-          <Select className="min-w-[12rem]" aria-label="Employment status" value={employmentStatus} onChange={(event) => updateUrl({ employmentStatus: event.target.value || null, page: null })}>
+      <FilterBar className="grid-cols-2 lg:grid-cols-3 xl:grid-cols-[minmax(12rem,1.3fr)_repeat(4,minmax(0,1fr))_minmax(7rem,.8fr)]">
+        <Field label="Employment status" className="col-span-2 sm:col-span-1">
+          <Select className="w-full min-w-0" aria-label="Employment status" value={employmentStatus} onChange={(event) => updateUrl({ employmentStatus: event.target.value || null, page: null })}>
             <option value="">All employment states</option>
             {EMPLOYMENT_STATUSES.map((value) => <option key={value}>{value}</option>)}
           </Select>

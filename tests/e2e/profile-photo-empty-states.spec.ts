@@ -1,7 +1,7 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { resolve } from "node:path";
 
-import { captureViewportThemes } from "./helpers/viewport-capture";
+import { captureViewportThemes, setVisualTheme } from "./helpers/viewport-capture";
 
 const apiOrigin = `http://127.0.0.1:${process.env.PLAYWRIGHT_API_PORT ?? "8010"}`;
 const secret = process.env.BOOTSTRAP_SECRET ?? "nexa-test-bootstrap-secret";
@@ -45,10 +45,6 @@ function accountAvatar(page: Page) {
   return page.getByRole("button", { name: "Open user menu" }).locator("[data-profile-photo]");
 }
 
-function sidebarAvatar(page: Page) {
-  return page.locator('#application-sidebar a[aria-label="My profile"] [data-profile-photo]');
-}
-
 test("saved profile photo replaces immediately and survives refresh, navigation, and re-login", async ({
   page,
   request,
@@ -62,6 +58,17 @@ test("saved profile photo replaces immediately and survives refresh, navigation,
   await expect(profileEmail).toBeVisible();
   expect(await profileEmail.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBeTruthy();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBeTruthy();
+  for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
+    await page.setViewportSize(viewport);
+    for (const theme of ["light", "dark"] as const) {
+      await setVisualTheme(page, theme);
+      await page.evaluate(() => window.scrollTo(0, 0));
+      await expect(profileEmail).toBeVisible();
+      await page.screenshot({ path: testInfo.outputPath(`profile-email-${viewport.width}-${theme}.png`), animations: "disabled" });
+    }
+  }
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await setVisualTheme(page, "light");
 
   const picker = page.locator('[data-file-picker]').filter({ has: page.getByLabel("Profile photo", { exact: true }) });
   const identityPhoto = page.getByLabel("Profile photo for Platform Owner");
@@ -70,10 +77,8 @@ test("saved profile photo replaces immediately and survives refresh, navigation,
   await expect(page.getByText("Photo updated", { exact: true })).toBeVisible();
   await expect(identityPhoto.locator("img")).toBeVisible();
   await expect(accountAvatar(page).locator("img")).toBeVisible();
-  await expect(sidebarAvatar(page).locator("img")).toBeVisible();
   const firstSource = await identityPhoto.locator("img").getAttribute("src");
   const firstAccountSource = await accountAvatar(page).locator("img").getAttribute("src");
-  const firstSidebarSource = await sidebarAvatar(page).locator("img").getAttribute("src");
   expect(firstSource).toMatch(/^blob:/);
 
   await page.getByLabel("Profile photo", { exact: true }).setInputFiles(replacementPhoto);
@@ -82,15 +87,12 @@ test("saved profile photo replaces immediately and survives refresh, navigation,
   await expect(identityPhoto.locator("img")).toBeVisible();
   await expect(identityPhoto.locator("img")).not.toHaveAttribute("src", firstSource!);
   await expect(accountAvatar(page).locator("img")).not.toHaveAttribute("src", firstAccountSource!);
-  await expect(sidebarAvatar(page).locator("img")).not.toHaveAttribute("src", firstSidebarSource!);
 
   await page.reload();
   await expect(identityPhoto.locator("img")).toBeVisible();
   await expect(accountAvatar(page).locator("img")).toBeVisible();
-  await expect(sidebarAvatar(page).locator("img")).toBeVisible();
   await page.goto("/reports");
   await expect(accountAvatar(page).locator("img")).toBeVisible();
-  await expect(sidebarAvatar(page).locator("img")).toBeVisible();
 
   await page.goto("/users");
   const ownerEntry = page.getByRole("row").filter({ hasText: "Platform Owner" });
@@ -101,7 +103,6 @@ test("saved profile photo replaces immediately and survives refresh, navigation,
   await expect(page).toHaveURL(/\/login/);
   await signIn(page, request);
   await expect(accountAvatar(page).locator("img")).toBeVisible();
-  await expect(sidebarAvatar(page).locator("img")).toBeVisible();
 
   await page.goto("/account");
   for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
@@ -122,8 +123,7 @@ test("an unavailable saved photo falls back to initials without rendering a brok
   await expect(identityPhoto).toContainText("PO");
   await expect(accountAvatar(page).locator("img")).toHaveCount(0);
   await expect(accountAvatar(page)).toContainText("PO");
-  await expect(sidebarAvatar(page).locator("img")).toHaveCount(0);
-  await expect(sidebarAvatar(page)).toContainText("PO");
+  await expect(page.locator('#application-sidebar a[aria-label="My profile"]')).toHaveCount(0);
 });
 
 test("My Profile distinguishes unassigned leave from a genuine zero balance and uses compact empty sections", async ({

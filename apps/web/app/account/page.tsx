@@ -73,7 +73,7 @@ export default function AccountPage() {
         <ProfilePhoto userId={user.id} fullName={user.fullName} hasPhoto={user.hasPhoto} version={user.updatedAt} size="identity" labelled />
         <div className="min-w-0 space-y-1">
           <p className="truncate"><strong>{user.fullName}</strong></p>
-          <p className="break-all leading-5" title={user.email}>{user.email}</p>
+          <p className="break-words leading-5" title={user.email}>{user.email}</p>
           <p>{user.userType?.name ?? "No user type"}</p>
         </div>
       </Card>

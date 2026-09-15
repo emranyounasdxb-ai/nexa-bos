@@ -166,6 +166,9 @@ test("sidebar keyboard focus remains usable across desktop and mobile breakpoint
   await expect(sidebar).toHaveJSProperty("inert", false);
   await expect(sidebar).toHaveCSS("width", "44px");
   expect((await sidebar.boundingBox())!.x).toBe(16);
+  await expect(sidebar.getByRole("group", { name: "Appearance", exact: true })).toHaveCount(0);
+  await expect(sidebar.getByRole("link", { name: "My profile", exact: true })).toHaveCount(0);
+  await expect(sidebar.getByRole("button", { name: "Sign out", exact: true })).toBeVisible();
   await dashboard.hover();
   await expect(page.getByRole("tooltip", { name: "Dashboard", exact: true })).toBeVisible();
   await expect(page.getByRole("tooltip", { name: "Dashboard", exact: true })).toBeInViewport({ ratio: 1 });
@@ -202,6 +205,18 @@ test("sidebar keyboard focus remains usable across desktop and mobile breakpoint
   await expect(sidebar.getByRole("button", { name: "Operations menu" })).toHaveAttribute("aria-describedby", "application-sidebar-tooltip");
   await expect(trigger).toBeHidden();
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
+
+  const topbar = page.getByRole("banner");
+  const appearance = topbar.getByRole("group", { name: "Appearance", exact: true });
+  await expect(appearance).toBeVisible();
+  await appearance.getByRole("button", { name: "Dark theme", exact: true }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await expect(appearance.getByRole("button", { name: "Dark theme", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await page.reload();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await expect(page.getByRole("banner").getByRole("group", { name: "Appearance", exact: true })).toBeVisible();
+  await page.getByRole("banner").getByRole("button", { name: "Light theme", exact: true }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
 });
 
 test("compact shared header and permitted breadcrumbs align existing workspaces on desktop and mobile", async ({

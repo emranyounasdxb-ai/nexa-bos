@@ -1,5 +1,7 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 
+import { setVisualTheme } from "./helpers/viewport-capture";
+
 const apiOrigin = `http://127.0.0.1:${process.env.PLAYWRIGHT_API_PORT ?? "8010"}`;
 const secret = process.env.BOOTSTRAP_SECRET ?? "nexa-test-bootstrap-secret";
 
@@ -37,9 +39,16 @@ async function dispatchInstallPrompt(page: Page, outcome: "accepted" | "dismisse
   }, outcome);
 }
 
+function pngDimensions(bytes: Buffer) {
+  expect(bytes.subarray(0, 8)).toEqual(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
+  return { width: bytes.readUInt32BE(16), height: bytes.readUInt32BE(20) };
+}
+
 test("manifest and service worker expose install metadata without caching private routes", async ({ page }) => {
   const manifestResponse = await page.request.get("/manifest.webmanifest");
-  expect(manifestResponse.ok()).toBeTruthy();
+  expect(manifestResponse.status()).toBe(200);
+  expect(manifestResponse.headers()["content-type"]).toContain("application/manifest+json");
+  expect(manifestResponse.headers()["cache-control"]).toContain("must-revalidate");
   const manifest = (await manifestResponse.json()) as {
     name: string;
     start_url: string;
@@ -55,19 +64,52 @@ test("manifest and service worker expose install metadata without caching privat
   });
   expect(manifest.icons).toEqual(expect.arrayContaining([
     expect.objectContaining({ src: "/icon1.png", sizes: "192x192", purpose: "any" }),
-    expect.objectContaining({ src: "/icon2.png", sizes: "512x512", purpose: "any" }),
+    expect.objectContaining({ src: "/pwa/amafh-core-maskable-512.png", sizes: "512x512", purpose: "any" }),
     expect.objectContaining({ src: "/pwa/amafh-core-maskable-512.png", sizes: "512x512", purpose: "maskable" }),
   ]));
 
-  for (const icon of [...manifest.icons.map(({ src }) => src), "/apple-icon.png"]) {
-    expect((await page.request.get(icon)).ok()).toBeTruthy();
+  const iconExpectations = new Map([
+    ["/icon1.png", { width: 192, height: 192 }],
+    ["/pwa/amafh-core-maskable-512.png", { width: 512, height: 512 }],
+    ["/apple-icon.png", { width: 180, height: 180 }],
+  ]);
+  for (const [icon, dimensions] of iconExpectations) {
+    const response = await page.request.get(icon, { maxRedirects: 0 });
+    expect(response.status()).toBe(200);
+    expect(new URL(response.url()).pathname).toBe(icon);
+    expect(response.headers()["content-type"]).toContain("image/png");
+    expect(response.headers()["cache-control"]).toContain("must-revalidate");
+    expect(pngDimensions(await response.body())).toEqual(dimensions);
   }
+  await page.goto("/login");
+  const visiblePixelRatios = await page.evaluate(async (icons) => Promise.all(icons.map(async (src) => {
+    const image = new Image();
+    image.src = src;
+    await image.decode();
+    const canvas = document.createElement("canvas");
+    canvas.width = image.naturalWidth;
+    canvas.height = image.naturalHeight;
+    const context = canvas.getContext("2d", { willReadFrequently: true });
+    if (!context) throw new Error("Canvas is unavailable");
+    context.drawImage(image, 0, 0);
+    const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+    let visible = 0;
+    for (let index = 3; index < pixels.length; index += 4) {
+      if (pixels[index]! > 0) visible += 1;
+    }
+    return visible / (canvas.width * canvas.height);
+  })), [...iconExpectations.keys()]);
+  expect(visiblePixelRatios[0]).toBeGreaterThan(0.25);
+  expect(visiblePixelRatios[1]).toBe(1);
+  expect(visiblePixelRatios[2]).toBeGreaterThan(0.25);
 
   const workerResponse = await page.request.get("/sw.js");
   expect(workerResponse.ok()).toBeTruthy();
   expect(workerResponse.headers()["content-type"]).toContain("application/javascript");
   expect(workerResponse.headers()["cache-control"]).toContain("no-store");
   const worker = await workerResponse.text();
+  expect(worker).toContain('CACHE_NAME = `${CACHE_PREFIX}v2`');
+  expect(worker).toContain("name.startsWith(CACHE_PREFIX) && name !== CACHE_NAME");
   expect(worker).toContain('request.mode === "navigate"');
   expect(worker).toContain('url.pathname.startsWith("/_next/static/")');
   expect(worker).not.toMatch(/PUBLIC_ASSETS[\s\S]*?["'`](?:\/api|\/auth|\/customers|\/users|\/documents|\/uploads)/);
@@ -177,21 +219,24 @@ test("installed-style navigation preserves protected redirects, refresh and logo
   expect(cachedPaths).not.toEqual(expect.arrayContaining(["/login", "/reports", "/users"]));
 });
 
-test("install surface is responsive, non-overlapping and theme-compatible", async ({ page, request }) => {
+test("install surface is responsive, non-overlapping and theme-compatible", async ({ page, request }, testInfo) => {
   await ensureOwner(request);
   await page.goto("/login");
   await page.getByLabel("Email").fill("owner@example.com");
   await page.getByLabel("Password").fill("OwnerPass1!");
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
-  for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
+  await expect(page.getByTestId("dashboard-loading-skeleton")).toHaveCount(0);
+  for (const viewport of [
+    { width: 1440, height: 900 },
+    { width: 1363, height: 900 },
+    { width: 1280, height: 900 },
+    { width: 1024, height: 900 },
+    { width: 390, height: 844 },
+  ]) {
     await page.setViewportSize(viewport);
     for (const theme of ["light", "dark"] as const) {
-      await page.evaluate((nextTheme) => {
-        window.localStorage.setItem("amafh-core-theme", nextTheme);
-        document.documentElement.dataset.theme = nextTheme;
-      }, theme);
-      await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+      await setVisualTheme(page, theme);
       await dispatchInstallPrompt(page, "dismissed");
       const card = page.getByTestId("pwa-install-card");
       await expect(card).toBeVisible();
@@ -199,9 +244,15 @@ test("install surface is responsive, non-overlapping and theme-compatible", asyn
       expect(box).not.toBeNull();
       expect(box!.x).toBeGreaterThanOrEqual(0);
       expect(box!.x + box!.width).toBeLessThanOrEqual(viewport.width);
-      const reservedBottomSpace = await page.getByTestId("authenticated-content").evaluate((element) => Number.parseFloat(getComputedStyle(element).paddingBottom));
-      expect(reservedBottomSpace).toBeGreaterThanOrEqual(box!.height + 12);
+      const contentBox = await page.getByTestId("authenticated-content").boundingBox();
+      expect(contentBox).not.toBeNull();
+      expect(box!.y + box!.height).toBeLessThanOrEqual(contentBox!.y + 1);
       expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
+      await expect(page.getByLabel("AMAFH CORE home", { exact: true })).toBeVisible();
+      await expect(page.getByLabel("Open user menu", { exact: true })).toBeVisible();
+      await page.waitForFunction(() => Array.from(document.images).every((image) => image.complete));
+      await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+      await page.screenshot({ path: testInfo.outputPath(`pwa-install-${viewport.width}-${theme}.png`), animations: "disabled" });
       await card.getByRole("button", { name: "Install AMAFH CORE" }).click();
     }
   }

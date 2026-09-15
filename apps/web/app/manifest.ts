@@ -20,7 +20,7 @@ export default function manifest(): MetadataRoute.Manifest {
         purpose: "any",
       },
       {
-        src: "/icon2.png",
+        src: "/pwa/amafh-core-maskable-512.png",
         sizes: "512x512",
         type: "image/png",
         purpose: "any",

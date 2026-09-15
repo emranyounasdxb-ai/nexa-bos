@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 
 import styles from "./pwa-manager.module.css";
 
@@ -147,7 +148,7 @@ export function PwaManager() {
 
   if (!visible) return null;
 
-  return (
+  const installCard = (
     <aside className={styles.installCard} aria-label="Install AMAFH CORE" data-testid="pwa-install-card">
       <div className={styles.actions}>
         {installPrompt ? (
@@ -172,4 +173,7 @@ export function PwaManager() {
       ) : null}
     </aside>
   );
+
+  const authenticatedSlot = document.getElementById("authenticated-pwa-install-slot");
+  return authenticatedSlot ? createPortal(installCard, authenticatedSlot) : installCard;
 }
