@@ -613,7 +613,7 @@ function HistoryPanel({ history, auditSearch, setAuditSearch, auditAction, setAu
         <SearchActionBar search={<Field label="Search audit events" htmlFor="audit-search"><TextInput id="audit-search" value={auditSearch} placeholder="Action, date, or recorded value" onChange={(event) => setAuditSearch(event.target.value)} /></Field>} actions={<Field label="Action" className="w-full sm:w-56"><Select aria-label="Audit action filter" value={auditAction} onChange={(event) => setAuditAction(event.target.value)}><option value="all">All actions</option>{auditActions.map((action) => <option key={action} value={action}>{friendly(action)}</option>)}</Select></Field>} />
         <p role="status" className="text-xs font-medium tabular-nums text-text-secondary">{filteredEvents.length.toLocaleString()} {filteredEvents.length === 1 ? "event" : "events"}</p>
       </Card>
-      {pagination.pagedItems.length ? <AuditList events={pagination.pagedItems} /> : <Card><EmptyState>{auditSearch || auditAction !== "all" ? "No audit events match the current filters." : "No audit events are available for this employee."}</EmptyState></Card>}
+      {pagination.pagedItems.length ? <AuditList events={pagination.pagedItems} /> : <Card><EmptyState kind={auditSearch || auditAction !== "all" ? "search" : "records"}>{auditSearch || auditAction !== "all" ? "No records match the selected filters" : "No audit events are available for this employee."}</EmptyState></Card>}
       <Pagination className="rounded-[10px] border border-brand-border" page={pagination.page} pageSize={pagination.pageSize} total={pagination.total} totalPages={pagination.totalPages} onPageChange={pagination.setPage} onPageSizeChange={pagination.setPageSize} />
     </div>
   );

@@ -16,6 +16,7 @@ import {
   ButtonLink,
   Card,
   DialogPanel,
+  EmptyState,
   ErrorText,
   SectionHeader,
   Select,
@@ -965,9 +966,7 @@ export default function UserTypeDetailPage() {
                   {permissionGrid(activeGroup, `permission-panel-${activeGroup.key}`)}
                 </section>
               ) : (
-                <div className="rounded-lg border border-dashed border-slate-300 px-4 py-12 text-center text-sm text-slate-500">
-                  No permissions match the current search and filter.
-                </div>
+                <EmptyState kind="search" title="No records match the selected filters" />
               )}
             </div>
 
@@ -1030,9 +1029,7 @@ export default function UserTypeDetailPage() {
                 );
               })}
               {visibleGroups.length === 0 ? (
-                <div className="rounded-lg border border-dashed border-slate-300 px-4 py-8 text-center text-sm text-slate-500">
-                  No permissions match the current search and filter.
-                </div>
+                <EmptyState kind="search" title="No records match the selected filters" />
               ) : null}
             </div>
           </div>

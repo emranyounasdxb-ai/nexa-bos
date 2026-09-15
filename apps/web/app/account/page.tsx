@@ -5,6 +5,7 @@ import { RecordFrame } from "@/components/page-patterns";
 import { useState } from "react";
 import { FilePicker } from "@/components/file-picker";
 import { HrWorkflowSummary } from "@/components/hr-workflow-summary";
+import { ProfilePhoto } from "@/components/profile-photo";
 
 import { Button, ButtonLink, Card, ErrorText, PageHeader, TextInput } from "@/components/ui";
 import { apiRequest } from "@/lib/api";
@@ -64,12 +65,13 @@ export default function AccountPage() {
         actions={<ButtonLink href={`/users/${user.id}`}>View employee profile</ButtonLink>}
       />
       <RecordFrame summary={
-      <Card className="text-sm space-y-2">
-        <p>
-          <strong>{user.fullName}</strong>
-        </p>
-        <p>{user.email}</p>
-        <p>{user.userType?.name ?? "No user type"}</p>
+      <Card className="flex items-center gap-3 text-sm">
+        <ProfilePhoto userId={user.id} fullName={user.fullName} hasPhoto={user.hasPhoto} version={user.updatedAt} size="identity" labelled />
+        <div className="min-w-0 space-y-1">
+          <p className="truncate"><strong>{user.fullName}</strong></p>
+          <p className="truncate" title={user.email}>{user.email}</p>
+          <p>{user.userType?.name ?? "No user type"}</p>
+        </div>
       </Card>
       }>
       <Card>

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type Re
 import { createPortal } from "react-dom";
 import { IconBell, IconChevronDown, IconChevronRight, IconLogout, IconMenu2, IconUserCircle, IconX, type IconComponent } from "@/components/icons";
 import { ThemeControls } from "@/components/theme-controls";
+import { ProfilePhoto } from "@/components/profile-photo";
 import { BrandLogo } from "@/components/ui";
 import { observeSelectedTabVisibility } from "@/lib/tab-visibility";
 import { apiGet } from "@/lib/api";
@@ -100,7 +101,6 @@ export function WorkspaceFrame({ children, user, groups, context, pathname, home
   if (notifications) permitted.add("/notifications");
   const ancestors = [...(dashboard && pathname !== dashboard.href ? [dashboard] : []), ...(context.parent && permitted.has(context.parent.href) ? [context.parent] : [])].filter((item, index, rows) => rows.findIndex(row => row.href === item.href) === index);
   const tlDashboard = pathname === "/reports" && user?.userType?.code === "TL";
-  const initials = (user?.fullName ?? "AMAFH User").split(/\s+/).slice(0, 2).map(part => part.charAt(0).toUpperCase()).join("");
   const closeGroup = useCallback(() => setGroupName(null), []);
   const hideRailTooltip = useCallback(() => {
     const target = tooltipTarget.current;
@@ -215,7 +215,7 @@ export function WorkspaceFrame({ children, user, groups, context, pathname, home
       <div className={styles.headerActions}>
         {notifications && <NotificationBell pathname={pathname} />}
         <div className={styles.accountAnchor} data-testid="account-actions">
-          <button ref={accountTrigger} type="button" className={styles.accountTrigger} aria-label="Open user menu" aria-haspopup="menu" aria-expanded={accountOpen} aria-controls="workspace-account-menu" onClick={() => { if (accountOpen) closeAccount(); else { accountInitial.current = "first"; setAccountOpen(true); } }} onKeyDown={event => { if (["ArrowDown", "ArrowUp"].includes(event.key)) { event.preventDefault(); accountInitial.current = event.key === "ArrowUp" ? "last" : "first"; setAccountOpen(true); } }}><span className={styles.avatar} aria-hidden="true">{initials}</span><span className={styles.accountCopy}>{user?.fullName}<small>{user?.userType?.name ?? "AMAFH user"}</small></span><IconChevronDown className={styles.accountChevron} /></button>
+          <button ref={accountTrigger} type="button" className={styles.accountTrigger} aria-label="Open user menu" aria-haspopup="menu" aria-expanded={accountOpen} aria-controls="workspace-account-menu" onClick={() => { if (accountOpen) closeAccount(); else { accountInitial.current = "first"; setAccountOpen(true); } }} onKeyDown={event => { if (["ArrowDown", "ArrowUp"].includes(event.key)) { event.preventDefault(); accountInitial.current = event.key === "ArrowUp" ? "last" : "first"; setAccountOpen(true); } }}><ProfilePhoto userId={user!.id} fullName={user!.fullName} hasPhoto={user!.hasPhoto} version={user!.updatedAt} /><span className={styles.accountCopy}>{user?.fullName}<small>{user?.userType?.name ?? "AMAFH user"}</small></span><IconChevronDown className={styles.accountChevron} /></button>
           {accountOpen && <div ref={accountMenu} id="workspace-account-menu" role="menu" aria-label="User account" className={styles.accountMenu} onKeyDown={event => {
             const items = Array.from(accountMenu.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? []);
             const index = items.indexOf(document.activeElement as HTMLElement);

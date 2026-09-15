@@ -60,6 +60,7 @@ export type UserRecord = {
   team: OrgRef | null;
   reportingManagerId: string | null;
   hasPhoto: boolean;
+  updatedAt?: string;
   userType: UserTypeSummary | null;
   accountStatus: string;
   hasPassword?: boolean;

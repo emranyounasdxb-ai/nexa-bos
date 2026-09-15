@@ -383,7 +383,7 @@ export default function AssetsPage() {
           {loading && assets.length > 0 ? <span role="status" className="text-xs text-text-secondary">Updating results…</span> : null}
         </div>
         {loading && assets.length === 0 ? <LoadingState>Loading Assets…</LoadingState> : null}
-        {!loading && assets.length === 0 ? <EmptyState>No authorized Assets match the filters.</EmptyState> : null}
+        {!loading && assets.length === 0 ? <EmptyState kind="search" title="No records match the selected filters" /> : null}
         {assets.length > 0 ? (
           <TableShell className={loading ? "opacity-70" : undefined}>
             <TableHead>
