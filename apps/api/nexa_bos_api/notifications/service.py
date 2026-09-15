@@ -691,6 +691,38 @@ async def _persist_notification(
     return notification_id, delivered
 
 
+async def create_system_notification(
+    session: AsyncSession,
+    *,
+    recipient_ids: set[UUID],
+    title: str,
+    message: str,
+    source_event_type: str,
+    source_event_key: str,
+    linked_entity_type: str,
+    linked_entity_id: str,
+    contextual_link: str,
+) -> tuple[UUID, int]:
+    """Create a deduplicated operational notification for explicit recipients."""
+    return await _persist_notification(
+        session,
+        rule_id=None,
+        category=NotificationCategory.OPERATIONS,
+        severity=NotificationSeverity.WARNING,
+        title=title,
+        message=message,
+        acknowledgement_required=False,
+        source_event_type=source_event_type,
+        source_event_key=source_event_key,
+        deduplication_key=f"system:{source_event_type}:{source_event_key}",
+        recipient_ids=recipient_ids,
+        linked_entity_type=linked_entity_type,
+        linked_entity_id=linked_entity_id,
+        contextual_link=contextual_link,
+        created_by_id=None,
+    )
+
+
 async def dispatch_source_event(
     session: AsyncSession,
     *,

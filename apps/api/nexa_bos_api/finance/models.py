@@ -29,7 +29,15 @@ from nexa_bos_api.identity.models import new_uuid
 class CommissionRule(Base):
     __tablename__ = "commission_rules"
     __table_args__ = (
-        UniqueConstraint("bank_id", "product_id", "eligibility_milestone", "version"),
+        UniqueConstraint(
+            "bank_id",
+            "product_id",
+            "product_variant_id",
+            "eligibility_milestone",
+            "version",
+            name="uq_commission_rules_lane_variant_milestone_version",
+            postgresql_nulls_not_distinct=True,
+        ),
         CheckConstraint(
             "effective_to IS NULL OR effective_to >= effective_from",
             name="commission_rules_check",
@@ -55,6 +63,7 @@ class CommissionRule(Base):
             "ix_commission_rules_resolution",
             "bank_id",
             "product_id",
+            "product_variant_id",
             "eligibility_milestone",
             "status",
             "effective_from",
@@ -64,6 +73,9 @@ class CommissionRule(Base):
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=new_uuid)
     bank_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("banks.id"), nullable=False)
     product_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("products.id"), nullable=False)
+    product_variant_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("product_variants.id")
+    )
     eligibility_milestone: Mapped[str] = mapped_column(String(20), nullable=False)
     version: Mapped[int] = mapped_column(Integer, nullable=False)
     effective_from: Mapped[date] = mapped_column(Date, nullable=False)

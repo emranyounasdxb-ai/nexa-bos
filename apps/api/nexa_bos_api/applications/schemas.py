@@ -70,6 +70,7 @@ class StageUpdateRequest(BaseModel):
     booked_amount: Decimal | None = None
     funded_amount: Decimal | None = None
     requirement_text: str | None = Field(default=None, max_length=4000)
+    override_reason: str | None = Field(default=None, max_length=2000)
 
 
 class StageCorrectionRequest(BaseModel):
@@ -111,11 +112,17 @@ class WorkflowStageCreateRequest(BaseModel):
     name: str = Field(min_length=1, max_length=120)
     code: str | None = Field(default=None, min_length=1, max_length=64)
     sort_order: int = Field(ge=1, le=10000)
+    timeframe_value: int | None = Field(default=None, ge=1, le=8760)
+    timeframe_unit: str = Field(default="hours", pattern=r"^(hours|days)$")
+    is_successful: bool = False
 
 
 class WorkflowStageUpdateRequest(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=120)
     sort_order: int | None = Field(default=None, ge=1, le=10000)
+    timeframe_value: int | None = Field(default=None, ge=1, le=8760)
+    timeframe_unit: str | None = Field(default=None, pattern=r"^(hours|days)$")
+    is_successful: bool | None = None
 
 
 class WorkflowTransitionsRequest(BaseModel):

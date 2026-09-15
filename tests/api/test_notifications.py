@@ -7,6 +7,7 @@ from datetime import timedelta
 from uuid import UUID, uuid4
 
 import pytest
+import pytest_asyncio
 from helpers import (
     authenticate,
     create_activated_user,
@@ -81,7 +82,7 @@ async def _notification_session() -> AsyncIterator[object]:
         await engine.dispose()
 
 
-@pytest.fixture(autouse=True)
+@pytest_asyncio.fixture(autouse=True)
 async def isolate_notifications() -> None:
     await _clear_notifications()
     yield

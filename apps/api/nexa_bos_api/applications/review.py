@@ -27,12 +27,16 @@ REVIEW_EVENTS = (
     "internal_forwarded",
     "internal_returned",
     "internal_resubmitted",
+    "internal_booked",
+    "internal_sm_approved",
 )
 REVIEW_LABELS = {
     "pending_review": "Pending TL Review",
     "returned": "Returned to SE",
     "resubmitted": "Resubmitted to TL",
     "forwarded": "Forwarded to COD",
+    "booked": "Booked by TL",
+    "sm_approved": "Approved by Sales Manager",
     "legacy": "Existing case · COD workflow",
 }
 
@@ -128,6 +132,33 @@ async def _append_review(
         note=reason,
     )
     await session.flush()
+
+
+async def append_processing_review(
+    session: AsyncSession,
+    application: Application,
+    actor: User,
+    *,
+    event_type: str,
+    status: str,
+    reason: str | None = None,
+) -> None:
+    """Append an audited post-TL processing state without mutating history."""
+    current = await get_review(session, application)
+    await _append_review(
+        session,
+        application,
+        actor,
+        event_type=event_type,
+        status=status,
+        tl_id=str(application.booked_by_tl_id) if application.booked_by_tl_id else current["tlId"],
+        office_id=(
+            str(application.processing_office_id)
+            if application.processing_office_id
+            else current["officeId"]
+        ),
+        reason=reason,
+    )
 
 
 async def start_review(session: AsyncSession, application: Application, actor: User) -> None:
@@ -270,6 +301,13 @@ async def require_review_mutation(
             message="Application data may be corrected only after it is returned by the TL.",
         )
     if state["status"] != "forwarded":
+        if (
+            has_user_type(actor, "COD")
+            and application.routed_coordinator_id == actor.id
+            and state["status"] in {"booked", "sm_approved"}
+            and application.routing_status in {"booked", "sm_approved", "submitted"}
+        ):
+            return
         raise AppError(
             status_code=409,
             code="TL_REVIEW_REQUIRED",

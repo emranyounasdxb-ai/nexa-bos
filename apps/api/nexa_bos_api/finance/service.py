@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from nexa_bos_api.applications.models import Application, ApplicationOwnerHistory
-from nexa_bos_api.catalog.models import Bank, BankProduct, Product
+from nexa_bos_api.catalog.models import Bank, BankProduct, Product, ProductVariant
 from nexa_bos_api.core.exceptions import AppError
 from nexa_bos_api.core.pagination import PageResult
 from nexa_bos_api.finance.calc import (
@@ -370,12 +370,19 @@ def _slab_payload(row: CommissionRuleSlab) -> dict[str, object]:
 async def serialize_rule(session: AsyncSession, rule: CommissionRule) -> dict[str, object]:
     bank = await session.get(Bank, rule.bank_id)
     product = await session.get(Product, rule.product_id)
+    variant = (
+        await session.get(ProductVariant, rule.product_variant_id)
+        if rule.product_variant_id
+        else None
+    )
     return {
         "id": str(rule.id),
         "bankId": str(rule.bank_id),
         "bankName": bank.name if bank else None,
         "productId": str(rule.product_id),
         "productName": product.name if product else None,
+        "productVariantId": str(rule.product_variant_id) if rule.product_variant_id else None,
+        "productVariantName": variant.name if variant else None,
         "eligibilityMilestone": rule.eligibility_milestone,
         "version": rule.version,
         "effectiveFrom": rule.effective_from.isoformat(),
@@ -415,12 +422,21 @@ async def create_rule(
     session: AsyncSession, actor: User, payload: CommissionRuleCreateRequest
 ) -> dict[str, object]:
     _validate_rule_payload(payload)
-    await _bank_product(session, payload.bank_id, payload.product_id)
+    _, _product, mapping = await _bank_product(session, payload.bank_id, payload.product_id)
+    if payload.product_variant_id is not None:
+        variant = await session.get(ProductVariant, payload.product_variant_id)
+        if variant is None or variant.bank_product_id != mapping.id:
+            raise AppError(
+                status_code=422,
+                code="PRODUCT_VARIANT_INVALID",
+                message="Product Variant must belong to the selected Bank and Product",
+            )
     version = (
         await session.scalar(
             select(func.max(CommissionRule.version)).where(
                 CommissionRule.bank_id == payload.bank_id,
                 CommissionRule.product_id == payload.product_id,
+                CommissionRule.product_variant_id == payload.product_variant_id,
                 CommissionRule.eligibility_milestone == payload.eligibility_milestone.value,
             )
         )
@@ -431,6 +447,7 @@ async def create_rule(
         id=new_uuid(),
         bank_id=payload.bank_id,
         product_id=payload.product_id,
+        product_variant_id=payload.product_variant_id,
         eligibility_milestone=payload.eligibility_milestone.value,
         version=version,
         effective_from=payload.effective_from,
@@ -510,6 +527,7 @@ async def create_rule(
         new_values={
             "bankId": str(rule.bank_id),
             "productId": str(rule.product_id),
+            "productVariantId": str(rule.product_variant_id) if rule.product_variant_id else None,
             "eligibilityMilestone": rule.eligibility_milestone,
             "version": version,
             "payoutMode": rule.payout_mode,
@@ -561,6 +579,7 @@ async def set_rule_status(
                     CommissionRule.id != rule.id,
                     CommissionRule.bank_id == rule.bank_id,
                     CommissionRule.product_id == rule.product_id,
+                    CommissionRule.product_variant_id == rule.product_variant_id,
                     CommissionRule.eligibility_milestone == rule.eligibility_milestone,
                     CommissionRule.status == ConfigurationStatus.ACTIVE,
                     CommissionRule.effective_from <= end,
@@ -575,7 +594,9 @@ async def set_rule_status(
             raise AppError(
                 status_code=409,
                 code="COMMISSION_RULE_OVERLAP",
-                message="An active rule overlaps this Bank, Product, milestone, and date range",
+                message=(
+                    "An active rule overlaps this Bank, Product Variant, milestone, and date range"
+                ),
             )
         rule.activated_at = utcnow()
         rule.activated_by_id = actor.id
@@ -768,6 +789,15 @@ async def set_incentive_plan_status(
 async def finance_options(session: AsyncSession) -> dict[str, object]:
     banks = list((await session.execute(select(Bank).order_by(Bank.name))).scalars())
     products = list((await session.execute(select(Product).order_by(Product.name))).scalars())
+    variants = list(
+        (
+            await session.execute(
+                select(ProductVariant, BankProduct)
+                .join(BankProduct, ProductVariant.bank_product_id == BankProduct.id)
+                .order_by(ProductVariant.name)
+            )
+        ).all()
+    )
     return {
         "currency": "AED",
         "banks": [
@@ -779,6 +809,16 @@ async def finance_options(session: AsyncSession) -> dict[str, object]:
             {"id": str(row.id), "code": row.code, "name": row.name}
             for row in products
             if row.status == MasterStatus.ACTIVE
+        ],
+        "productVariants": [
+            {
+                "id": str(variant.id),
+                "name": variant.name,
+                "bankId": str(mapping.bank_id),
+                "productId": str(mapping.product_id),
+            }
+            for variant, mapping in variants
+            if variant.status == MasterStatus.ACTIVE
         ],
         "eligibilityMilestones": [item.value for item in EligibilityMilestone],
         "calculationMethods": [item.value for item in CalculationMethod],
@@ -1069,6 +1109,10 @@ async def _resolve_rule(
                 .where(
                     CommissionRule.bank_id == application.bank_id,
                     CommissionRule.product_id == application.product_id,
+                    or_(
+                        CommissionRule.product_variant_id == application.product_variant_id,
+                        CommissionRule.product_variant_id.is_(None),
+                    ),
                     CommissionRule.eligibility_milestone == milestone,
                     CommissionRule.status == ConfigurationStatus.ACTIVE,
                     CommissionRule.effective_from <= event_at.date(),
@@ -1080,6 +1124,9 @@ async def _resolve_rule(
             )
         ).scalars()
     )
+    exact = [row for row in rows if row.product_variant_id == application.product_variant_id]
+    if exact:
+        rows = exact
     if len(rows) > 1:
         raise AppError(
             status_code=409,

@@ -35,6 +35,18 @@ def serialize_stage(stage: WorkflowStage) -> dict[str, object]:
         "systemKey": stage.system_key,
         "sortOrder": stage.sort_order,
         "status": stage.status,
+        "timeframeSeconds": stage.timeframe_seconds,
+        "timeframeValue": (
+            stage.timeframe_seconds // 86400
+            if stage.timeframe_seconds and stage.timeframe_seconds % 86400 == 0
+            else stage.timeframe_seconds // 3600
+            if stage.timeframe_seconds
+            else None
+        ),
+        "timeframeUnit": (
+            "days" if stage.timeframe_seconds and stage.timeframe_seconds % 86400 == 0 else "hours"
+        ),
+        "isSuccessful": stage.is_successful,
     }
 
 
@@ -182,6 +194,9 @@ async def add_stage(
     name: str,
     code: str | None,
     sort_order: int,
+    timeframe_value: int | None = None,
+    timeframe_unit: str = "hours",
+    is_successful: bool = False,
 ) -> WorkflowStage:
     await _assert_workflow_unused(session, workflow)
     now = utcnow()
@@ -218,6 +233,12 @@ async def add_stage(
         system_key=system_key,
         sort_order=sort_order,
         status=MasterStatus.ACTIVE,
+        timeframe_seconds=(
+            timeframe_value * (86400 if timeframe_unit == "days" else 3600)
+            if timeframe_value is not None
+            else None
+        ),
+        is_successful=is_successful,
         created_at=now,
         updated_at=now,
     )
@@ -228,7 +249,12 @@ async def add_stage(
         entity_type="workflow_stage",
         entity_id=str(stage.id),
         actor_id=actor.id,
-        new_values={"code": stage.code, "name": stage.name},
+        new_values={
+            "code": stage.code,
+            "name": stage.name,
+            "timeframeSeconds": stage.timeframe_seconds,
+            "isSuccessful": stage.is_successful,
+        },
     )
     await session.commit()
     return stage
@@ -241,6 +267,9 @@ async def update_stage(
     *,
     name: str | None,
     sort_order: int | None,
+    timeframe_value: int | None = None,
+    timeframe_unit: str | None = None,
+    is_successful: bool | None = None,
 ) -> WorkflowStage:
     workflow = await load_workflow(session, stage.workflow_id)
     await _assert_workflow_unused(session, workflow)
@@ -251,11 +280,27 @@ async def update_stage(
                 code="ENTRY_STAGE_LOCKED",
                 message="Application Created is a globally fixed entry stage",
             )
-    old = {"name": stage.name, "sortOrder": stage.sort_order}
+    old = {
+        "name": stage.name,
+        "sortOrder": stage.sort_order,
+        "timeframeSeconds": stage.timeframe_seconds,
+        "isSuccessful": stage.is_successful,
+    }
     if name:
         stage.name = name.strip()
     if sort_order is not None:
         stage.sort_order = sort_order
+    if timeframe_value is not None:
+        unit = timeframe_unit or (
+            "days" if stage.timeframe_seconds and stage.timeframe_seconds % 86400 == 0 else "hours"
+        )
+        stage.timeframe_seconds = timeframe_value * (86400 if unit == "days" else 3600)
+    if is_successful is not None:
+        if is_successful:
+            for row in workflow.stages:
+                if row.id != stage.id:
+                    row.is_successful = False
+        stage.is_successful = is_successful
     stage.updated_at = utcnow()
     await record_audit(
         session,
@@ -264,7 +309,12 @@ async def update_stage(
         entity_id=str(stage.id),
         actor_id=actor.id,
         old_values=old,
-        new_values={"name": stage.name, "sortOrder": stage.sort_order},
+        new_values={
+            "name": stage.name,
+            "sortOrder": stage.sort_order,
+            "timeframeSeconds": stage.timeframe_seconds,
+            "isSuccessful": stage.is_successful,
+        },
     )
     await session.commit()
     return stage
@@ -274,7 +324,8 @@ async def set_stage_status(
     session: AsyncSession, actor: User, stage: WorkflowStage, status: MasterStatus
 ) -> WorkflowStage:
     workflow = await load_workflow(session, stage.workflow_id)
-    await _assert_workflow_unused(session, workflow)
+    if status == MasterStatus.ACTIVE:
+        await _assert_workflow_unused(session, workflow)
     if stage.system_key == StageSystemKey.APPLICATION_CREATED and status != MasterStatus.ACTIVE:
         raise AppError(
             status_code=422,

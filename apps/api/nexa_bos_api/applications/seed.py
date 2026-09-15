@@ -44,6 +44,8 @@ async def create_workflow_record(
                 system_key=StageSystemKey.APPLICATION_CREATED,
                 sort_order=10,
                 status=MasterStatus.ACTIVE,
+                timeframe_seconds=None,
+                is_successful=False,
                 created_at=now,
                 updated_at=now,
             )
@@ -62,6 +64,8 @@ async def create_workflow_record(
             system_key=row.system_key,
             sort_order=row.sort_order,
             status=row.status,
+            timeframe_seconds=row.timeframe_seconds,
+            is_successful=row.is_successful,
             created_at=now,
             updated_at=now,
         )

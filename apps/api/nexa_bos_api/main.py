@@ -11,6 +11,8 @@ from nexa_bos_api.api.v1.router import api_v1_router
 from nexa_bos_api.applications import models as _application_models  # noqa: F401
 from nexa_bos_api.assets import models as _asset_models  # noqa: F401
 from nexa_bos_api.attendance import models as _attendance_models  # noqa: F401
+from nexa_bos_api.case_operations import models as _case_operations_models  # noqa: F401
+from nexa_bos_api.case_operations.scheduler import run as run_case_overdue_scheduler
 from nexa_bos_api.catalog import models as _catalog_models  # noqa: F401
 from nexa_bos_api.contracts import models as _contract_models  # noqa: F401
 from nexa_bos_api.core.config import get_settings
@@ -39,7 +41,9 @@ async def lifespan(app: FastAPI):
     app.state.engine = engine
     app.state.session_factory = create_session_factory(engine)
     stop_transfers = asyncio.Event()
+    stop_case_overdue = asyncio.Event()
     transfer_task = None
+    case_overdue_task = None
     try:
         async with app.state.session_factory() as session:
             if settings.bootstrap_on_startup:
@@ -49,11 +53,17 @@ async def lifespan(app: FastAPI):
         transfer_task = asyncio.create_task(
             run_transfer_scheduler(stop_transfers, app.state.session_factory)
         )
+        case_overdue_task = asyncio.create_task(
+            run_case_overdue_scheduler(stop_case_overdue, app.state.session_factory)
+        )
         yield
     finally:
         stop_transfers.set()
+        stop_case_overdue.set()
         if transfer_task is not None:
             await transfer_task
+        if case_overdue_task is not None:
+            await case_overdue_task
         await engine.dispose()
 
 
