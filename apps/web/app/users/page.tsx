@@ -31,6 +31,7 @@ import {
   Th,
 } from "@/components/ui";
 import { StaffBulkUploadDialog } from "@/components/staff-bulk-upload-dialog";
+import { ProfilePhoto } from "@/components/profile-photo";
 import { apiGet, ApiClientError } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { getBrowserApiUrl } from "@/lib/env";
@@ -73,15 +74,6 @@ function pageSizeValue(value: string | null): ServerPageSize {
   return SERVER_PAGE_SIZE_OPTIONS.includes(parsed as ServerPageSize)
     ? (parsed as ServerPageSize)
     : 10;
-}
-
-function initials(name: string): string {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part.charAt(0).toUpperCase())
-    .join("");
 }
 
 function DirectoryValue({
@@ -331,7 +323,7 @@ function UsersDirectory() {
                   {items.map((user) => (
                     <tr key={user.id}>
                       <Td className="overflow-hidden whitespace-nowrap px-2 !py-1.5 [padding-right:4px]"><DirectoryValue value={user.employeeCode} className="w-full" /></Td>
-                      <Td className="overflow-hidden whitespace-nowrap px-2 !py-1.5 [padding-left:4px]"><div className="flex w-full min-w-0 items-center gap-2"><span aria-hidden="true" className="inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-brand-soft text-xs font-semibold text-brand-primary">{initials(user.fullName)}</span><Link className="min-w-0 flex-1 truncate font-medium text-brand-link underline" title={user.fullName} href={`/users/${user.id}`}>{user.fullName}</Link></div></Td>
+                      <Td className="overflow-hidden whitespace-nowrap px-2 !py-1.5 [padding-left:4px]"><div className="flex w-full min-w-0 items-center gap-2"><ProfilePhoto userId={user.id} fullName={user.fullName} hasPhoto={user.hasPhoto} version={user.updatedAt} size="list" /><Link className="min-w-0 flex-1 truncate font-medium text-brand-link underline" title={user.fullName} href={`/users/${user.id}`}>{user.fullName}</Link></div></Td>
                       <Td className="overflow-hidden whitespace-nowrap px-2 !py-1.5"><DirectoryValue value={user.designation?.name} className="w-full" /></Td>
                       <Td className="overflow-hidden whitespace-nowrap px-2 !py-1.5"><DirectoryValue value={user.mobile} className="w-full" /></Td>
                       <Td className="overflow-hidden whitespace-nowrap px-2 !py-1.5"><DirectoryValue value={user.email} className="w-full" /></Td>
@@ -348,7 +340,7 @@ function UsersDirectory() {
             <div className={loading ? "grid gap-2 p-3 opacity-70 min-[1400px]:hidden" : "grid gap-2 p-3 min-[1400px]:hidden"}>
               {items.map((user) => (
                 <article key={user.id} className="min-w-0 rounded-[10px] border border-brand-border p-3">
-                  <div className="flex min-w-0 items-center gap-3"><span aria-hidden="true" className="inline-flex size-9 shrink-0 items-center justify-center rounded-full bg-brand-soft text-xs font-semibold text-brand-primary">{initials(user.fullName)}</span><Link className="min-w-0 flex-1 truncate font-semibold text-brand-link underline" title={user.fullName} href={`/users/${user.id}`}>{user.fullName}</Link></div>
+                  <div className="flex min-w-0 items-center gap-3"><ProfilePhoto userId={user.id} fullName={user.fullName} hasPhoto={user.hasPhoto} version={user.updatedAt} size="list" /><Link className="min-w-0 flex-1 truncate font-semibold text-brand-link underline" title={user.fullName} href={`/users/${user.id}`}>{user.fullName}</Link></div>
                   <dl className="mt-3 grid min-w-0 grid-cols-2 gap-2 text-xs">
                     <div><dt className="text-text-secondary">Code</dt><dd className="text-text-primary"><DirectoryValue value={user.employeeCode} /></dd></div>
                     <div><dt className="text-text-secondary">Designation</dt><dd className="text-text-primary"><DirectoryValue value={user.designation?.name} /></dd></div>

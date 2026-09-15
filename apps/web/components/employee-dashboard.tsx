@@ -11,6 +11,7 @@ import { Pagination, SERVER_PAGE_SIZE_OPTIONS, useClientPagination } from "@/com
 import { Button, Card, EmptyState, ErrorText, Field, LoadingState, PageHeader, SectionHeader, Select, StatusBadge, TextInput } from "@/components/ui";
 import { apiGet } from "@/lib/api";
 import { getBrowserApiUrl } from "@/lib/env";
+import { formatLocalDateTime, humanizeTechnicalLabel } from "@/lib/presentation";
 
 type Breakdown = { label: string; count: number };
 type HrDashboard = {
@@ -65,7 +66,7 @@ export function EmployeeDashboard({ mode }: { mode: "hr" | "pro" }) {
       <HrWorkflowSummary />
       <div className={styles.attention}><ListCard collapsible title="Pending HR actions" items={hr.pendingActions.map((row) => ({ id: row.id, name: row.name, detail: row.completion.missing.join(", ") }))} /><ListCard title="New joiners" items={hr.newJoiners.map((row) => ({ id: row.id, name: row.name, detail: `${row.employeeCode} · ${row.joiningDate}` }))} /><ListCard title="Probation tracking" items={hr.probation.map((row) => ({ id: row.id, name: row.name, detail: `${row.state} · ${row.endDate ?? "End date missing"}` }))} /></div>
       <div className="grid min-w-0 gap-4 xl:grid-cols-2">{Object.entries(hr.breakdowns).map(([key, rows]) => <Card key={key}><SectionHeader title={`${key.replace(/([A-Z])/g, " $1").trim()} breakdown`} />{rows.length ? <ul className="mt-3 divide-y divide-slate-100">{rows.map((row) => <li key={row.label} className="flex justify-between gap-3 text-sm"><span>{row.label}</span><strong>{row.count}</strong></li>)}</ul> : <EmptyState title="—" description="No data yet" />}</Card>)}</div>
-      <Card><SectionHeader title="Recent HR activity" />{hr.recentActivity.length ? <ul className="mt-3 divide-y divide-slate-100">{hr.recentActivity.map((row) => <li key={row.id} className="py-3 text-sm"><strong>{row.actor}</strong> · {row.action} · {row.employee}<span className="block text-xs text-text-secondary">{new Date(row.createdAt).toLocaleString("en-AE")}</span></li>)}</ul> : <EmptyState>No recent HR profile activity.</EmptyState>}</Card>
+      <Card><SectionHeader title="Recent HR activity" />{hr.recentActivity.length ? <ul className="mt-3 divide-y divide-slate-100">{hr.recentActivity.map((row) => <li key={row.id} className="py-3 text-sm"><strong>{row.actor}</strong> · {humanizeTechnicalLabel(row.action)} · {row.employee}<span className="block text-xs text-text-secondary">{formatLocalDateTime(row.createdAt)}</span></li>)}</ul> : <EmptyState>No recent HR profile activity.</EmptyState>}</Card>
     </> : null}
     {pro ? <>
       <ComplianceCard rows={pro.compliance} />

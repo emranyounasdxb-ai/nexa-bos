@@ -9,6 +9,7 @@ import { Button, Card, DialogPanel, EmptyState, ErrorText, Field, LoadingState, 
 import { apiGet, apiRequest, ApiClientError } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { getBrowserApiUrl } from "@/lib/env";
+import { formatLocalDateTime, humanizeTechnicalLabel } from "@/lib/presentation";
 
 type Assignment = { office_id: string | null; department_id: string | null; business_unit_id: string | null; team_id: string | null; designation_id: string | null; reporting_manager_id: string | null };
 type Option = { id: string; name: string; officeId?: string; departmentId?: string; businessUnitId?: string | null };
@@ -153,7 +154,7 @@ export default function TransfersPage() {
         {selected.applicationError && <ErrorText>Scheduled application needs operator review ({selected.applicationError}). No assignment was changed.</ErrorText>}
         <dl className="space-y-3">{fields.map(([key, label]) => <div key={key}><dt className="text-sm font-semibold">{label}</dt><dd className="grid grid-cols-2 gap-3 break-words text-sm"><span><span className="block text-xs text-text-secondary">Current snapshot</span><span>{assignmentName(key, selected.current[key], selected.currentLabels[key])}</span></span><span><span className="block text-xs text-text-secondary">Proposed</span><span>{assignmentName(key, selected.proposed[key], selected.proposedLabels[key])}</span></span></dd></div>)}</dl><p className="break-words text-sm">{selected.reason}</p>{selected.notes && <p className="break-words text-sm text-text-secondary">{selected.notes}</p>}
         <div className="flex flex-wrap gap-2">{can("Transfers.Edit") && ["Draft", "Returned"].includes(selected.status) && <Button variant="secondary" onClick={() => edit("edit")}>Edit draft</Button>}{can("Transfers.Create") && selected.status === "Approved" && <Button variant="secondary" onClick={() => edit("supersede")}>Prepare replacement</Button>}{actions(selected).map(action => <Button key={action} variant="secondary" onClick={() => { setDecision(action); setComment(""); }}>{labels[action]}</Button>)}</div>
-        {can("Transfers.History") && <section><h3 className="text-lg font-semibold">History</h3><ol className="mt-2 space-y-2">{selected.history.map(item => <li key={item.id} className="border-b border-border pb-2 text-sm"><p>{item.action} · {item.actor}</p><time className="text-xs text-text-secondary">{new Date(item.createdAt).toLocaleString("en-AE")}</time><p className="break-words">{item.comment}</p></li>)}</ol></section>}
+        {can("Transfers.History") && <section><h3 className="text-lg font-semibold">History</h3><ol className="mt-2 space-y-2">{selected.history.map(item => <li key={item.id} className="border-b border-border pb-2 text-sm"><p>{humanizeTechnicalLabel(item.action)} · {item.actor}</p><time className="text-xs text-text-secondary">{formatLocalDateTime(item.createdAt)}</time><p className="break-words">{item.comment}</p></li>)}</ol></section>}
       </div>}
     </DialogPanel>}
   </div>;

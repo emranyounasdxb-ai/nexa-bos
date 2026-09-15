@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 
 import { IconRefresh, IconX } from "@/components/icons";
 import { EmployeeLifecycleProfile } from "@/components/employee-lifecycle-profile";
+import { ProfilePhoto } from "@/components/profile-photo";
 import { Pagination, useClientPagination } from "@/components/pagination";
 import {
   Button,
@@ -31,6 +32,7 @@ import {
 import { apiGet, apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { getBrowserApiUrl } from "@/lib/env";
+import { auditDisplayEntries, auditEventSummary, auditFieldLabel, formatDateRange, formatLocalDateTime, humanizeTechnicalLabel } from "@/lib/presentation";
 import type { AssetAllocationRecord, AssetRecord, UserRecord, UserTypeSummary } from "@/lib/types";
 
 type ProfileTab = "overview" | "hr" | "pro" | "organization" | "assets" | "history";
@@ -90,22 +92,6 @@ const PROFILE_TABS: { id: ProfileTab; label: string }[] = [
 function readProfileTab(): ProfileTab {
   const value = new URLSearchParams(window.location.search).get("tab");
   return PROFILE_TABS.some((tab) => tab.id === value) ? (value as ProfileTab) : "overview";
-}
-
-function initials(name: string) {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  return (parts.length > 1 ? `${parts[0][0]}${parts.at(-1)?.[0] ?? ""}` : parts[0]?.slice(0, 2) ?? "U").toUpperCase();
-}
-
-function friendly(value: string) {
-  const text = value.replace(/[._-]+/g, " ").trim();
-  return text ? text.charAt(0).toUpperCase() + text.slice(1) : "Unknown";
-}
-
-function formatDateTime(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat("en-AE", { dateStyle: "medium", timeStyle: "short" }).format(date);
 }
 
 function assetIdentity(asset: AssetRecord) {
@@ -366,9 +352,7 @@ export default function UserProfilePage() {
       <RecordFrame summary={
       <Card className="overflow-hidden !p-0">
         <div className="flex min-w-0 flex-col gap-4 bg-surface px-4 py-4 sm:flex-row sm:items-center sm:px-5">
-          <div className="flex size-16 shrink-0 items-center justify-center rounded-full bg-brand-fill text-xl font-semibold text-white shadow-sm" aria-label={`${user.fullName} initials`}>
-            {initials(user.fullName)}
-          </div>
+          <ProfilePhoto userId={user.id} fullName={user.fullName} hasPhoto={user.hasPhoto} version={user.updatedAt} size="identity" labelled />
           <div className="min-w-0 flex-1">
             <div className="flex min-w-0 flex-wrap items-center gap-2">
               <h2 className="break-words text-xl font-semibold text-text-primary">{user.fullName}</h2>
@@ -440,7 +424,7 @@ export default function UserProfilePage() {
                     <Definition label="Login email">{user.email}</Definition>
                     <Definition label="Account"><StatusBadge value={user.accountStatus} /></Definition>
                     <Definition label="MFA enabled">{user.mfaEnabled ? "Yes" : "No"}</Definition>
-                    <Definition label="Lock state">{locked ? `Locked until ${formatDateTime(user.lockedUntil!)}` : "Not locked"}</Definition>
+                    <Definition label="Lock state">{locked ? `Locked until ${formatLocalDateTime(user.lockedUntil!)}` : "Not locked"}</Definition>
                   </dl>
                   <div className="grid min-w-0 gap-3 border-t border-brand-border pt-4 sm:grid-cols-2">
                     {user.userType?.code === "OWNER" ? <Definition label="User type">Owner</Definition> : can("Users.AssignUserType") ? (
@@ -600,17 +584,17 @@ function HistoryPanel({ history, auditSearch, setAuditSearch, auditAction, setAu
   return (
     <div className="space-y-4">
       <div className="grid min-w-0 gap-4 xl:grid-cols-3">
-        <HistoryCard title="Employee codes" empty="No employee-code history recorded.">{(history?.employeeCodes ?? []).map((row) => <li key={`${row.employeeCode}-${row.effectiveFrom}`} className="rounded-md bg-surface-subtle px-3 py-2"><span className="font-mono text-xs font-semibold text-text-primary">{row.employeeCode}</span><span className="mt-1 block text-xs text-text-secondary">{row.effectiveFrom} to {row.effectiveTo ?? "current"}</span></li>)}</HistoryCard>
-        <HistoryCard title="Email history" empty="No email history recorded.">{(history?.emails ?? []).map((row) => <li key={`${row.email}-${row.changedAt}`} className="rounded-md bg-surface-subtle px-3 py-2"><span className="break-all text-sm font-medium text-text-primary">{row.email}</span><span className="mt-1 block text-xs text-text-secondary">Changed {formatDateTime(row.changedAt)}</span></li>)}</HistoryCard>
-        <HistoryCard title="Employment periods" empty="No employment periods recorded.">{(history?.employmentPeriods ?? []).map((row, index) => <li key={`${row.employeeCode}-${row.joiningDate}-${index}`} className="rounded-md bg-surface-subtle px-3 py-2"><span className="text-sm font-medium text-text-primary">{row.joiningDate} to {row.lastWorkingDate ?? "current"}</span><span className="mt-1 block text-xs text-text-secondary">{row.employeeCode}{row.isCurrent ? " · Current period" : ""}</span></li>)}</HistoryCard>
+        <HistoryCard title="Employee codes" empty="No employee-code history recorded.">{(history?.employeeCodes ?? []).map((row) => <li key={`${row.employeeCode}-${row.effectiveFrom}`} className="rounded-md bg-surface-subtle px-3 py-2"><span className="text-sm font-semibold text-text-primary">{row.employeeCode}</span><span className="mt-1 block text-xs text-text-secondary">{formatDateRange(row.effectiveFrom, row.effectiveTo)}</span></li>)}</HistoryCard>
+        <HistoryCard title="Email history" empty="No email history recorded.">{(history?.emails ?? []).map((row) => <li key={`${row.email}-${row.changedAt}`} className="rounded-md bg-surface-subtle px-3 py-2"><span className="break-all text-sm font-medium text-text-primary">{row.email}</span><span className="mt-1 block text-xs text-text-secondary">Changed {formatLocalDateTime(row.changedAt)}</span></li>)}</HistoryCard>
+        <HistoryCard title="Employment periods" empty="No employment periods recorded.">{(history?.employmentPeriods ?? []).map((row, index) => <li key={`${row.employeeCode}-${row.joiningDate}-${index}`} className="rounded-md bg-surface-subtle px-3 py-2"><span className="text-sm font-medium text-text-primary">{formatDateRange(row.joiningDate, row.lastWorkingDate)}</span><span className="mt-1 block text-xs text-text-secondary">{row.employeeCode}{row.isCurrent ? " · Current period" : ""}</span></li>)}</HistoryCard>
       </div>
       <Card>
         <SectionHeader title="Assignment history" description="Recorded organization, designation, and employment changes." />
-        {history?.assignments.length ? <div className="mt-3 grid min-w-0 gap-2 sm:grid-cols-2 xl:grid-cols-3">{history.assignments.map((row, index) => <div key={`${row.field}-${row.effectiveFrom}-${index}`} className="min-w-0 rounded-md border border-brand-border bg-surface-subtle px-3 py-2"><p className="text-xs font-medium text-text-secondary">{friendly(row.field)}</p><p className="mt-1 break-words text-sm font-medium text-text-primary">{row.valueLabel}</p><p className="mt-1 text-xs text-text-disabled">{row.effectiveFrom} to {row.effectiveTo ?? "current"}</p></div>)}</div> : <EmptyState>No assignment history is recorded.</EmptyState>}
+        {history?.assignments.length ? <div className="mt-3 grid min-w-0 gap-2 sm:grid-cols-2 xl:grid-cols-3">{history.assignments.map((row, index) => <div key={`${row.field}-${row.effectiveFrom}-${index}`} className="min-w-0 rounded-md border border-brand-border bg-surface-subtle px-3 py-2"><p className="text-xs font-medium text-text-secondary">{auditFieldLabel(row.field)}</p><p className="mt-1 break-words text-sm font-medium text-text-primary">{row.valueLabel || "Not assigned"}</p><p className="mt-1 text-xs text-text-disabled">{formatDateRange(row.effectiveFrom, row.effectiveTo)}</p></div>)}</div> : <EmptyState>No assignment history is recorded.</EmptyState>}
       </Card>
       <Card className="space-y-3">
         <SectionHeader title="Audit events" description="Filter the existing immutable audit history for this employee." />
-        <SearchActionBar search={<Field label="Search audit events" htmlFor="audit-search"><TextInput id="audit-search" value={auditSearch} placeholder="Action, date, or recorded value" onChange={(event) => setAuditSearch(event.target.value)} /></Field>} actions={<Field label="Action" className="w-full sm:w-56"><Select aria-label="Audit action filter" value={auditAction} onChange={(event) => setAuditAction(event.target.value)}><option value="all">All actions</option>{auditActions.map((action) => <option key={action} value={action}>{friendly(action)}</option>)}</Select></Field>} />
+        <SearchActionBar search={<Field label="Search audit events" htmlFor="audit-search"><TextInput id="audit-search" value={auditSearch} placeholder="Action, date, or recorded value" onChange={(event) => setAuditSearch(event.target.value)} /></Field>} actions={<Field label="Action" className="w-full sm:w-56"><Select aria-label="Audit action filter" value={auditAction} onChange={(event) => setAuditAction(event.target.value)}><option value="all">All actions</option>{auditActions.map((action) => <option key={action} value={action}>{humanizeTechnicalLabel(action)}</option>)}</Select></Field>} />
         <p role="status" className="text-xs font-medium tabular-nums text-text-secondary">{filteredEvents.length.toLocaleString()} {filteredEvents.length === 1 ? "event" : "events"}</p>
       </Card>
       {pagination.pagedItems.length ? <AuditList events={pagination.pagedItems} /> : <Card><EmptyState kind={auditSearch || auditAction !== "all" ? "search" : "records"}>{auditSearch || auditAction !== "all" ? "No records match the selected filters" : "No audit events are available for this employee."}</EmptyState></Card>}
@@ -638,14 +622,15 @@ function AssetSection({ title, description, items, empty, current = false }: { t
 
 function AuditList({ events }: { events: AuditEvent[] }) {
   return <>
-    <div className="hidden min-w-0 md:block"><TableShell><TableHead><tr><Th>Date</Th><Th>Action</Th><Th>Recorded change</Th></tr></TableHead><tbody>{events.map((event) => <tr key={event.id}><Td className="whitespace-nowrap">{formatDateTime(event.createdAt)}</Td><Td><span className="font-medium">{friendly(event.action)}</span><span className="mt-0.5 block font-mono text-xs text-text-disabled">{event.action}</span></Td><Td className="max-w-xl"><AuditChange event={event} /></Td></tr>)}</tbody></TableShell></div>
-    <div className="grid min-w-0 gap-2 md:hidden" data-testid="audit-event-cards">{events.map((event) => <Card key={event.id} className="!p-3"><div className="flex min-w-0 flex-wrap items-start justify-between gap-2"><p className="font-medium text-text-primary">{friendly(event.action)}</p><time className="text-xs text-text-secondary">{formatDateTime(event.createdAt)}</time></div><p className="mt-1 break-all font-mono text-xs text-text-disabled">{event.action}</p><div className="mt-3 border-t border-brand-border pt-3"><AuditChange event={event} /></div></Card>)}</div>
+    <div className="hidden min-w-0 md:block"><TableShell><TableHead><tr><Th>Date</Th><Th>Action</Th><Th>Recorded change</Th></tr></TableHead><tbody>{events.map((event) => <tr key={event.id}><Td className="whitespace-nowrap">{formatLocalDateTime(event.createdAt)}</Td><Td><span className="font-medium">{humanizeTechnicalLabel(event.action)}</span></Td><Td className="max-w-xl"><AuditChange event={event} /></Td></tr>)}</tbody></TableShell></div>
+    <div className="grid min-w-0 gap-2 md:hidden" data-testid="audit-event-cards">{events.map((event) => <Card key={event.id} className="!p-3"><div className="flex min-w-0 flex-wrap items-start justify-between gap-2"><p className="font-medium text-text-primary">{humanizeTechnicalLabel(event.action)}</p><time className="text-xs text-text-secondary">{formatLocalDateTime(event.createdAt)}</time></div><div className="mt-3 border-t border-brand-border pt-3"><AuditChange event={event} /></div></Card>)}</div>
   </>;
 }
 
 function AuditChange({ event }: { event: AuditEvent }) {
-  const oldEntries = Object.entries(event.oldValues ?? {});
-  const newEntries = Object.entries(event.newValues ?? {});
-  if (!oldEntries.length && !newEntries.length) return <span className="text-xs text-text-secondary">Event recorded without field values.</span>;
-  return <div className="grid min-w-0 gap-2 text-xs sm:grid-cols-2"><div className="min-w-0"><span className="font-medium text-text-secondary">Before</span><p className="mt-1 break-words text-text-primary">{oldEntries.length ? oldEntries.map(([key, value]) => `${friendly(key)}: ${String(value ?? "—")}`).join(" · ") : "—"}</p></div><div className="min-w-0"><span className="font-medium text-text-secondary">After</span><p className="mt-1 break-words text-text-primary">{newEntries.length ? newEntries.map(([key, value]) => `${friendly(key)}: ${String(value ?? "—")}`).join(" · ") : "—"}</p></div></div>;
+  const oldEntries = auditDisplayEntries(event.oldValues);
+  const newEntries = auditDisplayEntries(event.newValues);
+  if (!oldEntries.length && !newEntries.length) return <span className="text-xs text-text-secondary">{auditEventSummary(event.action)}</span>;
+  const entries = (rows: ReturnType<typeof auditDisplayEntries>) => rows.map(({ label, value }) => `${label}: ${value}`).join(" · ");
+  return <div className="grid min-w-0 gap-2 text-xs sm:grid-cols-2"><div className="min-w-0"><span className="font-medium text-text-secondary">Before</span><p className="mt-1 break-words text-text-primary">{oldEntries.length ? entries(oldEntries) : "Not recorded"}</p></div><div className="min-w-0"><span className="font-medium text-text-secondary">After</span><p className="mt-1 break-words text-text-primary">{newEntries.length ? entries(newEntries) : auditEventSummary(event.action)}</p></div></div>;
 }

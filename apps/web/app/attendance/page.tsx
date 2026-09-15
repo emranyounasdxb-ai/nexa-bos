@@ -34,6 +34,7 @@ import { ATTENDANCE_STATUSES, todayIso, type AttendanceRecord } from "@/lib/atte
 import { apiGet, apiRequest, ApiClientError } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { getBrowserApiUrl } from "@/lib/env";
+import { formatLocalDateTime } from "@/lib/presentation";
 
 const FILTERS_KEY = "nexa-bos.attendance.filters";
 
@@ -504,7 +505,7 @@ export default function AttendancePage() {
             <ul className="mt-3 text-sm text-slate-600">
               {correcting.corrections.map((item) => (
                 <li key={item.id}>
-                  {item.createdAt}: {item.reason} ({item.actorName ?? "unknown"})
+                  {formatLocalDateTime(item.createdAt)}: {item.reason} ({item.actorName ?? "Unknown user"})
                 </li>
               ))}
             </ul>

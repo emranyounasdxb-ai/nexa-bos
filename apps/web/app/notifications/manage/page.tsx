@@ -33,6 +33,7 @@ import {
 import { apiGet, apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { getBrowserApiUrl } from "@/lib/env";
+import { formatLocalDateTime, humanizeTechnicalLabel } from "@/lib/presentation";
 
 type Named = { id: string; name: string; employeeCode?: string };
 type EventOption = { value: string; category: string };
@@ -376,7 +377,7 @@ export default function NotificationManagementPage() {
           <h3 className="text-lg font-semibold text-slate-900">Notification audit</h3>
           {audit.length === 0 ? <Card><EmptyState>No notification administration audit events are available.</EmptyState></Card> : (
             <TableShell className={styles.audit}><TableHead><tr><Th>Timestamp</Th><Th>Action</Th><Th>Entity</Th><Th>Note</Th></tr></TableHead><tbody>
-              {audit.map((item) => <tr key={item.id} className="border-t border-slate-100"><Td>{new Date(item.createdAt).toLocaleString()}</Td><Td>{item.action}</Td><Td>{item.entityType} · {item.entityId}</Td><Td>{item.note ?? "—"}</Td></tr>)}
+              {audit.map((item) => <tr key={item.id} className="border-t border-slate-100"><Td>{formatLocalDateTime(item.createdAt)}</Td><Td>{humanizeTechnicalLabel(item.action)}</Td><Td>{humanizeTechnicalLabel(item.entityType)}</Td><Td>{item.note ?? "—"}</Td></tr>)}
             </tbody></TableShell>
           )}
           <Pagination

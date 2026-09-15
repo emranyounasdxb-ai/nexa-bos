@@ -35,6 +35,7 @@ import {
 import { apiGet, apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { getBrowserApiUrl } from "@/lib/env";
+import { formatLocalDateTime, humanizeTechnicalLabel } from "@/lib/presentation";
 import type { AssetHistoryRecord, AssetOptions, AssetRecord } from "@/lib/types";
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -561,7 +562,7 @@ export default function AssetDetailPage() {
                 </Card>
                 <Card>
                   <SectionHeader title="Immutable audit trail" description="Recorded lifecycle actions and reasons cannot be edited or deleted." />
-                  {history.events.length ? <ul className="mt-3 divide-y divide-brand-border text-sm">{history.events.map((event) => <li key={event.id} className="min-w-0 py-2 first:pt-0 last:pb-0"><div className="flex min-w-0 flex-wrap items-start justify-between gap-2"><span className="font-medium text-text-primary">{event.action}</span><time className="text-xs text-text-secondary">{new Date(event.createdAt).toLocaleString()}</time></div>{event.reason ? <p className="mt-1 break-words text-text-secondary">{event.reason}</p> : null}</li>)}</ul> : <EmptyState>No audit events are recorded.</EmptyState>}
+                  {history.events.length ? <ul className="mt-3 divide-y divide-brand-border text-sm">{history.events.map((event) => <li key={event.id} className="min-w-0 py-2 first:pt-0 last:pb-0"><div className="flex min-w-0 flex-wrap items-start justify-between gap-2"><span className="font-medium text-text-primary">{humanizeTechnicalLabel(event.action)}</span><time className="text-xs text-text-secondary">{formatLocalDateTime(event.createdAt)}</time></div>{event.reason ? <p className="mt-1 break-words text-text-secondary">{event.reason}</p> : null}</li>)}</ul> : <EmptyState>No audit events are recorded.</EmptyState>}
                 </Card>
               </div>
             ) : <LoadingState>Loading Asset audit…</LoadingState>

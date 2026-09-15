@@ -21,6 +21,7 @@ import {
 } from "@/components/ui";
 import { apiDownload, apiGet, apiRequest } from "@/lib/api";
 import { getBrowserApiUrl } from "@/lib/env";
+import { formatLocalDateTime } from "@/lib/presentation";
 import type { ManagerOption, OrgRef } from "@/lib/types";
 
 type Completion = { state: string; completed: number; required: number; missing: string[] };
@@ -470,7 +471,7 @@ export function EmployeeLifecycleProfile({ userId, section }: { userId: string; 
                   {profile.documentPermissions.delete ? <Button type="button" size="compact" variant="ghost" onClick={() => void remove(row)}><IconX className="size-4" />Remove</Button> : null}
                   {profile.documentPermissions.purge ? <Button type="button" size="compact" variant="danger" onClick={() => void purge(row)}>Purge permanently</Button> : null}
                 </div>
-                {histories[row.id]?.length ? <ol className="mt-3 space-y-1 border-t border-brand-border pt-3 text-xs text-text-secondary">{histories[row.id].map((version) => <li key={version.id}>Version {version.version} · {version.originalFilename ?? "No attachment"} · {version.updatedAt}</li>)}</ol> : null}
+                {histories[row.id]?.length ? <ol className="mt-3 space-y-1 border-t border-brand-border pt-3 text-xs text-text-secondary">{histories[row.id].map((version) => <li key={version.id}>Version {version.version} · {version.originalFilename ?? "No attachment"} · {formatLocalDateTime(version.updatedAt)}</li>)}</ol> : null}
               </article>
             ))}</div> : <EmptyState>No PRO document records have been added.</EmptyState>}
           </Card>

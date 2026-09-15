@@ -128,7 +128,7 @@ test("owner can create a customer and view bank product catalog", async ({ page,
   await expect(page.getByRole("heading", { name: "Banks and products" })).toBeVisible();
   await expect(page.getByText("DIB", { exact: true }).first()).toBeVisible();
   await page.getByRole("tab", { name: "Products", exact: true }).click();
-  await expect(page.getByText("PF", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("Personal Finance", { exact: true }).first()).toBeVisible();
 });
 
 test("GM retains Customer directory and management access on desktop and mobile", async ({
