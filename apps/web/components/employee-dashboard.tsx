@@ -3,11 +3,11 @@
 import styles from "./employee-dashboard.module.css";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { IconRefresh } from "@/components/icons";
 import { HrWorkflowSummary } from "@/components/hr-workflow-summary";
-import { Pagination, SERVER_PAGE_SIZE_OPTIONS, useClientPagination } from "@/components/pagination";
+import { Pagination, SERVER_PAGE_SIZE_OPTIONS, type ServerPageSize } from "@/components/pagination";
 import { Button, Card, EmptyState, ErrorText, Field, LoadingState, PageHeader, SectionHeader, Select, StatusBadge, TextInput } from "@/components/ui";
 import { apiGet } from "@/lib/api";
 import { getBrowserApiUrl } from "@/lib/env";
@@ -28,6 +28,7 @@ type ProDashboard = {
   generatedAt: string;
   cards: Record<string, number>;
   compliance: { employeeId: string; employee: string; documents: Record<string, { status: string; documentId: string | null; expiryDate: string | null }> }[];
+  compliancePagination: { page: number; pageSize: ServerPageSize; total: number; totalPages: number };
   expiry: { within7: Expiry[]; within30: Expiry[]; within60: Expiry[]; expired: Expiry[] };
 };
 
@@ -45,13 +46,42 @@ export function EmployeeDashboard({ mode }: { mode: "hr" | "pro" }) {
   const [data, setData] = useState<HrDashboard | ProDashboard | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const load = useCallback(async () => {
+  const [complianceSearch, setComplianceSearch] = useState("");
+  const [complianceStatus, setComplianceStatus] = useState("");
+  const [compliancePage, setCompliancePage] = useState(1);
+  const [compliancePageSize, setCompliancePageSize] = useState<ServerPageSize>(10);
+  const handleComplianceSearch = useCallback((value: string) => {
+    setComplianceSearch(value);
+    setCompliancePage(1);
+  }, []);
+  const handleComplianceStatus = useCallback((value: string) => {
+    setComplianceStatus(value);
+    setCompliancePage(1);
+  }, []);
+  const handleCompliancePageSize = useCallback((value: ServerPageSize) => {
+    setCompliancePageSize(value);
+    setCompliancePage(1);
+  }, []);
+  const load = useCallback(async (signal?: AbortSignal) => {
     setLoading(true); setError("");
-    try { setData(await apiGet(`/api/v1/employee-profiles/dashboards/${mode}`, getBrowserApiUrl())); }
-    catch (caught) { setError(caught instanceof Error ? caught.message : "Dashboard could not be loaded."); }
-    finally { setLoading(false); }
-  }, [mode]);
-  useEffect(() => { void load(); }, [load]);
+    const params = new URLSearchParams();
+    if (mode === "pro") {
+      if (complianceSearch) params.set("q", complianceSearch);
+      if (complianceStatus) params.set("status", complianceStatus);
+      params.set("page", String(compliancePage));
+      params.set("pageSize", String(compliancePageSize));
+    }
+    try { setData(await apiGet(`/api/v1/employee-profiles/dashboards/${mode}${params.size ? `?${params}` : ""}`, getBrowserApiUrl(), { signal })); }
+    catch (caught) {
+      if (!signal?.aborted) setError(caught instanceof Error ? caught.message : "Dashboard could not be loaded.");
+    }
+    finally { if (!signal?.aborted) setLoading(false); }
+  }, [compliancePage, compliancePageSize, complianceSearch, complianceStatus, mode]);
+  useEffect(() => {
+    const controller = new AbortController();
+    void load(controller.signal);
+    return () => controller.abort();
+  }, [load]);
   if (loading && !data) return <LoadingState>Loading {mode.toUpperCase()} dashboard…</LoadingState>;
   if (!data) return <Card><ErrorText>{error}</ErrorText><Button className="mt-3" variant="secondary" onClick={() => void load()}><IconRefresh className="size-4" />Retry</Button></Card>;
   const hr = mode === "hr" ? data as HrDashboard : null;
@@ -69,7 +99,16 @@ export function EmployeeDashboard({ mode }: { mode: "hr" | "pro" }) {
       <Card><SectionHeader title="Recent HR activity" />{hr.recentActivity.length ? <ul className="mt-3 divide-y divide-slate-100">{hr.recentActivity.map((row) => <li key={row.id} className="py-3 text-sm"><strong>{row.actor}</strong> · {humanizeTechnicalLabel(row.action)} · {row.employee}<span className="block text-xs text-text-secondary">{formatLocalDateTime(row.createdAt)}</span></li>)}</ul> : <EmptyState>No recent HR profile activity.</EmptyState>}</Card>
     </> : null}
     {pro ? <>
-      <ComplianceCard rows={pro.compliance} />
+      <ComplianceCard
+        rows={pro.compliance}
+        pagination={pro.compliancePagination}
+        search={complianceSearch}
+        status={complianceStatus}
+        onSearch={handleComplianceSearch}
+        onStatus={handleComplianceStatus}
+        onPage={setCompliancePage}
+        onPageSize={handleCompliancePageSize}
+      />
       <div className="grid min-w-0 gap-4 lg:grid-cols-2"><ExpiryCard title="Expiring in 7 days" rows={pro.expiry.within7} /><ExpiryCard title="Expiring in 30 days" rows={pro.expiry.within30} /><ExpiryCard title="Expiring in 60 days" rows={pro.expiry.within60} /><ExpiryCard title="Expired" rows={pro.expiry.expired} /></div>
     </> : null}
     </div>
@@ -77,29 +116,32 @@ export function EmployeeDashboard({ mode }: { mode: "hr" | "pro" }) {
   </section>;
 }
 
-function ComplianceCard({ rows }: { rows: ProDashboard["compliance"] }) {
-  const [search, setSearch] = useState("");
-  const [status, setStatus] = useState("");
-  const filteredRows = useMemo(() => {
-    const normalizedSearch = search.trim().toLocaleLowerCase();
-    return rows.filter((row) => {
-      const matchesSearch = !normalizedSearch || row.employee.toLocaleLowerCase().includes(normalizedSearch);
-      const matchesStatus = !status || Object.values(row.documents).some((document) => document.status === status);
-      return matchesSearch && matchesStatus;
-    });
-  }, [rows, search, status]);
-  const pagination = useClientPagination(filteredRows, `${search.trim()}|${status}`);
+function ComplianceCard({ rows, pagination, search, status, onSearch, onStatus, onPage, onPageSize }: {
+  rows: ProDashboard["compliance"];
+  pagination: ProDashboard["compliancePagination"];
+  search: string;
+  status: string;
+  onSearch: (value: string) => void;
+  onStatus: (value: string) => void;
+  onPage: (value: number) => void;
+  onPageSize: (value: ServerPageSize) => void;
+}) {
+  const [searchDraft, setSearchDraft] = useState(search);
+  useEffect(() => {
+    const timer = window.setTimeout(() => onSearch(searchDraft.trim()), 300);
+    return () => window.clearTimeout(timer);
+  }, [onSearch, searchDraft]);
 
   return <Card>
     <SectionHeader title="Employee compliance" description="Required Passport, Visa, Emirates ID, Work Permit, Medical and Insurance records." />
-    {rows.length ? <>
+    {rows.length || search || status ? <>
       <div className="mt-3 grid min-w-0 gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(12rem,.45fr)]">
-        <Field label="Search employees"><TextInput aria-label="Search employee compliance" placeholder="Search by employee name" value={search} onChange={(event) => setSearch(event.target.value)} /></Field>
-        <Field label="Document status"><Select aria-label="Compliance status" value={status} onChange={(event) => setStatus(event.target.value)}><option value="">All statuses</option><option value="Active">Active</option><option value="Expiring Soon">Expiring Soon</option><option value="Expired">Expired</option><option value="Missing">Missing</option></Select></Field>
+        <Field label="Search employees"><TextInput aria-label="Search employee compliance" placeholder="Search by employee name" value={searchDraft} onChange={(event) => setSearchDraft(event.target.value)} /></Field>
+        <Field label="Document status"><Select aria-label="Compliance status" value={status} onChange={(event) => onStatus(event.target.value)}><option value="">All statuses</option><option value="Active">Active</option><option value="Expiring Soon">Expiring Soon</option><option value="Expired">Expired</option><option value="Missing">Missing</option></Select></Field>
       </div>
-      <p className="mt-3 text-xs text-text-secondary" aria-live="polite">{filteredRows.length.toLocaleString()} matching employee{filteredRows.length === 1 ? "" : "s"}</p>
-      {filteredRows.length ? <div data-testid="employee-compliance-list" className="mt-3 grid gap-3 lg:grid-cols-2">{pagination.pagedItems.map((row) => <article key={row.employeeId} className="rounded-lg border border-brand-border p-3"><Link href={`/users/${row.employeeId}?tab=pro`} className="text-sm font-semibold text-brand-primary hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-primary">{row.employee}</Link><div className="mt-2 flex flex-wrap gap-1.5">{Object.entries(row.documents).map(([kind, document]) => <Link key={kind} href={`/users/${row.employeeId}?tab=pro${document.documentId ? `&document=${document.documentId}` : ""}`} aria-label={`${row.employee} ${kind.replaceAll("_", " ")} ${document.status}`}><StatusBadge value={`${kind.replaceAll("_", " ")}: ${document.status}`} /></Link>)}</div></article>)}</div> : <EmptyState kind="search" title="No records match the selected filters" action={<Button type="button" variant="secondary" size="compact" onClick={() => { setSearch(""); setStatus(""); }}>Clear filters</Button>} />}
-      <Pagination page={pagination.page} pageSize={pagination.pageSize} total={pagination.total} totalPages={pagination.totalPages} pageSizeOptions={SERVER_PAGE_SIZE_OPTIONS} onPageChange={pagination.setPage} onPageSizeChange={pagination.setPageSize} />
+      <p className="mt-3 text-xs text-text-secondary" aria-live="polite">{pagination.total.toLocaleString()} matching employee{pagination.total === 1 ? "" : "s"}</p>
+      {rows.length ? <div data-testid="employee-compliance-list" className="mt-3 grid gap-3 lg:grid-cols-2">{rows.map((row) => <article key={row.employeeId} className="rounded-lg border border-brand-border p-3"><Link href={`/users/${row.employeeId}?tab=pro`} className="text-sm font-semibold text-brand-primary hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-primary">{row.employee}</Link><div className="mt-2 flex flex-wrap gap-1.5">{Object.entries(row.documents).map(([kind, document]) => <Link key={kind} href={`/users/${row.employeeId}?tab=pro${document.documentId ? `&document=${document.documentId}` : ""}`} aria-label={`${row.employee} ${kind.replaceAll("_", " ")} ${document.status}`}><StatusBadge value={`${kind.replaceAll("_", " ")}: ${document.status}`} /></Link>)}</div></article>)}</div> : <EmptyState kind="search" title="No records match the selected filters" action={<Button type="button" variant="secondary" size="compact" onClick={() => { setSearchDraft(""); onSearch(""); onStatus(""); }}>Clear filters</Button>} />}
+      <Pagination page={pagination.page} pageSize={pagination.pageSize} total={pagination.total} totalPages={pagination.totalPages} pageSizeOptions={SERVER_PAGE_SIZE_OPTIONS} onPageChange={onPage} onPageSizeChange={(value) => { if (value !== "all") onPageSize(value); }} />
     </> : <EmptyState>No employees are visible in the current scope.</EmptyState>}
   </Card>;
 }

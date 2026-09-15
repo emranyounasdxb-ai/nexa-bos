@@ -293,6 +293,8 @@ async def tl_dashboard(
             {
                 "id": str(user_id),
                 "name": users[user_id].full_name,
+                "hasPhoto": bool(users[user_id].profile_photo_key),
+                "photoUpdatedAt": users[user_id].updated_at.isoformat(),
                 "target": {
                     key: target[key]
                     for key in (

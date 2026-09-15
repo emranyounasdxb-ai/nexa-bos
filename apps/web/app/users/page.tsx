@@ -186,6 +186,7 @@ function UsersDirectory() {
 
   useEffect(() => {
     if (!can("Users.View")) return;
+    const controller = new AbortController();
     let active = true;
     const params = new URLSearchParams({ page: String(page), page_size: String(pageSize) });
     if (query.trim()) params.set("q", query.trim());
@@ -196,7 +197,7 @@ function UsersDirectory() {
     if (userTypeId) params.set("userTypeId", userTypeId);
     setLoading(true);
     setError("");
-    void apiGet<PaginatedResponse<UserRecord>>(`/api/v1/users?${params.toString()}`, api)
+    void apiGet<PaginatedResponse<UserRecord>>(`/api/v1/users?${params.toString()}`, api, { signal: controller.signal })
       .then((data) => {
         if (!active) return;
         setItems(data.items);
@@ -211,6 +212,7 @@ function UsersDirectory() {
       });
     return () => {
       active = false;
+      controller.abort();
     };
   }, [accountStatus, api, can, departmentId, employmentStatus, officeId, page, pageSize, query, requestVersion, userTypeId]);
 

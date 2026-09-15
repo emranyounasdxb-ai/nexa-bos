@@ -95,6 +95,6 @@ export async function apiDownload(
   };
 }
 
-export async function apiGet<T>(path: string, baseUrl: string): Promise<T> {
-  return apiRequest<T>(path, baseUrl, { method: "GET" });
+export async function apiGet<T>(path: string, baseUrl: string, init: RequestInit = {}): Promise<T> {
+  return apiRequest<T>(path, baseUrl, { ...init, method: "GET" });
 }

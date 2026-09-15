@@ -153,6 +153,8 @@ def _node_payload(
         "team": _ref(user.team),
         "reportingManagerId": str(parent_id) if parent_id else None,
         "employmentStatus": user.employment_status,
+        "hasPhoto": bool(user.profile_photo_key),
+        "photoUpdatedAt": user.updated_at.isoformat(),
         "directReportIds": [str(row) for row in direct_report_ids],
         "contextOnly": context_only,
     }

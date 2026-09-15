@@ -107,10 +107,10 @@ test("saved profile photo replaces immediately and survives refresh, navigation,
 });
 
 test("an unavailable saved photo falls back to initials without rendering a broken image", async ({ page, request }) => {
-  await signIn(page, request);
-  await page.route("**/api/v1/users/*/photo", async (route) => {
+  await page.route("**/api/v1/users/*/photo?*", async (route) => {
     await route.fulfill({ status: 404, contentType: "application/json", body: JSON.stringify({ error: { code: "PHOTO_NOT_FOUND", message: "No profile photo" } }) });
   });
+  await signIn(page, request);
   await page.goto("/account");
   const identityPhoto = page.getByLabel("Profile photo for Platform Owner");
   await expect(identityPhoto.locator("img")).toHaveCount(0);

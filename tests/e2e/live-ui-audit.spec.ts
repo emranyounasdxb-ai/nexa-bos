@@ -65,13 +65,29 @@ test("PRO compliance renders only the filtered current page", async ({ page, req
       },
     };
   });
-  await page.route("**/api/v1/employee-profiles/dashboards/pro", async (route) => {
+  await page.route("**/api/v1/employee-profiles/dashboards/pro?*", async (route) => {
+    const params = new URL(route.request().url()).searchParams;
+    const query = (params.get("q") ?? "").toLocaleLowerCase();
+    const status = params.get("status") ?? "";
+    const pageNumber = Number(params.get("page") ?? "1");
+    const pageSize = Number(params.get("pageSize") ?? "10");
+    const filtered = compliance.filter((row) =>
+      (!query || row.employee.toLocaleLowerCase().includes(query))
+      && (!status || Object.values(row.documents).some((document) => document.status === status)),
+    );
+    const start = (pageNumber - 1) * pageSize;
     await route.fulfill({
       contentType: "application/json",
       body: JSON.stringify({
         generatedAt: "2026-09-14T00:00:00Z",
         cards: { totalEmployees: 26, documentsActive: 35, expiringSoon: 0, expired: 8, pendingDocuments: 9 },
-        compliance,
+        compliance: filtered.slice(start, start + pageSize),
+        compliancePagination: {
+          page: pageNumber,
+          pageSize,
+          total: filtered.length,
+          totalPages: Math.max(1, Math.ceil(filtered.length / pageSize)),
+        },
         expiry: { within7: [], within30: [], within60: [], expired: [] },
       }),
     });

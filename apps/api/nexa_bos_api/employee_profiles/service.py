@@ -1154,7 +1154,15 @@ async def hr_dashboard(session: AsyncSession, actor: User) -> dict[str, object]:
     }
 
 
-async def pro_dashboard(session: AsyncSession, actor: User) -> dict[str, object]:
+async def pro_dashboard(
+    session: AsyncSession,
+    actor: User,
+    *,
+    query: str | None = None,
+    status: str | None = None,
+    page: int | None = None,
+    page_size: int | None = None,
+) -> dict[str, object]:
     users = await _visible_users(session, actor)
     allowed_ids = {user.id for user in users}
     rows = (
@@ -1207,6 +1215,28 @@ async def pro_dashboard(session: AsyncSession, actor: User) -> dict[str, object]
         compliance.append(
             {"employeeId": str(user.id), "employee": user.full_name, "documents": statuses}
         )
+    normalized_query = (query or "").strip().casefold()
+    filtered_compliance = [
+        row
+        for row in compliance
+        if (not normalized_query or normalized_query in str(row["employee"]).casefold())
+        and (
+            not status
+            or any(document["status"] == status for document in row["documents"].values())
+        )
+    ]
+    total = len(filtered_compliance)
+    if page is None or page_size is None:
+        safe_page = 1
+        safe_page_size = max(total, 1)
+        total_pages = 1
+        page_rows = filtered_compliance
+    else:
+        safe_page_size = page_size
+        total_pages = max(1, (total + page_size - 1) // page_size)
+        safe_page = min(page, total_pages)
+        start = (safe_page - 1) * page_size
+        page_rows = filtered_compliance[start : start + page_size]
     return {
         "generatedAt": _now().isoformat(),
         "cards": {
@@ -1216,7 +1246,13 @@ async def pro_dashboard(session: AsyncSession, actor: User) -> dict[str, object]
             "expired": status_counts["Expired"],
             "pendingDocuments": status_counts["Missing"],
         },
-        "compliance": compliance,
+        "compliance": page_rows,
+        "compliancePagination": {
+            "page": safe_page,
+            "pageSize": safe_page_size,
+            "total": total,
+            "totalPages": total_pages,
+        },
         "expiry": {
             "within7": [row for row in expiring if 0 <= row["remainingDays"] <= 7],
             "within30": [row for row in expiring if 0 <= row["remainingDays"] <= 30],
