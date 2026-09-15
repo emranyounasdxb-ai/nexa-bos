@@ -1,5 +1,5 @@
 const CACHE_PREFIX = "amafh-core-static-";
-const CACHE_NAME = `${CACHE_PREFIX}v1`;
+const CACHE_NAME = `${CACHE_PREFIX}v2`;
 const PUBLIC_ASSETS = new Set([
   "/icon1.png",
   "/icon2.png",

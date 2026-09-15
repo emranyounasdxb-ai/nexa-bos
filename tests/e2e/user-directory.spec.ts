@@ -131,6 +131,7 @@ test("User Directory filters and pagination persist in the URL across refresh an
   await page.goto("/users");
   await expect(page.getByRole("heading", { name: "Users", exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "Create user" })).toBeVisible();
+  await expect(page.getByText("Loading Users...", { exact: true })).toHaveCount(0);
   const topNavigation = page.getByRole("navigation", { name: "Workspace pages" });
   const topbar = topNavigation.locator("..");
   await expect(topNavigation.getByRole("link")).toHaveText([
@@ -161,8 +162,10 @@ test("User Directory filters and pagination persist in the URL across refresh an
   }
   await setVisualTheme(page, "light");
   const employment = page.getByRole("combobox", { name: "Employment status" });
-  for (const width of [1440, 1280, 1024]) {
+  for (const width of [1440, 1363, 1280, 1024]) {
     await page.setViewportSize({ width, height: 900 });
+    if (width >= 1400) await expect(page.getByTestId("users-directory-table")).toBeVisible();
+    else await expect(page.locator("article").first()).toBeVisible();
     expect(await topNavigation.evaluate((element) => ({
       fits: element.scrollWidth <= element.clientWidth,
       overflowX: getComputedStyle(element).overflowX,
@@ -175,14 +178,29 @@ test("User Directory filters and pagination persist in the URL across refresh an
       });
     })).toBeTruthy();
     await expect(employment).toContainText("All employment states");
+    await expect(page.getByText("Loading Users...", { exact: true })).toHaveCount(0);
+    const employmentLabel = employment.getByText("All employment states", { exact: true });
+    expect(await employmentLabel.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBeTruthy();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBeTruthy();
+    await page.screenshot({ path: testInfo.outputPath(`users-filters-${width}-light.png`), animations: "disabled" });
   }
   await page.setViewportSize({ width: 1440, height: 900 });
+  const sidebar = page.getByLabel("Application sidebar", { exact: true });
+  const initialSidebarBox = (await sidebar.boundingBox())!;
   const initialTopbarBox = (await topbar.boundingBox())!;
   const initialHeaderBottom = initialTopbarBox.y + initialTopbarBox.height;
   expect((await page.getByTestId("page-header").boundingBox())!.y).toBeGreaterThanOrEqual(initialHeaderBottom);
   await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
   expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
   expect((await topbar.boundingBox())!.y).toBeCloseTo(0, 0);
+  const scrolledSidebarBox = (await sidebar.boundingBox())!;
+  expect(scrolledSidebarBox.y).toBeLessThanOrEqual(initialSidebarBox.y);
+  expect(scrolledSidebarBox.y).toBeCloseTo(72, 0);
+  expect(scrolledSidebarBox.y + scrolledSidebarBox.height).toBeLessThanOrEqual(900);
+  await expect(sidebar.getByRole("button", { name: "Sign out", exact: true })).toBeVisible();
+  await expect(sidebar.getByRole("link", { name: "My profile", exact: true })).toHaveCount(0);
+  await expect(sidebar.getByRole("group", { name: "Appearance", exact: true })).toHaveCount(0);
+  await expect(topbar.getByRole("group", { name: "Appearance", exact: true })).toBeVisible();
   await page.evaluate(() => window.scrollTo(0, 0));
 
   await employment.focus();

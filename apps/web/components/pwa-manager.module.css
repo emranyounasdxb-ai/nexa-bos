@@ -15,8 +15,13 @@
   backdrop-filter: blur(14px);
 }
 
-:global(html[data-pwa-install-visible] [data-testid="authenticated-content"]) {
-  padding-bottom: max(7rem, calc(5rem + env(safe-area-inset-bottom)));
+:global(#authenticated-pwa-install-slot) .installCard {
+  position: relative;
+  right: auto;
+  bottom: auto;
+  z-index: 20;
+  width: min(21rem, calc(100% - 48px));
+  margin: 8px 24px 0 auto;
 }
 
 .installButton {
@@ -84,8 +89,24 @@
     flex: 1;
   }
 
-  :global(html[data-pwa-install-visible] [data-testid="authenticated-content"]) {
-    padding-bottom: max(8.5rem, calc(6.5rem + env(safe-area-inset-bottom)));
+  :global(#authenticated-pwa-install-slot) .installCard {
+    width: calc(100% - 24px);
+    margin: 8px 12px 0 auto;
+  }
+}
+
+@media (min-width: 640px) and (max-width: 1023px) {
+  :global(#authenticated-pwa-install-slot) .installCard {
+    width: min(21rem, calc(100% - 32px));
+    margin-inline: 16px;
+    margin-left: auto;
+  }
+}
+
+@media (min-width: 1280px) {
+  :global(#authenticated-pwa-install-slot) .installCard {
+    width: min(21rem, calc(100% - 64px));
+    margin-right: 32px;
   }
 }
 

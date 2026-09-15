@@ -213,6 +213,7 @@ export function WorkspaceFrame({ children, user, groups, context, pathname, home
       <Link href={home} aria-label="AMAFH CORE home" className={styles.brand}><BrandLogo /></Link>
       <nav className={styles.topNav} aria-label="Workspace pages">{topItems.map(item => <Link key={item.href} href={item.href} aria-current={isActive(item.href) ? "page" : undefined}>{item.label}</Link>)}</nav>
       <div className={styles.headerActions}>
+        <ThemeControls className={styles.headerTheme} />
         {notifications && <NotificationBell pathname={pathname} />}
         <div className={styles.accountAnchor} data-testid="account-actions">
           <button ref={accountTrigger} type="button" className={styles.accountTrigger} aria-label="Open user menu" aria-haspopup="menu" aria-expanded={accountOpen} aria-controls="workspace-account-menu" onClick={() => { if (accountOpen) closeAccount(); else { accountInitial.current = "first"; setAccountOpen(true); } }} onKeyDown={event => { if (["ArrowDown", "ArrowUp"].includes(event.key)) { event.preventDefault(); accountInitial.current = event.key === "ArrowUp" ? "last" : "first"; setAccountOpen(true); } }}><ProfilePhoto userId={user!.id} fullName={user!.fullName} hasPhoto={user!.hasPhoto} version={user!.updatedAt} /><span className={styles.accountCopy}>{user?.fullName}<small>{user?.userType?.name ?? "AMAFH user"}</small></span><IconChevronDown className={styles.accountChevron} /></button>
@@ -234,20 +235,20 @@ export function WorkspaceFrame({ children, user, groups, context, pathname, home
     {mobileOpen && !desktop && <button type="button" tabIndex={-1} aria-label="Close navigation backdrop" className={styles.mobileBackdrop} onClick={() => setMobileOpen(false)} />}
     <aside ref={sidebar} id="application-sidebar" aria-label="Application sidebar" role={!desktop && mobileOpen ? "dialog" : undefined} aria-modal={!desktop && mobileOpen ? true : undefined} inert={!desktop && !mobileOpen} className={styles.rail} data-mobile-open={mobileOpen}
       onClickCapture={hideRailTooltip}
-      onPointerOver={event => { const target = (event.target as Element).closest<HTMLElement>("a[aria-label],button[aria-label]"); if (target && !target.contains(event.relatedTarget as Node | null)) showRailTooltip(target); }}
-      onPointerOut={event => { const target = (event.target as Element).closest<HTMLElement>("a[aria-label],button[aria-label]"); if (target && !target.contains(event.relatedTarget as Node | null) && document.activeElement !== target) hideRailTooltip(); }}
+      onPointerOver={event => { const target = (event.target as Element).closest<HTMLElement>("a[aria-label],button[aria-label]"); const focused = document.activeElement; if (target && !target.contains(event.relatedTarget as Node | null) && (!sidebar.current?.contains(focused) || focused === target)) showRailTooltip(target); }}
+      onPointerOut={event => { const target = (event.target as Element).closest<HTMLElement>("a[aria-label],button[aria-label]"); if (target && tooltipTarget.current === target && !target.contains(event.relatedTarget as Node | null) && document.activeElement !== target) hideRailTooltip(); }}
       onFocusCapture={event => { const target = (event.target as Element).closest<HTMLElement>("a[aria-label],button[aria-label]"); if (target) showRailTooltip(target); }}
       onBlurCapture={event => { const target = (event.target as Element).closest<HTMLElement>("a[aria-label],button[aria-label]"); if (target && !target.contains(event.relatedTarget as Node | null) && !target.matches(":hover")) hideRailTooltip(); }}>
       <button ref={menuClose} type="button" aria-label="Close navigation" className={`${styles.iconButton} ${styles.mobileClose}`} onClick={() => setMobileOpen(false)}><IconX className="size-4" /></button>
-      <ThemeControls className={styles.railTheme} />
       <nav className={styles.mainCapsule} aria-label="Primary">{groups.map(group => {
         const direct = ["Workspace", "Finance"].includes(group.label);
         const MainIcon = group.icon;
         const active = context.group === group.label;
         return direct ? <Link key={group.label} href={group.items[0].href} onNavigate={() => setMobileOpen(false)} aria-label={group.items[0].label} aria-current={isActive(group.items[0].href) ? "page" : undefined} className={styles.railButton}><MainIcon className="size-5" /></Link> : <button key={group.label} type="button" aria-label={`${group.label} menu`} aria-haspopup="dialog" aria-expanded={groupName === group.label} aria-controls={groupName === group.label ? "workspace-submenu" : undefined} data-active={active} className={styles.railButton} onClick={() => setGroupName(group.label)}><MainIcon className="size-5" /></button>;
       })}</nav>
-      <div className={styles.utilityCapsule}><Link href="/account" aria-label="My profile" className={styles.railButton}><ProfilePhoto userId={user!.id} fullName={user!.fullName} hasPhoto={user!.hasPhoto} version={user!.updatedAt} /></Link><button type="button" aria-label="Sign out" className={styles.railButton} onClick={() => void onLogout()}><IconLogout className="size-5" /></button></div>
+      <div className={styles.utilityCapsule}><button type="button" aria-label="Sign out" className={styles.railButton} onClick={() => void onLogout()}><IconLogout className="size-5" /></button></div>
     </aside>
+    <div id="authenticated-pwa-install-slot" className={styles.installSlot} />
     <div data-testid="authenticated-content" data-portal-role={user?.userType?.code === "TL" ? "TL" : undefined} className={styles.content} inert={!desktop && mobileOpen}>
       <div data-testid="page-header" className={styles.pageHeader} data-compact={tlDashboard}>
         <nav ref={breadcrumb} aria-label="Breadcrumb" className={tlDashboard ? "sr-only" : styles.breadcrumb}>{ancestors.map(item => <span key={item.href} className="contents"><Link href={item.href}>{item.label}</Link><IconChevronRight className="size-3" /></span>)}<span aria-current="page">{context.title}</span></nav>
