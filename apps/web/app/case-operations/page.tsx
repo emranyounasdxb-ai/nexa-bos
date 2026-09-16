@@ -130,7 +130,7 @@ export default function CaseOperationsPage() {
     return `/api/v1/case-operations/reports/cases${suffix}${encoded ? `?${encoded}` : ""}`;
   }
 
-  if (!tabs.length) return <EmptyState>You do not have permission to access Case Operations.</EmptyState>;
+  if (!tabs.length || user?.userType?.code === "TL") return <EmptyState>You do not have permission to access Case Operations.</EmptyState>;
   return <section className="space-y-4">
     <PageHeader title="Case Operations" description="Configure effective rules, processing lanes, controlled stage imports and operational reporting." />
     {error ? <ErrorText>{error}</ErrorText> : null}

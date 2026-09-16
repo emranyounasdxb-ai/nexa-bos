@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { captureViewportThemes } from "./helpers/viewport-capture";
+import { selectBrandedOption } from "./helpers/select";
 
 const apiOrigin = `http://127.0.0.1:${process.env.PLAYWRIGHT_API_PORT ?? "8010"}`;
 
@@ -60,7 +61,13 @@ for (const width of [1440, 390]) {
     await expect(dialog).toBeVisible();
     await expect(submit).toBeEnabled();
     await expect(dialog.locator("input")).toHaveCount(3);
-    await expect(dialog.getByRole("combobox")).toHaveCount(0);
+    await expect(dialog.getByRole("combobox", { name: "Designation", exact: true })).toBeVisible();
+    const options = await page.request.get(`${apiOrigin}/api/v1/users/designation-options`);
+    expect(options.ok()).toBeTruthy();
+    const designations = (await options.json()).items as { id: string; name: string }[];
+    const designation = designations.find((item) => item.name === "Sales Executive")!;
+    expect(designation).toBeTruthy();
+    await selectBrandedOption(dialog.getByRole("combobox", { name: "Designation", exact: true }), designation.id);
     for (const excluded of ["First Name", "Last Name", "Employee Code", "Work Email", "Office", "User Type"]) {
       await expect(dialog.getByLabel(excluded, { exact: true })).toHaveCount(0);
     }
@@ -103,8 +110,9 @@ for (const width of [1440, 390]) {
     expect(response.status()).toBe(200);
     const user = await response.json();
     expect(user.accountStatus).toBe("pending");
-    expect(user.userType).toBeNull();
-    expect(user.employeeCode).toBeNull();
+    expect(user.userType.id).toBe(designation.id);
+    expect(user.employeeCode).toBe(`EMP-${user.userCode.replace("USR-", "")}`);
+    expect(user.hasPassword).toBe(false);
     await expect(page).toHaveURL(/\/users\/[0-9a-f-]+\?tab=overview$/, { timeout: 30_000 });
     await expect(page.getByRole("heading", { name: `Basic Employee ${tag}`, exact: true })).toBeVisible();
     await page.getByRole("tab", { name: "HR Profile" }).click();

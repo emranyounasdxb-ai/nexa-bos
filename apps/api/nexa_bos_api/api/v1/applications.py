@@ -6,6 +6,7 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends
+from sqlalchemy import select
 
 from nexa_bos_api.api.v1.deps import CurrentUser, require_permission
 from nexa_bos_api.api.v1.pagination import PaginationDep
@@ -56,7 +57,8 @@ from nexa_bos_api.core.exceptions import AppError
 from nexa_bos_api.customers.schemas import CustomerIdentityMatchRequest
 from nexa_bos_api.customers.service import get_visible_customer
 from nexa_bos_api.db.session import SessionDep
-from nexa_bos_api.identity.access import has_permission, has_user_type
+from nexa_bos_api.identity.access import has_permission, has_user_type, tl_team_owner_ids
+from nexa_bos_api.identity.models import User
 from nexa_bos_api.identity.permissions import (
     APPLICATIONS_CORRECT_DELAY,
     APPLICATIONS_CORRECT_STAGE,
@@ -291,6 +293,16 @@ async def applications_case_owners(
     }
 
 
+@router.get("/applications/creation-owners")
+async def application_creation_owners(
+    session: SessionDep,
+    actor: Annotated[CurrentUser, Depends(require_permission(APPLICATIONS_CREATE))],
+) -> dict[str, object]:
+    allowed = await tl_team_owner_ids(session, actor) if has_user_type(actor, "TL") else {actor.id}
+    users = await session.scalars(select(User).where(User.id.in_(allowed)).order_by(User.full_name))
+    return {"items": [{"id": str(user.id), "fullName": user.full_name} for user in users]}
+
+
 @router.get("/applications/product-variants")
 async def applications_product_variants(
     session: SessionDep,
@@ -397,6 +409,19 @@ async def applications_case_number(
 ) -> dict[str, object]:
     application = await get_visible_application(session, actor, application_id)
     await _require_application_mutation_scope(actor, application, session)
+    if application.routed_coordinator_id is not None and application.submitted_at is None:
+        from nexa_bos_api.case_operations.schemas import BankSubmissionRequest
+        from nexa_bos_api.case_operations.service import submit_bank_file
+
+        return await serialize_application(
+            session,
+            await submit_bank_file(
+                session,
+                actor,
+                application,
+                BankSubmissionRequest(bank_file_number=payload.bank_case_number),
+            ),
+        )
     return await serialize_application(
         session,
         await save_case_number(

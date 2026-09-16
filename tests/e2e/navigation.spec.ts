@@ -310,15 +310,15 @@ test("owner can log in, navigate major screens, sign out, and log in again", asy
   await expect(page.getByRole("heading", { name: "Notifications" })).toBeVisible();
   await expect(page.getByRole("navigation", { name: "Workspace pages" })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Banks & products", exact: true })).toHaveCount(0);
-  await expect(page.getByRole("link", { name: "User types", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Designations", exact: true })).toHaveCount(0);
 
   await openGroup(page, "Assets");
   await page.locator("#workspace-submenu, nav[aria-label=Primary]").getByRole("link", { name: "Assets", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Asset Register" })).toBeVisible();
 
   await openGroup(page, "Administration");
-  await page.locator("#workspace-submenu, nav[aria-label=Primary]").getByRole("link", { name: "User types" }).click();
-  await expect(page.getByRole("heading", { name: "User types" })).toBeVisible();
+  await page.locator("#workspace-submenu, nav[aria-label=Primary]").getByRole("link", { name: "Designations" }).click();
+  await expect(page.getByRole("heading", { name: "Designations" })).toBeVisible();
 
   await openGroup(page, "People");
   await page.locator("#workspace-submenu, nav[aria-label=Primary]").getByRole("link", { name: "Organization" }).click();
@@ -409,7 +409,7 @@ test("approved AMAFH CORE branding is used across public and responsive authenti
     "src",
     "/brand/amafh-core-full-logo-exact.svg",
   );
-  await expect(page.getByRole("heading", { name: "Sign in to AMAFH CORE" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Welcome Back", exact: true })).toBeVisible();
   await expect(page.getByText(/NEXA BOS/i)).toHaveCount(0);
 
   const iconHrefs = await page.locator('link[rel="icon"]').evaluateAll((links) =>
@@ -434,7 +434,6 @@ test("approved AMAFH CORE branding is used across public and responsive authenti
     if (surface === "workspace") await expect(page.getByTestId("dashboard-overview")).toBeVisible();
     for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
       await page.setViewportSize(viewport);
-      if (surface === "workspace" && viewport.width === 390) await page.getByRole("button", { name: "Open navigation" }).click();
       for (const theme of ["light", "dark"] as const) {
         await page.getByRole("button", { name: `${theme === "light" ? "Light" : "Dark"} theme`, exact: true }).click();
         const logo = page.locator('.amafh-full-logo img:visible');
@@ -445,13 +444,15 @@ test("approved AMAFH CORE branding is used across public and responsive authenti
         const box = await logo.boundingBox();
         expect(box).not.toBeNull();
         expect(box!.width / box!.height).toBeCloseTo(1551 / 479, 1);
-        if (surface === "workspace") await expect(page.getByLabel("Application sidebar").locator("img")).toHaveCount(0);
+        if (surface === "workspace") {
+          if (viewport.width === 390) await page.getByRole("button", { name: "Open navigation" }).click();
+          await expect(page.getByLabel("Application sidebar").locator("img")).toHaveCount(0);
+        }
         expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
         await page.screenshot({ path: testInfo.outputPath(`brand-${surface}-${theme}-${viewport.width}.png`), animations: "disabled" });
         if (surface === "workspace" && viewport.width === 390) {
           await page.keyboard.press("Escape");
           await page.screenshot({ path: testInfo.outputPath(`brand-workspace-closed-${theme}-390.png`), animations: "disabled" });
-          await page.getByRole("button", { name: "Open navigation" }).click();
         }
       }
       if (surface === "workspace" && viewport.width === 390) await page.keyboard.press("Escape");
@@ -534,8 +535,8 @@ test("AMAFH CORE semantic colors drive primary actions, focus, navigation, and s
   });
   await expect(page.locator("body")).toHaveCSS("background-color", "rgb(246, 245, 248)");
   await expect(page.getByRole("button", { name: "Sign in", exact: true })).toHaveCSS(
-    "background-color",
-    "rgb(40, 36, 46)",
+    "background-image",
+    "linear-gradient(110deg, rgb(227, 38, 168), rgb(123, 35, 152))",
   );
 
   const email = page.getByLabel("Email");

@@ -21,7 +21,7 @@ const ORGANIZATION_MANAGE_PERMISSIONS = [
 const CATALOG_MANAGE_PREFIXES = ["Banks.", "Products.", "BankProducts.", "ProductVariants."];
 
 export function canReadOrganization(user: UserRecord | null): boolean {
-  if (!user) return false;
+  if (!user || user.userType?.code === "TL") return false;
   return (
     ORGANIZATION_CATALOG_READ_TYPES.has(user.userType?.code ?? "") ||
     ORGANIZATION_MANAGE_PERMISSIONS.some((permission) => user.permissions.includes(permission))
@@ -29,7 +29,7 @@ export function canReadOrganization(user: UserRecord | null): boolean {
 }
 
 export function canReadCatalog(user: UserRecord | null): boolean {
-  if (!user) return false;
+  if (!user || user.userType?.code === "TL") return false;
   return (
     ORGANIZATION_CATALOG_READ_TYPES.has(user.userType?.code ?? "") ||
     user.permissions.some((permission) =>

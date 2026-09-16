@@ -69,7 +69,8 @@ class BasicUserCreateRequest(BaseModel):
     full_name: str = Field(min_length=1, max_length=200)
     personal_email: AccountEmail
     personal_mobile: str = Field(min_length=5, max_length=32)
-    user_code: str = Field(pattern=r"^USR-\d{6,12}$")
+    user_code: str | None = Field(default=None, pattern=r"^USR-\d{6,12}$")
+    designation_type_id: UUID | None = None
 
     @field_validator("full_name", "personal_mobile", mode="before")
     @classmethod

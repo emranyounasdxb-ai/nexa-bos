@@ -376,7 +376,7 @@ async def test_cod_dashboard_is_office_scoped_operational_and_personal(
     await _configure_system_type(
         authed,
         "TL",
-        permissions=["Applications.View", "Applications.Edit"],
+        permissions=["Applications.View", "Applications.Edit", "CaseOperations.ViewRouting"],
         application_scope="team",
     )
 
@@ -471,16 +471,38 @@ async def test_cod_dashboard_is_office_scoped_operational_and_personal(
     dxb_waiting = await create_owned(dxb_se, "DXB waiting")
     dxb_processing = await create_owned(dxb_se, "DXB processing")
     auh_waiting = await create_owned(auh_se, "AUH waiting")
-    for leader, applications in ((dxb_tl, (dxb_waiting, dxb_processing)), (auh_tl, (auh_waiting,))):
+    for office, manager, coordinator, leader, applications in (
+        (dxb, dxb_sm, dxb_cod, dxb_tl, (dxb_waiting, dxb_processing)),
+        (auh, auh_sm, auh_cod, auh_tl, (auh_waiting,)),
+    ):
+        routing = await authed.put(
+            "/api/v1/case-operations/routing",
+            json={
+                "office_id": office,
+                "product_id": pf["id"],
+                "sales_manager_id": manager["id"],
+                "coordinator_id": coordinator["id"],
+            },
+        )
+        assert routing.status_code == 200, routing.text
         async with await spawned_client() as reviewer:
             await authenticate(reviewer, leader["email"], "UserPass1!")
             for application in applications:
                 path = f"/api/v1/applications/{application['id']}/internal-review"
                 state = (await reviewer.get(path)).json()
-                forwarded = await reviewer.post(
-                    path, json={"action": "forward", "expected_event_id": state["eventId"]}
+                booked = await reviewer.post(
+                    f"/api/v1/case-operations/applications/{application['id']}/book",
+                    json={"expected_review_event_id": state["eventId"]},
                 )
-                assert forwarded.status_code == 200, forwarded.text
+                assert booked.status_code == 200, booked.text
+        async with await spawned_client() as approver:
+            await authenticate(approver, manager["email"], "UserPass1!")
+            for application in applications:
+                approved = await approver.post(
+                    f"/api/v1/case-operations/applications/{application['id']}/sales-manager-decision",
+                    json={"decision": "approve"},
+                )
+                assert approved.status_code == 200, approved.text
 
     async with await spawned_client() as dxb_client:
         await authenticate(dxb_client, dxb_cod["email"], "UserPass1!")

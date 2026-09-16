@@ -170,6 +170,8 @@ class AppFact:
     bank_case_number: str | None = None
     updated_at: datetime | None = None
     tat_stopped_at: datetime | None = None
+    routing_status: str | None = None
+    routed_coordinator_id: UUID | None = None
 
     def owner_at(self, moment: datetime | None) -> Attribution:
         return attribution_at(self.history, moment, self.current_owner_id)
@@ -416,6 +418,8 @@ async def load_facts(
                     max(event.bos_updated_at for event in stage_events) if stage_events else None
                 ),
                 tat_stopped_at=app.tat_stopped_at,
+                routing_status=app.routing_status,
+                routed_coordinator_id=app.routed_coordinator_id,
             )
         )
     return facts, users, offices, teams
@@ -1353,7 +1357,16 @@ def _cod_workspace_payload(
             now,
             fact.current_attr.office_id,
         )
-        and review_state(fact.events)["status"] in {"legacy", "forwarded"}
+        and (
+            (
+                fact.routing_status is None
+                and review_state(fact.events)["status"] in {"legacy", "forwarded"}
+            )
+            or (
+                fact.routed_coordinator_id == actor.id
+                and (fact.routing_status in {"sm_approved", "submitted", "closed"})
+            )
+        )
     ]
     opened = [fact for fact in visible if fact.terminal_outcome is None]
     new_cases = [fact for fact in visible if in_window(fact.created_at, window)]
@@ -1363,7 +1376,12 @@ def _cod_workspace_payload(
     requirements = [fact for fact in opened if _cod_requirement_pending(fact)]
     delayed = [fact for fact in opened if fact.active_delay_type is not None]
     approved = [fact for fact in visible if in_window(fact.approved_at, window)]
-    completed_funded = [fact for fact in visible if in_window(fact.funded_at, window)]
+    completed_funded = [
+        fact
+        for fact in visible
+        if in_window(fact.funded_at, window)
+        or (fact.terminal_outcome == "Completed" and in_window(fact.terminal_at, window))
+    ]
 
     latest = lambda rows: sorted(  # noqa: E731 - compact queue construction
         rows,

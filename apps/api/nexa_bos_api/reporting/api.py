@@ -12,7 +12,7 @@ from nexa_bos_api.api.v1.deps import CurrentUser, require_permission
 from nexa_bos_api.api.v1.pagination import PaginationDep
 from nexa_bos_api.core.exceptions import AppError
 from nexa_bos_api.db.session import SessionDep
-from nexa_bos_api.identity.access import has_permission
+from nexa_bos_api.identity.access import has_permission, has_user_type
 from nexa_bos_api.identity.audit import record_audit
 from nexa_bos_api.identity.models import User
 from nexa_bos_api.identity.permissions import (
@@ -103,6 +103,8 @@ def _filter_dict(
 
 
 def require_reporting_read(user: User) -> User:
+    if has_user_type(user, "TL"):
+        raise AppError(status_code=403, code="FORBIDDEN", message="Use the TL workspace reports")
     if has_permission(user, DASHBOARD_VIEW) or has_permission(user, REPORTS_VIEW):
         return user
     raise AppError(status_code=403, code="FORBIDDEN", message="Permission denied")
@@ -123,10 +125,33 @@ async def get_tl_dashboard(
     view: str = "combined",
     queue: str = "pending_review",
     page: int = Query(default=1, ge=1),
+    date_from: date | None = None,
+    date_to: date | None = None,
+    member_id: UUID | None = None,
+    search: str = Query(default="", max_length=200),
+    owner_id: UUID | None = None,
+    product_id: UUID | None = None,
+    stage_id: UUID | None = None,
+    outcome: str | None = None,
 ) -> dict[str, object]:
     from nexa_bos_api.reporting.tl import tl_dashboard
 
-    return await tl_dashboard(session, actor, period=period, view=view, queue=queue, page=page)
+    return await tl_dashboard(
+        session,
+        actor,
+        period=period,
+        view=view,
+        queue=queue,
+        page=page,
+        date_from=date_from,
+        date_to=date_to,
+        member_id=member_id,
+        search=search,
+        owner_id=owner_id,
+        product_id=product_id,
+        stage_id=stage_id,
+        outcome=outcome,
+    )
 
 
 @router.get("/dashboard")
@@ -146,6 +171,8 @@ async def get_dashboard(
     terminal_outcome: str | None = None,
     ranking_metric: str = "funded_value",
 ) -> dict[str, object]:
+    if has_user_type(actor, "TL"):
+        raise AppError(status_code=403, code="FORBIDDEN", message="Use the TL workspace dashboard")
     return await dashboard_payload(
         session,
         actor,

@@ -46,7 +46,7 @@ async def items(actor, query=""):
 async def test_approval_leave_scope_filters_cancellation_concurrency_and_personal(client):
     owner, employee, operator, manager, clients = await fixtures(client)
     own, hr, lead = clients
-    outsider = await create_activated_user(owner, user_type_code="TL")
+    outsider = await create_activated_user(owner, user_type_code="SM")
     outsider_client = await spawned_client()
     try:
         await authenticate(outsider_client, outsider["email"], "UserPass1!")

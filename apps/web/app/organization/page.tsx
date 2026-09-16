@@ -38,26 +38,24 @@ import { RecordFrame } from "@/components/page-patterns";
 import { canReadOrganization } from "@/lib/role-access";
 import type { ManagerOption, OrgRef } from "@/lib/types";
 
-type MasterTab = "offices" | "departments" | "business-units" | "teams" | "designations";
+type MasterTab = "offices" | "departments" | "business-units" | "teams";
 type MasterRecord = OrgRef & { officeId?: string; departmentId?: string; businessUnitId?: string | null };
 type DrawerState = { kind: MasterTab; mode: "create" | "edit"; item?: MasterRecord } | null;
 type StatusTarget = { kind: MasterTab; item: MasterRecord } | null;
 type FieldErrors = Partial<Record<"name" | "office" | "department" | "businessUnit", string>>;
 
-const MASTER_TABS: MasterTab[] = ["offices", "departments", "business-units", "teams", "designations"];
+const MASTER_TABS: MasterTab[] = ["offices", "departments", "business-units", "teams"];
 const EMPTY_FILTERS: Record<MasterTab, string> = {
   "business-units": "",
   offices: "",
   departments: "",
   teams: "",
-  designations: "",
 };
 const ALL_STATUSES: Record<MasterTab, string> = {
   "business-units": "all",
   offices: "all",
   departments: "all",
   teams: "all",
-  designations: "all",
 };
 const MASTER_CONFIG: Record<
   MasterTab,
@@ -94,13 +92,6 @@ const MASTER_CONFIG: Record<
     description: "Maintain teams within their office, department, and Business Unit.",
     permission: "Teams.Manage",
     endpoint: "/api/v1/teams",
-  },
-  designations: {
-    label: "Designations",
-    singular: "Designation",
-    description: "Maintain the standalone job designations used on employee records.",
-    permission: "Designations.Manage",
-    endpoint: "/api/v1/designations",
   },
 };
 
@@ -153,7 +144,6 @@ export default function OrganizationPage() {
   const drawerTriggerRef = useRef<HTMLElement | null>(null);
   const [offices, setOffices] = useState<MasterRecord[]>([]);
   const [departments, setDepartments] = useState<MasterRecord[]>([]);
-  const [designations, setDesignations] = useState<MasterRecord[]>([]);
   const [teams, setTeams] = useState<MasterRecord[]>([]);
   const [businessUnits, setBusinessUnits] = useState<MasterRecord[]>([]);
   const [businessUnitId, setBusinessUnitId] = useState("");
@@ -177,16 +167,14 @@ export default function OrganizationPage() {
   const canManageTeams = can("Teams.Manage");
 
   const refresh = useCallback(async () => {
-    const [officeData, departmentData, designationData, teamData, unitData] = await Promise.all([
+    const [officeData, departmentData, teamData, unitData] = await Promise.all([
       apiGet<{ items: MasterRecord[] }>("/api/v1/offices?includeInactive=true", api),
       apiGet<{ items: MasterRecord[] }>("/api/v1/departments?includeInactive=true", api),
-      apiGet<{ items: MasterRecord[] }>("/api/v1/designations?includeInactive=true", api),
       apiGet<{ items: MasterRecord[] }>("/api/v1/teams?includeInactive=true", api),
       apiGet<{ items: MasterRecord[] }>("/api/v1/business-units?includeInactive=true", api),
     ]);
     setOffices(officeData.items);
     setDepartments(departmentData.items);
-    setDesignations(designationData.items);
     setTeams(teamData.items);
     setBusinessUnits(unitData.items);
     if (canManageTeams) {
@@ -223,8 +211,8 @@ export default function OrganizationPage() {
   }, [refresh]);
 
   const itemsByTab = useMemo<Record<MasterTab, MasterRecord[]>>(
-    () => ({ offices, departments, "business-units": businessUnits, teams, designations }),
-    [departments, designations, offices, teams, businessUnits],
+    () => ({ offices, departments, "business-units": businessUnits, teams }),
+    [departments, offices, teams, businessUnits],
   );
   const officeById = useMemo(() => new Map(offices.map((item) => [item.id, item])), [offices]);
   const departmentById = useMemo(
@@ -476,7 +464,7 @@ export default function OrganizationPage() {
     <section className="min-w-0 space-y-4">
       <PageHeader
         title="Organization masters"
-        description="Manage offices, departments, Business Units, teams, and designations from one focused workspace."
+        description="Manage offices, departments, Business Units and teams. Staff designations use the configured User Types."
         actions={
           can("Users.View") ? (
             <ButtonLink href="/organization/hierarchy" variant="secondary">
@@ -752,7 +740,7 @@ export default function OrganizationPage() {
                   <TextInput
                     id="master-name"
                     aria-label={`${drawerConfig.singular} name`}
-                    autoFocus={drawer.mode === "edit" || drawer.kind === "offices" || drawer.kind === "designations"}
+                    autoFocus={drawer.mode === "edit" || drawer.kind === "offices"}
                     maxLength={120}
                     required
                     error={Boolean(fieldErrors.name)}

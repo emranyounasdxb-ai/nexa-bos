@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, File, Form, Query, UploadFile
 from fastapi.responses import FileResponse, Response
 
 from nexa_bos_api.api.v1.deps import CurrentUser, require_permission
+from nexa_bos_api.core.exceptions import AppError
 from nexa_bos_api.db.session import SessionDep
 from nexa_bos_api.employee_profiles.schemas import (
     BasicProfileUpdate,
@@ -29,6 +30,7 @@ from nexa_bos_api.employee_profiles.service import (
     update_hr_profile,
     upload_document_file,
 )
+from nexa_bos_api.identity.access import has_user_type
 from nexa_bos_api.identity.permissions import USER_PROFILES_HR_VIEW, USER_PROFILES_PRO_VIEW
 
 router = APIRouter(prefix="/employee-profiles", tags=["employee-profiles"])
@@ -40,6 +42,8 @@ async def hr_dashboard_route(
     session: SessionDep,
     actor: Annotated[CurrentUser, Depends(require_permission(USER_PROFILES_HR_VIEW))],
 ) -> dict[str, object]:
+    if has_user_type(actor, "TL"):
+        raise AppError(status_code=403, code="FORBIDDEN", message="Use the TL team workspace")
     return await hr_dashboard(session, actor)
 
 
@@ -52,6 +56,8 @@ async def pro_dashboard_route(
     page: int | None = Query(default=None, ge=1),
     page_size: int | None = Query(default=None, alias="pageSize", ge=10, le=100),
 ) -> dict[str, object]:
+    if has_user_type(actor, "TL"):
+        raise AppError(status_code=403, code="FORBIDDEN", message="Use the TL team workspace")
     return await pro_dashboard(
         session,
         actor,

@@ -1,9 +1,11 @@
 import asyncio
 import os
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from helpers import authenticate, create_activated_user, owner_client, spawned_client
+from nexa_bos_api.identity.models import ReservedEmployeeCode, UserCodeCounter
+from nexa_bos_api.main import app
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import create_async_engine
@@ -59,7 +61,7 @@ async def test_hr_update_does_not_reopen_historical_employment(client):
 
 async def basic(owner):
     payload = {
-        "full_name": "New Basic Employee",
+        "full_name": f"New Basic Employee {uuid4().hex[:10]}",
         "personal_email": f"{uuid4().hex}@example.test",
         "personal_mobile": "+971500000123",
         "user_code": await reserve(owner),
@@ -67,6 +69,95 @@ async def basic(owner):
     response = await owner.post("/api/v1/users", json=payload)
     assert response.status_code == 200, response.text
     return response.json(), payload
+
+
+@pytest.mark.asyncio
+async def test_employee_creation_generates_codes_without_enabling_login(client):
+    owner, _ = await owner_client(client)
+    payload = {
+        "full_name": "Automatically Coded Employee",
+        "personal_email": f"{uuid4().hex}@example.test",
+        "personal_mobile": "+971500000123",
+    }
+    response = await owner.post("/api/v1/users", json=payload)
+    assert response.status_code == 200, response.text
+    user = response.json()
+    assert user["userCode"].startswith("USR-")
+    assert user["employeeCode"] == f"EMP-{user['userCode'].removeprefix('USR-')}"
+    assert user["accountStatus"] == "pending"
+    assert user["userType"] is None
+    assert not user["hasPassword"]
+    duplicate = await owner.post("/api/v1/users", json=payload)
+    assert duplicate.status_code == 409
+    assert duplicate.json()["error"]["code"] == "EMAIL_DUPLICATE"
+
+
+@pytest.mark.asyncio
+async def test_employee_designation_cannot_assign_owner(client):
+    owner, actor = await owner_client(client)
+    response = await owner.post(
+        "/api/v1/users",
+        json={
+            "full_name": "Forbidden Owner Employee",
+            "personal_email": f"{uuid4().hex}@example.test",
+            "personal_mobile": "+971500000123",
+            "designation_type_id": actor["userType"]["id"],
+        },
+    )
+    assert response.status_code == 403, response.text
+    assert response.json()["error"]["code"] == "OWNER_ASSIGN_FORBIDDEN"
+
+
+@pytest.mark.asyncio
+async def test_canonical_designation_uses_existing_user_type_without_activation(client):
+    owner, _ = await owner_client(client)
+    created_type = await owner.post(
+        "/api/v1/user-types", json={"name": f"Staff Designation {uuid4().hex[:10]}"}
+    )
+    assert created_type.status_code == 200, created_type.text
+    designation = created_type.json()
+    options = await owner.get("/api/v1/users/designation-options")
+    assert options.status_code == 200
+    assert designation["id"] in {item["id"] for item in options.json()["items"]}
+    response = await owner.post(
+        "/api/v1/users",
+        json={
+            "full_name": "Canonical Designation Employee",
+            "personal_email": f"{uuid4().hex}@example.test",
+            "personal_mobile": "+971500000123",
+            "designation_type_id": designation["id"],
+        },
+    )
+    assert response.status_code == 200, response.text
+    user = response.json()
+    assert user["userType"]["id"] == designation["id"]
+    assert user["designation"] is None
+    assert user["accountStatus"] == "pending"
+    assert user["hasPassword"] is False
+    assert user["permissions"] == []
+
+
+@pytest.mark.asyncio
+async def test_automatic_employee_code_avoids_historical_reservations(client):
+    owner, actor = await owner_client(client)
+    async with app.state.session_factory() as session:
+        counter = await session.get(UserCodeCounter, 1)
+        base = f"EMP-{counter.last_value + 1:06d}"
+        session.add(ReservedEmployeeCode(employee_code=base, user_id=UUID(actor["id"])))
+        await session.commit()
+    response = await owner.post(
+        "/api/v1/users",
+        json={
+            "full_name": "Historical Code Collision Employee",
+            "personal_email": f"{uuid4().hex}@example.test",
+            "personal_mobile": "+971500000123",
+        },
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["employeeCode"] == f"{base}_2"
+    async with app.state.session_factory() as session:
+        reservation = await session.get(ReservedEmployeeCode, base)
+        assert reservation.user_id == UUID(actor["id"])
 
 
 @pytest.mark.asyncio

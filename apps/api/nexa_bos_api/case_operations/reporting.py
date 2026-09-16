@@ -161,6 +161,8 @@ async def employee_metrics(
     session: AsyncSession,
     actor: User,
     employee_id: UUID,
+    *,
+    window=None,
 ) -> dict[str, object]:
     allowed_ids = await visible_case_owner_ids(session, actor)
     if allowed_ids is not None and employee_id not in allowed_ids:
@@ -168,6 +170,13 @@ async def employee_metrics(
     applications = list(
         await session.scalars(select(Application).where(Application.case_owner_id == employee_id))
     )
+    current_workload = sum(1 for row in applications if row.terminal_outcome is None)
+    if window is not None:
+        from nexa_bos_api.reporting.periods import in_window
+
+        applications = [
+            row for row in applications if in_window(row.booked_at or row.created_at, window)
+        ]
     product_ids = {row.product_id for row in applications}
     products = {
         row.id: row
@@ -177,18 +186,15 @@ async def employee_metrics(
             else []
         )
     }
-    app_ids = [row.id for row in applications]
-    earnings = (
-        list(
-            await session.scalars(
-                select(CaseEarning).where(CaseEarning.application_id.in_(app_ids))
-            )
-        )
-        if app_ids
-        else []
+    earnings = list(
+        await session.scalars(select(CaseEarning).where(CaseEarning.case_owner_id == employee_id))
     )
     card = [row for row in earnings if row.earning_type == "card_points"]
     pf = [row for row in earnings if row.earning_type == "pf_commission"]
+    all_card, all_pf = card, pf
+    if window is not None:
+        card = [row for row in card if in_window(row.earned_at, window)]
+        pf = [row for row in pf if in_window(row.earned_at, window)]
 
     async def reversed_for(rows: list[CaseEarning]) -> Decimal:
         if not rows:
@@ -196,13 +202,15 @@ async def employee_metrics(
         return (
             await session.scalar(
                 select(func.coalesce(func.sum(CaseEarningReversal.amount), 0)).where(
-                    CaseEarningReversal.earning_id.in_([row.id for row in rows])
+                    CaseEarningReversal.earning_id.in_([row.id for row in rows]),
+                    CaseEarningReversal.reversed_at >= window.start if window else True,
+                    CaseEarningReversal.reversed_at <= window.end if window else True,
                 )
             )
         ) or Decimal("0")
 
-    points_reversed = await reversed_for(card)
-    commission_reversed = await reversed_for(pf)
+    points_reversed = await reversed_for(all_card)
+    commission_reversed = await reversed_for(all_pf)
     points = sum((row.amount for row in card), Decimal("0"))
     commission = sum((row.amount for row in pf), Decimal("0"))
     return {
@@ -237,7 +245,7 @@ async def employee_metrics(
         "commissionEarned": _money(commission),
         "commissionReversed": _money(commission_reversed),
         "commissionNet": _money(commission - commission_reversed),
-        "pendingCases": sum(1 for row in applications if row.terminal_outcome is None),
+        "pendingCases": current_workload,
         "closedCases": sum(1 for row in applications if row.terminal_outcome is not None),
     }
 

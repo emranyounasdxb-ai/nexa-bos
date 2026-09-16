@@ -49,6 +49,7 @@ from nexa_bos_api.case_operations.service import (
 )
 from nexa_bos_api.core.exceptions import AppError
 from nexa_bos_api.db.session import SessionDep
+from nexa_bos_api.identity.access import has_user_type
 from nexa_bos_api.identity.permissions import (
     APPLICATIONS_SUBMIT,
     CASE_CLAWBACK_APPROVE,
@@ -110,6 +111,12 @@ async def routing_assignments(
     session: SessionDep,
     _actor: Annotated[CurrentUser, Depends(require_permission(CASE_ROUTING_VIEW))],
 ) -> dict[str, object]:
+    if has_user_type(_actor, "TL"):
+        raise AppError(
+            status_code=403,
+            code="FORBIDDEN",
+            message="Global routing is not available to Team Leaders",
+        )
     return await list_routing(session)
 
 
@@ -269,6 +276,10 @@ async def reports_cases(
     booking_from: date | None = None,
     booking_to: date | None = None,
 ) -> dict[str, object]:
+    if has_user_type(actor, "TL"):
+        raise AppError(
+            status_code=403, code="FORBIDDEN", message="Use your own and direct-team dashboard"
+        )
     return await case_report(session, actor, booking_from=booking_from, booking_to=booking_to)
 
 

@@ -6,7 +6,7 @@ from datetime import UTC, date, datetime
 from decimal import Decimal
 from uuid import UUID
 
-from sqlalchemy import Select, func, or_, select
+from sqlalchemy import Select, and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased, selectinload
 
@@ -59,7 +59,7 @@ from nexa_bos_api.customers.service import (
     serialize_customer,
     update_application_contact_details,
 )
-from nexa_bos_api.identity.access import has_permission, has_user_type
+from nexa_bos_api.identity.access import has_permission, has_user_type, tl_team_owner_ids
 from nexa_bos_api.identity.audit import record_audit
 from nexa_bos_api.identity.enums import (
     ApplicationEventType,
@@ -202,7 +202,7 @@ async def serialize_application(
         "workflowId": str(application.workflow_id),
         "workflowVersion": workflow.version if workflow else None,
         "currentStageId": str(application.current_stage_id),
-        "currentStage": stage.name if stage else None,
+        "currentStage": application.terminal_outcome or (stage.name if stage else None),
         "currentStageKey": stage.system_key if stage else None,
         "terminalOutcome": application.terminal_outcome,
         "terminalReason": application.terminal_reason,
@@ -438,7 +438,11 @@ async def _require_case_owner(session: AsyncSession, owner_id: UUID) -> User:
             select(User).options(selectinload(User.user_type)).where(User.id == owner_id)
         )
     ).scalar_one_or_none()
-    if owner is None or owner.user_type is None or not owner.user_type.can_be_case_owner:
+    if (
+        owner is None
+        or owner.user_type is None
+        or not (owner.user_type.can_be_case_owner or has_user_type(owner, "TL"))
+    ):
         raise AppError(
             status_code=422,
             code="CASE_OWNER_INELIGIBLE",
@@ -610,13 +614,16 @@ async def get_visible_application(
 async def create_application(
     session: AsyncSession, actor: User, payload: ApplicationCreateRequest
 ) -> Application:
-    if payload.case_owner_id is not None and payload.case_owner_id != actor.id:
+    owner_id = payload.case_owner_id or actor.id
+    if owner_id != actor.id and (
+        not has_user_type(actor, "TL") or owner_id not in await tl_team_owner_ids(session, actor)
+    ):
         raise AppError(
             status_code=403,
             code="INITIAL_OWNER_FORBIDDEN",
-            message="The application creator must be the initial Case Owner",
+            message="Select yourself or a directly assigned SE in your own team",
         )
-    owner = await _require_case_owner(session, actor.id)
+    owner = await _require_case_owner(session, owner_id)
     if payload.customer is not None:
         customer = await match_customer_identifiers(
             session,
@@ -705,6 +712,8 @@ async def create_application(
             "productVariantId": str(variant.id),
             "productVariantCode": variant.code,
             "productVariantName": variant.name,
+            "caseOwnerId": str(owner.id),
+            "caseOwnerName": owner.full_name,
         },
         at=now,
     )
@@ -1013,7 +1022,20 @@ async def list_applications(
                 .limit(1)
                 .scalar_subquery()
             )
-            stmt = stmt.where(func.coalesce(review_status, "legacy").in_(("legacy", "forwarded")))
+            stmt = stmt.where(
+                or_(
+                    and_(
+                        Application.routing_status.is_(None),
+                        func.coalesce(review_status, "legacy").in_(("legacy", "forwarded")),
+                    ),
+                    and_(
+                        Application.routed_coordinator_id == actor.id,
+                        or_(
+                            Application.routing_status.in_(("sm_approved", "submitted", "closed")),
+                        ),
+                    ),
+                )
+            )
         if dashboard_metric not in {
             "applications",
             "submitted",
@@ -1046,10 +1068,23 @@ async def list_applications(
             "submitted": Application.submitted_at,
             "approved": Application.approved_at,
             "funded": Application.fund_released_at,
-            "completed_funded": Application.fund_released_at,
         }.get(dashboard_metric)
         if milestone_column is not None:
             stmt = stmt.where(milestone_column >= window.start, milestone_column <= window.end)
+        elif dashboard_metric == "completed_funded":
+            stmt = stmt.where(
+                or_(
+                    and_(
+                        Application.fund_released_at >= window.start,
+                        Application.fund_released_at <= window.end,
+                    ),
+                    and_(
+                        Application.terminal_outcome == "Completed",
+                        Application.completed_at >= window.start,
+                        Application.completed_at <= window.end,
+                    ),
+                )
+            )
         elif dashboard_metric == "in_progress":
             stmt = stmt.where(
                 Application.created_at <= window.end,
@@ -1200,7 +1235,13 @@ async def update_application(
     _reject_terminal(application)
     submitted = application.submitted_at is not None
     data = payload.model_dump(exclude_unset=True)
-    if application.booked_by_tl_id and data:
+    returned_correction = (
+        has_user_type(actor, "TL", "SE")
+        and application.case_owner_id == actor.id
+        and (await get_review(session, application))["status"] == "returned"
+        and set(data) <= {"requested_amount"}
+    )
+    if application.booked_by_tl_id and data and not returned_correction:
         raise AppError(
             status_code=422,
             code="CASE_OWNER_DATA_LOCKED",
@@ -1904,12 +1945,15 @@ async def application_progress(
     session: AsyncSession, application: Application
 ) -> dict[str, object]:
     workflow = await load_workflow(session, application.workflow_id)
+    product = await session.get(Product, application.product_id)
     latest = await occupancy_by_stage(session, application)
     now = utcnow()
     tat = await tat_fields(session, application)
     stages = []
     for row in sorted(workflow.stages, key=lambda item: item.sort_order):
         if row.status != MasterStatus.ACTIVE:
+            continue
+        if product and product.code == "CC" and row.system_key == StageSystemKey.FUND_RELEASED:
             continue
         item = serialize_progress_stage(row, application.current_stage_id)
         occupancy = latest.get(str(row.id))
@@ -1933,6 +1977,8 @@ async def application_progress(
                 "toStageId": str(row.to_stage_id),
             }
             for row in workflow.transitions
+            if str(row.from_stage_id) in {stage["id"] for stage in stages}
+            and str(row.to_stage_id) in {stage["id"] for stage in stages}
         ],
     }
 

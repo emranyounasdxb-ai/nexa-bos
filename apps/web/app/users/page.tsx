@@ -34,6 +34,7 @@ import { StaffBulkUploadDialog } from "@/components/staff-bulk-upload-dialog";
 import { ProfilePhoto } from "@/components/profile-photo";
 import { apiGet, ApiClientError } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
+import { staffDesignationName } from "@/lib/staff-designation";
 import { getBrowserApiUrl } from "@/lib/env";
 import type { OrgRef, UserRecord, UserTypeSummary } from "@/lib/types";
 
@@ -228,7 +229,7 @@ function UsersDirectory() {
     <section className="min-w-0 space-y-4">
       <PageHeader
         title="Users"
-        description="Find employees by organization, employment state, account state, or User Type and open the profile actions allowed by your permissions."
+        description="Find employees by organization, employment state, account state, or designation and open the profile actions allowed by your permissions."
       />
 
       <div data-amafh-list-surface="">
@@ -251,7 +252,7 @@ function UsersDirectory() {
         accountStatus ? { label: "Account", value: accountStatus } : null,
         officeId ? { label: "Office", value: options.offices.find((item) => item.id === officeId)?.name ?? officeId } : null,
         departmentId ? { label: "Department", value: options.departments.find((item) => item.id === departmentId)?.name ?? departmentId } : null,
-        userTypeId ? { label: "User type", value: options.userTypes.find((item) => item.id === userTypeId)?.name ?? userTypeId } : null,
+        userTypeId ? { label: "Designation", value: options.userTypes.find((item) => item.id === userTypeId)?.name ?? userTypeId } : null,
       ].filter((item): item is { label: string; value: string } => Boolean(item))}>
       <FilterBar className="grid-cols-2 lg:grid-cols-3 xl:grid-cols-[minmax(12rem,1.3fr)_repeat(4,minmax(0,1fr))_minmax(7rem,.8fr)]">
         <Field label="Employment status" className="col-span-2 sm:col-span-1">
@@ -278,9 +279,9 @@ function UsersDirectory() {
             {departmentOptions.map((department) => <option key={department.id} value={department.id}>{officeId ? department.name : `${department.office?.name ?? "Office"} — ${department.name}`}</option>)}
           </Select>
         </Field>
-        <Field label="User Type" help={!can("UserTypes.View") ? "Your role cannot view the User Type catalogue." : undefined}>
-          <Select aria-label="User Type" disabled={optionsLoading || !can("UserTypes.View")} value={userTypeId} onChange={(event) => updateUrl({ userTypeId: event.target.value || null, page: null })}>
-            <option value="">All User Types</option>
+        <Field label="Designation" help={!can("UserTypes.View") ? "Your role cannot view the designation catalogue." : undefined}>
+          <Select aria-label="Designation" disabled={optionsLoading || !can("UserTypes.View")} value={userTypeId} onChange={(event) => updateUrl({ userTypeId: event.target.value || null, page: null })}>
+            <option value="">All designations</option>
             {options.userTypes.map((type) => <option key={type.id} value={type.id}>{type.name}</option>)}
           </Select>
         </Field>
@@ -326,7 +327,7 @@ function UsersDirectory() {
                     <tr key={user.id}>
                       <Td className="overflow-hidden whitespace-nowrap px-2 !py-1.5 [padding-right:4px]"><DirectoryValue value={user.employeeCode} className="w-full" /></Td>
                       <Td className="overflow-hidden whitespace-nowrap px-2 !py-1.5 [padding-left:4px]"><div className="flex w-full min-w-0 items-center gap-2"><ProfilePhoto userId={user.id} fullName={user.fullName} hasPhoto={user.hasPhoto} version={user.updatedAt} size="list" /><Link className="min-w-0 flex-1 truncate font-medium text-brand-link underline" title={user.fullName} href={`/users/${user.id}`}>{user.fullName}</Link></div></Td>
-                      <Td className="overflow-hidden whitespace-nowrap px-2 !py-1.5"><DirectoryValue value={user.designation?.name} className="w-full" /></Td>
+                      <Td className="overflow-hidden whitespace-nowrap px-2 !py-1.5"><DirectoryValue value={staffDesignationName(user)} className="w-full" /></Td>
                       <Td className="overflow-hidden whitespace-nowrap px-2 !py-1.5"><DirectoryValue value={user.mobile} className="w-full" /></Td>
                       <Td className="overflow-hidden whitespace-nowrap px-2 !py-1.5"><DirectoryValue value={user.email} className="w-full" /></Td>
                       <Td className="overflow-hidden whitespace-nowrap px-2 !py-1.5"><DirectoryValue value={user.office?.name} className="w-full" /></Td>
@@ -345,7 +346,7 @@ function UsersDirectory() {
                   <div className="flex min-w-0 items-center gap-2.5"><ProfilePhoto userId={user.id} fullName={user.fullName} hasPhoto={user.hasPhoto} version={user.updatedAt} size="list" /><Link className="min-w-0 flex-1 break-words font-semibold leading-5 text-brand-link underline" title={user.fullName} href={`/users/${user.id}`}>{user.fullName}</Link></div>
                   <dl className="mt-2 grid min-w-0 grid-cols-2 gap-x-3 gap-y-1.5 text-xs">
                     <div><dt className="text-text-secondary">Code</dt><dd className="text-text-primary"><DirectoryValue value={user.employeeCode} /></dd></div>
-                    <div><dt className="text-text-secondary">Designation</dt><dd className="text-text-primary"><DirectoryValue value={user.designation?.name} /></dd></div>
+                    <div><dt className="text-text-secondary">Designation</dt><dd className="text-text-primary"><DirectoryValue value={staffDesignationName(user)} /></dd></div>
                     <div><dt className="text-text-secondary">Phone</dt><dd className="text-text-primary"><DirectoryValue value={user.mobile} /></dd></div>
                     <div><dt className="text-text-secondary">Email</dt><dd className="text-text-primary"><DirectoryValue value={user.email} /></dd></div>
                     <div><dt className="text-text-secondary">Office</dt><dd className="text-text-primary"><DirectoryValue value={user.office?.name} /></dd></div>

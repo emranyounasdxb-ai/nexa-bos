@@ -53,11 +53,13 @@ async def visible_customer_ids(session: AsyncSession, actor: User) -> set[UUID] 
     scope = customer_visibility_scope(actor)
     if scope is None:
         return set()
-    if scope is VisibilityScope.COMPANY:
+    if scope is VisibilityScope.COMPANY and not has_user_type(actor, "TL"):
         return None
     owner = aliased(User)
     stmt = select(Application.customer_id).join(owner, Application.case_owner_id == owner.id)
-    if scope is VisibilityScope.OWN:
+    if has_user_type(actor, "TL"):
+        stmt = stmt.where(Application.case_owner_id.in_(await tl_team_owner_ids(session, actor)))
+    elif scope is VisibilityScope.OWN:
         stmt = stmt.where(Application.case_owner_id == actor.id)
     elif scope is VisibilityScope.OFFICE:
         if not actor.office_id:

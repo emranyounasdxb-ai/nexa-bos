@@ -1,16 +1,15 @@
-import { expect, test, type APIRequestContext, type Locator, type Page, type TestInfo } from "@playwright/test";
+import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { preserveBuiltInRoleConfiguration } from "./helpers/role-configuration";
+import { selectBrandedOption } from "./helpers/select";
+import { setVisualTheme } from "./helpers/viewport-capture";
 
 preserveBuiltInRoleConfiguration();
-import { selectBrandedOption } from "./helpers/select";
-import { captureViewport, captureViewportThemes, setVisualTheme } from "./helpers/viewport-capture";
-
 const api = `http://127.0.0.1:${process.env.PLAYWRIGHT_API_PORT ?? "8010"}`;
 const testPassword = "UserPass1!";
+const topLabels = ["Dashboard", "Cases", "My Team", "Performance & Attendance", "Timeline"];
+test.describe.configure({ timeout: 240_000 });
 type RecordId = { id: string; email: string; fullName: string; applicationCode: string; code: string; name: string };
 type Group = { office: RecordId; departmentId: string; team: RecordId; users: Record<string, RecordId>; targetUsers: Record<string, RecordId> };
-type MetricHistory = { unit: "cases"; basis: string; points: Array<{ date: string; value: number | null }> };
-type MetricReport = { cards: Array<{ key: string }>; metricHistory: Record<string, MetricHistory | null> };
 
 async function login(request: APIRequestContext, email: string, password = testPassword) {
   const response = await request.post(`${api}/api/v1/auth/login`, { data: { email, password } });
@@ -114,11 +113,16 @@ async function seed(request: APIRequestContext) {
     const tlHeaders = await login(request, group.users.TL.email);
     const stateResponse = await request.get(`${api}/api/v1/applications/${application.id}/internal-review`);
     expect(stateResponse.status()).toBe(200);
-    await save(request, `applications/${application.id}/internal-review`, tlHeaders, { action: "forward", expected_event_id: (await stateResponse.json()).eventId });
+    await save(request, `case-operations/applications/${application.id}/book`, tlHeaders, { expected_review_event_id: (await stateResponse.json()).eventId });
+    await save(request, `case-operations/applications/${application.id}/sales-manager-decision`, await login(request, group.users.SM.email), { decision: "approve" });
     await save(request, `applications/${application.id}/case-number`, await login(request, group.users.COD.email), { bank_case_number: `TL-${group.office.code}-${tag}-${stamp}` });
   }
   for (const group of groups) await createSubmitted(group, group.users.SE, "COUNT");
   for (const tag of ["OVER", "MIXED"]) await createSubmitted(groups[0], groups[0].targetUsers[tag], tag);
+  const ownHeaders = await login(request, groups[0].users.TL.email);
+  const ownReview = await request.get(`${api}/api/v1/applications/${cases[0].own.id}/internal-review`);
+  await save(request, `case-operations/applications/${cases[0].own.id}/book`, ownHeaders, { expected_review_event_id: (await ownReview.json()).eventId });
+  await save(request, `case-operations/applications/${cases[0].own.id}/sales-manager-decision`, await login(request, groups[0].users.SM.email), { decision: "approve" });
   await save(request, `applications/${cases[0].own.id}/case-number`, await login(request, groups[0].users.COD.email), { bank_case_number: `TL-DXB-OWN-${stamp}` });
   const targetHeaders = await owner(request);
   const now = new Date();
@@ -145,9 +149,6 @@ async function signIn(page: Page, email: string, title: string) {
   await expect(page.getByRole("heading", { name: title, exact: true })).toBeVisible({ timeout: 30_000 });
 }
 async function signOut(page: Page) {
-  const sidebar = page.getByLabel("Application sidebar", { exact: true });
-  const trigger = page.getByRole("button", { name: "Open navigation", exact: true });
-  if (await trigger.isVisible() && !(await sidebar.evaluate(element => element.inert))) await sidebar.getByLabel("Close navigation", { exact: true }).click();
   await page.getByRole("button", { name: "Open user menu", exact: true }).click();
   await page.getByRole("menu", { name: "User account" }).getByRole("menuitem", { name: "Sign out" }).click();
   await expect(page).toHaveURL(/\/login$/);
@@ -157,981 +158,335 @@ async function expectNoOverflow(page: Page) {
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
 }
 
-async function capturePreview(page: Page, testInfo: TestInfo, name: string, anchor?: Locator) {
+
+async function settled(page: Page) {
   await expect(page.getByTestId("tl-dashboard")).toHaveAttribute("aria-busy", "false");
   await expect(page.getByRole("button", { name: "Refresh", exact: true })).toBeEnabled();
-  await page.evaluate(() => window.scrollTo(0, 0));
-  await expectNoOverflow(page);
-  await captureViewportThemes(page, testInfo.outputPath(`${name}.png`), anchor);
+}
+async function enter(page: Page, email: string) {
+  await signIn(page, email, "Team Leader Dashboard");
+  await settled(page);
+}
+async function openWorkspace(page: Page, name: string) {
+  await page.getByRole("navigation", { name: "Workspace pages" }).getByRole("link", { name, exact: true }).click();
+  await settled(page);
+}
+async function report(page: Page, query = "view=team&queue=all") {
+  const response = await page.request.get(`${api}/api/v1/reports/tl-dashboard?${query}`);
+  expect(response.status()).toBe(200);
+  return response.json();
 }
 
-async function expectTabVisibleInStrip(tab: Locator, tabs: Locator) {
-  await expect(tab).toBeInViewport({ ratio: 0.999 });
-  const [tabBox, stripBox] = await Promise.all([tab.boundingBox(), tabs.boundingBox()]);
-  expect(tabBox).not.toBeNull();
-  expect(stripBox).not.toBeNull();
-  expect(tabBox!.x).toBeGreaterThanOrEqual(stripBox!.x - 1);
-  expect(tabBox!.x + tabBox!.width).toBeLessThanOrEqual(stripBox!.x + stripBox!.width + 1);
-  const visibility = await tab.evaluate(element => {
-    const label = element.querySelector("span")!;
-    const labelBox = label.getBoundingClientRect();
-    const strip = element.parentElement!.getBoundingClientRect();
-    const target = document.elementFromPoint(labelBox.x + labelBox.width / 2, labelBox.y + labelBox.height / 2);
-    return {
-      labelInside: labelBox.left >= strip.left - 1 && labelBox.right <= strip.right + 1,
-      hitTarget: element.contains(target),
-    };
-  });
-  expect(visibility).toEqual({ labelInside: true, hitTarget: true });
-}
-
-async function expectTabFrame(page: Page, tabKey: "review" | "team" | "analytics" | "personal", viewportWidth: number) {
-  await expect(page.getByTestId("tl-dashboard")).toHaveAttribute("aria-busy", "false");
-  // Keep hover feedback out of the initial token measurements.
-  await page.mouse.move(viewportWidth - 2, 2);
-  await page.waitForTimeout(250);
-  const dashboard = page.getByTestId("tl-dashboard");
-  const workspaceBar = page.getByTestId("tl-workspace-bar");
-  const workspace = page.getByRole("tabpanel");
-  const tabs = page.getByRole("tablist", { name: "Team Leader dashboard workspaces" });
-  const selected = tabs.locator(`[role="tab"][id="tl-tab-${tabKey}"]`);
-  await expect(tabs.getByRole("tab")).toHaveCount(4);
-  await expect(selected).toHaveAttribute("aria-selected", "true");
-  await expect(selected).toHaveAttribute("aria-controls", `tl-panel-${tabKey}`);
-  await expect(workspace).toHaveAttribute("id", `tl-panel-${tabKey}`);
-  await expect(workspace).toHaveAttribute("aria-labelledby", `tl-tab-${tabKey}`);
-  await expect(page.getByRole("heading", { name: "Team Leader Dashboard", level: 1 })).toHaveCount(1);
-  for (const tab of await tabs.getByRole("tab").all()) {
-    expect((await tab.boundingBox())!.height).toBe(30);
-    await expect(tab.locator('svg[aria-hidden="true"]')).toHaveCount(1);
-    await expect(tab).toHaveCSS("font-size", "15px");
-    await expect(tab).toHaveCSS("box-shadow", "none");
-    await expect(tab).toHaveCSS("border-bottom-width", "0px");
-  }
-  await expect(tabs).toHaveCSS("gap", "4px");
-  await expect(tabs).toHaveCSS("border-bottom-width", "0px");
-  await expect(tabs).toHaveCSS("box-shadow", "none");
-  const geometry = await tabs.getByRole("tab").evaluateAll(elements => elements.map(element => {
-    const rect = element.getBoundingClientRect(); const style = getComputedStyle(element);
-    const label = element.querySelector("span")!; const icon = element.querySelector("svg")!;
-    const labelBox = label.getBoundingClientRect(); const iconBox = icon.getBoundingClientRect(); const strip = element.parentElement!.getBoundingClientRect();
-    const visible = labelBox.left >= strip.left && labelBox.right <= strip.right;
-    return { left: rect.left, right: rect.right, height: rect.height, backgroundImage: style.backgroundImage, transform: style.transform, shape: getComputedStyle(element, "::before").clipPath, labelOverflow: label.scrollWidth - label.clientWidth, iconTransform: getComputedStyle(icon).transform, baselineDifference: Math.abs(labelBox.y + labelBox.height / 2 - iconBox.y - iconBox.height / 2), unobstructed: !visible || element.contains(document.elementFromPoint(labelBox.x + labelBox.width / 2, labelBox.y + labelBox.height / 2)) };
-  }));
-  for (const [index, item] of geometry.entries()) {
-    expect(item.height).toBe(30);
-    expect(item.backgroundImage).toBe("none");
-    expect(item.shape).toBe("none");
-    expect(item.transform).toBe("none");
-    expect(item.iconTransform).toBe("none");
-    expect(item.labelOverflow).toBeLessThanOrEqual(1);
-    expect(item.baselineDifference).toBeLessThanOrEqual(1);
-    expect(item.unobstructed).toBe(true);
-    if (index > 0) expect(Math.abs(item.left - geometry[index - 1].right - 4)).toBeLessThanOrEqual(1);
-  }
-  await expect(selected).toHaveCSS("font-weight", "500");
-  await expect(selected).toHaveCSS("border-radius", "6px");
-  await expect(selected).toHaveCSS("box-shadow", "none");
-  await expect(selected).toHaveCSS("background-color", "rgb(111, 13, 131)");
-  const beforeHover = await selected.boundingBox();
-  const beforeHoverToolbar = await workspaceBar.boundingBox();
-  const beforeHoverContent = await workspace.boundingBox();
-  await selected.hover();
-  await expect(selected).toHaveCSS("background-color", "rgb(87, 10, 104)");
-  const afterHover = await selected.boundingBox();
-  expect(afterHover?.width).toBe(beforeHover?.width);
-  expect(afterHover?.height).toBe(beforeHover?.height);
-  expect(await workspaceBar.boundingBox()).toEqual(beforeHoverToolbar);
-  expect(await workspace.boundingBox()).toEqual(beforeHoverContent);
-  await expect(selected).toHaveAttribute("aria-selected", "true");
-  await selected.focus();
-  await page.keyboard.press("Shift+Tab");
-  await page.keyboard.press("Tab");
-  await expect(selected).toBeFocused();
-  await expect(selected).toHaveCSS("outline-style", "solid");
-  await expect(selected).toHaveCSS("outline-width", "2px");
-  await expect(selected).toHaveAttribute("aria-selected", "true");
-  const activeTabBox = (await selected.boundingBox())!;
-  const workspaceBox = (await workspace.boundingBox())!;
-  expect(Math.abs(activeTabBox.y + activeTabBox.height - workspaceBox.y)).toBeLessThanOrEqual(3);
-  if (viewportWidth === 390) {
-    const tabStripBox = (await tabs.boundingBox())!;
-    expect(activeTabBox.x).toBeGreaterThanOrEqual(tabStripBox.x - 1);
-    expect(activeTabBox.x + activeTabBox.width).toBeLessThanOrEqual(tabStripBox.x + tabStripBox.width + 1);
-    await expect(page.getByRole("button", { name: "Previous dashboard tab", exact: true })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Next dashboard tab", exact: true })).toBeVisible();
-    if (tabKey === "review") {
-      const previous = page.getByRole("button", { name: "Previous dashboard tab", exact: true });
-      await expect(previous).toBeDisabled();
-      await expect(previous.locator('[data-amafh-ui-icon]')).toHaveCSS("filter", "none");
-    }
-    if (tabKey === "personal") {
-      const next = page.getByRole("button", { name: "Next dashboard tab", exact: true });
-      await expect(next).toBeDisabled();
-      await expect(next.locator('[data-amafh-ui-icon]')).toHaveCSS("filter", "none");
-    }
-  }
-
-  const controls = [page.getByLabel("Period", { exact: true }), page.getByLabel("Scope", { exact: true }), page.getByRole("button", { name: "Refresh", exact: true }), page.getByRole("link", { name: "Create Application", exact: true })];
-  const controlBoxes = await Promise.all(controls.map(control => control.boundingBox()));
-  for (const [index, box] of controlBoxes.entries()) {
-    expect(box).not.toBeNull();
-    const expectedHeight = index < 2 || viewportWidth === 390 ? 32 : 30;
-    expect(Math.abs(box!.height - expectedHeight)).toBeLessThanOrEqual(1);
-  }
-  for (const control of controls.slice(0, 2)) {
-    // The selected value must remain readable, not just accessible by its label.
-    expect(await control.locator(":scope > span").evaluate(element => element.scrollWidth - element.clientWidth)).toBe(0);
-  }
-  await expect(page.getByTestId("tl-dashboard").getByText("Period", { exact: true })).toHaveCount(0);
-  await expect(page.getByTestId("tl-dashboard").getByText("Scope", { exact: true })).toHaveCount(0);
-  const [dashboardBox, workspaceBarBox] = await Promise.all([dashboard.boundingBox(), workspaceBar.boundingBox()]);
-  expect(dashboardBox).not.toBeNull();
-  expect(workspaceBarBox).not.toBeNull();
-  const expectedTopSpacing = viewportWidth === 1440 ? 16 : 12;
-  expect(Math.abs(workspaceBarBox!.y - dashboardBox!.y - expectedTopSpacing)).toBeLessThanOrEqual(1);
-  expect(await dashboard.evaluate(element => Number.parseFloat(getComputedStyle(element).paddingTop))).toBe(expectedTopSpacing);
-  if (viewportWidth === 1440) {
-    expect(Math.max(...controlBoxes.map(box => box!.y)) - Math.min(...controlBoxes.map(box => box!.y))).toBeLessThanOrEqual(1);
-    const tabBox = (await tabs.boundingBox())!;
-    expect(Math.abs(controlBoxes[0]!.y + 16 - (tabBox.y + tabBox.height / 2))).toBeLessThanOrEqual(1);
-    const lastTabBox = (await tabs.getByRole("tab").last().boundingBox())!;
-    expect(lastTabBox.x + lastTabBox.width).toBeLessThanOrEqual(controlBoxes[0]!.x);
-  }
-  else {
-    expect(Math.abs(controlBoxes[0]!.y - controlBoxes[1]!.y)).toBeLessThanOrEqual(1);
-    expect(Math.abs(controlBoxes[2]!.y - controlBoxes[3]!.y)).toBeLessThanOrEqual(1);
-  }
-  await expectNoOverflow(page);
-}
-
-async function expectAlignedPanels(page: Page, titles: string[], viewportWidth: number) {
-  // Attendance includes its current status badge in the heading's accessible name.
-  const panels = titles.map(title => page.getByRole("heading").filter({ has: page.getByText(title, { exact: true }) }).locator(".."));
-  for (const panel of panels) await expect(panel).toHaveCount(1);
-  const boxes = await Promise.all(panels.map(panel => panel.boundingBox()));
-  if (viewportWidth === 1440) {
-    expect(Math.max(...boxes.map(box => box!.y)) - Math.min(...boxes.map(box => box!.y))).toBeLessThanOrEqual(1);
-    expect(Math.max(...boxes.map(box => box!.height)) - Math.min(...boxes.map(box => box!.height))).toBeLessThanOrEqual(1);
-  } else {
-    for (let index = 1; index < boxes.length; index++) expect(boxes[index]!.y).toBeGreaterThanOrEqual(boxes[index - 1]!.y + boxes[index - 1]!.height);
-  }
-  for (const panel of panels) {
-    expect(await panel.evaluate(element => element.scrollHeight - element.clientHeight)).toBeLessThanOrEqual(1);
-  }
-}
-
-async function expectReviewLayout(page: Page, viewportWidth: number) {
-  await expectTabFrame(page, "review", viewportWidth);
-  const cards = page.getByTestId("tl-cards").getByRole("button");
-  await expect(cards).toHaveCount(4);
-  const cardBoxes = await Promise.all((await cards.all()).map(card => card.locator("..").boundingBox()));
-  expect(Math.max(...cardBoxes.map(box => box!.width)) - Math.min(...cardBoxes.map(box => box!.width))).toBeLessThanOrEqual(1);
-  for (let index = 0; index < cardBoxes.length; index += 2) {
-    const row = cardBoxes.slice(index, index + 2);
-    expect(Math.max(...row.map(box => box!.height)) - Math.min(...row.map(box => box!.height))).toBeLessThanOrEqual(1);
-  }
-  for (const card of await cards.all()) await expect(card.locator("strong")).toHaveCSS("font-size", "32px");
-  {
-    expect(Math.abs(cardBoxes[0]!.y - cardBoxes[1]!.y)).toBeLessThanOrEqual(1);
-    expect(Math.abs(cardBoxes[2]!.y - cardBoxes[3]!.y)).toBeLessThanOrEqual(1);
-    expect(cardBoxes[2]!.y).toBeGreaterThanOrEqual(cardBoxes[0]!.y + cardBoxes[0]!.height);
-  }
-  if (viewportWidth === 1440) {
-    const bankBox = (await page.getByTestId("tl-bank-status").boundingBox())!;
-    expect(bankBox.x).toBeGreaterThan(cardBoxes[1]!.x + cardBoxes[1]!.width);
-  }
-  const queue = page.getByTestId("tl-review-queue");
-  const activity = page.getByTestId("tl-review-activity");
-  await expect(activity.getByRole("button", { name: "Recent team activity", exact: true })).toBeVisible();
-  const queueBox = (await queue.boundingBox())!;
-  const activityBox = (await activity.boundingBox())!;
-  if (viewportWidth === 1440) {
-    expect(Math.abs(queueBox.y - activityBox.y)).toBeLessThanOrEqual(1);
-    expect(queueBox.width / activityBox.width).toBeGreaterThanOrEqual(1.5);
-    expect(queueBox.width / activityBox.width).toBeLessThanOrEqual(3);
-    expect(activityBox.x).toBeGreaterThan(queueBox.x + queueBox.width);
-  } else {
-    const queueColumnBottom = await queue.evaluate(element => element.parentElement!.getBoundingClientRect().bottom);
-    expect(activityBox.y).toBeGreaterThanOrEqual(queueColumnBottom - 1);
-    expect(Math.abs(activityBox.x - queueBox.x)).toBeLessThanOrEqual(1);
-    expect(Math.abs(activityBox.width - queueBox.width)).toBeLessThanOrEqual(1);
-  }
-  await expectNoOverflow(page);
-}
-
-async function expectMetricSparklines(page: Page, report: MetricReport, interactive = false) {
-  for (const { key } of report.cards) {
-    const spark = page.getByTestId(`tl-sparkline-${key}`);
-    const history = report.metricHistory[key];
-    if (!history || history.points.every(point => point.value === null)) {
-      await expect(spark).toHaveAttribute("data-state", "unavailable");
-      await expect(spark).toContainText("Trend unavailable");
-      await expect(spark.locator("svg")).toHaveCount(0);
-      continue;
-    }
-    expect(history.unit).toBe("cases");
-    expect(history.basis.trim().length).toBeGreaterThan(0);
-    await expect(spark).toHaveAttribute("data-state", "available");
-    const points = spark.locator("g[data-date][data-value]");
-    await expect(points).toHaveCount(history.points.length);
-    await expect.poll(() => points.evaluateAll(nodes => nodes.map(node => ({ date: node.getAttribute("data-date"), value: node.getAttribute("data-value") === "null" ? null : Number(node.getAttribute("data-value")) })))).toEqual(history.points);
-    if (!interactive || !["pending_review", "approved"].includes(key)) continue;
-    const expectTooltip = async (point: { date: string; value: number | null }) => {
-      const tooltip = spark.getByRole("tooltip");
-      await expect(tooltip).toBeVisible();
-      await expect(tooltip).toContainText(point.date);
-      await expect(tooltip).toContainText(point.value === null ? "Unavailable" : `${point.value.toLocaleString("en-US", { maximumFractionDigits: 2 })} cases`);
-      await expect(tooltip).toContainText(history.basis);
-    };
-    await spark.focus();
-    await spark.press("End");
-    await expectTooltip(history.points.at(-1)!);
-    await spark.press("Home");
-    await expectTooltip(history.points[0]);
-    if (history.points.length > 1) {
-      await spark.press("ArrowRight");
-      await expectTooltip(history.points[1]);
-      await spark.press("ArrowLeft");
-      await expectTooltip(history.points[0]);
-    }
-    await spark.press("Escape");
-    await expect(spark.getByRole("tooltip")).toHaveCount(0);
-    await points.last().locator("rect").hover();
-    await expectTooltip(history.points.at(-1)!);
-    await spark.press("Escape");
-    await expect(spark).toBeFocused();
-    await expect(spark.getByRole("tooltip")).toHaveCount(0);
-  }
-}
-
-async function expectCompleteActivity(page: Page, eventCount: number) {
-  const activity = page.getByTestId("tl-review-activity");
-  const list = activity.getByTestId("tl-activity-list");
-  await expect(list.getByRole("listitem")).toHaveCount(Math.min(3, eventCount));
-  if (eventCount <= 3) return;
-  const expand = activity.getByRole("button", { name: `Show all ${eventCount} updates`, exact: true });
-  await expand.click();
-  await expect(list.getByRole("listitem")).toHaveCount(eventCount);
-  expect(await list.evaluate(element => element.scrollHeight - element.clientHeight)).toBeLessThanOrEqual(1);
-  const links = list.getByRole("link");
-  await links.first().focus();
-  for (let index = 1; index < eventCount; index += 1) await page.keyboard.press("Tab");
-  await expect(links.last()).toBeFocused();
-  await expect(links.last()).toBeInViewport({ ratio: 1 });
-  await activity.getByRole("button", { name: "Show fewer updates", exact: true }).click();
-  await expect(list.getByRole("listitem")).toHaveCount(3);
-  await expect(expand).toBeFocused();
-}
-
-async function expectProgress(row: Locator, name: string, percentage: number) {
-  const progress = row.getByRole("progressbar", { name: `${name} target achievement`, exact: true });
-  const bounded = Math.min(percentage, 100);
-  await expect(progress).toHaveAttribute("aria-valuemin", "0");
-  await expect(progress).toHaveAttribute("aria-valuemax", "100");
-  await expect(progress).toHaveAttribute("aria-valuenow", String(bounded));
-  await expect(progress).toHaveAttribute("aria-valuetext", new RegExp(`^${percentage}% achieved`));
-  // The drawn fill must occupy its honest fraction of a fixed 0–100% track.
-  const track = await progress.boundingBox();
-  const fill = await progress.getByTestId("target-progress-fill").boundingBox();
-  expect(track).not.toBeNull(); expect(fill).not.toBeNull();
-  expect(track!.width).toBeGreaterThan(40);
-  expect(Math.abs(fill!.width / track!.width * 100 - bounded)).toBeLessThanOrEqual(0.6);
-}
-
-test("DXB and AUH TL review: scope, tabs, charts, breadcrumbs and responsive queues", async ({ page, request }, testInfo) => {
-  test.setTimeout(300_000);
-  const fixture = await seed(request);
+test("TL case owner allowlist, own/team workspace and calendar remain isolated and responsive", async ({ page, request }, testInfo) => {
+  const fixture = await seed(request), group = fixture.groups[0];
   const errors: string[] = [];
   page.on("pageerror", error => errors.push(error.message));
-  for (const index of [0, 1]) {
-    const group = fixture.groups[index];
-    const other = fixture.cases[1 - index].desktop;
-    for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
-      const app = viewport.width === 1440 ? fixture.cases[index].desktop : fixture.cases[index].mobile;
-      await page.setViewportSize(viewport);
-      await signIn(page, group.users.TL.email, "Team Leader Dashboard");
-      await expect(page.getByRole("heading", { name: "Team Leader Dashboard", exact: true })).toHaveCount(1);
-      await expect(page.getByRole("tab", { name: "Review", exact: true })).toHaveAttribute("aria-selected", "true");
-      await expect(page.getByTestId("tl-dashboard")).not.toContainText(fixture.groups[1-index].users.SE.fullName);
-      await expect(page.getByTestId("tl-dashboard")).not.toContainText(other.applicationCode);
-      await expect(page.getByText("Top employees", { exact: true })).toHaveCount(0);
-      const priorityCards = page.getByTestId("tl-cards").getByRole("button");
-      await expect(priorityCards).toHaveCount(4);
-      expect(await priorityCards.evaluateAll(nodes => nodes.map(node => node.getAttribute("aria-label")))).toEqual(["Pending Review queue", "Resubmitted queue", "Returned queue", "Forwarded to COD queue"]);
-      await expect(page.getByTestId("tl-bank-status").getByRole("button", { name: "Bank Approved queue", exact: true })).toBeVisible();
-      await expect(page.getByTestId("tl-review-queue")).toContainText(app.applicationCode);
-      await expect(page.getByTestId("tl-review-queue")).toContainText(group.users.SE.fullName);
-      const initialReportResponse = await page.request.get(`${api}/api/v1/reports/tl-dashboard?period=mtd&view=combined&queue=pending_review&page=1`);
-      expect(initialReportResponse.status()).toBe(200);
-      const report = await initialReportResponse.json();
-      expect(report.metricHistory.approved.points.every((point: { value: number | null }) => point.value === 0)).toBe(true);
-      for (const card of report.cards as Array<{ key: string; count: number }>) expect(report.metricHistory[card.key].points.at(-1).value).toBe(card.count);
-      await expectReviewLayout(page, viewport.width);
-      await expectMetricSparklines(page, report, true);
-      await expectCompleteActivity(page, report.activity.length);
-      if (index === 0 && viewport.width === 1440) {
-        await selectBrandedOption(page.getByLabel("Period"), "today");
-        const todayResponse = await page.request.get(`${api}/api/v1/reports/tl-dashboard?period=today&view=combined&queue=pending_review&page=1`);
-        expect(todayResponse.status()).toBe(200);
-        const todayReport = await todayResponse.json();
-        expect(todayReport.metricHistory.pending_review.points).toHaveLength(1);
-        await expectMetricSparklines(page, todayReport, true);
-        await selectBrandedOption(page.getByLabel("Period"), "mtd");
-        await expectMetricSparklines(page, report);
-      }
-      await capturePreview(page, testInfo, `tl-${group.office.code}-${viewport.width}-review`);
-      const reviewQueue = page.getByTestId("tl-review-queue");
-      const reviewToggle = reviewQueue.getByRole("button", { name: /· Review queue/ });
-      const pendingCard = page.getByRole("button", { name: "Pending Review queue", exact: true });
-      await expect(pendingCard).toHaveAttribute("aria-pressed", "true");
-      await reviewToggle.click();
-      await expect(reviewToggle).toHaveAttribute("aria-expanded", "false");
-      await expect(reviewQueue.getByRole("heading", { name: "Pending Review review queue", exact: true })).toHaveCount(0);
-      await pendingCard.focus(); await page.keyboard.press("Enter");
-      await expect(reviewToggle).toHaveAttribute("aria-expanded", "true");
-      await expect(reviewQueue.getByRole("heading", { name: "Pending Review review queue", exact: true })).toBeFocused();
-      await expect(page.getByTestId("tl-dashboard")).toHaveAttribute("aria-busy", "false");
-      await expect(page.getByRole("button", { name: "Refresh", exact: true })).toBeEnabled();
-      if (viewport.width === 390) {
-        const trigger = page.getByRole("button", { name: "Open navigation", exact: true });
-        const sidebar = page.getByLabel("Application sidebar", { exact: true });
-        await trigger.focus();
-        await page.keyboard.press("Enter");
-        await expect(sidebar.getByRole("button", { name: "Close navigation", exact: true })).toBeFocused();
-        await page.keyboard.press("Escape");
-        await expect(trigger).toBeFocused();
-        await expect(sidebar).toHaveJSProperty("inert", true);
-        await page.keyboard.press("Tab");
-        expect(await sidebar.evaluate(element => element.contains(document.activeElement))).toBe(false);
-        const previousTab = page.getByRole("button", { name: "Previous dashboard tab", exact: true });
-        const nextTab = page.getByRole("button", { name: "Next dashboard tab", exact: true });
-        await expect(previousTab).toBeDisabled();
-        for (const label of ["Team Performance", "Analytics", "My Performance & Attendance"]) {
-          await nextTab.click();
-          await expect(page.getByRole("tab", { name: label, exact: true })).toHaveAttribute("aria-selected", "true");
-          await expectTabVisibleInStrip(page.getByRole("tab", { name: label, exact: true }), page.getByRole("tablist", { name: "Team Leader dashboard workspaces" }));
+  await enter(page, group.users.TL.email);
+  // The public login page intentionally probes /auth/me before a session exists (401).
+  // Collect every console error throughout the authenticated workspace instead.
+  page.on("console", message => { if (message.type() === "error") errors.push(message.text()); });
+  for (const width of [1440, 1363, 1024, 390]) {
+    await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
+    for (const theme of ["light", "dark"] as const) {
+      await setVisualTheme(page, theme);
+      const nav = page.getByRole("navigation", { name: "Workspace pages" });
+      expect(await nav.getByRole("link").allTextContents()).toEqual(topLabels);
+      await expect(page.getByLabel("Application sidebar", { exact: true })).toHaveCount(0);
+      await expect(page.getByRole("button", { name: "Open navigation", exact: true })).toHaveCount(0);
+      for (const label of topLabels) {
+        await openWorkspace(page, label);
+        await expect(nav.getByRole("link", { name: label, exact: true })).toHaveAttribute("aria-current", "page");
+        await expect(nav.getByRole("link", { name: label, exact: true })).toBeInViewport();
+        if (label === "Cases") {
+          await page.getByRole("tab", { name: "Team Cases", exact: true }).click();
+          await settled(page);
+          await expect(page.getByTestId("tl-review-queue")).toContainText(group.users.SE.fullName);
+          await expect(page.getByTestId("tl-review-queue")).not.toContainText(fixture.groups[1].users.SE.fullName);
+          await expect(page.getByRole("button", { name: "Create Case", exact: true })).toBeVisible();
+          for (const name of ["Case Owner", "Product", "Stage", "Outcome", "Case date range"]) await expect(page.getByRole("combobox", { name, exact: true })).toBeVisible();
         }
-        await expect(nextTab).toBeDisabled();
-        await page.getByRole("tab", { name: "My Performance & Attendance", exact: true }).focus();
-        await page.keyboard.press("Home");
-        await expect(page.getByRole("tab", { name: "Review", exact: true })).toBeFocused();
-        await expectTabVisibleInStrip(page.getByRole("tab", { name: "Review", exact: true }), page.getByRole("tablist", { name: "Team Leader dashboard workspaces" }));
-        await expect(previousTab).toBeDisabled();
-      }
-      await page.getByRole("tab", { name: "Team Performance", exact: true }).click();
-      await expect(page).toHaveURL(/tab=team/);
-      await expect(page.getByTestId("tl-dashboard")).toHaveAttribute("aria-busy", "false");
-      await expectTabFrame(page, "team", viewport.width);
-      await expect(page.getByTestId("tl-team-performance")).toContainText(group.users.SE.fullName);
-      const member = page.getByTestId(`tl-staff-row-${group.users.SE.id}`);
-      await expect(member.getByText("Historical trends for these team metrics are not provided by the current dashboard.", { exact: true })).toHaveCount(1);
-      await expect(member.getByText("Trend unavailable", { exact: true })).toHaveCount(0);
-      for (const metric of await member.locator('[data-history="unavailable"]').all()) {
-        await expect(metric).toHaveAttribute("aria-describedby", `tl-team-history-${group.users.SE.id}`);
-        await expect(metric.locator("svg")).toHaveCount(0);
-      }
-      await expect(page.getByTestId("tl-team-performance").getByText(`${report.staff.length} ${report.staff.length === 1 ? "member" : "members"}`, { exact: true })).toBeVisible();
-      await expectProgress(member, group.users.SE.fullName, 20);
-      await expect(member).toContainText(/Application count|Applications|Count/);
-      await expect(member.getByRole("definition").filter({ hasText: /^5$/ })).toHaveCount(1);
-      expect(report.staff.find((person: { id: string }) => person.id === group.users.SE.id).target).toMatchObject({ assigned: "5.00", achieved: "1.00", remaining: "4.00", achievementPct: 20, measurement: "count" });
-      if (index === 0) {
-        const over = page.getByTestId(`tl-staff-row-${group.targetUsers.OVER.id}`);
-        await expectProgress(over, group.targetUsers.OVER.fullName, 120);
-        await expect(over).toContainText("120%");
-        await expect(over).toContainText("20% above target");
-        await expect(over).toContainText("AED");
-        await expect(over.getByText("Exceeded by", { exact: true })).toBeVisible();
-        await expect(over.getByRole("definition").filter({ hasText: /^AED 2,?000(?:\.00)?$/ })).toHaveCount(1);
-        await expect(over).not.toContainText(/AED -2,?000/);
-        const mixed = page.getByTestId(`tl-staff-row-${group.targetUsers.MIXED.id}`);
-        expect(report.staff.find((person: { id: string }) => person.id === group.targetUsers.MIXED.id).target).toMatchObject({ assigned: null, achieved: null, remaining: null, measurement: null });
-        await expect(mixed).toContainText("Mixed target units");
-        await expect(mixed).toContainText("Average achievement");
-        await expect(mixed).not.toContainText(/10,?005/);
-        const zero = page.getByTestId(`tl-staff-row-${group.targetUsers.ZERO.id}`);
-        await expectProgress(zero, group.targetUsers.ZERO.fullName, 0);
-        await expect(zero).not.toContainText("Target results unavailable");
-        const missing = page.getByTestId(`tl-staff-row-${group.targetUsers.NONE.id}`);
-        await expect(missing).toContainText("Target results unavailable");
-        await expect(missing.getByRole("progressbar")).toHaveCount(0);
-      }
-      await expect(page.getByTestId("tl-target-progress-chart")).toHaveCount(0);
-      await capturePreview(page, testInfo, `tl-${group.office.code}-${viewport.width}-team`);
-      await capturePreview(page, testInfo, `tl-${group.office.code}-${viewport.width}-member-target`, member);
-      await page.reload();
-      await expect(page.getByRole("tab", { name: "Team Performance", exact: true })).toHaveAttribute("aria-selected", "true");
-      await page.getByRole("tab", { name: "Team Performance", exact: true }).focus();
-      await page.keyboard.press("ArrowRight");
-      await expect(page.getByRole("tab", { name: "Analytics", exact: true })).toHaveAttribute("aria-selected", "true");
-      await expectTabFrame(page, "analytics", viewport.width);
-      await expectAlignedPanels(page, ["Applications trend", "Bank Stage tracker"], viewport.width);
-      await expectAlignedPanels(page, ["Product mix", "Bank outcomes", "Waiting time & delays"], viewport.width);
-      const trendToggle = page.getByRole("button", { name: "Applications trend", exact: true });
-      await trendToggle.focus(); await trendToggle.press("Enter");
-      await expect(trendToggle).toHaveAttribute("aria-expanded", "false");
-      await expectAlignedPanels(page, ["Applications trend", "Bank Stage tracker"], viewport.width);
-      await trendToggle.press("Enter");
-      await expect(trendToggle).toHaveAttribute("aria-expanded", "true");
-      for (const title of ["Applications trend", "Internal Review tracker", "Bank Stage tracker", "Product mix", "Bank outcomes", "Waiting time & delays"]) await expect(page.getByRole("heading", { name: title, exact: true }).getByRole("button", { name: title, exact: true })).toBeVisible();
-      await expect(page.getByTestId("tl-trend-chart").getByRole("img").first()).toHaveAttribute("aria-label", /Applications trend/);
-      const chartText = await page.getByTestId("tl-trend-chart").locator("svg text").evaluateAll(nodes => nodes.filter(node => ["Created", "Submitted", "Cases"].includes(node.textContent ?? "")).map(node => { const box = node.getBoundingClientRect(); return { label: node.textContent, top: box.top, bottom: box.bottom }; }));
-      const createdLegend = chartText.find(item => item.label === "Created")!;
-      const submittedLegend = chartText.find(item => item.label === "Submitted")!;
-      const casesAxis = chartText.find(item => item.label === "Cases")!;
-      expect(createdLegend).toBeDefined(); expect(submittedLegend).toBeDefined(); expect(casesAxis).toBeDefined();
-      expect(Math.abs(createdLegend.top - submittedLegend.top)).toBeLessThanOrEqual(1);
-      expect(casesAxis.top).toBeGreaterThan(createdLegend.bottom + 8);
-      await expect(page.getByTestId("tl-stage-chart").getByRole("img").first()).toHaveAttribute("aria-label", /workflow context/);
-      const firstStage = report.charts.stages[0] as { label: string; workflowContext: string };
-      const stageHelp = page.getByTestId("tl-stage-chart").getByRole("button", { name: `About ${firstStage.label}`, exact: true });
-      await stageHelp.focus();
-      await expect(stageHelp).toHaveAttribute("aria-expanded", "true");
-      await expect(page.getByRole("tooltip")).toBeVisible();
-      await expect(page.getByRole("tooltip")).toContainText(firstStage.workflowContext);
-      await page.keyboard.press("Escape");
-      await expect(stageHelp).toHaveAttribute("aria-expanded", "false");
-      await expect(stageHelp).toBeFocused();
-      await expect(page.getByRole("tooltip")).toHaveCount(0);
-      for (const month of report.charts.trend as Array<{ name: string; created: number; submitted: number }>) await expect(page.getByTestId("tl-trend-chart").getByRole("img").first()).toHaveAttribute("aria-label", new RegExp(`${month.name}: ${month.created} created and ${month.submitted} submitted`));
-      await expect(page.getByTestId("tl-product-chart")).toContainText("Personal Finance");
-      await expect(page.getByTestId("tl-product-chart").locator("canvas")).toHaveCount(0);
-      await expect(page.getByTestId("tl-outcome-chart").locator("canvas")).toHaveCount(0);
-      const analyticsLinks = page.getByRole("tabpanel").getByRole("link");
-      await expect(analyticsLinks).toHaveCount(4);
-      for (const link of await analyticsLinks.all()) {
-        const target = new URL((await link.getAttribute("href"))!, page.url());
-        expect(target.pathname).toBe("/reports");
-        expect(target.searchParams.get("tab")).toBe("review");
-        expect(target.searchParams.get("period")).toBe("mtd");
-        expect(target.searchParams.get("view")).toBe("combined");
-        expect(target.searchParams.get("page")).toBe("1");
-        const linkText = await link.textContent();
-        expect(target.searchParams.get("queue")).toBe(linkText === "Review bank-approved cases" ? "approved" : linkText === "Review cases in selected period" ? "all" : "active");
-      }
-      await capturePreview(page, testInfo, `tl-${group.office.code}-${viewport.width}-analytics`);
-      await page.getByRole("link", { name: "Review bank-approved cases", exact: true }).click();
-      await expect(page.getByRole("tab", { name: "Review", exact: true })).toHaveAttribute("aria-selected", "true");
-      await expect(page.getByRole("button", { name: "Bank Approved queue", exact: true })).toHaveAttribute("aria-pressed", "true");
-      await expect(page.getByTestId("tl-review-queue")).toContainText("Approved · Review queue");
-      await expect(page).toHaveURL(/queue=approved/);
-      await page.goBack();
-      await expect(page.getByRole("tab", { name: "Analytics", exact: true })).toHaveAttribute("aria-selected", "true");
-      await page.getByRole("tab", { name: "My Performance & Attendance", exact: true }).click();
-      await expect(page.getByTestId("my-performance")).toBeVisible();
-      await expect(page.getByTestId("my-attendance")).toBeVisible();
-      await expectTabFrame(page, "personal", viewport.width);
-      await expectAlignedPanels(page, ["My Performance", "My Attendance"], viewport.width);
-      const attendance = page.getByTestId("my-attendance");
-      expect(report.personalAttendance.month).toMatch(/^\d{4}-\d{2}-01$/);
-      const attendanceMonth = new Intl.DateTimeFormat("en", { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${report.personalAttendance.month}T00:00:00Z`));
-      await expect(attendance.getByRole("heading", { name: attendanceMonth, exact: true })).toBeVisible();
-      for (const label of ["Duty", "Check-in", "Check-out", "Worked"]) await expect(attendance.getByRole("term").filter({ hasText: new RegExp(`^${label}$`) })).toBeVisible();
-      await expect(attendance.getByRole("button", { name: /save|edit|check in|check out/i })).toHaveCount(0);
-      const personal = page.getByTestId("my-performance");
-      const unavailablePersonalHistory = personal.getByTestId("tl-metric-personal-applications");
-      await expect(unavailablePersonalHistory).toHaveAttribute("data-history", "unavailable");
-      await expect(unavailablePersonalHistory).toHaveAccessibleDescription("Historical trends for personal targets, KPI scores and application totals are not provided by the current dashboard.");
-      await expect(unavailablePersonalHistory.locator("svg")).toHaveCount(0);
-      await expect(personal.getByText("Trend unavailable", { exact: true })).toHaveCount(0);
-      await expect(attendance.getByText("Trend unavailable", { exact: true })).toHaveCount(0);
-      await expect(attendance.getByTestId("tl-metric-attendance-duty")).toHaveAttribute("data-history", "unavailable");
-      if (index === 0) {
-        expect(report.personalPerformance.target).toMatchObject({ assigned: "50000.00", achieved: "12500.00", remaining: "37500.00", achievementPct: 25, measurement: "amount" });
-        await expectProgress(personal, "Personal Finance submitted", 25);
-        for (const amount of ["50,000.00", "12,500.00", "37,500.00"]) await expect(personal.getByRole("definition").filter({ hasText: new RegExp(`^AED ${amount.replace(".", "\\.")}$`) })).toHaveCount(1);
-        expect(report.personalAttendance.today).toMatchObject({ date: fixture.attendanceDate, status: "Present", scheduledStart: "09:00", scheduledEnd: "17:00", actualCheckIn: "09:05", actualCheckOut: "17:00", workedMinutes: 475 });
-        for (const value of ["09:00–17:00", "09:05", "17:00", "7h 55m"]) await expect(attendance.getByRole("definition").filter({ hasText: new RegExp(`^${value}$`) })).toHaveCount(1);
-        const workedHistory = attendance.getByTestId("tl-sparkline-attendance-worked");
-        await expect(workedHistory).toHaveAttribute("data-state", "available");
-        await expect(attendance.getByTestId("tl-metric-attendance-worked")).toHaveAttribute("data-history", "available");
-        await expect(attendance).toContainText("Worked, late and early-departure trends use recorded days; gaps are not zero.");
-        const expectedDays: Array<{ date: string; value: number | null }> = [];
-        for (let date = new Date(`${report.personalAttendance.month}T00:00:00Z`); date.toISOString().slice(0, 10) <= fixture.attendanceDate; date = new Date(date.getTime() + 86400000)) {
-          const day = date.toISOString().slice(0, 10);
-          expectedDays.push({ date: day, value: day === fixture.attendanceDate ? 475 : null });
+        if (label === "Performance & Attendance") {
+          await expect(page.getByTestId("my-performance")).toBeVisible();
+          await expect(page.getByText("Appraisal module not configured", { exact: true })).toBeVisible();
+          await page.getByRole("tab", { name: "Team Performance", exact: true }).click();
+          await settled(page);
+          await expect(page.getByTestId("tl-member-targets")).toContainText(group.users.SE.fullName);
+          await expect(page.getByTestId("team-appraisal-unconfigured").first()).toHaveText("Appraisal module not configured");
+          await expect(page.getByTestId("tl-member-targets")).not.toContainText(fixture.groups[1].users.SE.fullName);
         }
-        expect(await workedHistory.locator("g[data-date][data-value]").evaluateAll(nodes => nodes.map(node => ({ date: node.getAttribute("data-date"), value: node.getAttribute("data-value") === "null" ? null : Number(node.getAttribute("data-value")) })))).toEqual(expectedDays);
-        const knownPoint = workedHistory.locator(`g[data-date="${fixture.attendanceDate}"]`);
-        const nullPoints = workedHistory.locator('g[data-value="null"]');
-        await expect(nullPoints).toHaveCount(expectedDays.length - 1);
-        await expect(nullPoints.locator("circle")).toHaveCount(0);
-        const otherMetric = attendance.getByRole("term").filter({ hasText: /^Check-in$/ });
-        await otherMetric.hover();
-        await page.getByRole("tab", { name: "My Performance & Attendance", exact: true }).focus();
-        await expect(workedHistory.getByRole("tooltip")).toHaveCount(0);
-        await expect(knownPoint.locator("circle")).toHaveAttribute("r", "1.5");
-        expect(Number(await knownPoint.locator("circle").getAttribute("cy"))).toBeLessThan(29);
-        // One isolated recorded day must remain visible; missing days cannot become a zero line.
-        await expect(workedHistory.locator("path").nth(1)).toHaveAttribute("d", /^\s*M[^ML]*$/);
-        await workedHistory.focus();
-        await workedHistory.press("Home");
-        await expect(workedHistory.getByRole("tooltip")).toContainText(expectedDays[0].date);
-        await expect(workedHistory.getByRole("tooltip")).toContainText(expectedDays[0].value === null ? "Unavailable" : "475 minutes");
-        await workedHistory.press("End");
-        await expect(workedHistory.getByRole("tooltip")).toContainText(`${fixture.attendanceDate}`);
-        await expect(workedHistory.getByRole("tooltip")).toContainText("475 minutes");
-        await knownPoint.locator("rect").hover();
-        await otherMetric.hover();
-        await expect(workedHistory).toBeFocused();
-        await expect(workedHistory.getByRole("tooltip")).toBeVisible();
-        await knownPoint.locator("rect").hover();
-        await workedHistory.press("Escape");
-        await otherMetric.hover();
-        await expect(workedHistory).toBeFocused();
-        await expect(workedHistory.getByRole("tooltip")).toHaveCount(0);
-      } else {
-        await expect(personal).toContainText("No performance data for this period");
-        await expect(personal.getByRole("progressbar")).toHaveCount(0);
-        await expect(attendance).toContainText("Not recorded");
-        await expect(attendance).toContainText("No recorded daily values for Worked, Late arrival, Early departure in this period.");
-        for (const key of ["duty", "check-in", "check-out", "worked"]) {
-          const metric = attendance.getByTestId(`tl-metric-attendance-${key}`);
-          await expect(metric).toHaveAttribute("data-history", "unavailable");
-          await expect(metric.locator("dd").first()).toHaveCSS("font-size", "16px");
+        if (label === "Timeline") {
+          await page.getByRole("tab", { name: "Team Timeline", exact: true }).click();
+          await settled(page);
+          await expect(page.locator("time[datetime]").first()).toBeVisible();
+          await expect(page.getByRole("combobox", { name: "Event type", exact: true })).toBeVisible();
         }
+        await expectNoOverflow(page);
+        await page.evaluate(() => window.scrollTo(0, 0));
+        // A route's effect can begin after the previous render reported idle.
+        // Capture only after real requests and the current workspace both settle.
+        await page.waitForLoadState("networkidle");
+        await settled(page);
+        await page.screenshot({ path: testInfo.outputPath(`tl-${label.toLowerCase().replaceAll(" ", "-")}-${width}-${theme}.png`), fullPage: true });
+        await settled(page);
+        await page.screenshot({ path: testInfo.outputPath(`tl-${label.toLowerCase().replaceAll(" ", "-")}-${width}-${theme}-viewport.png`) });
+        await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+        expect(await page.locator("header").evaluate(element => element.getBoundingClientRect().top)).toBe(0);
+        for (const tab of await nav.getByRole("link").all()) await expect(tab).toBeInViewport();
+        await page.evaluate(() => window.scrollTo(0, 0));
       }
-      const monthly = attendance.locator("summary").filter({ hasText: /Monthly/ });
-      await monthly.focus(); await page.keyboard.press("Enter");
-      await expect(attendance.locator("details")).toHaveAttribute("open", "");
-      if (index === 0) {
-        const entry = attendance.locator("details li");
-        await expect(entry).toHaveCount(1);
-        await expect(entry).toContainText(fixture.attendanceDate);
-        await expect(entry).toContainText("Present");
-        await expect(entry).toContainText("09:05 / 17:00");
-        await expect(entry).toContainText("7h 55m");
-        await capturePreview(page, testInfo, `tl-${group.office.code}-${viewport.width}-personal-monthly`, attendance.locator("details"));
-        await monthly.focus();
-      } else await expect(attendance.getByText("No attendance records are available this month.")).toBeVisible();
-      await page.keyboard.press("Enter");
-      await expect(attendance.locator("details")).not.toHaveAttribute("open", "");
-      await capturePreview(page, testInfo, `tl-${group.office.code}-${viewport.width}-personal`);
-      await page.getByRole("tab", { name: "Review", exact: true }).click();
-      const attention = page.getByRole("button", { name: /^Attention Required/ });
-      await expect(attention).toHaveAttribute("aria-expanded", "false");
-      const attentionContent = page.locator(`[id="${await attention.getAttribute("aria-controls")}"]`);
-      await expect(attentionContent).toHaveCount(0);
-      await attention.press("Enter");
-      await expect(attention).toHaveAttribute("aria-expanded", "true");
-      await expect(attentionContent).toBeVisible();
-      await attention.press("Space");
-      await expect(attention).toHaveAttribute("aria-expanded", "false");
-      await expect(attentionContent).toHaveCount(0);
-      await expectNoOverflow(page);
-      await reviewToggle.click();
-      await expect(reviewToggle).toHaveAttribute("aria-expanded", "false");
-      const card = page.getByRole("button", { name: "Returned queue", exact: true });
-      await card.focus(); await page.keyboard.press("Enter");
-      await expect(page).toHaveURL(/queue=returned/);
-      await expect(page.getByRole("heading", { name: "Returned review queue", exact: true })).toBeFocused();
-      await expect(reviewToggle).toHaveAttribute("aria-expanded", "true");
-      await expect(page.getByTestId("tl-dashboard")).toHaveAttribute("aria-busy", "false");
-      await expect(page.getByRole("button", { name: "Refresh", exact: true })).toBeEnabled();
-      const emptyQueue = page.getByTestId("tl-review-queue");
-      await expect(emptyQueue).toContainText("No returned cases in this queue.");
-      expect((await emptyQueue.boundingBox())!.height).toBeLessThan(200);
-      await expect(emptyQueue.getByRole("button", { name: /^(Previous|Next)$/ })).toHaveCount(0);
-      await page.reload();
-      await expect(page.getByRole("button", { name: "Returned queue", exact: true })).toHaveAttribute("aria-pressed", "true");
-      await selectBrandedOption(page.getByLabel("Scope"), "own");
-      await page.getByRole("button", { name: "Active Team Cases queue" }).click();
-      await expect(page.getByText(fixture.cases[index].own.applicationCode).first()).toBeVisible();
-      await selectBrandedOption(page.getByLabel("Scope"), "team");
-      await expect(page.getByTestId("tl-dashboard")).not.toContainText(fixture.cases[index].own.applicationCode);
-      await selectBrandedOption(page.getByLabel("Period"), "ytd");
-      await page.getByRole("tab", { name: "Analytics", exact: true }).click();
-      await page.reload();
-      await expect(page).toHaveURL(/period=ytd/);
-      await expect(page).toHaveURL(/view=team/);
-      await expect(page.getByRole("tab", { name: "Analytics", exact: true })).toHaveAttribute("aria-selected", "true");
-      const scopedApproved = new URL((await page.getByRole("link", { name: "Review bank-approved cases", exact: true }).getAttribute("href"))!, page.url());
-      expect(scopedApproved.searchParams.get("period")).toBe("ytd");
-      expect(scopedApproved.searchParams.get("view")).toBe("team");
-      expect(scopedApproved.searchParams.get("queue")).toBe("approved");
-      await page.getByRole("tab", { name: "Analytics", exact: true }).focus();
-      await page.keyboard.press("Home");
-      await expect(page.getByRole("tab", { name: "Review", exact: true })).toBeFocused();
-      const ytdResponse = await page.request.get(`${api}/api/v1/reports/tl-dashboard?period=ytd&view=team&queue=active&page=1`);
-      expect(ytdResponse.status()).toBe(200);
-      const ytdReport = await ytdResponse.json();
-      expect(ytdReport.view).toBe("team");
-      expect(ytdReport.metricHistory.pending_review.points.length).toBe(new Date().getUTCMonth() + 1);
-      await expectMetricSparklines(page, ytdReport);
-      await page.keyboard.press("End");
-      await expect(page.getByRole("tab", { name: "My Performance & Attendance", exact: true })).toBeFocused();
-      for (const suffix of ["", "/progress", "/timeline", "/internal-review"]) expect((await page.request.get(`${api}/api/v1/applications/${other.id}${suffix}`)).status()).toBe(404);
-      expect((await page.request.get(`${api}/api/v1/customers`)).status()).toBe(403);
-      expect((await page.request.get(`${api}/api/v1/workflows`)).status()).toBe(403);
-      await page.goto("/customers");
-      await expect(page.getByText("You do not have permission to view Customers.")).toBeVisible();
-      await page.goto("/workflows");
-      await expect(page.getByText("Workflow access is restricted to OWNER and GM.")).toBeVisible();
-      await page.goto(`/applications/${other.id}`);
-      await expect(page.getByText("Application not found", { exact: true })).toBeVisible();
-      await page.goto(`/applications/${app.id}`);
-      const breadcrumb = page.getByRole("navigation", { name: "Breadcrumb" });
-      await expect(breadcrumb.getByRole("link", { name: "Dashboard", exact: true })).toHaveAttribute("href", "/reports");
-      await expect(breadcrumb.getByRole("link", { name: "Applications", exact: true })).toHaveAttribute("href", "/applications");
-      await expect(breadcrumb.locator('[aria-current="page"]')).toHaveText("Application details");
-      await expect(page.getByRole("heading", { name: "Application details", exact: true })).toBeVisible();
-      const review = page.getByTestId("internal-review");
-      await expect(review).toContainText("Pending TL Review");
-      await expect(page.getByRole("button", { name: "Save Product Variant" })).toHaveCount(0);
-      const returnButton = review.getByRole("button", { name: "Return to SE", exact: true });
-      await returnButton.click();
-      await expect(page.getByRole("dialog")).toBeVisible();
-      await page.keyboard.press("Escape");
-      await expect(returnButton).toBeFocused();
-      await returnButton.click();
-      await page.getByRole("dialog").getByRole("button", { name: "Confirm", exact: true }).click();
-      await expect(page.getByRole("dialog")).toBeVisible();
-      await page.getByLabel("Return reason").fill("Correct the requested amount");
-      await page.getByRole("dialog").getByRole("button", { name: "Confirm", exact: true }).click();
-      await expect(review).toContainText("Returned to SE");
-      expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
-      await signOut(page);
-      await signIn(page, group.users.SE.email, "My Dashboard");
-      await page.goto(`/applications/${app.id}`);
-      await page.getByRole("button", { name: "Correct requested amount" }).click();
-      await page.getByLabel("Requested amount", { exact: true }).fill("15000");
-      await page.getByRole("dialog").getByRole("button", { name: "Confirm", exact: true }).click();
-      await expect(page.getByTestId("internal-review")).toBeVisible();
-      await page.getByRole("button", { name: "Resubmit to TL", exact: true }).click();
-      await page.getByRole("dialog").getByRole("button", { name: "Confirm", exact: true }).click();
-      await expect(page.getByTestId("internal-review")).toContainText("Resubmitted to TL");
-      await signOut(page);
-      await signIn(page, group.users.TL.email, "Team Leader Dashboard");
-      await page.getByRole("button", { name: "Resubmitted queue", exact: true }).click();
-      await expect(page.getByText(app.applicationCode).first()).toBeVisible();
-      await page.goto(`/applications/${app.id}`);
-      await page.getByRole("button", { name: "Book case", exact: true }).click();
-      await page.getByRole("dialog").getByRole("button", { name: "Confirm", exact: true }).click();
-      await expect(page.getByTestId("internal-review")).toContainText("Booked by TL");
-      const stored = await (await page.request.get(`${api}/api/v1/applications/${app.id}`)).json();
-      expect(stored.caseOwnerId).toBe(group.users.SE.id);
-      expect(stored.requestedAmount).toBe("15000.00");
-      expect(stored.submitted).toBe(false);
-      await page.getByRole("tab", { name: "Corrections & Actions" }).click();
-      for (const action of ["Update MIS stage", "Save Bank Case Number", "Set outcome"]) await expect(page.getByRole("button", { name: action, exact: true })).toHaveCount(0);
-      if (index === 0 && viewport.width === 1440) {
-        await page.route("**/api/v1/reports/tl-dashboard?**", route => route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: { message: "Isolated dashboard unavailable" } }) }));
-        await page.goto("/reports");
-        await expect(page.getByText("Isolated dashboard unavailable", { exact: true })).toBeVisible();
-        await expect(page.getByTestId("tl-last-update")).toHaveText("Last update: —");
-        await expect(page.getByTestId("tl-cards")).toHaveCount(0);
-        await page.unroute("**/api/v1/reports/tl-dashboard?**");
-        await page.getByRole("button", { name: "Refresh", exact: true }).click();
-        await expect(page.getByTestId("tl-cards")).toBeVisible();
-      }
-      await signOut(page);
     }
   }
-  for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
-    await page.setViewportSize(viewport);
-    await signIn(page, fixture.groups[0].users.EMPTY.email, "Team Leader Dashboard");
-    const queue = page.getByTestId("tl-review-queue");
-    await expect(queue).toContainText("No internal review cases in the selected period.");
-    expect((await queue.boundingBox())!.height).toBeLessThan(200);
-    await expect(queue.getByRole("button", { name: /^(Previous|Next)$/ })).toHaveCount(0);
-    await expectReviewLayout(page, viewport.width);
-    const emptyReportResponse = await page.request.get(`${api}/api/v1/reports/tl-dashboard?period=mtd&view=combined&queue=pending_review&page=1`);
-    expect(emptyReportResponse.status()).toBe(200);
-    const emptyReport = await emptyReportResponse.json();
-    for (const history of Object.values(emptyReport.metricHistory) as MetricHistory[]) expect(history.points.every(point => point.value === 0)).toBe(true);
-    await expectMetricSparklines(page, emptyReport, true);
-    await capturePreview(page, testInfo, `tl-empty-${viewport.width}-review`);
-    await page.getByRole("tab", { name: "Team Performance", exact: true }).click();
-    await expectTabFrame(page, "team", viewport.width);
-    await expect(page.getByTestId("tl-team-performance")).toContainText("No SEs are currently assigned to this team.");
-    await expect(page.getByTestId("tl-team-performance").getByRole("progressbar")).toHaveCount(0);
-    await capturePreview(page, testInfo, `tl-empty-${viewport.width}-team`);
-    await page.getByRole("tab", { name: "Analytics", exact: true }).click();
-    await expectTabFrame(page, "analytics", viewport.width);
-    await expectAlignedPanels(page, ["Applications trend", "Bank Stage tracker"], viewport.width);
-    await expectAlignedPanels(page, ["Product mix", "Bank outcomes", "Waiting time & delays"], viewport.width);
-    for (const chart of ["tl-trend-chart", "tl-stage-chart", "tl-product-chart", "tl-outcome-chart"]) {
-      await expect(page.getByTestId(chart)).toBeVisible();
-      await expect(page.getByTestId(chart).locator("canvas")).toHaveCount(0);
-      expect((await page.getByTestId(chart).boundingBox())!.height).toBeLessThan(200);
-    }
-    await capturePreview(page, testInfo, `tl-empty-${viewport.width}-analytics`);
-    await page.getByRole("tab", { name: "My Performance & Attendance", exact: true }).click();
-    await expectTabFrame(page, "personal", viewport.width);
-    await expectAlignedPanels(page, ["My Performance", "My Attendance"], viewport.width);
-    await expect(page.getByTestId("my-performance")).toContainText("No performance data for this period");
-    await expect(page.getByTestId("my-performance").getByRole("progressbar")).toHaveCount(0);
-    await capturePreview(page, testInfo, `tl-empty-${viewport.width}-personal`);
-    await signOut(page);
-  }
+  await openWorkspace(page, "Cases");
+  await page.getByRole("combobox", { name: "Case date range", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Choose case date range range", exact: true })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "Create Case", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Create application", exact: true });
+  await dialog.getByLabel("Case Owner", { exact: true }).click();
+  await expect(page.getByRole("option", { name: group.users.TL.fullName, exact: true })).toBeVisible();
+  await expect(page.getByRole("option", { name: group.users.SE.fullName, exact: true })).toBeVisible();
+  await expect(page.getByRole("option", { name: fixture.groups[1].users.SE.fullName, exact: true })).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
   expect(errors).toEqual([]);
 });
 
-test("TL approved review cards preserve real metrics, selection, focus and motion preferences", async ({ page, request, browser }, testInfo) => {
-  test.setTimeout(240_000);
+test("DXB and AUH TL review: scope, tabs, charts, breadcrumbs and responsive queues", async ({ page, request }) => {
   const fixture = await seed(request);
-  const group = fixture.groups[0];
-  await signIn(page, group.users.TL.email, "Team Leader Dashboard");
-  const keys = ["pending_review", "resubmitted", "returned", "forwarded"];
-  for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
-    await page.setViewportSize(viewport);
-    for (const theme of ["light", "dark"] as const) {
-      await setVisualTheme(page, theme);
-      await page.goto("/reports?tab=review&period=ytd&view=combined&queue=pending_review&page=1");
-      await expect(page.getByTestId("tl-dashboard")).toHaveAttribute("aria-busy", "false");
-      const bankStrip = page.getByTestId("tl-bank-status");
-      const bankMetrics = bankStrip.locator("[data-selected]");
-      await expect(bankMetrics).toHaveCount(4);
-      await expect(bankStrip).toHaveCSS("column-gap", "12px");
-      const bankBoxes = await bankMetrics.evaluateAll(elements => elements.map(element => {
-        const box = element.getBoundingClientRect(); return { x: box.x, y: box.y, width: box.width, height: box.height };
-      }));
-      expect(new Set(bankBoxes.map(box => box.height)).size).toBe(1);
-      expect(new Set(bankBoxes.map(box => box.y)).size).toBe(2);
-      const cards = page.getByTestId("tl-cards").locator("[data-queue]");
-      await expect(cards).toHaveCount(4);
-      const baseline = await cards.evaluateAll(elements => elements.map(element => {
-        const box = element.getBoundingClientRect(); return { x: box.x, y: box.y, width: box.width, height: box.height };
-      }));
-      expect(new Set(baseline.map(box => box.height)).size).toBe(1);
-      expect(new Set(baseline.map(box => box.y)).size).toBe(2);
-      const response = await page.request.get(`${api}/api/v1/reports/tl-dashboard?period=ytd&view=combined&queue=pending_review&page=1`);
-      expect(response.status()).toBe(200);
-      const report = await response.json();
-      for (const [index, key] of keys.entries()) {
-        const card = cards.nth(index);
-        await expect(card.locator("button > strong")).toHaveText(report.cards.find((item: { key: string }) => item.key === key).count.toLocaleString());
-        await expect(card.locator("button > strong")).toHaveCSS("font-size", "32px");
-        await expect(card).toHaveCSS("box-shadow", "none");
-        await expect(card).toHaveCSS("transform", "none");
-        expect(await card.evaluate(element => getComputedStyle(element, "::before").animationName)).toBe("none");
-      }
-      await cards.nth(1).hover();
-      expect(await cards.evaluateAll(elements => elements.map(element => {
-        const box = element.getBoundingClientRect(); return { x: box.x, y: box.y, width: box.width, height: box.height };
-      }))).toEqual(baseline);
-      await page.emulateMedia({ reducedMotion: "reduce" });
-      for (const index of [0, 1, 2, 3, 0]) {
-        const action = cards.nth(index).getByRole("button");
-        await action.focus();
-        await expect(action).toBeFocused();
-        await expect(action).toHaveCSS("outline-width", "2px");
-        await action.press("Enter");
-        await expect(page.getByTestId("tl-dashboard")).toHaveAttribute("aria-busy", "false");
-        await expect(page).toHaveURL(new RegExp(`queue=${keys[index]}`));
-        await expect(action).toHaveAttribute("aria-pressed", "true");
-        await expect(cards.locator('button[aria-pressed="true"]')).toHaveCount(1);
-        await expect(cards.nth(index)).toHaveCSS("background-image", /linear-gradient/);
-        await expect(cards.nth(index).locator("button > strong")).toHaveCSS("color", "rgb(255, 255, 255)");
-        const selectedLabel = (await action.getAttribute("aria-label"))!.replace(/ queue$/, "");
-        await expect(page.getByRole("heading", { name: `${selectedLabel} review queue`, exact: true })).toBeAttached();
-        expect(new URL(page.url()).searchParams.get("period")).toBe("ytd");
-        expect(new URL(page.url()).searchParams.get("view")).toBe("combined");
-      }
-      await capturePreview(page, testInfo, `approved-review-${theme}-${viewport.width}`);
-      for (const tabName of ["Team Performance", "Analytics", "My Performance & Attendance", "Review"]) {
-        await page.getByRole("tab", { name: tabName, exact: true }).click();
-        await expect(page.getByTestId("tl-dashboard")).toHaveAttribute("aria-busy", "false");
-        await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
-        await capturePreview(page, testInfo, `approved-${tabName.replaceAll(" ", "-")}-${theme}-${viewport.width}`);
-      }
-      await expectNoOverflow(page);
+  for (const index of [0, 1]) {
+    const group = fixture.groups[index], other = fixture.cases[1 - index].desktop;
+    await enter(page, group.users.TL.email);
+    await openWorkspace(page, "Cases");
+    await page.getByRole("tab", { name: "Team Cases", exact: true }).click();
+    await settled(page);
+    await expect(page.getByTestId("tl-review-queue")).toContainText(fixture.cases[index].desktop.applicationCode);
+    await expect(page.getByTestId("tl-review-queue")).not.toContainText(other.applicationCode);
+    for (const suffix of ["", "/progress", "/timeline", "/internal-review"]) expect((await page.request.get(`${api}/api/v1/applications/${other.id}${suffix}`)).status()).toBe(404);
+    for (const path of ["/organization", "/organization/hierarchy", "/catalog", "/workflows", "/case-operations", "/contracts", "/transfers", "/exits", "/approvals", "/hr", "/pro", "/user-types", "/reports/compare"]) {
+      await page.goto(path);
+      await expect(page).toHaveURL(/\/reports\?workspace=dashboard$/);
+      await settled(page);
     }
+    for (const path of ["case-operations/routing", "case-operations/reports/cases", "workflows", "reports/dashboard", "reports/rankings", "contracts", "transfers", "exits", "approvals"]) expect((await page.request.get(`${api}/api/v1/${path}`)).status()).toBe(403);
+    await page.goto(`/applications/${fixture.cases[index].desktop.id}`);
+    const breadcrumb = page.getByRole("navigation", { name: "Breadcrumb" });
+    await expect(breadcrumb.getByRole("link", { name: "Cases", exact: true })).toHaveAttribute("href", "/reports?workspace=cases&queue=all");
+    const tracker = page.getByTestId("internal-review");
+    const returnButton = tracker.getByRole("button", { name: "Return to SE", exact: true });
+    await returnButton.click();
+    await page.keyboard.press("Escape");
+    await expect(returnButton).toBeFocused();
+    await returnButton.click();
+    await page.getByRole("dialog").getByRole("button", { name: "Confirm", exact: true }).click();
+    await expect(page.getByRole("dialog")).toBeVisible();
+    expect(await page.getByLabel("Return reason").evaluate((input: HTMLTextAreaElement) => input.validity.valueMissing)).toBe(true);
+    await page.getByLabel("Return reason").fill("Correct the requested amount");
+    await page.getByRole("dialog").getByRole("button", { name: "Confirm", exact: true }).click();
+    await expect(tracker).toContainText("Returned to SE");
+    await signOut(page);
+    await signIn(page, group.users.SE.email, "My Dashboard");
+    await page.goto(`/applications/${fixture.cases[index].desktop.id}`);
+    await page.getByRole("button", { name: "Correct requested amount", exact: true }).click();
+    await page.getByLabel("Requested amount", { exact: true }).fill("15000");
+    await page.getByRole("dialog").getByRole("button", { name: "Confirm", exact: true }).click();
+    await page.getByRole("button", { name: "Resubmit to TL", exact: true }).click();
+    await page.getByRole("dialog").getByRole("button", { name: "Confirm", exact: true }).click();
+    await expect(page.getByTestId("internal-review")).toContainText("Resubmitted to TL");
+    await signOut(page);
+    await enter(page, group.users.TL.email);
+    await page.goto(`/applications/${fixture.cases[index].desktop.id}`);
+    await page.getByTestId("internal-review").getByRole("button", { name: "Book & Send to SM", exact: true }).click();
+    await page.getByRole("dialog").getByRole("button", { name: "Confirm", exact: true }).click();
+    await expect(page.getByTestId("internal-review")).toContainText("Booked by TL");
+    const stored = await (await page.request.get(`${api}/api/v1/applications/${fixture.cases[index].desktop.id}`)).json();
+    expect(stored.caseOwnerId).toBe(group.users.SE.id);
+    expect(stored.requestedAmount).toBe("15000.00");
+    expect(stored.submitted).toBe(false);
+    await signOut(page);
+    await signIn(page, group.users.SM.email, "Dashboard");
+    await expect(page.getByLabel("Application sidebar", { exact: true })).toHaveCount(1);
+    await page.goto(`/applications/${fixture.cases[index].desktop.id}?tab=actions`);
+    await page.getByRole("tab", { name: "Corrections & Actions", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Sales Manager Review", exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Approve", exact: true }).click();
+    await expect(page.getByText("Case approved for processing.", { exact: true })).toBeVisible();
+    await signOut(page);
+    await signIn(page, group.users.COD.email, "Operations Dashboard");
+    await expect(page.getByLabel("Application sidebar", { exact: true })).toHaveCount(1);
+    await page.goto(`/applications/${fixture.cases[index].desktop.id}?tab=actions`);
+    await page.getByRole("tab", { name: "Corrections & Actions", exact: true }).click();
+    await page.getByLabel("Bank File Number", { exact: true }).fill(`E2E-${fixture.cases[index].desktop.id}`);
+    await page.getByRole("button", { name: "Submit to Bank", exact: true }).click();
+    await expect(page.getByText("Bank submission recorded.", { exact: true })).toBeVisible();
+    const submitted = await (await page.request.get(`${api}/api/v1/applications/${fixture.cases[index].desktop.id}`)).json();
+    expect(submitted.submitted).toBe(true);
+    expect(submitted.caseOwnerId).toBe(group.users.SE.id);
+    // PF stays open after bank submission; CC closure is covered by the case-operations test.
+    expect(submitted.terminalOutcome).toBeNull();
+    await signOut(page);
   }
-  await signOut(page);
-  const touchContext = await browser.newContext({ baseURL: new URL(page.url()).origin, viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, reducedMotion: "no-preference" });
-  try {
-    const touchPage = await touchContext.newPage();
-    await signIn(touchPage, group.users.TL.email, "Team Leader Dashboard");
-    const card = touchPage.getByTestId("tl-cards").locator('[data-queue="returned"]');
-    await card.getByRole("button").tap();
-    await expect(card.getByRole("button")).toHaveAttribute("aria-pressed", "true");
-    expect(await card.evaluate(element => ({ hover: matchMedia("(hover: hover) and (pointer: fine)").matches, animation: getComputedStyle(element, "::before").animationName }))).toEqual({ hover: false, animation: "none" });
-    await capturePreview(touchPage, testInfo, "approved-touch-static");
-    await signOut(touchPage);
-  } finally { await touchContext.close(); }
 });
 
-test("TL compact header and real database refresh preserve selections and last successful time", async ({ page, request }, testInfo) => {
-  test.setTimeout(180_000);
-  const fixture = await seed(request);
-  const group = fixture.groups[0];
-  await signIn(page, group.users.TL.email, "Team Leader Dashboard");
-  const endpoint = "**/api/v1/reports/tl-dashboard?**";
-  for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
-    await page.setViewportSize(viewport);
-    await page.goto("/reports?tab=analytics&period=ytd&view=team&queue=pending_review&page=1");
-    await expect(page.getByTestId("tl-dashboard")).toHaveAttribute("aria-busy", "false");
-    const heading = page.getByRole("heading", { level: 1, name: "Team Leader Dashboard", exact: true });
-    await expect(heading).toHaveClass(/sr-only/);
-    await expect(page.getByTestId("tl-team-context")).toHaveCount(0);
-    expect((await heading.boundingBox())!.height).toBeLessThanOrEqual(1);
-    await expect(page.getByTestId("tl-last-update")).not.toContainText("My Team");
-    const url = page.url();
-    const lastUpdate = page.getByTestId("tl-last-update").locator("time");
-    const previousTime = await lastUpdate.getAttribute("datetime");
-    const baselineResponse = await page.request.get(`${api}/api/v1/reports/tl-dashboard?period=ytd&view=team&queue=pending_review&page=1`);
-    expect(baselineResponse.status()).toBe(200);
-    const baseline = await baselineResponse.json();
-
-    // Supported SE creation changes only this disposable database; never canonical data.
-    const seHeaders = await login(request, group.users.SE.email);
-    const created = await save(request, "applications", seHeaders, {
-      customer: { customer_type: "individual", full_name: `Disposable refresh ${viewport.width} ${Date.now()}`, mobile: "+971500000012" },
-      bank_id: fixture.bank.id, product_id: fixture.product.id, product_variant_id: fixture.variant.id, requested_amount: "13000",
-    });
-    expect(created.caseOwnerId).toBe(group.users.SE.id);
-    let release!: () => void;
-    let fetched!: () => void;
-    const held = new Promise<void>(resolve => { release = resolve; });
-    const fetchedResponse = new Promise<void>(resolve => { fetched = resolve; });
-    let fresh = baseline;
-    let requests = 0;
-    await page.route(endpoint, async route => {
-      requests++;
-      expect(route.request().method()).toBe("GET");
-      const response = await route.fetch();
-      expect(response.status()).toBe(200);
-      fresh = await response.json();
-      fetched();
-      await held;
-      await route.fulfill({ response }); // Unchanged, authenticated response from the real test database.
-    });
-    try {
-      await page.getByRole("button", { name: "Refresh", exact: true }).click();
-      await fetchedResponse;
-      await expect(page.getByRole("button", { name: "Refresh", exact: true })).toBeDisabled();
-      await expect(lastUpdate).toHaveAttribute("datetime", previousTime!);
-      await expect(page).toHaveURL(url);
-    } finally { release(); }
-    await expect(page.getByTestId("tl-dashboard")).toHaveAttribute("aria-busy", "false");
-    await expect(lastUpdate).toHaveAttribute("datetime", fresh.updatedAt);
-    expect(Date.parse(fresh.updatedAt)).toBeGreaterThan(Date.parse(previousTime!));
-    expect(requests).toBe(1);
-    expect(fresh.charts.trend.at(-1).created).toBe(baseline.charts.trend.at(-1).created + 1);
-    const pending = (report: { cards: Array<{ key: string; count: number }> }) => report.cards.find(card => card.key === "pending_review")!.count;
-    expect(pending(fresh)).toBe(pending(baseline) + 1);
-    const trendSummary = page.getByTestId("tl-trend-chart").getByRole("img", { name: /^Applications trend\./ });
-    await expect(trendSummary).toHaveCount(1);
-    await expect(trendSummary).toHaveAttribute("aria-label", new RegExp(`${fresh.charts.trend.at(-1).created} created`));
-    await expect(page).toHaveURL(url);
-    await expect(page.getByRole("tab", { name: "Analytics", exact: true })).toHaveAttribute("aria-selected", "true");
-    await expect(page.getByLabel("Period", { exact: true })).toContainText("YTD");
-    await expect(page.getByLabel("Scope", { exact: true })).toContainText("Team Cases");
-    await page.unroute(endpoint);
-
-    const successfulTime = fresh.updatedAt;
-    await page.route(endpoint, route => route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: { message: "Disposable refresh unavailable" } }) }));
-    await page.getByRole("button", { name: "Refresh", exact: true }).click();
-    await expect(page.getByText("Disposable refresh unavailable", { exact: true })).toBeVisible();
-    await expect(lastUpdate).toHaveAttribute("datetime", successfulTime);
-    await expect(page.getByRole("tabpanel")).toHaveCount(0);
-    await expect(page).toHaveURL(url);
-    await page.unroute(endpoint);
-    const recovery = page.waitForResponse(response => response.url().includes("/api/v1/reports/tl-dashboard?") && response.request().method() === "GET");
-    await page.getByRole("button", { name: "Refresh", exact: true }).click();
-    const recovered = await recovery;
-    expect(recovered.status()).toBe(200);
-    const recoveredData = await recovered.json();
-    await expect(lastUpdate).toHaveAttribute("datetime", recoveredData.updatedAt);
-    await expect(page.getByText("Disposable refresh unavailable", { exact: true })).toHaveCount(0);
-    await expect(page).toHaveURL(url);
-    await capturePreview(page, testInfo, `tl-welcome-${viewport.width}-analytics`);
-    await page.getByRole("tab", { name: "Review", exact: true }).click();
-    await expect(page.getByRole("button", { name: "Pending Review queue", exact: true }).locator("strong")).toHaveText(String(pending(recoveredData)));
-    await expect(page.getByTestId("tl-review-queue")).toContainText(created.applicationCode);
-    await capturePreview(page, testInfo, `tl-welcome-${viewport.width}-review`);
-    await page.reload();
-    await expect(page.getByRole("tab", { name: "Review", exact: true })).toHaveAttribute("aria-selected", "true");
-    await expect(page.getByLabel("Period", { exact: true })).toContainText("YTD");
-    await expect(page.getByLabel("Scope", { exact: true })).toContainText("Team Cases");
+test("TL approved review cards preserve real metrics, selection, focus and motion preferences", async ({ page, request }) => {
+  const fixture = await seed(request), group = fixture.groups[0];
+  await enter(page, group.users.TL.email);
+  for (const motion of ["reduce", "no-preference"] as const) {
+    await page.emulateMedia({ reducedMotion: motion });
+    for (const theme of ["light", "dark"] as const) {
+      await setVisualTheme(page, theme);
+      await openWorkspace(page, "Dashboard");
+      const payload = await report(page);
+      for (const [id, counts] of [["tl-own-status", payload.ownStatus], ["tl-team-status", payload.teamStatus]] as const) {
+        const panel = page.getByTestId(id);
+        await expect(panel.getByRole("term")).toHaveCount(4);
+        await expect(panel).toContainText("Cumulative milestones · Selected period");
+        for (const label of ["Created", "TL Booked", "Bank Submitted", "Completed/Closed"]) await expect(panel.getByText(label, { exact: true }).locator("..").getByRole("definition")).toHaveText(String(counts[label]));
+      }
+      expect(payload.ownTotal).toBe(1);
+      expect(payload.teamTotal).toBeGreaterThan(payload.ownTotal);
+      await expect(page.getByTestId("tl-team-status")).toContainText("Your direct SE members");
+      for (const cohort of ["own", "team"] as const) {
+        const pipeline = page.getByRole("navigation", { name: `${cohort === "own" ? "My" : "Team"} current workflow`, exact: true });
+        await expect(pipeline.getByRole("link")).toHaveCount(6);
+        for (const key of ["created", "tl_booking", "sm", "coordinator", "bank", "completed"]) await expect(pipeline.locator(`a[href*="queue=stage_${key}"] strong`)).toHaveText(String(payload.currentWork[cohort].stages[key]));
+      }
+      const nav = page.getByRole("navigation", { name: "Workspace pages" });
+      const casesLink = nav.getByRole("link", { name: "Cases", exact: true });
+      await casesLink.focus();
+      await page.keyboard.press("Enter");
+      await settled(page);
+      await expect(casesLink).toHaveAttribute("aria-current", "page");
+      await page.getByRole("tab", { name: "Team Cases", exact: true }).click();
+      await settled(page);
+      await page.getByRole("textbox", { name: "Search cases", exact: true }).fill(fixture.cases[0].desktop.applicationCode);
+      await settled(page);
+      await expect(page.getByTestId("tl-review-queue")).toContainText(fixture.cases[0].desktop.applicationCode);
+      await expect(page.getByTestId("tl-review-queue")).not.toContainText(fixture.cases[0].mobile.applicationCode);
+      await page.reload();
+      await settled(page);
+      await expect(page.getByRole("textbox", { name: "Search cases", exact: true })).toHaveValue(fixture.cases[0].desktop.applicationCode);
+      await expect(page.getByRole("tab", { name: "Team Cases", exact: true })).toHaveAttribute("aria-selected", "true");
+      await page.getByRole("textbox", { name: "Search cases", exact: true }).fill("");
+      await settled(page);
+    }
   }
-  await signOut(page);
+});
+
+test("TL actionable booking summary matches own/team queues and current-state drilldowns", async ({ page, request }) => {
+  const fixture = await seed(request), group = fixture.groups[0];
+  await enter(page, group.users.TL.email);
+  const payload = await report(page, "view=combined&queue=booking");
+  const pending = page.getByTestId("tl-pending-booking");
+  await expect(pending).toContainText(fixture.cases[0].desktop.applicationCode);
+  expect(payload.currentWork.team.booking).toBeGreaterThan(0);
+  expect(payload.currentWork.own.booking + payload.currentWork.team.booking).toBe(payload.total);
+  const summary = page.getByRole("navigation", { name: "Actionable case summary" });
+  await expect(summary.getByRole("link", { name: /Needs TL Action/ }).locator("strong")).toHaveText(String(payload.total));
+  // Each current-stage link opens precisely the backend snapshot cohort, not cumulative milestones.
+  for (const key of ["created", "tl_booking", "sm", "coordinator", "bank", "completed"]) {
+    await openWorkspace(page, "Dashboard");
+    await page.getByRole("navigation", { name: "Team current workflow", exact: true }).locator(`a[href*="queue=stage_${key}"]`).click();
+    await settled(page);
+    const queue = await report(page, `view=team&queue=stage_${key}`);
+    expect(queue.total).toBe(payload.currentWork.team.stages[key]);
+    await expect(page.getByRole("tab", { name: "Team Cases", exact: true })).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByTestId("tl-review-queue")).toContainText(`${queue.total} cases`);
+    for (const item of queue.items) expect(item.currentBucket).toBe(key);
+  }
+  await openWorkspace(page, "Cases");
+  await page.getByRole("tab", { name: "Team Cases", exact: true }).click();
+  await settled(page);
+  await page.getByRole("combobox", { name: "Case date range", exact: true }).click();
+  const today = payload.updatedAt.slice(0, 10);
+  await page.getByRole("button", { name: today, exact: true }).click();
+  await page.getByRole("button", { name: today, exact: true }).click();
+  expect(new URL(page.url()).searchParams.has("date_from")).toBe(false);
+  await page.getByRole("button", { name: "Apply", exact: true }).click();
+  await settled(page);
+  expect(new URL(page.url()).searchParams.get("date_from")).toBe(today);
+  await page.getByRole("button", { name: "Clear", exact: true }).click();
+  await settled(page);
+  expect(new URL(page.url()).searchParams.has("date_from")).toBe(false);
+  await expect(page.getByTestId("tl-review-queue")).toContainText(fixture.cases[0].desktop.applicationCode);
+});
+
+test("TL compact header and real database refresh preserve selections and last successful time", async ({ page, request }) => {
+  const fixture = await seed(request), group = fixture.groups[0];
+  await enter(page, group.users.TL.email);
+  await openWorkspace(page, "Cases");
+  const before = await report(page, "view=own&queue=all");
+  const meResponse = await page.request.get(`${api}/api/v1/auth/me`);
+  const me = await meResponse.json();
+  const created = await page.request.post(`${api}/api/v1/applications`, { headers: { "X-CSRF-Token": me.csrfToken }, data: { customer: { customer_type: "individual", full_name: "TL own refresh regression", mobile: "+971500000016" }, bank_id: fixture.bank.id, product_id: fixture.product.id, product_variant_id: fixture.variant.id, requested_amount: "1000" } });
+  expect(created.status()).toBe(200);
+  await page.getByRole("button", { name: "Refresh", exact: true }).click();
+  await settled(page);
+  await expect(page.getByTestId("tl-review-queue")).toContainText((await created.json()).applicationCode);
+  const after = await report(page, "view=own&queue=all");
+  expect(after.ownTotal).toBe(before.ownTotal + 1);
+  expect(after.teamTotal).toBe(before.teamTotal);
+  expect(after.currentWork.own.booking).toBe(before.currentWork.own.booking + 1);
+  expect(after.currentWork.team.booking).toBe(before.currentWork.team.booking);
+  await openWorkspace(page, "Dashboard");
+  await expect(page.getByRole("navigation", { name: "Actionable case summary" }).getByRole("link", { name: /Needs TL Action/ }).locator("strong")).toHaveText(String(after.currentWork.own.booking + after.currentWork.team.booking));
+  await expect(page.getByTestId("tl-pending-booking")).toContainText((await created.json()).applicationCode);
+  await openWorkspace(page, "Cases");
+  const successTime = await page.getByTestId("tl-last-update").innerText();
+  expect(successTime).not.toBe("Last update: —");
+  await page.route("**/api/v1/reports/tl-dashboard?**", route => route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: { message: "Isolated dashboard unavailable" } }) }));
+  await page.getByRole("button", { name: "Refresh", exact: true }).click();
+  await expect(page.getByText("Isolated dashboard unavailable", { exact: true })).toBeVisible();
+  await expect(page.getByTestId("tl-last-update")).toHaveText(successTime);
+  await page.unroute("**/api/v1/reports/tl-dashboard?**");
+  await page.getByRole("button", { name: "Refresh", exact: true }).click();
+  await settled(page);
+  await expect(page.getByTestId("tl-review-queue")).toContainText((await created.json()).applicationCode);
 });
 
 test("TL portal surfaces share approved spacing, compact tabs, flat cards and responsive access", async ({ page, request }, testInfo) => {
-  test.setTimeout(240_000);
-  const fixture = await seed(request);
-  const group = fixture.groups[0];
-  const application = fixture.cases[0].desktop;
-  await signIn(page, group.users.TL.email, "Team Leader Dashboard");
-
-  const routes = [
-    { path: "/applications", heading: "Applications", tabs: false },
-    { path: `/applications/${application.id}`, heading: "Application details", tabs: true },
-    { path: "/organization?tab=departments", heading: "Organization masters", tabs: true },
-    { path: "/catalog?tab=products", heading: "Banks and products", tabs: true },
-    { path: "/notifications", heading: "Notifications", tabs: false },
-    { path: "/account", heading: "My profile", tabs: false },
-  ] as const;
-
-  for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
-    await page.setViewportSize(viewport);
-    for (const route of routes) {
-      await page.goto(route.path);
-      await expect(page.getByTestId("authenticated-content")).toHaveAttribute("data-portal-role", "TL");
-      await expect(page.getByRole("heading", { level: 1, name: route.heading, exact: true })).toBeVisible();
-      if (route.path === "/applications") {
-        await expect(page.getByRole("link", { name: application.applicationCode, exact: true })).toBeVisible();
-      }
-      const header = page.getByTestId("page-header");
-      const headerBox = await header.boundingBox();
-      const headerChildBox = await header.getByRole("navigation", { name: "Breadcrumb" }).boundingBox();
-      expect(headerBox).not.toBeNull();
-      expect(headerChildBox).not.toBeNull();
-      expect(Math.round(headerChildBox!.y - headerBox!.y)).toBe(viewport.width < 1024 ? 14 : 18);
-      await expectNoOverflow(page);
-
-      const firstCard = page.locator("[data-amafh-card]").first();
-      if (await firstCard.count()) {
-        await expect(firstCard).toHaveCSS("border-color", "rgb(236, 233, 239)");
-        await expect(firstCard).toHaveCSS("box-shadow", "none");
-      }
-
-      if (route.tabs) {
-        const tablist = page.getByRole("tablist").first();
-        await expect(tablist).toHaveCSS("height", "36px");
-        await expect(tablist).toHaveCSS("gap", "4px");
-        const tabs = tablist.getByRole("tab");
-        expect(await tabs.count()).toBeGreaterThan(1);
-        for (const tab of await tabs.all()) {
-          await expect(tab).toHaveCSS("height", "30px");
-          expect(await tab.evaluate(element => getComputedStyle(element).transform)).toBe("none");
-          expect(await tab.evaluate(element => getComputedStyle(element).backgroundImage)).toBe("none");
-        }
-        await expect(tablist.locator('[role="tab"][aria-selected="true"]')).toHaveCount(1);
-        expect(await tablist.locator('[role="tab"][aria-selected="true"]').evaluate(element => getComputedStyle(element).boxShadow)).toBe("none");
-      }
-      await page.screenshot({
-        path: testInfo.outputPath(`tl-portal-${route.heading.toLowerCase().replaceAll(" ", "-")}-${viewport.width}.png`),
-        fullPage: true,
-        animations: "disabled",
-      });
-    }
-
-    await page.goto("/applications?create=true");
-    const dialog = page.getByRole("dialog", { name: "Create application" });
-    await expect(dialog).toBeVisible();
-    await expectNoOverflow(page);
-    await page.keyboard.press("Escape");
-    await expect(dialog).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "Create application", exact: true })).toBeFocused();
-  }
-
-  await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto("/reports?tab=review&period=mtd&view=combined&queue=pending_review&page=1");
-  await expect(page.getByTestId("tl-dashboard")).toHaveAttribute("aria-busy", "false");
-  await expect(page.getByRole("heading", { level: 1, name: "Team Leader Dashboard" })).toHaveClass(/sr-only/);
-  await expect(page.getByTestId("tl-team-context")).toHaveCount(0);
-  await expect(page.getByRole("link", { name: "Customers", exact: true })).toHaveCount(0);
-  await expect(page.getByRole("link", { name: "Users", exact: true })).toHaveCount(0);
-  await expect(page.getByRole("link", { name: "Workflows", exact: true })).toHaveCount(0);
-  await expect(page.getByRole("link", { name: "Reports", exact: true })).toHaveCount(0);
-  await expect(page.getByRole("link", { name: "Finance", exact: true })).toHaveCount(0);
-  await page.screenshot({ path: testInfo.outputPath("tl-portal-dashboard-1440.png"), fullPage: true, animations: "disabled" });
-  await page.setViewportSize({ width: 390, height: 844 });
-  await expectNoOverflow(page);
-  await page.screenshot({ path: testInfo.outputPath("tl-portal-dashboard-390.png"), fullPage: true, animations: "disabled" });
+  const fixture = await seed(request), group = fixture.groups[0];
+  await enter(page, group.users.TL.email);
+  await openWorkspace(page, "My Team");
+  const payload = await report(page);
+  await expect(page.getByText(group.users.SM.fullName, { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: `${group.users.SE.fullName} · SE`, exact: true }).click();
+  await settled(page);
+  await page.getByRole("tablist", { name: "Selected member details" }).getByRole("tab", { name: "Performance", exact: true }).click();
+  await expect(page.getByTestId("tl-member-targets")).toContainText(group.users.SE.fullName);
+  await expect(page.getByTestId("tl-member-targets")).not.toContainText(group.targetUsers.OVER.fullName);
+  await expect(page.getByTestId("tl-member-targets").getByRole("progressbar")).toHaveAttribute("aria-valuenow", "20");
+  expect(payload.staff.find((person: { id: string }) => person.id === group.users.SE.id).target).toMatchObject({ assigned: "5.00", achieved: "1.00", remaining: "4.00", achievementPct: 20, measurement: "count" });
+  await openWorkspace(page, "Performance & Attendance");
+  await page.getByRole("tab", { name: "Team Performance", exact: true }).click();
+  await settled(page);
+  const over = page.getByTestId(`tl-staff-row-${group.targetUsers.OVER.id}`);
+  await expect(over.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "100");
+  await expect(over).toContainText("120%");
+  await expect(over).toContainText("20% above target");
+  await expect(over).toContainText("Exceeded by");
+  const mixed = page.getByTestId(`tl-staff-row-${group.targetUsers.MIXED.id}`);
+  await expect(mixed).toContainText("Mixed target units");
+  await expect(mixed).not.toContainText(/10,?005/);
+  await expect(page.getByTestId(`tl-staff-row-${group.targetUsers.ZERO.id}`).getByRole("progressbar")).toHaveAttribute("aria-valuenow", "0");
+  await expect(page.getByTestId(`tl-staff-row-${group.targetUsers.NONE.id}`)).toContainText("Target results unavailable");
+  await expect(page.getByTestId(`tl-staff-row-${group.targetUsers.NONE.id}`).getByRole("progressbar")).toHaveCount(0);
+  await openWorkspace(page, "Timeline");
+  await page.getByRole("tab", { name: "Team Timeline", exact: true }).click();
+  await settled(page);
+  await selectBrandedOption(page.getByRole("combobox", { name: "Timeline case", exact: true }), fixture.cases[0].desktop.id);
+  const times = await page.getByTestId("tl-dashboard").locator("li time[datetime]").evaluateAll(elements => elements.map(element => element.getAttribute("datetime")));
+  expect(times.length).toBeGreaterThan(0);
+  expect(times.every(time => Number.isFinite(Date.parse(time!)))).toBe(true);
+  expect(times).toEqual([...times].sort());
+  await page.screenshot({ path: testInfo.outputPath("tl-filtered-timeline.png"), fullPage: true });
   await signOut(page);
+  await enter(page, group.users.EMPTY.email);
+  await openWorkspace(page, "Cases");
+  await expect(page.getByTestId("tl-review-queue")).toContainText("No records match the selected filters");
+  expect((await page.getByTestId("tl-review-queue").boundingBox())!.height).toBeLessThan(240);
+  await openWorkspace(page, "My Team");
+  await expect(page.getByText("No direct SE members assigned.", { exact: true })).toBeVisible();
+  await openWorkspace(page, "Performance & Attendance");
+  await expect(page.getByTestId("my-performance")).toContainText("No performance data for this period");
+  await expect(page.getByText("Appraisal module not configured", { exact: true })).toBeVisible();
 });

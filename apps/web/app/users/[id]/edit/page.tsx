@@ -9,6 +9,7 @@ import { DatePicker } from "@/components/date-picker";
 import { Button, ErrorText, PageHeader, Select, TextInput, controlClass } from "@/components/ui";
 import { apiGet, apiRequest } from "@/lib/api";
 import { getBrowserApiUrl } from "@/lib/env";
+import { staffDesignationName } from "@/lib/staff-designation";
 import type { ManagerOption, OrgRef, UserRecord } from "@/lib/types";
 
 const STATUSES = ["Active", "Probation", "Notice Period", "Resigned", "Terminated", "Inactive"];
@@ -56,7 +57,7 @@ export default function EditUserPage() {
   const router = useRouter();
   const api = getBrowserApiUrl();
   const [form, setForm] = useState<Record<string, string>>({});
-  const [designations, setDesignations] = useState<OrgRef[]>([]);
+  const [designationName, setDesignationName] = useState<string>();
   const [offices, setOffices] = useState<OrgRef[]>([]);
   const [departments, setDepartments] = useState<OrgRef[]>([]);
   const [teams, setTeams] = useState<OrgRef[]>([]);
@@ -78,7 +79,6 @@ export default function EditUserPage() {
         full_name: user.fullName,
         personal_email: user.personalEmail ?? "",
         personal_mobile: user.personalMobile ?? "",
-        designation_id: user.designation?.id ?? "",
         employment_status: user.employmentStatus,
         joining_date: user.joiningDate ?? "",
         last_working_date: user.lastWorkingDate ?? "",
@@ -89,9 +89,7 @@ export default function EditUserPage() {
         reporting_manager_id: user.reportingManagerId ?? "",
       });
       setIsOwner(user.userType?.code === "OWNER");
-    });
-    void apiGet<{ items: OrgRef[] }>("/api/v1/designations", api).then((data) => {
-      if (!cancelled) setDesignations(data.items);
+      setDesignationName(staffDesignationName(user));
     });
     void apiGet<{ items: OrgRef[] }>("/api/v1/offices", api).then((data) => {
       if (!cancelled) setOffices(data.items);
@@ -162,7 +160,6 @@ export default function EditUserPage() {
           personal_email: form.personal_email || null,
           personal_mobile: form.personal_mobile || null,
           joining_date: form.joining_date || undefined,
-          designation_id: form.designation_id || undefined,
           last_working_date: form.last_working_date || null,
           office_id: form.office_id || null,
           department_id: form.department_id || null,
@@ -201,19 +198,11 @@ export default function EditUserPage() {
         </fieldset>
         <fieldset className="grid min-w-0 grid-cols-2 gap-3 rounded-2xl bg-surface-subtle p-3">
         <legend className="px-1 text-[17px] font-medium">Role and joining</legend>
-        <label className="block min-w-0 text-sm">
-          Designation
-          <Select
-            value={form.designation_id}
-            onChange={(event) => setForm({ ...form, designation_id: event.target.value })}
-          >
-            {designations.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.name}
-              </option>
-            ))}
-          </Select>
-        </label>
+        <div className="min-w-0 text-sm">
+          <p>Designation</p>
+          <p className="mt-1 font-medium">{designationName ?? "Not assigned"}</p>
+          <a className="text-brand-primary underline" href={`/users/${params.id}`}>Manage designation in employee profile</a>
+        </div>
         <label className="block text-sm">
           Joining date
           <DatePicker

@@ -10,7 +10,7 @@ from sqlalchemy.exc import DBAPIError
 from nexa_bos_api.api.v1.deps import CurrentUser, require_permission
 from nexa_bos_api.core.exceptions import AppError
 from nexa_bos_api.db.session import SessionDep
-from nexa_bos_api.identity.access import has_permission
+from nexa_bos_api.identity.access import has_permission, has_user_type
 from nexa_bos_api.identity.business_units import (
     business_unit_status,
     save_business_unit,
@@ -89,6 +89,8 @@ async def hierarchy(
     q: Annotated[str | None, Query(max_length=100)] = None,
     selected_user_id: Annotated[UUID | None, Query(alias="selectedUserId")] = None,
 ) -> dict[str, object]:
+    if has_user_type(actor, "TL"):
+        raise AppError(status_code=403, code="FORBIDDEN", message="Use the TL team workspace")
     return await organization_hierarchy(
         session,
         actor,

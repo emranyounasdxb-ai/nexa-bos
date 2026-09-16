@@ -388,7 +388,7 @@ export default function UserTypeDetailPage() {
 
   useEffect(() => {
     void refresh().catch((err: unknown) =>
-      setLoadError(err instanceof Error ? err.message : "Unable to load this User Type."),
+      setLoadError(err instanceof Error ? err.message : "Unable to load this designation."),
     );
   }, [refresh]);
 
@@ -595,12 +595,12 @@ export default function UserTypeDetailPage() {
       setItem(updated);
       setFeedback({
         tone: "success",
-        text: `User Type ${target === "activate" ? "activated" : "deactivated"} successfully.`,
+        text: `Designation ${target === "activate" ? "activated" : "deactivated"} successfully.`,
       });
     } catch (err) {
       setFeedback({
         tone: "error",
-        text: err instanceof Error ? err.message : `Unable to ${target} this User Type.`,
+        text: err instanceof Error ? err.message : `Unable to ${target} this designation.`,
       });
     } finally {
       setConfirmDeactivate(false);
@@ -650,7 +650,7 @@ export default function UserTypeDetailPage() {
     return (
       <section className="space-y-3">
         <ErrorText>{loadError}</ErrorText>
-        {!loadError ? <p className="text-sm text-slate-500">Loading User Type…</p> : null}
+        {!loadError ? <p className="text-sm text-slate-500">Loading designation…</p> : null}
       </section>
     );
   }
@@ -715,16 +715,16 @@ export default function UserTypeDetailPage() {
           <div className="min-w-0 flex-1">
             <ButtonLink href="/user-types" variant="ghost" size="compact" className="-ml-2 mb-2">
               <IconArrowBack className="size-4" />
-              Back to User Types
+              Back to Designations
             </ButtonLink>
             <h2 className="text-[length:var(--amafh-text-section)] font-semibold tracking-tight text-slate-950 sm:text-xl">
               {item.name}
             </h2>
             <p className="mt-1 max-w-4xl text-sm leading-5 text-slate-600">
-              {item.description || "No description has been provided for this User Type."}
+              {item.description || "No description has been provided for this designation."}
             </p>
             <p className="mt-2 text-xs text-slate-500">
-              Permissions are assigned to this User Type and inherited by its users.
+              Permissions are assigned to this designation and inherited by its users.
             </p>
           </div>
           <div className="flex shrink-0 flex-wrap items-center gap-2 lg:max-w-sm lg:justify-end">
@@ -740,7 +740,7 @@ export default function UserTypeDetailPage() {
         <Card className="h-full">
           <SectionHeader
             title="Basic Settings"
-            description="Status and operational eligibility for this User Type."
+            description="Status and operational eligibility for this designation."
           />
           <div className="mt-4 space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50/70 px-3 py-3">
@@ -845,14 +845,14 @@ export default function UserTypeDetailPage() {
           <div className="border-b border-slate-100 px-4 py-4 sm:px-5">
             <SectionHeader
               title="Permissions"
-              description="Select the capabilities users inherit from this User Type."
+              description="Select the capabilities users inherit from this designation."
             />
           </div>
 
           {selected.length === 0 ? (
             <div className="mx-3 mt-3 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-900 sm:mx-4" role="status">
               <IconAlertTriangle className="mt-0.5 size-4 shrink-0" />
-              This User Type currently grants no system access.
+              This designation currently grants no system access.
             </div>
           ) : null}
 

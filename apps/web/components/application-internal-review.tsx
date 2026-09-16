@@ -10,7 +10,7 @@ export type InternalReview = {
   actions: Array<"forward" | "return" | "resubmit">;
   history: Array<{ id: string; action: string; at: string; reason: string | null }>;
 };
-const labels = { forward: "Book case", return: "Return to SE", resubmit: "Resubmit to TL", correct: "Save correction" };
+const labels = { forward: "Book & Send to SM", return: "Return to SE", resubmit: "Resubmit to TL", correct: "Save correction" };
 type Action = keyof typeof labels;
 
 export function ApplicationInternalReview({ applicationId, state, requestedAmount, onSaved }: {
@@ -53,6 +53,7 @@ export function ApplicationInternalReview({ applicationId, state, requestedAmoun
       });
       pending.current = false; setAction(null);
       await onSaved(`${labels[action]} completed. Case Owner and bank stage are unchanged.`);
+      window.dispatchEvent(new Event("nexa-cases-changed"));
       (trigger.current?.isConnected ? trigger.current : panel.current)?.focus();
     } catch (failure) { setError(failure instanceof Error ? failure.message : "Unable to save. Refresh the case before retrying."); }
     finally { pending.current = false; setBusy(false); }
@@ -61,7 +62,7 @@ export function ApplicationInternalReview({ applicationId, state, requestedAmoun
   return <section ref={panel} tabIndex={-1} data-testid="internal-review" className="min-w-0">
     <Card className="min-w-0 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="font-semibold">Internal Review tracker</h2><Badge>{state.label}</Badge></div>
-      <p className="mt-1 text-xs text-text-secondary">SE → own TL booking → configured Sales Manager and Coordinator lane. The original Case Owner remains unchanged.</p>
+      <p className="mt-1 text-xs text-text-secondary">SE/TL → TL Booking → SM Approval → Coordinator → Bank Submission. The original Case Owner remains unchanged.</p>
       {!state.tlId && state.status === "pending_review" && <p className="mt-2 text-sm text-danger">No valid TL assignment. Contact your administrator; COD processing is blocked.</p>}
       {state.reason && <p className="mt-2 break-words text-sm"><strong>Return reason:</strong> {state.reason}</p>}
       <ol className="mt-3 grid gap-2 sm:grid-cols-3">{state.history.map(entry => <li key={entry.id} className="min-w-0 rounded-md border border-brand-border bg-surface p-2 text-xs"><p className="font-medium capitalize">{entry.action.replace("internal_", "").replaceAll("_", " ")}</p><time className="text-text-secondary">{new Date(entry.at).toLocaleString()}</time>{entry.reason && <p className="mt-1 break-words">{entry.reason}</p>}</li>)}</ol>

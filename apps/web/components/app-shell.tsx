@@ -57,7 +57,7 @@ const routeContext = (pathname: string): RouteContext => {
   if (/^\/users\/[^/]+\/edit$/.test(pathname)) return { group: "People", title: "Edit employee profile", parent: { href: "/users", label: "Users" } };
   if (pathname !== "/users/new" && /^\/users\/[^/]+$/.test(pathname)) return { group: "People", title: "Employee profile", parent: { href: "/users", label: "Users" } };
   if (/^\/assets\/[^/]+$/.test(pathname) && !["/assets/categories", "/assets/reports"].includes(pathname)) return { group: "Assets", title: "Asset details", parent: { href: "/assets", label: "Assets" } };
-  if (/^\/user-types\/[^/]+$/.test(pathname)) return { group: "Administration", title: "User type details", parent: { href: "/user-types", label: "User types" } };
+  if (/^\/user-types\/[^/]+$/.test(pathname)) return { group: "Administration", title: "Designation details", parent: { href: "/user-types", label: "Designations" } };
   const routes = [
     { prefix: "/reports/compare", group: "Performance", title: "Comparisons" },
     { prefix: "/reports/drill-down", group: "Performance", title: "Report drill-down", parent: { href: "/reports/compare", label: "Reports" } },
@@ -93,7 +93,7 @@ const routeContext = (pathname: string): RouteContext => {
     { prefix: "/notifications/manage", group: "Administration", title: "Notification administration", parent: { href: "/notifications", label: "Notifications" } },
     { prefix: "/notifications", group: "Notifications", title: "Notifications" },
     { prefix: "/catalog", group: "Administration", title: "Banks and products" },
-    { prefix: "/user-types", group: "Administration", title: "User types" },
+    { prefix: "/user-types", group: "Administration", title: "Designations" },
     { prefix: "/security", group: "Administration", title: "Security settings" },
     { prefix: "/account", group: "Account", title: "My profile" },
     { prefix: "/status", group: "AMAFH CORE", title: "Foundation smoke page" },
@@ -133,6 +133,16 @@ function Shell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const baseContext = routeContext(pathname);
+  const tlLegacyCases = user?.userType?.code === "TL" && ["/applications", "/applications/new"].includes(pathname);
+  const tlForbidden = user?.userType?.code === "TL" && !(
+    pathname === "/reports" || pathname === "/account" || pathname === "/notifications" ||
+    pathname === "/applications" || /^\/applications\/[^/]+$/.test(pathname) ||
+    pathname === "/customers" || /^\/customers\/[^/]+$/.test(pathname)
+  );
+  useEffect(() => {
+    if (tlLegacyCases) router.replace("/reports?workspace=cases&queue=all");
+    else if (tlForbidden) router.replace("/reports?workspace=dashboard");
+  }, [tlLegacyCases, tlForbidden, router]);
   const context = pathname === "/reports" && user?.userType?.code === "SE"
     ? { ...baseContext, title: "My Dashboard" }
     : pathname === "/reports" && user?.userType?.code === "TL"
@@ -171,7 +181,7 @@ function Shell({ children }: { children: ReactNode }) {
         { href: "/customers", label: "Customers", icon: IconUser, show: canManageCustomers(user) },
         { href: "/applications", label: "Applications", icon: IconFileDescription, show: can("Applications.View") },
         { href: "/workflows", label: "Workflows", icon: IconGitBranch, show: canReadWorkflows(user) },
-        { href: "/case-operations", label: "Case Operations", icon: IconHierarchy3, show: can("CaseOperations.ViewRules") || can("CaseOperations.ViewRouting") || can("CaseOperations.StageCsv") || can("CaseOperations.ViewReports") },
+        { href: "/case-operations", label: "Case Operations", icon: IconHierarchy3, show: user?.userType?.code !== "TL" && (can("CaseOperations.ViewRules") || can("CaseOperations.ViewRouting") || can("CaseOperations.StageCsv") || can("CaseOperations.ViewReports")) },
       ],
     },
     {
@@ -232,7 +242,7 @@ function Shell({ children }: { children: ReactNode }) {
       icon: IconShieldLock,
       items: [
         { href: "/catalog", label: "Banks & products", icon: IconBuildingBank, show: canReadCatalog(user) },
-        { href: "/user-types", label: "User types", icon: IconUserShield, show: can("UserTypes.View") },
+        { href: "/user-types", label: "Designations", icon: IconUserShield, show: can("UserTypes.View") },
         { href: "/security", label: "Security", icon: IconShieldLock, show: can("Security.ManageSettings") },
       ],
     },
@@ -243,7 +253,7 @@ function Shell({ children }: { children: ReactNode }) {
     .filter((group) => group.items.length > 0);
   return <WorkspaceFrame user={user} groups={visibleGroups} context={context} pathname={pathname}
     home={user ? landingFor(user) : "/login"} notifications={can("Notifications.View")}
-    isActive={href => isActiveRoute(pathname, href)} onLogout={logout}>{children}</WorkspaceFrame>;
+    isActive={href => isActiveRoute(pathname, href)} onLogout={logout}>{tlLegacyCases ? <p role="status">Opening Cases…</p> : tlForbidden ? <p role="status">Returning to TL Dashboard…</p> : children}</WorkspaceFrame>;
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
