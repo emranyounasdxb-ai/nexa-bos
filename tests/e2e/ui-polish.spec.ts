@@ -629,11 +629,11 @@ test("sidebar groups open permission-backed popup cards on desktop and mobile", 
   await signIn(page, request);
   const sidebar = page.locator('aside[aria-label="Application sidebar"]');
   const groups = [
-    { label: "Operations", items: [["Customers", "/customers"], ["Applications", "/applications"], ["Workflows", "/workflows"]] },
+    { label: "Operations", items: [["Customers", "/customers"], ["Applications", "/applications"], ["Workflows", "/workflows"], ["Case Operations", "/case-operations"]] },
     { label: "People", items: [["Users", "/users"], ["HR Dashboard", "/hr"], ["PRO Dashboard", "/pro"], ["Organization", "/organization"], ["Hierarchy", "/organization/hierarchy"], ["Attendance", "/attendance"], ["Leave", "/leave"], ["Contracts", "/contracts"], ["Transfers", "/transfers"], ["Exit and offboarding", "/exits"], ["Approval Centre", "/approvals"], ["Attendance reports", "/attendance/reports"]] },
     { label: "Performance", items: [["Targets", "/targets"], ["KPI scorecards", "/targets/kpi"], ["Reports", "/reports/compare"]] },
     { label: "Assets", items: [["Assets", "/assets"], ["Asset categories", "/assets/categories"], ["Asset reports", "/assets/reports"]] },
-    { label: "Administration", items: [["Banks & products", "/catalog"], ["User types", "/user-types"], ["Security", "/security"]] },
+    { label: "Administration", items: [["Banks & products", "/catalog"], ["Designations", "/user-types"], ["Security", "/security"]] },
   ];
   const dashboard = sidebar.getByRole("link", { name: "Dashboard", exact: true });
   await expect(dashboard).toHaveAttribute("aria-current", "page");

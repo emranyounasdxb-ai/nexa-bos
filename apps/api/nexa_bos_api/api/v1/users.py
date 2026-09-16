@@ -7,6 +7,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, Query, Request, Response, UploadFile
 from fastapi.responses import FileResponse
+from sqlalchemy import select
 
 from nexa_bos_api.api.v1.deps import CurrentUser, require_permission
 from nexa_bos_api.api.v1.pagination import PaginationDep
@@ -22,7 +23,7 @@ from nexa_bos_api.identity.bulk_upload import (
     validate_staff_csv,
 )
 from nexa_bos_api.identity.enums import AccountStatus
-from nexa_bos_api.identity.models import User
+from nexa_bos_api.identity.models import User, UserType
 from nexa_bos_api.identity.permissions import (
     APPLICATIONS_CREATE,
     APPLICATIONS_REASSIGN_CASE_OWNER,
@@ -48,6 +49,7 @@ from nexa_bos_api.identity.schemas import (
     UserUpdateRequest,
 )
 from nexa_bos_api.identity.users_service import (
+    _can_assign_final_user_type,
     assign_user_type,
     create_user,
     get_visible_user,
@@ -270,6 +272,23 @@ async def reserve_code_route(
     from nexa_bos_api.identity.onboarding_service import reserve_user_code
 
     return {"userCode": await reserve_user_code(session, actor)}
+
+
+@router.get("/designation-options")
+async def employee_designation_options(
+    session: SessionDep,
+    actor: Annotated[CurrentUser, Depends(require_permission(USERS_CREATE))],
+) -> dict[str, object]:
+    if not _can_assign_final_user_type(actor):
+        return {"items": []}
+    types = await session.scalars(
+        select(UserType)
+        .where(UserType.code.not_in(["OWNER", "PENDING"]))
+        .order_by(UserType.name, UserType.id)
+    )
+    return {
+        "items": [{"id": str(item.id), "name": item.name, "status": item.status} for item in types]
+    }
 
 
 @router.post("")

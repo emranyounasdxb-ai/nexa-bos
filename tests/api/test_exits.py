@@ -43,7 +43,8 @@ async def fixtures(client):
             f"/api/v1/user-types/{hr['id']}/scope", json={"visibility_scope": "company"}
         )
     ).status_code == 200
-    manager = await create_activated_user(owner, user_type_code="TL")
+    # TL's dedicated workspace excludes global HR administration; SM remains an authorized reviewer.
+    manager = await create_activated_user(owner, user_type_code="SM")
     employee = await create_activated_user(owner, manager_id=manager["id"])
     operator = await create_activated_user(owner, user_type_code="HR")
     clients = [await spawned_client() for _ in range(3)]

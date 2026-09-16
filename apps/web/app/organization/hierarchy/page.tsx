@@ -17,6 +17,7 @@ import {
 } from "@/components/ui";
 import { apiGet } from "@/lib/api";
 import { getBrowserApiUrl } from "@/lib/env";
+import { staffDesignationName } from "@/lib/staff-designation";
 import { ConfigurationWorkspace } from "@/components/page-patterns";
 import { ProfilePhoto } from "@/components/profile-photo";
 import type { HierarchyNode, HierarchyPayload } from "@/lib/types";
@@ -365,9 +366,9 @@ function HierarchyBranch({
             </span>
             <span
               className="mt-0.5 block truncate text-xs leading-4 text-slate-500"
-              title={node.designation?.name ?? "No designation"}
+              title={staffDesignationName(node) ?? "No designation"}
             >
-              {node.designation?.name ?? "No designation"}
+              {staffDesignationName(node) ?? "No designation"}
             </span>
             <span className="flex min-w-0 items-center gap-1.5 text-xs leading-5 text-slate-400">
               <span className="min-w-0 truncate">{node.employeeCode}</span>
@@ -441,8 +442,7 @@ function SelectedContext({
       </div>
       <dl className="grid gap-2 text-sm">
         <Detail label="Full name" value={node.fullName} />
-        <Detail label="Designation" value={node.designation?.name} />
-        <Detail label="User type" value={node.userType?.name} />
+        <Detail label="Designation" value={staffDesignationName(node)} />
         <Detail label="Office" value={node.office?.name} />
         <Detail label="Department" value={node.department?.name} />
         <Detail label="Business Unit" value={node.businessUnit?.name} />

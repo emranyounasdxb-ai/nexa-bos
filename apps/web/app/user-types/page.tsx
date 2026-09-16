@@ -48,7 +48,7 @@ export default function UserTypesPage() {
   return (
     <section className="space-y-4">
       <PageHeader
-        title="User types"
+        title="Designations"
         description="Review and manage the existing role templates and their configured visibility scopes."
       />
       <ErrorText>{error}</ErrorText>
@@ -73,7 +73,7 @@ export default function UserTypesPage() {
             />
             Can be reporting manager
           </label>
-          <div className="flex justify-end md:col-span-2"><Button type="submit">Create custom type</Button></div>
+          <div className="flex justify-end md:col-span-2"><Button type="submit">Create designation</Button></div>
         </form>
       ) : null}>
       <TableShell className="rounded-b-none">

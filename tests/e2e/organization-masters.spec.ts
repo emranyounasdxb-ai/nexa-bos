@@ -274,7 +274,7 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
     await signIn(page);
     await page.goto("/organization?tab=business-units");
     const tabs = page.getByRole("tablist", { name: "Organization masters" });
-    await expect(tabs.getByRole("tab")).toHaveText(["Offices", "Departments", "Business Units", "Teams", "Designations"]);
+    await expect(tabs.getByRole("tab")).toHaveText(["Offices", "Departments", "Business Units", "Teams"]);
     const add = page.getByRole("button", { name: "Add business unit", exact: true });
     await add.click();
     const drawer = page.getByRole("dialog", { name: "Add business unit", exact: true });

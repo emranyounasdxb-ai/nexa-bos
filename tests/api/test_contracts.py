@@ -75,7 +75,7 @@ async def test_contract_permissions_activation_private_access_and_history(
     contract_type = await _contract_type(owner)
     hr = await create_activated_user(owner, user_type_code="HR")
     employee = await create_activated_user(owner, user_type_code="SE")
-    outsider = await create_activated_user(owner, user_type_code="TL")
+    outsider = await create_activated_user(owner, user_type_code="SM")
     pro = await create_activated_user(owner, user_type_code="PRO")
 
     hr_client = await spawned_client()

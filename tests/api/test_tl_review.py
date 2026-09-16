@@ -18,8 +18,10 @@ from helpers import (
 )
 from httpx import AsyncClient
 from nexa_bos_api.applications.models import ApplicationEvent, ApplicationOwnerHistory
+from nexa_bos_api.applications.visibility import visible_customer_ids
 from nexa_bos_api.core.config import get_settings
 from nexa_bos_api.db.session import create_engine, create_session_factory
+from nexa_bos_api.identity.access import load_user_with_type
 from nexa_bos_api.identity.models import AuditEvent
 from nexa_bos_api.reporting.periods import resolve_period
 from nexa_bos_api.reporting.service import load_facts
@@ -43,7 +45,7 @@ SALES = [
 @pytest.fixture
 async def workspace(client: AsyncClient):
     owner, _ = await owner_client(client)
-    for code, scope in (("TL", "team"), ("SE", "own"), ("COD", "office")):
+    for code, scope in (("TL", "team"), ("SE", "own"), ("SM", "office"), ("COD", "office")):
         permissions = (
             SALES
             if code != "COD"
@@ -53,7 +55,8 @@ async def workspace(client: AsyncClient):
         await _configure_system_type(
             owner,
             code,
-            permissions=permissions,
+            permissions=permissions
+            + (["CaseOperations.ViewRouting"] if code in {"TL", "SM", "COD"} else []),
             directory_scope=scope,
             customer_scope=scope,
             application_scope=scope,
@@ -61,6 +64,8 @@ async def workspace(client: AsyncClient):
             can_be_case_owner=True,
         )
     bank, product, variant = await _variant(owner)
+    office_actors = {}
+    shared_clients = {}
     async with AsyncExitStack() as stack:
         groups = []
         for code in ("DXB", "DXB", "AUH"):
@@ -83,16 +88,32 @@ async def workspace(client: AsyncClient):
             )
             assert team.status_code == 200, team.text
             team_id = team.json()["id"]
-            cod = await create_activated_user(
-                owner, user_type_code="COD", office_id=office, department_id=dep_id
-            )
+            if office not in office_actors:
+                cod = await create_activated_user(
+                    owner, user_type_code="COD", office_id=office, department_id=dep_id
+                )
+                sm = await create_activated_user(
+                    owner, user_type_code="SM", office_id=office, department_id=dep_id
+                )
+                route = await owner.put(
+                    "/api/v1/case-operations/routing",
+                    json={
+                        "office_id": office,
+                        "product_id": product["id"],
+                        "sales_manager_id": sm["id"],
+                        "coordinator_id": cod["id"],
+                    },
+                )
+                assert route.status_code == 200, route.text
+                office_actors[office] = (sm, cod)
+            sm, cod = office_actors[office]
             tl = await create_activated_user(
                 owner,
                 user_type_code="TL",
                 office_id=office,
                 department_id=dep_id,
                 team_id=team_id,
-                manager_id=cod["id"],
+                manager_id=sm["id"],
             )
             se = await create_activated_user(
                 owner,
@@ -103,10 +124,15 @@ async def workspace(client: AsyncClient):
                 manager_id=tl["id"],
             )
             actors = {}
-            for role, user in (("cod", cod), ("tl", tl), ("se", se)):
+            for role, user in (("cod", cod), ("tl", tl), ("se", se), ("sm", sm)):
+                if role in {"cod", "sm"} and (office, role) in shared_clients:
+                    actors[role] = shared_clients[(office, role)]
+                    continue
                 actor = await stack.enter_async_context(await spawned_client())
                 await authenticate(actor, user["email"], "UserPass1!")
                 actors[role] = actor
+                if role in {"cod", "sm"}:
+                    shared_clients[(office, role)] = actor
             groups.append({"office": office, "team": team_id, "tl": tl, "se": se, "actors": actors})
         yield owner, groups, (bank, product, variant)
 
@@ -138,6 +164,11 @@ async def state(actor, app):
 
 
 async def action(actor, app, command, current, reason=None):
+    if command == "forward":
+        return await actor.post(
+            f"/api/v1/case-operations/applications/{app['id']}/book",
+            json={"expected_review_event_id": current["eventId"]},
+        )
     return await actor.post(
         f"/api/v1/applications/{app['id']}/internal-review",
         json={"action": command, "expected_event_id": current["eventId"], "reason": reason},
@@ -152,8 +183,24 @@ async def test_tl_scope_routing_ownership_and_dashboard(workspace, index):
     tl, se, cod = (group["actors"][key] for key in ("tl", "se", "cod"))
     app = await create_case(se, catalog)
     own = await create_case(tl, catalog)
-    assert (await state(tl, own))["status"] == "forwarded"
-    assert (await state(tl, own))["actions"] == []
+    owners = await tl.get("/api/v1/applications/creation-owners")
+    assert owners.status_code == 200
+    assert {row["id"] for row in owners.json()["items"]} == {group["tl"]["id"], group["se"]["id"]}
+    for outsider in [g for g in groups if g is not group]:
+        tampered = await tl.post(
+            "/api/v1/applications",
+            json={
+                "customer_id": own["customerId"],
+                "bank_id": catalog[0]["id"],
+                "product_id": catalog[1]["id"],
+                "product_variant_id": catalog[2]["id"],
+                "requested_amount": "12000",
+                "case_owner_id": outsider["se"]["id"],
+            },
+        )
+        assert tampered.status_code == 403, tampered.text
+    assert (await state(tl, own))["status"] == "pending_review"
+    assert (await state(tl, own))["actions"] == ["forward", "return"]
     current = await state(tl, app)
     assert current["status"] == "pending_review"
     assert current["tlId"] == group["tl"]["id"]
@@ -165,7 +212,12 @@ async def test_tl_scope_routing_ownership_and_dashboard(workspace, index):
         await cod.post(f"{path}/case-number", json={"bank_case_number": "BLOCKED"})
     ).status_code == 409
     assert (await action(se, app, "forward", current)).status_code == 403
-    assert (await action(tl, own, "forward", await state(tl, own))).status_code == 403
+    assert (
+        await tl.post(
+            f"/api/v1/applications/{own['id']}/internal-review",
+            json={"action": "forward", "expected_event_id": (await state(tl, own))["eventId"]},
+        )
+    ).status_code == 403
     assert (await action(tl, app, "return", current, "  ")).status_code == 422
     returned = await action(tl, app, "return", current, "Correct requested amount")
     assert returned.status_code == 200, returned.text
@@ -207,20 +259,26 @@ async def test_tl_scope_routing_ownership_and_dashboard(workspace, index):
     )
     assert sorted(result.status_code for result in results) == [200, 409, 409]
     forwarded = await state(tl, app)
-    assert forwarded["status"] == "forwarded"
+    assert forwarded["status"] == "booked"
     assert [event["action"] for event in forwarded["history"]] == [
         "internal_review_started",
         "internal_returned",
         "internal_resubmitted",
-        "internal_forwarded",
+        "internal_booked",
     ]
     assert (await se.patch(path, json={"requested_amount": "2"})).status_code == 409
     unchanged = (await tl.get(path)).json()
     assert unchanged["caseOwnerId"] == group["se"]["id"]
     assert unchanged["currentStageId"] == app["currentStageId"]
     assert unchanged["applicationCode"] == app["applicationCode"]
+    approved = await group["actors"]["sm"].post(
+        f"/api/v1/case-operations/applications/{app['id']}/sales-manager-decision",
+        json={"decision": "approve"},
+    )
+    assert approved.status_code == 200, approved.text
     submitted = await cod.post(
-        f"{path}/case-number", json={"bank_case_number": f"TL-{unique_tag()}"}
+        f"/api/v1/case-operations/applications/{app['id']}/bank-submission",
+        json={"bank_file_number": f"TL-{unique_tag()}"},
     )
     assert submitted.status_code == 200, submitted.text
     assert submitted.json()["submitted"] is True
@@ -247,7 +305,7 @@ async def test_tl_scope_routing_ownership_and_dashboard(workspace, index):
     assert calculated["staff"][0]["submitted"] == 1
     assert {row["id"] for row in calculated["items"]} == {app["id"]}
     timeline = (await tl.get(f"{path}/timeline")).json()["items"]
-    assert sum(row["eventType"] == "internal_forwarded" for row in timeline) == 1
+    assert sum(row["eventType"] == "internal_booked" for row in timeline) == 1
     # Both other office and another team in the same office are denied.
     for outsider in [g for g in groups if g is not group]:
         stranger = outsider["actors"]["tl"]
@@ -269,6 +327,16 @@ async def test_tl_scope_routing_ownership_and_dashboard(workspace, index):
     engine = create_engine(get_settings())
     try:
         async with create_session_factory(engine)() as session:
+            scoped_actor = await load_user_with_type(session, UUID(group["tl"]["id"]))
+            original_scope = scoped_actor.user_type.customer_visibility_scope
+            # Fault-inject a broad scope in memory only; no flush or persisted configuration change.
+            with session.no_autoflush:
+                try:
+                    scoped_actor.user_type.customer_visibility_scope = "company"
+                    customer_ids = await visible_customer_ids(session, scoped_actor)
+                finally:
+                    scoped_actor.user_type.customer_visibility_scope = original_scope
+            assert customer_ids == {UUID(app["customerId"]), UUID(own["customerId"])}
             histories = list(
                 await session.scalars(
                     select(ApplicationOwnerHistory).where(
@@ -284,7 +352,7 @@ async def test_tl_scope_routing_ownership_and_dashboard(workspace, index):
                         AuditEvent.entity_id == app["id"],
                         AuditEvent.action.in_(
                             (
-                                "application.internal_forwarded",
+                                "case_operations.case.book",
                                 "application.internal_returned",
                                 "application.internal_resubmitted",
                             )
@@ -294,7 +362,7 @@ async def test_tl_scope_routing_ownership_and_dashboard(workspace, index):
             )
             assert len(audits) == 3
             assert {row.action: str(row.actor_id) for row in audits} == {
-                "application.internal_forwarded": group["tl"]["id"],
+                "case_operations.case.book": group["tl"]["id"],
                 "application.internal_returned": group["tl"]["id"],
                 "application.internal_resubmitted": group["se"]["id"],
             }
@@ -348,10 +416,10 @@ async def test_tl_metric_history_matches_scope_period_and_real_lifecycle(workspa
     initial = await report(period="today", view="combined")
     values = {key: value["points"][-1]["value"] for key, value in initial["metricHistory"].items()}
     assert values == {
-        "pending_review": 1,
+        "pending_review": 2,
         "returned": 0,
         "resubmitted": 0,
-        "forwarded": 1,
+        "forwarded": 0,
         "active": 2,
         "submitted": 0,
         "approved": 0,
@@ -359,7 +427,7 @@ async def test_tl_metric_history_matches_scope_period_and_real_lifecycle(workspa
     }
     assert "card shows current stock" in initial["metricHistory"]["pending_review"]["basis"]
     own_report = await report(period="today", view="own")
-    assert own_report["metricHistory"]["pending_review"]["points"][-1]["value"] == 0
+    assert own_report["metricHistory"]["pending_review"]["points"][-1]["value"] == 1
     assert own_report["metricHistory"]["active"]["points"][-1]["value"] == 1
     team_report = await report(period="today", view="team")
     assert team_report["metricHistory"]["forwarded"]["points"][-1]["value"] == 0
@@ -376,6 +444,11 @@ async def test_tl_metric_history_matches_scope_period_and_real_lifecycle(workspa
     ] == 1
     forwarded = await action(tl, app, "forward", resubmitted.json())
     assert forwarded.status_code == 200, forwarded.text
+    approved = await group["actors"]["sm"].post(
+        f"/api/v1/case-operations/applications/{app['id']}/sales-manager-decision",
+        json={"decision": "approve"},
+    )
+    assert approved.status_code == 200, approved.text
     submitted = await cod.post(
         f"/api/v1/applications/{app['id']}/case-number",
         json={"bank_case_number": f"TLH-{unique_tag()}"},
@@ -442,7 +515,7 @@ async def test_tl_metric_history_matches_scope_period_and_real_lifecycle(workspa
                     (1, "internal_review_started", "pending_review"),
                     (2, "internal_returned", "returned"),
                     (3, "internal_resubmitted", "resubmitted"),
-                    (4, "internal_forwarded", "forwarded"),
+                    (4, "internal_booked", "booked"),
                 )
             ]
             historical = replace(
@@ -465,7 +538,7 @@ async def test_tl_metric_history_matches_scope_period_and_real_lifecycle(workspa
                 "pending_review": [1, 0, 0, 0, 0],
                 "returned": [0, 1, 0, 0, 0],
                 "resubmitted": [0, 0, 1, 0, 0],
-                "forwarded": [0, 0, 0, 1, 1],
+                "forwarded": [0, 0, 0, 1, 0],
                 "active": [1, 1, 1, 1, 0],
                 "submitted": [0, 0, 0, 1, 1],
                 "approved": [0, 0, 0, 1, 1],
@@ -487,5 +560,5 @@ async def test_tl_metric_history_matches_scope_period_and_real_lifecycle(workspa
     assert legacy_report["metricHistory"]["active"]["points"][-1]["value"] == 1
     assert legacy_report["metricHistory"]["submitted"]["points"][-1]["value"] == 1
     own_report = await report(period="today", view="own")
-    assert own_report["metricHistory"]["forwarded"]["points"][-1]["value"] == 1
+    assert own_report["metricHistory"]["forwarded"]["points"][-1]["value"] == 0
     assert (await tl.get(f"/api/v1/applications/{own['id']}")).status_code == 200

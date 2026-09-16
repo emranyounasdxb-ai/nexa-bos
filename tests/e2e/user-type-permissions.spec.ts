@@ -65,7 +65,7 @@ test("User Type editor groups permissions and saves existing settings without ch
   const createResponsePromise = page.waitForResponse(
     (response) => response.url() === `${apiOrigin}/api/v1/user-types` && response.request().method() === "POST",
   );
-  await page.getByRole("button", { name: "Create custom type" }).click();
+  await page.getByRole("button", { name: "Create designation" }).click();
   const createResponse = await createResponsePromise;
   expect(createResponse.ok()).toBeTruthy();
   const createdType = (await createResponse.json()) as { code: string; id: string };
@@ -76,9 +76,9 @@ test("User Type editor groups permissions and saves existing settings without ch
   await expect(page.getByRole("heading", { name: typeName, exact: true })).toBeVisible();
   await expect(page.getByTestId("authenticated-content")).not.toContainText(typeCode);
   await expect(page.getByText("Focused permission editor workflow")).toBeVisible();
-  await expect(page.getByRole("link", { name: "Back to User Types" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Back to Designations" })).toBeVisible();
   await expect(page.getByText(/^inactive$/i).first()).toBeVisible();
-  await expect(page.getByText("This User Type currently grants no system access.")).toBeVisible();
+  await expect(page.getByText("This designation currently grants no system access.")).toBeVisible();
   await captureViewportPair(page, testInfo, "user-type-detail");
   await captureViewportPair(page, testInfo, "user-type-scopes", page.getByRole("heading", { name: "Data Access Scopes", exact: true }));
   await captureViewportPair(page, testInfo, "user-type-permissions", page.getByRole("heading", { name: "Permissions", exact: true }));

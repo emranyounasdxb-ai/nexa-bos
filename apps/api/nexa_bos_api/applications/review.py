@@ -109,7 +109,13 @@ async def _append_review(
     reason: str | None = None,
 ) -> None:
     now = datetime.now(UTC)
-    payload = {"status": status, "tlId": tl_id, "officeId": office_id}
+    previous = await get_review(session, application)
+    payload = {
+        "status": status,
+        "previousStatus": previous["status"],
+        "tlId": tl_id,
+        "officeId": office_id,
+    }
     session.add(
         ApplicationEvent(
             id=new_uuid(),
@@ -164,7 +170,7 @@ async def append_processing_review(
 async def start_review(session: AsyncSession, application: Application, actor: User) -> None:
     if not has_user_type(actor, "SE", "TL"):
         return
-    tl_id = None
+    tl_id = str(actor.id) if has_user_type(actor, "TL") else None
     if has_user_type(actor, "SE") and actor.reporting_manager_id:
         manager = await load_user_with_type(session, actor.reporting_manager_id)
         if manager and has_user_type(manager, "TL"):
@@ -176,7 +182,7 @@ async def start_review(session: AsyncSession, application: Application, actor: U
         application,
         actor,
         event_type="internal_review_started",
-        status="pending_review" if has_user_type(actor, "SE") else "forwarded",
+        status="pending_review",
         tl_id=tl_id,
         office_id=str(actor.office_id) if actor.office_id else None,
     )
@@ -194,13 +200,12 @@ async def review_payload(
             if (
                 has_user_type(actor, "TL")
                 and state["tlId"] == str(actor.id)
-                and application.case_owner_id != actor.id
                 and application.case_owner_id in await tl_team_owner_ids(session, actor)
                 and state["status"] in {"pending_review", "resubmitted"}
             ):
                 actions = ["forward", "return"]
             elif (
-                has_user_type(actor, "SE")
+                has_user_type(actor, "SE", "TL")
                 and application.case_owner_id == actor.id
                 and state["status"] == "returned"
             ):
@@ -217,6 +222,12 @@ async def transition_review(
     # Lock before re-reading state. Expected event IDs reject stale/double submissions.
     await session.refresh(application, with_for_update=True)
     state = await review_payload(session, application, actor)
+    if payload.action == "forward":
+        raise AppError(
+            status_code=403,
+            code="CASE_BOOK_REQUIRED",
+            message="Use Book & Send to SM; direct Coordinator forwarding is not permitted",
+        )
     if state["eventId"] != str(payload.expected_event_id):
         raise AppError(
             status_code=409,
@@ -292,26 +303,26 @@ async def require_review_mutation(
         )
     if state["status"] == "legacy":
         return
-    if has_user_type(actor, "SE"):
+    if has_user_type(actor, "SE", "TL"):
         if editing and application.case_owner_id == actor.id and state["status"] == "returned":
             return
         raise AppError(
             status_code=409,
             code="REVIEW_LOCKED",
-            message="Application data may be corrected only after it is returned by the TL.",
+            message="Application data may be corrected only after it is returned for correction.",
         )
     if state["status"] != "forwarded":
         if (
             has_user_type(actor, "COD")
             and application.routed_coordinator_id == actor.id
-            and state["status"] in {"booked", "sm_approved"}
-            and application.routing_status in {"booked", "sm_approved", "submitted"}
+            and state["status"] == "sm_approved"
+            and application.routing_status in {"sm_approved", "submitted"}
         ):
             return
         raise AppError(
             status_code=409,
             code="TL_REVIEW_REQUIRED",
-            message="Forward this Application through TL review before COD processing.",
+            message="Book and obtain SM approval before Coordinator processing.",
         )
     if has_user_type(actor, "COD") and state["officeId"] != str(actor.office_id):
         raise AppError(

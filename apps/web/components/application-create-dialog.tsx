@@ -118,6 +118,8 @@ export function ApplicationCreateDialog({
   const [mappings, setMappings] = useState<BankProductRecord[]>([]);
   const [products, setProducts] = useState<CatalogItem[]>([]);
   const [variants, setVariants] = useState<ProductVariantRecord[]>([]);
+  const [owners, setOwners] = useState<Array<{ id: string; fullName: string }>>([]);
+  const [ownerId, setOwnerId] = useState("");
   const [match, setMatch] = useState<CustomerMatch | null>(null);
   const [matchedIdentityFields, setMatchedIdentityFields] = useState<Set<IdentityField>>(new Set());
   const [matchDetailsOpen, setMatchDetailsOpen] = useState(false);
@@ -129,6 +131,7 @@ export function ApplicationCreateDialog({
   const reset = useCallback(() => {
     setCustomer(emptyCustomer);
     setForm(emptyApplication);
+    setOwnerId("");
     setMatch(null);
     setMatchedIdentityFields(new Set());
     setMatchDetailsOpen(false);
@@ -152,11 +155,13 @@ export function ApplicationCreateDialog({
       apiGet<{ items: BankProductRecord[] }>("/api/v1/bank-products", api),
       apiGet<{ items: CatalogItem[] }>("/api/v1/products", api),
       apiGet<{ items: ProductVariantRecord[] }>("/api/v1/product-variants", api),
+      apiGet<{ items: Array<{ id: string; fullName: string }> }>("/api/v1/applications/creation-owners", api),
     ])
-      .then(([mappingData, productData, variantData]) => {
+      .then(([mappingData, productData, variantData, ownerData]) => {
         setMappings(mappingData.items.filter((item) => item.status === "active"));
         setProducts(productData.items);
         setVariants(variantData.items.filter((item) => item.status === "active"));
+        setOwners(ownerData.items);
       })
       .catch((value: unknown) => {
         setError(value instanceof Error ? value.message : "Application options could not be loaded");
@@ -350,6 +355,7 @@ export function ApplicationCreateDialog({
           product_id: selectedMapping.productId,
           product_variant_id: form.product_variant_id,
           requested_amount: form.requested_amount || null,
+          case_owner_id: ownerId || user.id,
         }),
       });
       onCreated(created);
@@ -702,9 +708,7 @@ export function ApplicationCreateDialog({
                   ))}
                 </div>
               ) : null}
-              <p className="mt-3 rounded-[10px] border border-brand-border bg-brand-soft px-3 py-2 text-sm text-text-primary">
-                Initial Case Owner: {user?.fullName ?? "Current user"}. Ownership and commission attribution begin with the creator.
-              </p>
+              {user?.userType?.code === "TL" ? <Field label="Case Owner" className="mt-3"><Select aria-label="Case Owner" value={ownerId || user.id} disabled={loadingOptions || saving} onChange={event => setOwnerId(event.target.value)}>{owners.map(owner => <option key={owner.id} value={owner.id}>{owner.fullName}</option>)}</Select></Field> : <p className="mt-3 text-sm">Initial Case Owner: {user?.fullName ?? "Current user"}.</p>}
             </fieldset>
           </div>
 

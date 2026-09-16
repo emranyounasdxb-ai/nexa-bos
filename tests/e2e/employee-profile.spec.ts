@@ -280,9 +280,9 @@ test("employee profile organizes identity, access, assets, and filtered audit hi
   await resetDialog.getByRole("button", { name: "Cancel" }).click();
   await expect(resetLink).toBeFocused();
 
-  const assignType = page.getByRole("combobox", { name: "Assign user type" });
+  const assignType = page.getByRole("combobox", { name: "Designation", exact: true });
   await selectBrandedOption(assignType, seeded.userType.id);
-  const typeDialog = page.getByRole("dialog", { name: "Assign user type?" });
+  const typeDialog = page.getByRole("dialog", { name: "Assign designation?" });
   await expect(typeDialog).toBeVisible();
   await typeDialog.getByRole("button", { name: "Cancel" }).click();
   await expect(assignType).toBeFocused();

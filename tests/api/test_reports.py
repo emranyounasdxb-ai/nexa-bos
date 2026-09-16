@@ -376,7 +376,7 @@ async def test_cod_dashboard_is_office_scoped_operational_and_personal(
     await _configure_system_type(
         authed,
         "TL",
-        permissions=["Applications.View", "Applications.Edit"],
+        permissions=["Applications.View", "Applications.Edit", "CaseOperations.ViewRouting"],
         application_scope="team",
     )
 
@@ -471,16 +471,38 @@ async def test_cod_dashboard_is_office_scoped_operational_and_personal(
     dxb_waiting = await create_owned(dxb_se, "DXB waiting")
     dxb_processing = await create_owned(dxb_se, "DXB processing")
     auh_waiting = await create_owned(auh_se, "AUH waiting")
-    for leader, applications in ((dxb_tl, (dxb_waiting, dxb_processing)), (auh_tl, (auh_waiting,))):
+    for office, manager, coordinator, leader, applications in (
+        (dxb, dxb_sm, dxb_cod, dxb_tl, (dxb_waiting, dxb_processing)),
+        (auh, auh_sm, auh_cod, auh_tl, (auh_waiting,)),
+    ):
+        routing = await authed.put(
+            "/api/v1/case-operations/routing",
+            json={
+                "office_id": office,
+                "product_id": pf["id"],
+                "sales_manager_id": manager["id"],
+                "coordinator_id": coordinator["id"],
+            },
+        )
+        assert routing.status_code == 200, routing.text
         async with await spawned_client() as reviewer:
             await authenticate(reviewer, leader["email"], "UserPass1!")
             for application in applications:
                 path = f"/api/v1/applications/{application['id']}/internal-review"
                 state = (await reviewer.get(path)).json()
-                forwarded = await reviewer.post(
-                    path, json={"action": "forward", "expected_event_id": state["eventId"]}
+                booked = await reviewer.post(
+                    f"/api/v1/case-operations/applications/{application['id']}/book",
+                    json={"expected_review_event_id": state["eventId"]},
                 )
-                assert forwarded.status_code == 200, forwarded.text
+                assert booked.status_code == 200, booked.text
+        async with await spawned_client() as approver:
+            await authenticate(approver, manager["email"], "UserPass1!")
+            for application in applications:
+                approved = await approver.post(
+                    f"/api/v1/case-operations/applications/{application['id']}/sales-manager-decision",
+                    json={"decision": "approve"},
+                )
+                assert approved.status_code == 200, approved.text
 
     async with await spawned_client() as dxb_client:
         await authenticate(dxb_client, dxb_cod["email"], "UserPass1!")
@@ -697,6 +719,13 @@ async def test_conversions_rankings_ties_comparisons_custom_and_since_joining(
     dib, eib, pf, cc = await _catalog(authed)
     first = await _reporting_user(authed, scope="company", permissions=VIEW_PERMS)
     second = await _reporting_user(authed, scope="company", permissions=VIEW_PERMS)
+    cc_bank = await authed.post("/api/v1/banks", json={"name": f"CC report {unique_tag()}"})
+    assert cc_bank.status_code == 200, cc_bank.text
+    cc_bank_id = cc_bank.json()["id"]
+    cc_mapping = await authed.post(
+        "/api/v1/bank-products", json={"bank_id": cc_bank_id, "product_id": cc["id"]}
+    )
+    assert cc_mapping.status_code == 200, cc_mapping.text
     for owner_id, amount in ((first["id"], "5000"), (second["id"], "5000")):
         app = await _create_app(
             authed,
@@ -710,7 +739,7 @@ async def test_conversions_rankings_ties_comparisons_custom_and_since_joining(
     cc_app = await _create_app(
         authed,
         customer_id=(await _customer(authed, "CCCount"))["id"],
-        bank_id=dib["id"],
+        bank_id=cc_bank_id,
         product_id=cc["id"],
         case_owner_id=first["id"],
         requested_amount=None,
@@ -741,10 +770,12 @@ async def test_conversions_rankings_ties_comparisons_custom_and_since_joining(
     ]
     assert len(employee_rows) == 2
     assert employee_rows[0]["rank"] == employee_rows[1]["rank"]
-    dashboard = (await authed.get("/api/v1/reports/dashboard")).json()
-    assert dashboard["kpis"]["creditCard"]["count"] >= 1
+    # Isolate the CC catalogue lane while preserving creation-time ownership attribution.
+    dashboard = (await authed.get(f"/api/v1/reports/dashboard?bank_id={cc_bank_id}")).json()
+    assert dashboard["kpis"]["creditCard"]["count"] == 1
     assert dashboard["kpis"]["creditCard"]["value"] is None
-    assert dashboard["kpis"]["finalRejected"]["count"] >= 1
+    company_dashboard = (await authed.get("/api/v1/reports/dashboard")).json()
+    assert company_dashboard["kpis"]["finalRejected"]["count"] >= 1
     today = utc_today().isoformat()
     custom = await authed.get(
         f"/api/v1/reports/dashboard?period=custom&date_from={today}&date_to={today}"

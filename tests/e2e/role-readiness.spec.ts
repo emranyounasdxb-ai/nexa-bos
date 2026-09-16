@@ -125,7 +125,7 @@ const roleDefinitions: RoleDefinition[] = [
     application: "company",
     reporting: "company",
     expectedLinks: ["Dashboard", "Users", "Applications", "Reports", "Finance"],
-    hiddenLinks: ["Customers", "Workflows", "Organization", "Banks & products", "User types"],
+    hiddenLinks: ["Customers", "Workflows", "Organization", "Banks & products", "Designations"],
   },
   {
     code: "BDM",
@@ -332,7 +332,7 @@ async function configureRoleMatrix(request: APIRequestContext): Promise<Prepared
     application: "company",
     reporting: "company",
     caseOwner: true,
-    expectedLinks: ["Dashboard", "Users", "Customers", "Applications", "Workflows", "Reports", "Finance", "User types"],
+    expectedLinks: ["Dashboard", "Users", "Customers", "Applications", "Workflows", "Reports", "Finance", "Designations"],
     hiddenLinks: [],
   };
   const definitions = [gm, ...roleDefinitions];
@@ -610,6 +610,15 @@ test("approved roles land on Dashboard with permission-aware navigation and fail
 
   for (const role of roles) {
     await signIn(page, role);
+    if (role.code === "TL") {
+      await expect(page.getByLabel("Application sidebar")).toHaveCount(0);
+      await expect(page.getByRole("navigation", { name: "Workspace pages" }).getByRole("link")).toHaveText(["Dashboard", "Cases", "My Team", "Performance & Attendance", "Timeline"]);
+      await page.goto("/workflows");
+      await expect(page).toHaveURL(/\/reports\?workspace=dashboard$/);
+      await expect(page.getByTestId("tl-dashboard")).toBeVisible();
+      await signOut(page);
+      continue;
+    }
     const actual = await sidebar.getByRole("link").evaluateAll(links => links.map(link => link.getAttribute("aria-label")));
     for (const group of await sidebar.getByRole("button").all()) {
       const name = (await group.getAttribute("aria-label"))!.replace(/ menu$/, "");
@@ -645,7 +654,7 @@ test("role actions remain bounded and responsive on desktop and mobile", async (
   await signIn(page, byCode.get("HR")!);
   await page.goto("/users");
   await expect(page.getByRole("link", { name: "Create user" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "User types" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Designations" })).toHaveCount(0);
   await signOut(page);
 
   await signIn(page, byCode.get("BDM")!);
@@ -712,7 +721,12 @@ test("COD, TL, and SE use application-bound stage metadata without Workflow acce
       page.off("response", captureDenied);
 
       await page.goto("/workflows");
-      await expect(page.getByText("Workflow access is restricted to OWNER and GM.")).toBeVisible();
+      if (code === "TL") {
+        await expect(page).toHaveURL(/\/reports\?workspace=dashboard$/);
+        await expect(page.getByTestId("tl-dashboard")).toBeVisible();
+      } else {
+        await expect(page.getByText("Workflow access is restricted to OWNER and GM.")).toBeVisible();
+      }
       await signOut(page);
     }
   }
@@ -724,7 +738,7 @@ test.describe("shared sidebar role regression matrix", () => {
   // Complete the existing matrix's representative expectations, without changing
   // any fixture permissions or deriving expected access from application code.
   const additionalLinks: Record<string, string[]> = {
-    GM: ["Organization", "Hierarchy", "Attendance", "Attendance reports", "Targets",
+    GM: ["Organization", "Hierarchy", "Attendance", "Attendance reports", "Targets", "Case Operations",
       "KPI scorecards", "Assets", "Asset categories", "Asset reports", "Banks & products", "Security",
       "HR Dashboard", "PRO Dashboard", "Leave", "Contracts", "Transfers", "Exit and offboarding", "Approval Centre"],
     ITM: ["Hierarchy", "Asset categories", "Asset reports"],
@@ -769,6 +783,29 @@ test.describe("shared sidebar role regression matrix", () => {
       const longMenu = code === "OWNER" || code === "GM";
       await page.setViewportSize({ width: 390, height: 844 });
       await signIn(page, role);
+
+      if (code === "TL") {
+        const errors: string[] = [];
+        page.on("pageerror", error => errors.push(error.message));
+        for (const width of [390, 1024, 1363, 1440]) {
+          await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
+          await expect(page.getByLabel("Application sidebar")).toHaveCount(0);
+          await expect(page.getByRole("button", { name: "Open navigation" })).toHaveCount(0);
+          const tabs = page.getByRole("navigation", { name: "Workspace pages" });
+          await expect(tabs.getByRole("link")).toHaveText(["Dashboard", "Cases", "My Team", "Performance & Attendance", "Timeline"]);
+          await tabs.getByRole("link", { name: "Cases", exact: true }).click();
+          await expect(page).toHaveURL(/workspace=cases/);
+          await tabs.getByRole("link", { name: "Dashboard", exact: true }).click();
+          await expect(page.getByTestId("tl-dashboard")).toHaveAttribute("aria-busy", "false");
+          expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBe(0);
+          await captureViewportThemes(page, testInfo.outputPath(`tl-top-navigation-${width}.png`));
+        }
+        await page.goto("/workflows");
+        await expect(page).toHaveURL(/\/reports\?workspace=dashboard$/);
+        expect(errors).toEqual([]);
+        await signOut(page);
+        return;
+      }
 
       const verifyDashboard = async (width: number) => {
         const surface = page.getByTestId(code === "TL" ? "tl-dashboard" : code === "SE" ? "se-dashboard" : code === "COD" ? "cod-dashboard" : "role-workspace");
@@ -897,7 +934,7 @@ test.describe("shared sidebar role regression matrix", () => {
         await page.keyboard.press("Tab");
         await expect(accountMenu).toHaveCount(0);
         if (page.viewportSize()!.width < 1024) await expect(trigger).toBeFocused();
-        else await expect(sidebar.getByRole("button", { name: "Light theme", exact: true })).toBeFocused();
+        else await expect(dashboard).toBeFocused();
       };
       await trigger.focus();
       await expectClosed();

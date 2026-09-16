@@ -2,7 +2,7 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Button, ErrorText, TextInput } from "@/components/ui";
+import { Button, ErrorText, Select, TextInput } from "@/components/ui";
 import { ApiClientError, apiRequest } from "@/lib/api";
 import { getBrowserApiUrl } from "@/lib/env";
 
@@ -19,26 +19,23 @@ export function CreateUserDialog() {
   const pathname = usePathname();
   const dialogRef = useRef<HTMLElement>(null);
   const pending = useRef(false);
-  const reservation = useRef<Promise<{ userCode: string }> | null>(null);
   const visible = pathname === "/users/new";
   const [form, setForm] = useState(INITIAL);
-  const [userCode, setUserCode] = useState("");
+  const [designations, setDesignations] = useState<{ id: string; name: string; status: string }[]>([]);
+  const [designationId, setDesignationId] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [errors, setErrors] = useState<Partial<Record<FieldName, string>>>({});
 
   const close = useCallback(() => {
     if (pending.current) return;
-    reservation.current = null;
-    setUserCode("");
     router.replace("/users");
   }, [router]);
 
   useEffect(() => {
     if (!visible) return;
     let cancelled = false;
-    reservation.current ??= apiRequest<{ userCode: string }>("/api/v1/users/code-reservations", getBrowserApiUrl(), { method: "POST" });
-    void reservation.current.then((data) => { if (!cancelled) setUserCode(data.userCode); })
+    void apiRequest<{ items: { id: string; name: string; status: string }[] }>("/api/v1/users/designation-options", getBrowserApiUrl()).then((data) => { if (!cancelled) setDesignations(data.items); })
       .catch((caught) => { if (!cancelled) setError(caught instanceof Error ? caught.message : "The user record could not be prepared."); });
     return () => { cancelled = true; };
   }, [visible]);
@@ -81,11 +78,10 @@ export function CreateUserDialog() {
     setErrors(invalid); setError("");
     const first = FIELDS.find((field) => invalid[field.name]);
     if (first) { document.getElementById(first.name.replaceAll("_", "-"))?.focus(); return; }
-    if (!userCode) { setError("Wait for the user record to finish preparing before creating it."); return; }
     pending.current = true; setSubmitting(true);
     try {
       const created = await apiRequest<{ id: string }>("/api/v1/users", getBrowserApiUrl(), {
-        method: "POST", body: JSON.stringify({ ...form, user_code: userCode }),
+        method: "POST", body: JSON.stringify({ ...form, designation_type_id: designationId || null }),
       });
       router.push(`/users/${created.id}`);
     } catch (caught) {
@@ -115,11 +111,18 @@ export function CreateUserDialog() {
                 {errors[name] ? <p id={`${id}-error`} role="alert" className="mt-1 text-xs text-danger">{errors[name]}</p> : null}
               </div>;
             })}
+            {designations.length ? <div className="min-w-0">
+              <label htmlFor="employee-designation" className="block text-sm font-medium">Designation</label>
+              <Select id="employee-designation" value={designationId} disabled={submitting} onChange={(event) => setDesignationId(event.target.value)}>
+                <option value="">Not assigned</option>
+                {designations.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+              </Select>
+            </div> : null}
           </div>
           {error ? <div className="px-4 pb-3"><ErrorText>{error}</ErrorText></div> : null}
           <footer className="flex shrink-0 justify-end gap-2 border-t border-brand-border px-4 py-3">
             <Button type="button" variant="secondary" disabled={submitting} onClick={close}>Cancel</Button>
-            <Button type="submit" disabled={submitting || !userCode}>{submitting ? "Creating…" : "Create User"}</Button>
+            <Button type="submit" disabled={submitting}>{submitting ? "Creating…" : "Create User"}</Button>
           </footer>
         </form>
       </section>

@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type ReactNode, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { IconBell, IconChevronDown, IconChevronRight, IconLogout, IconMenu2, IconUserCircle, IconX, type IconComponent } from "@/components/icons";
 import { ThemeControls } from "@/components/theme-controls";
 import { ProfilePhoto } from "@/components/profile-photo";
-import { BrandLogo } from "@/components/ui";
+import { BrandLogo, Button } from "@/components/ui";
 import { observeSelectedTabVisibility } from "@/lib/tab-visibility";
 import { apiGet } from "@/lib/api";
 import { getBrowserApiUrl } from "@/lib/env";
@@ -77,6 +78,10 @@ export function WorkspaceFrame({ children, user, groups, context, pathname, home
   children: ReactNode; user: UserRecord | null; groups: WorkspaceNavGroup[]; context: Context; pathname: string; home: string; notifications: boolean; isActive: (href: string) => boolean; onLogout: () => Promise<void>;
 }) {
   const desktop = useSyncExternalStore(subscribeDesktop, desktopSnapshot, serverDesktop);
+  const search = useSearchParams();
+  const router = useRouter();
+  const isTl = user?.userType?.code === "TL";
+  const tlSection = pathname.startsWith("/applications") ? "cases" : search.get("workspace") ?? "dashboard";
   const [mobileOpen, setMobileOpen] = useState(false);
   const [groupName, setGroupName] = useState<string | null>(null);
   const [accountOpen, setAccountOpen] = useState(false);
@@ -96,10 +101,16 @@ export function WorkspaceFrame({ children, user, groups, context, pathname, home
   const navigationModalOpen = (!desktop && mobileOpen) || Boolean(popupGroup);
   const allItems = groups.flatMap(group => group.items);
   const dashboard = allItems.find(item => item.href === "/reports");
-  const topItems = context.group === "Workspace" ? ["/reports", "/applications", "/targets", "/reports/compare"].flatMap(href => allItems.filter(item => item.href === href)) : activeGroup?.items ?? [];
+  const topItems = isTl ? [
+    { href: "/reports?workspace=dashboard", label: "Dashboard" },
+    { href: "/reports?workspace=cases&queue=all", label: "Cases" },
+    { href: "/reports?workspace=team&view=team&queue=all", label: "My Team" },
+    { href: "/reports?workspace=performance", label: "Performance & Attendance" },
+    { href: "/reports?workspace=timeline", label: "Timeline" },
+  ] : context.group === "Workspace" ? ["/reports", "/applications", "/targets", "/reports/compare"].flatMap(href => allItems.filter(item => item.href === href)) : activeGroup?.items ?? [];
   const permitted = new Set(allItems.map(item => item.href));
   if (notifications) permitted.add("/notifications");
-  const ancestors = [...(dashboard && pathname !== dashboard.href ? [dashboard] : []), ...(context.parent && permitted.has(context.parent.href) ? [context.parent] : [])].filter((item, index, rows) => rows.findIndex(row => row.href === item.href) === index);
+  const ancestors = [...(dashboard && pathname !== dashboard.href ? [dashboard] : []), ...(context.parent && permitted.has(context.parent.href) ? [context.parent] : [])].filter((item, index, rows) => rows.findIndex(row => row.href === item.href) === index).map(item => isTl && item.href === "/applications" ? { ...item, href: "/reports?workspace=cases&queue=all", label: "Cases" } : item);
   const tlDashboard = pathname === "/reports" && user?.userType?.code === "TL";
   const closeGroup = useCallback(() => setGroupName(null), []);
   const hideRailTooltip = useCallback(() => {
@@ -208,11 +219,12 @@ export function WorkspaceFrame({ children, user, groups, context, pathname, home
     return () => { document.removeEventListener("pointerdown", outside); document.removeEventListener("focusin", outside); };
   }, [accountOpen, closeAccount]);
 
-  return <div className={styles.canvas}><div className={styles.frame}>
+  return <div className={styles.canvas}><div className={styles.frame} data-tl={isTl || undefined}>
     <header className={styles.topbar} inert={!desktop && mobileOpen}>
       <Link href={home} aria-label="AMAFH CORE home" className={styles.brand}><BrandLogo /></Link>
-      <nav className={styles.topNav} aria-label="Workspace pages">{topItems.map(item => <Link key={item.href} href={item.href} aria-current={isActive(item.href) ? "page" : undefined}>{item.label}</Link>)}</nav>
+      <nav className={styles.topNav} aria-label="Workspace pages">{topItems.map(item => <Link key={item.href} href={item.href} aria-current={(isTl ? pathname === "/reports" || pathname.startsWith("/applications") ? new URLSearchParams(item.href.split("?")[1]).get("workspace") === tlSection : false : isActive(item.href)) ? "page" : undefined}>{item.label}</Link>)}</nav>
       <div className={styles.headerActions}>
+        {isTl && user.permissions.includes("Applications.Create") && <Button className={styles.createCase} onClick={() => { if (pathname === "/reports") window.dispatchEvent(new Event("nexa-create-case")); else router.push("/reports?workspace=cases&create=1"); }}>Create Case</Button>}
         <ThemeControls className={styles.headerTheme} />
         {notifications && <NotificationBell pathname={pathname} />}
         <div className={styles.accountAnchor} data-testid="account-actions">
@@ -229,11 +241,11 @@ export function WorkspaceFrame({ children, user, groups, context, pathname, home
             <button type="button" role="menuitem" tabIndex={-1} onClick={() => { closeAccount(false); void onLogout(); }}><IconLogout className="size-4" />Sign out</button>
           </div>}
         </div>
-        <button ref={menuTrigger} type="button" aria-label="Open navigation" aria-controls="application-sidebar" aria-expanded={mobileOpen} className={`${styles.iconButton} ${styles.mobileTrigger}`} onClick={() => setMobileOpen(true)}><IconMenu2 className="size-5" /></button>
+        {!isTl && <button ref={menuTrigger} type="button" aria-label="Open navigation" aria-controls="application-sidebar" aria-expanded={mobileOpen} className={`${styles.iconButton} ${styles.mobileTrigger}`} onClick={() => setMobileOpen(true)}><IconMenu2 className="size-5" /></button>}
       </div>
     </header>
     {mobileOpen && !desktop && <button type="button" tabIndex={-1} aria-label="Close navigation backdrop" className={styles.mobileBackdrop} onClick={() => setMobileOpen(false)} />}
-    <aside ref={sidebar} id="application-sidebar" aria-label="Application sidebar" role={!desktop && mobileOpen ? "dialog" : undefined} aria-modal={!desktop && mobileOpen ? true : undefined} inert={!desktop && !mobileOpen} className={styles.rail} data-mobile-open={mobileOpen}
+    {!isTl && <aside ref={sidebar} id="application-sidebar" aria-label="Application sidebar" role={!desktop && mobileOpen ? "dialog" : undefined} aria-modal={!desktop && mobileOpen ? true : undefined} inert={!desktop && !mobileOpen} className={styles.rail} data-mobile-open={mobileOpen}
       onClickCapture={hideRailTooltip}
       onPointerOver={event => { const target = (event.target as Element).closest<HTMLElement>("a[aria-label],button[aria-label]"); const focused = document.activeElement; if (target && !target.contains(event.relatedTarget as Node | null) && (!sidebar.current?.contains(focused) || focused === target)) showRailTooltip(target); }}
       onPointerOut={event => { const target = (event.target as Element).closest<HTMLElement>("a[aria-label],button[aria-label]"); if (target && tooltipTarget.current === target && !target.contains(event.relatedTarget as Node | null) && document.activeElement !== target) hideRailTooltip(); }}
@@ -247,7 +259,7 @@ export function WorkspaceFrame({ children, user, groups, context, pathname, home
         return direct ? <Link key={group.label} href={group.items[0].href} onNavigate={() => setMobileOpen(false)} aria-label={group.items[0].label} aria-current={isActive(group.items[0].href) ? "page" : undefined} className={styles.railButton}><MainIcon className="size-5" /></Link> : <button key={group.label} type="button" aria-label={`${group.label} menu`} aria-haspopup="dialog" aria-expanded={groupName === group.label} aria-controls={groupName === group.label ? "workspace-submenu" : undefined} data-active={active} className={styles.railButton} onClick={() => setGroupName(group.label)}><MainIcon className="size-5" /></button>;
       })}</nav>
       <div className={styles.utilityCapsule}><button type="button" aria-label="Sign out" className={styles.railButton} onClick={() => void onLogout()}><IconLogout className="size-5" /></button></div>
-    </aside>
+    </aside>}
     <div id="authenticated-pwa-install-slot" className={styles.installSlot} />
     <div data-testid="authenticated-content" data-portal-role={user?.userType?.code === "TL" ? "TL" : undefined} className={styles.content} inert={!desktop && mobileOpen}>
       <div data-testid="page-header" className={styles.pageHeader} data-compact={tlDashboard}>

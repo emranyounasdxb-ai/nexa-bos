@@ -217,7 +217,7 @@ test("User Directory filters and pagination persist in the URL across refresh an
   await expect.poll(() => new URL(page.url()).searchParams.get("officeId")).toBe(dxb!.id);
   await selectBrandedOption(page.getByRole("combobox", { name: "Department" }), department.id);
   await expect.poll(() => new URL(page.url()).searchParams.get("departmentId")).toBe(department.id);
-  await selectBrandedOption(page.getByRole("combobox", { name: "User Type" }), se!.id);
+  await selectBrandedOption(page.getByRole("combobox", { name: "Designation" }), se!.id);
   await expect.poll(() => new URL(page.url()).searchParams.get("userTypeId")).toBe(se!.id);
   await page.getByLabel("Search users").fill(target.fullName);
   await expect.poll(() => new URL(page.url()).searchParams.get("q")).toBe(target.fullName);
@@ -240,7 +240,7 @@ test("User Directory filters and pagination persist in the URL across refresh an
   const targetRow = directoryTable.getByRole("row").filter({ has: page.getByRole("link", { name: target.fullName }) });
   await expect(targetRow.getByRole("cell")).toHaveCount(9);
   await expect(targetRow).toContainText(target.employeeCode);
-  await expect(targetRow).toContainText(designations[0]!.name);
+  await expect(targetRow).toContainText(se.name);
   await expect(targetRow).toContainText(target.mobile);
   await expect(targetRow).toContainText(target.email);
   await expect(targetRow).toContainText(dxb!.name);
@@ -293,7 +293,7 @@ test("User Directory filters and pagination persist in the URL across refresh an
   await expect(page.getByRole("combobox", { name: "Account status" })).toHaveAttribute("value", "pending");
   await expect(page.getByRole("combobox", { name: "Office" })).toHaveAttribute("value", dxb!.id);
   await expect(page.getByRole("combobox", { name: "Department" })).toHaveAttribute("value", department.id);
-  await expect(page.getByRole("combobox", { name: "User Type" })).toHaveAttribute("value", se!.id);
+  await expect(page.getByRole("combobox", { name: "Designation" })).toHaveAttribute("value", se!.id);
 
   await selectBrandedOption(page.getByRole("combobox", { name: "Account status" }), "active");
   await expect(page.getByText("No records match the selected filters")).toBeVisible();
@@ -358,7 +358,7 @@ test("Users.View-only access keeps privileged directory controls unavailable on 
   await expect(page).toHaveURL(/\/users/);
   await expect(page.getByRole("link", { name: "Create user" })).toHaveCount(0);
   await page.getByRole("button", { name: /^Filters/ }).click();
-  await expect(page.getByRole("combobox", { name: "User Type" })).toBeDisabled();
+  await expect(page.getByRole("combobox", { name: "Designation" })).toBeDisabled();
   await selectBrandedOption(page.getByRole("combobox", { name: "Employment status" }), "Active");
   await page.getByLabel("Search users").fill(viewer.userCode);
   await expect(page.getByRole("link", { name: viewer.fullName })).toBeVisible();

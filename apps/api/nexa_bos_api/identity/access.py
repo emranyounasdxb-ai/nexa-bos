@@ -46,7 +46,65 @@ def permission_set(user: User) -> set[str]:
         return set(ALL_PERMISSION_CODES)
     if user.user_type is None or user.user_type.status != UserTypeStatus.ACTIVE:
         return set()
-    return {row.permission_code for row in user.user_type.permissions}
+    permissions = {row.permission_code for row in user.user_type.permissions}
+    if has_user_type(user, "TL"):
+        forbidden = {
+            "CaseOperations.ViewRules",
+            "CaseOperations.ManageRules",
+            "CaseOperations.ManageRouting",
+            "CaseOperations.ExportReports",
+            "Finance.ViewCommissionRules",
+            "Finance.ManageCommissionRules",
+            "Reports.View",
+            "Reports.Export",
+        }
+        permissions = {
+            code
+            for code in permissions
+            if code not in forbidden
+            and not code.startswith(
+                (
+                    "Workflows.",
+                    "WorkflowStages.",
+                    "WorkflowTransitions.",
+                    "Offices.",
+                    "Departments.",
+                    "BusinessUnits.",
+                    "Teams.",
+                    "Designations.",
+                    "UserTypes.",
+                    "Security.",
+                    "Approvals.",
+                    "Reports.",
+                    "Finance.",
+                )
+            )
+            and not (code.startswith("Users.") and code != "Users.View")
+            and not (
+                code.startswith(("Contracts.", "Transfers.", "Exits."))
+                and not code.endswith(".ViewOwn")
+                and code != "Transfers.Recommend"
+            )
+            and code
+            not in {
+                "Attendance.Manage",
+                "Attendance.ManageOffice",
+                "Attendance.Correct",
+                "Attendance.Reports",
+                "Leave.Settings",
+                "Leave.Override",
+                "UserProfiles.HR.Update",
+                "UserProfiles.PRO.Update",
+                "CaseOperations.ViewReports",
+                "CaseOperations.ApproveClawback",
+                "CaseOperations.StageCsv",
+            }
+            and not (
+                code.startswith(("Banks.", "Products.", "BankProducts.", "ProductVariants."))
+                and not code.endswith(".View")
+            )
+        }
+    return permissions
 
 
 def has_permission(user: User, code: str) -> bool:
@@ -150,6 +208,8 @@ async def tl_team_owner_ids(session: AsyncSession, actor: User) -> set[UUID]:
 
 async def visible_user_ids(session: AsyncSession, actor: User) -> set[UUID] | None:
     """None means company-wide (no id filter). Always includes the actor."""
+    if has_user_type(actor, "TL"):
+        return await tl_team_owner_ids(session, actor)
     scope = visibility_scope(actor)
     if scope is VisibilityScope.COMPANY:
         return None

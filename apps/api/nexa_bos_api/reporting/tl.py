@@ -1,7 +1,9 @@
 """Read-only TL workspace: current, directly assigned team membership is authoritative."""
 
 from collections import Counter
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
+from decimal import Decimal
+from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,6 +11,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from nexa_bos_api.applications.models import Workflow
 from nexa_bos_api.applications.review import REVIEW_EVENTS, REVIEW_LABELS, review_state
 from nexa_bos_api.attendance.service import personal_attendance_snapshot
+from nexa_bos_api.case_operations.models import CaseEarning, CaseEarningReversal
+from nexa_bos_api.case_operations.reporting import employee_metrics
 from nexa_bos_api.core.exceptions import AppError
 from nexa_bos_api.identity.access import (
     application_visibility_scope,
@@ -38,13 +42,25 @@ QUEUE_LABELS = {
     "pending_review": "Pending Review",
     "returned": "Returned",
     "resubmitted": "Resubmitted",
-    "forwarded": "Forwarded to COD",
+    "forwarded": "Pending SM Approval",
     "active": "Active Team Cases",
     "submitted": "Submitted",
     "approved": "Approved",
     "funded": "Funded / Completed",
     "attention": "Attention Required",
     "all": "All cases",
+    "booking": "Needs TL Booking",
+    "coordinator": "With Coordinator",
+    "overdue": "Overdue",
+    "clawback": "Clawbacks in Period",
+    "stage_created": "Created",
+    "stage_tl_booking": "TL Booking",
+    "stage_sm": "SM Approval",
+    "stage_coordinator": "Coordinator",
+    "stage_bank": "Bank Submitted",
+    "stage_completed": "Completed",
+    "stage_returned": "On Hold / Returned",
+    "stage_closed": "Other Closed Outcomes",
 }
 
 
@@ -75,7 +91,6 @@ def _metric_history(facts: list[AppFact], window: PeriodWindow, now: datetime) -
         )
         for fact in facts
     }
-    current_states = {fact.id: review_state(fact.events)["status"] for fact in facts}
 
     def open_at(fact: AppFact, cutoff: datetime) -> bool | None:
         if _aware(fact.created_at) > cutoff:
@@ -96,6 +111,7 @@ def _metric_history(facts: list[AppFact], window: PeriodWindow, now: datetime) -
             "resubmitted",
             "forwarded",
             "booked",
+            "sm_approved",
         }:
             return status
         return None
@@ -130,17 +146,12 @@ def _metric_history(facts: list[AppFact], window: PeriodWindow, now: datetime) -
                             elif state == key:
                                 count += 1
                 elif key == "forwarded":
-                    existed = _aware(fact.created_at) <= cutoff
-                    overlaps = fact.terminal_at is None or _aware(fact.terminal_at) >= window.start
-                    if existed and overlaps and routing_at(fact, cutoff) is None:
-                        unknown = True
-                    elif current_states[fact.id] == "forwarded" and any(
-                        event.event_type in {"internal_forwarded", "internal_review_started"}
-                        and (event.payload or {}).get("status") == "forwarded"
-                        and window.start <= _aware(event.bos_updated_at) <= cutoff
-                        for event in reviews[fact.id]
-                    ):
-                        count += 1
+                    if open_at(fact, cutoff):
+                        state = routing_at(fact, cutoff)
+                        if state is None:
+                            unknown = True
+                        elif state == "booked":
+                            count += 1
                 else:
                     dates = {
                         "submitted": [fact.submitted_at],
@@ -160,7 +171,8 @@ def _metric_history(facts: list[AppFact], window: PeriodWindow, now: datetime) -
         )
         if key == "forwarded":
             basis += (
-                " Only currently forwarded cases qualify; missing legacy review history is a gap."
+                " Cases awaiting SM approval at each cutoff;"
+                " missing legacy review history is a gap."
             )
         if key == "funded":
             basis += " A case that is both funded and completed is counted once."
@@ -176,6 +188,14 @@ async def tl_dashboard(
     view: str,
     queue: str,
     page: int,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    member_id: UUID | None = None,
+    search: str = "",
+    owner_id: UUID | None = None,
+    product_id: UUID | None = None,
+    stage_id: UUID | None = None,
+    outcome: str | None = None,
 ) -> dict[str, object]:
     if not (
         has_user_type(actor, "TL")
@@ -193,11 +213,30 @@ async def tl_dashboard(
         raise AppError(
             status_code=422, code="INVALID_FILTER", message="Unknown TL dashboard filter"
         )
+    if bool(date_from) != bool(date_to):
+        raise AppError(status_code=422, code="INVALID_FILTER", message="Choose both range dates")
     # All collections and calculations originate from this exact current-owner allowlist.
     allowed = await tl_team_owner_ids(session, actor)
+    if member_id is not None and member_id not in allowed - {actor.id}:
+        raise AppError(status_code=404, code="USER_NOT_FOUND", message="Team member not found")
+    if owner_id is not None and owner_id not in allowed:
+        raise AppError(status_code=404, code="USER_NOT_FOUND", message="Case owner not found")
     facts, users, offices, teams = await load_facts(session, owner_ids=allowed)
+    display_names = {str(user_id): user.full_name for user_id, user in users.items()}
+
+    def timeline_details(payload):
+        details = dict(payload or {})
+        for key, label in (("fromOwnerId", "previousOwner"), ("toOwnerId", "newOwner")):
+            if details.get(key):
+                details[label] = display_names.get(details[key], "Unavailable employee")
+        return details
+
     access = await load_reporting_access(session, actor)
-    window = resolve_period(period)
+    window = (
+        resolve_period("custom", date_from=date_from, date_to=date_to)
+        if date_from and date_to
+        else resolve_period(period)
+    )
     now = datetime.now(UTC)
     states = {fact.id: review_state(fact.events) for fact in facts}
     selected = [
@@ -205,8 +244,45 @@ async def tl_dashboard(
         for f in facts
         if view == "combined" or (f.current_owner_id == actor.id) == (view == "own")
     ]
+    if member_id is not None:
+        selected = [f for f in selected if f.current_owner_id == member_id]
+    timeline_facts = selected
+    if date_from and date_to:
+        selected = [f for f in selected if in_window(f.created_at, window)]
     created = [f for f in selected if in_window(f.created_at, window)]
     opened = [f for f in selected if not f.terminal_outcome]
+
+    def can_book(f):
+        return (
+            not f.terminal_outcome
+            and states[f.id]["tlId"] == str(actor.id)
+            and states[f.id]["status"] in {"pending_review", "resubmitted"}
+        )
+
+    def current_bucket(f):
+        # Mutually exclusive CURRENT states; milestone totals below are cumulative.
+        if f.terminal_outcome:
+            return "completed" if f.terminal_outcome == "Completed" else "closed"
+        if f.submitted_at:
+            return "bank"
+        if states[f.id]["status"] == "returned":
+            return "returned"
+        if f.routing_status == "sm_approved":
+            return "coordinator"
+        if f.routing_status == "booked":
+            return "sm"
+        return "tl_booking" if can_book(f) else "created"
+
+    current_labels = {
+        "created": "Created",
+        "tl_booking": "TL Booking",
+        "sm": "SM Approval",
+        "coordinator": "Coordinator",
+        "bank": "Bank Submitted",
+        "completed": "Completed",
+        "returned": "On Hold / Returned",
+        "closed": "Closed",
+    }
     # Pending work spans creation periods, while completed activity uses event dates.
     queues = {
         key: [f for f in opened if states[f.id]["status"] == key]
@@ -215,15 +291,7 @@ async def tl_dashboard(
     queues.update(
         {
             "forwarded": [
-                f
-                for f in selected
-                if states[f.id]["status"] == "forwarded"
-                and any(
-                    e.event_type in {"internal_forwarded", "internal_review_started"}
-                    and (e.payload or {}).get("status") == "forwarded"
-                    and in_window(e.bos_updated_at, window)
-                    for e in f.events
-                )
+                f for f in selected if not f.terminal_outcome and f.routing_status == "booked"
             ],
             "active": opened,
             "submitted": [f for f in selected if in_window(f.submitted_at, window)],
@@ -240,9 +308,18 @@ async def tl_dashboard(
                 if f.active_delay_type
                 or states[f.id]["status"] in {"pending_review", "returned", "resubmitted"}
             ],
-            "all": created,
+            "all": selected,
         }
     )
+    queues.update(
+        {
+            f"stage_{key}": [f for f in selected if current_bucket(f) == key]
+            for key in current_labels
+        }
+    )
+    queues["booking"] = [f for f in selected if can_book(f)]
+    queues["coordinator"] = queues["stage_coordinator"]
+    queues["overdue"] = [f for f in opened if f.active_delay_type]
 
     def item(f: AppFact) -> dict[str, object]:
         state = states[f.id]
@@ -251,12 +328,41 @@ async def tl_dashboard(
             "fileNumber": f.code,
             "customer": f.customer_name,
             "caseOwner": users[f.current_owner_id].full_name,
+            "ownerId": str(f.current_owner_id),
+            "productId": str(f.product_id),
+            "stageId": str(f.current_stage_id),
+            "outcome": f.terminal_outcome,
+            "pendingRole": "—"
+            if f.terminal_outcome
+            else "Bank"
+            if f.submitted_at
+            else "Coordinator"
+            if f.routing_status == "sm_approved"
+            else "SM"
+            if f.routing_status == "booked"
+            else "Case Owner"
+            if state["status"] == "returned"
+            else "TL",
             "bank": f.bank_name,
             "product": f.product_name,
             "requestedAmount": money(f.requested_amount),
             "routingStatus": state["status"],
-            "routingLabel": state["label"],
-            "bankStage": f.current_stage_name,
+            "routingLabel": "Completed/Closed"
+            if f.terminal_outcome == "Completed"
+            else "Bank Submitted"
+            if f.submitted_at
+            else state["label"],
+            "bankStage": f.terminal_outcome or f.current_stage_name,
+            "statusLabel": "Completed/Closed"
+            if current_bucket(f) == "completed"
+            else "Pending TL Booking"
+            if current_bucket(f) == "tl_booking"
+            else "Pending SM Approval"
+            if current_bucket(f) == "sm"
+            else "With Coordinator"
+            if current_bucket(f) == "coordinator"
+            else current_labels[current_bucket(f)],
+            "currentBucket": current_bucket(f),
             "bankNumber": f.bank_case_number,
             "tatSeconds": max(
                 0, int((_aware(f.tat_stopped_at or now) - _aware(f.created_at)).total_seconds())
@@ -264,8 +370,7 @@ async def tl_dashboard(
             "delayed": bool(f.active_delay_type),
             "updatedAt": (f.updated_at or f.created_at).isoformat(),
             "reason": state["reason"],
-            "canReview": state["tlId"] == str(actor.id)
-            and state["status"] in {"pending_review", "resubmitted"},
+            "canReview": can_book(f),
         }
 
     def latest(rows: list[AppFact]) -> list[AppFact]:
@@ -312,10 +417,44 @@ async def tl_dashboard(
                 "submitted": metrics["submitted"]["count"],
                 "approved": metrics["approved"]["count"],
                 "funded": metrics["funded"]["count"],
-                "conversion": ratio(metrics["approved"]["count"], metrics["submitted"]["count"]),
+                "conversion": ratio(
+                    sum(
+                        f.current_owner_id == user_id
+                        and f.terminal_outcome == "Completed"
+                        and in_window(f.terminal_at, window)
+                        for f in facts
+                    ),
+                    metrics["submitted"]["count"],
+                ),
+                "earnings": await employee_metrics(session, actor, user_id, window=window),
+                "attendance": await personal_attendance_snapshot(session, users[user_id]),
                 "pendingReview": sum(
                     f.current_owner_id == user_id
                     and states[f.id]["status"] in {"pending_review", "resubmitted"}
+                    for f in facts
+                ),
+                "openCases": sum(
+                    f.current_owner_id == user_id and not f.terminal_outcome for f in facts
+                ),
+                "completed": sum(
+                    f.current_owner_id == user_id
+                    and f.terminal_outcome == "Completed"
+                    and in_window(f.terminal_at, window)
+                    for f in facts
+                ),
+                "pendingApproval": sum(
+                    f.current_owner_id == user_id
+                    and not f.terminal_outcome
+                    and (
+                        f.routing_status == "booked"
+                        or states[f.id]["status"] in {"pending_review", "resubmitted"}
+                    )
+                    for f in facts
+                ),
+                "delayed": sum(
+                    f.current_owner_id == user_id
+                    and not f.terminal_outcome
+                    and bool(f.active_delay_type)
                     for f in facts
                 ),
             }
@@ -337,7 +476,9 @@ async def tl_dashboard(
         s.id: s
         for f in selected
         for s in f.stages.values()
-        if s.workflow_id == f.workflow_id and s.status == "active"
+        if s.workflow_id == f.workflow_id
+        and s.status == "active"
+        and not (f.product_code == "CC" and s.system_key == "fund_released")
     }
     workflow_ids = {stage.workflow_id for stage in stage_rows.values()}
     workflows = {
@@ -366,15 +507,206 @@ async def tl_dashboard(
             key=lambda s: (workflow_context.get(s.workflow_id, ""), s.sort_order, str(s.id)),
         )
     ]
-    rows = latest(queues[queue])
+    clawback_case_ids = set(
+        await session.scalars(
+            select(CaseEarning.application_id)
+            .join(CaseEarningReversal, CaseEarningReversal.earning_id == CaseEarning.id)
+            .where(
+                CaseEarning.case_owner_id.in_(allowed),
+                CaseEarningReversal.reversed_at >= window.start,
+                CaseEarningReversal.reversed_at <= window.end,
+            )
+            .distinct()
+        )
+    )
+    queues["clawback"] = [f for f in selected if f.id in clawback_case_ids]
+    rows = latest(
+        [
+            f
+            for f in queues[queue]
+            if (owner_id is None or f.current_owner_id == owner_id)
+            and (product_id is None or f.product_id == product_id)
+            and (stage_id is None or f.current_stage_id == stage_id)
+            and (not outcome or (f.terminal_outcome or "in_progress") == outcome)
+            and (
+                not search.strip()
+                or search.strip().casefold()
+                in " ".join(
+                    (
+                        f.code,
+                        f.customer_name,
+                        users[f.current_owner_id].full_name,
+                        f.bank_case_number or "",
+                    )
+                ).casefold()
+            )
+        ]
+    )
     size = 8
     office, team = offices.get(actor.office_id), teams.get(actor.team_id)
+    own_earnings = await employee_metrics(session, actor, actor.id, window=window)
+    manager = users.get(actor.reporting_manager_id)
+    if manager and (not has_user_type(manager, "SM") or manager.office_id != actor.office_id):
+        manager = None
+    earnings = list(
+        await session.scalars(select(CaseEarning).where(CaseEarning.case_owner_id.in_(allowed)))
+    )
+    clawbacks = []
+    clawback_events = []
+    for earning in earnings:
+        reversals = list(
+            await session.scalars(
+                select(CaseEarningReversal)
+                .where(CaseEarningReversal.earning_id == earning.id)
+                .order_by(CaseEarningReversal.reversed_at)
+            )
+        )
+        if not reversals:
+            continue
+        fact = next((f for f in facts if f.id == earning.application_id), None)
+        running = earning.amount
+        for reversal in reversals:
+            previous = running
+            running -= reversal.amount
+            if fact in timeline_facts and in_window(reversal.reversed_at, window):
+                approver = await session.get(User, reversal.approved_by_id)
+                clawback_events.append(
+                    {
+                        "id": str(reversal.id),
+                        "fileNumber": fact.code,
+                        "applicationId": str(earning.application_id),
+                        "event": "Clawback approved",
+                        "at": reversal.reversed_at.isoformat(),
+                        "reason": None,
+                        "actor": approver.full_name if approver else "Unavailable actor",
+                        "source": "Case earning reversal ledger",
+                        "previousState": money(previous),
+                        "newState": money(running),
+                        "details": {
+                            "caseOwnerName": users[earning.case_owner_id].full_name,
+                            "ownerRole": "TL" if earning.case_owner_id == actor.id else "SE",
+                            "earningType": "Card Points"
+                            if earning.earning_type == "card_points"
+                            else "Commission",
+                            "original": money(earning.amount),
+                            "deducted": money(reversal.amount),
+                            "net": money(running),
+                        },
+                    }
+                )
+        if not any(in_window(r.reversed_at, window) for r in reversals):
+            continue
+        deducted = sum((r.amount for r in reversals), Decimal("0"))
+        clawbacks.append(
+            {
+                "case": fact.code if fact else str(earning.application_id),
+                "ownerId": str(earning.case_owner_id),
+                "owner": users[earning.case_owner_id].full_name,
+                "ownerRole": "TL" if earning.case_owner_id == actor.id else "SE",
+                "type": earning.earning_type,
+                "original": money(earning.amount),
+                "deducted": money(deducted),
+                "net": money(earning.amount - deducted),
+            }
+        )
+    financial_fields = (
+        "pointsEarned",
+        "pointsReversed",
+        "pointsNet",
+        "loanAmount",
+        "commissionEarned",
+        "commissionReversed",
+        "commissionNet",
+    )
+    count_fields = ("cardsBooked", "loansBooked", "pendingCases", "closedCases")
+    team_earnings = {
+        key: money(sum((Decimal(str(person["earnings"][key])) for person in staff), Decimal("0")))
+        for key in financial_fields
+    }
+    team_earnings.update(
+        {key: sum(person["earnings"][key] for person in staff) for key in count_fields}
+    )
+
+    def status_counts(cohort):
+        return {
+            "Created": sum(in_window(f.created_at, window) for f in cohort),
+            "TL Booked": sum(in_window(f.booked_at, window) for f in cohort),
+            "Pending SM Approval": sum(
+                not f.terminal_outcome and f.routing_status == "booked" for f in cohort
+            ),
+            "On Hold/Returned": sum(
+                not f.terminal_outcome and states[f.id]["status"] == "returned" for f in cohort
+            ),
+            "With Coordinator": sum(
+                not f.terminal_outcome and not f.submitted_at and f.routing_status == "sm_approved"
+                for f in cohort
+            ),
+            "Bank Submitted": sum(in_window(f.submitted_at, window) for f in cohort),
+            "Completed/Closed": sum(
+                f.terminal_outcome == "Completed" and in_window(f.terminal_at, window)
+                for f in cohort
+            ),
+            "Clawback": len(
+                {
+                    row["case"]
+                    for row in clawbacks
+                    if row["ownerId"] in {str(f.current_owner_id) for f in cohort}
+                }
+            ),
+        }
+
+    def current_summary(cohort):
+        return {
+            "total": len(cohort),
+            "open": sum(not f.terminal_outcome for f in cohort),
+            "booking": sum(can_book(f) for f in cohort),
+            "overdue": sum(not f.terminal_outcome and bool(f.active_delay_type) for f in cohort),
+            "clawback": sum(f.id in clawback_case_ids for f in cohort),
+            "stages": {
+                key: sum(current_bucket(f) == key for f in cohort) for key in current_labels
+            },
+        }
+
     return {
         "office": office.name if office else "Office not assigned",
         "team": team.name if team else "Team not assigned",
         "updatedAt": now.isoformat(),
         "period": period,
         "view": view,
+        "ownTotal": sum(f.current_owner_id == actor.id for f in facts),
+        "teamTotal": sum(f.current_owner_id != actor.id for f in facts),
+        "ownStatus": status_counts([f for f in facts if f.current_owner_id == actor.id]),
+        "teamStatus": status_counts([f for f in facts if f.current_owner_id != actor.id]),
+        "currentWork": {
+            "own": current_summary([f for f in facts if f.current_owner_id == actor.id]),
+            "team": current_summary([f for f in facts if f.current_owner_id != actor.id]),
+        },
+        "pendingBookingItems": [item(f) for f in latest([f for f in facts if can_book(f)])[:5]],
+        "ownEarnings": own_earnings,
+        "teamEarnings": team_earnings,
+        "hierarchy": {
+            "salesManager": manager.full_name if manager else None,
+            "teamLeader": actor.full_name,
+        },
+        "filterOptions": {
+            "owners": [
+                {"id": str(uid), "name": users[uid].full_name}
+                for uid in sorted(allowed, key=lambda uid: users[uid].full_name)
+            ],
+            "products": [
+                {"id": str(pid), "name": name}
+                for pid, name in sorted(
+                    {f.product_id: f.product_name for f in facts}.items(), key=lambda row: row[1]
+                )
+            ],
+            "stages": stages,
+            "outcomes": sorted({f.terminal_outcome for f in facts if f.terminal_outcome}),
+            "cases": [
+                {"id": str(f.id), "name": f.code, "ownerId": str(f.current_owner_id)}
+                for f in timeline_facts
+            ],
+        },
+        "clawbacks": clawbacks,
         "queue": queue,
         "queueLabel": QUEUE_LABELS[queue],
         "cards": [
@@ -416,21 +748,44 @@ async def tl_dashboard(
         "staff": staff,
         "attention": [item(f) for f in latest(queues["attention"])[:5]],
         "returned": [item(f) for f in latest(queues["returned"])[:5]],
-        "activity": [
-            {
-                "id": str(e.id),
-                "fileNumber": f.code,
-                "applicationId": str(f.id),
-                "event": e.event_type,
-                "at": e.bos_updated_at.isoformat(),
-                "reason": e.reason,
-            }
-            for f, e in sorted(
-                [(f, e) for f in selected for e in f.events],
-                key=lambda pair: pair[1].bos_updated_at,
-                reverse=True,
-            )[:10]
-        ],
+        "activity": sorted(
+            [
+                {
+                    "id": str(e.id),
+                    "fileNumber": f.code,
+                    "applicationId": str(f.id),
+                    "event": e.event_type,
+                    "at": e.bos_updated_at.isoformat(),
+                    "reason": e.reason,
+                    "actor": users[e.actor_id].full_name
+                    if e.actor_id in users
+                    else str(e.actor_id),
+                    "source": "Application event",
+                    "previousState": f.stages[e.previous_stage_id].name
+                    if e.previous_stage_id in f.stages
+                    else (e.payload or {}).get("previousStatus"),
+                    "newState": "Completed/Closed"
+                    if e.event_type == "completed"
+                    else f.stages[e.new_stage_id].name
+                    if e.new_stage_id in f.stages
+                    else (e.payload or {}).get("status"),
+                    "details": timeline_details(e.payload),
+                }
+                for f, e in sorted(
+                    [
+                        (f, e)
+                        for f in timeline_facts
+                        for e in f.events
+                        if in_window(e.bos_updated_at, window)
+                    ],
+                    key=lambda pair: pair[1].bos_updated_at,
+                    reverse=True,
+                )
+            ]
+            + clawback_events,
+            key=lambda event: event["at"],
+            reverse=True,
+        ),
         "personalPerformance": await _personal_performance_payload(
             session, actor, selected_window=window, facts=facts, access=access
         ),

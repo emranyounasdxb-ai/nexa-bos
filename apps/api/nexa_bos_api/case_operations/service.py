@@ -472,13 +472,15 @@ async def book_case(
             code="APPLICATION_TERMINAL",
             message="Terminal applications cannot be booked",
         )
-    if application.booked_by_tl_id:
+    state = await get_review(session, application)
+    if application.booked_by_tl_id and not (
+        application.routing_status == "returned" and state["status"] == "resubmitted"
+    ):
         raise AppError(
             status_code=409,
             code="CASE_ALREADY_BOOKED",
             message="This case has already been booked",
         )
-    state = await get_review(session, application)
     if state["eventId"] != str(payload.expected_review_event_id):
         raise AppError(
             status_code=409,
@@ -599,7 +601,7 @@ async def submit_bank_file(
     product = await session.get(Product, application.product_id)
     if product is None:
         raise AppError(status_code=404, code="PRODUCT_NOT_FOUND", message="Product not found")
-    required_state = "sm_approved" if product.code == "CC" else "booked"
+    required_state = "sm_approved"
     if application.routing_status != required_state:
         raise AppError(
             status_code=409,

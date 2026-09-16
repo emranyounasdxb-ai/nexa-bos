@@ -1,5 +1,13 @@
 .canvas { width: 100%; min-height: 100dvh; background: var(--amafh-background); }
 .frame { display: grid; grid-template-columns: 60px minmax(0, 1fr); grid-template-rows: auto auto 1fr; column-gap: 20px; width: 100%; min-height: 100dvh; background: var(--amafh-background); }
+.frame[data-tl="true"] { grid-template-columns: minmax(0, 1fr); column-gap: 0; }
+.frame[data-tl="true"] :is(.content,.installSlot) { grid-column: 1; }
+.frame[data-tl="true"] .createCase { background: var(--amafh-brand-fill); color: white; border-radius: 8px; }
+.frame[data-tl="true"] .headerActions { gap: 8px; }
+@media (max-width: 639px) { .frame[data-tl="true"] .topbar { gap: 8px; } .frame[data-tl="true"] .brand img { height: 26px; } .frame[data-tl="true"] .headerActions { gap: 4px; } .frame[data-tl="true"] .createCase { padding-inline: 8px; font-size: 13px; } }
+.frame[data-tl="true"] .topNav { flex-wrap: wrap; gap: 4px; }
+.frame[data-tl="true"] .topNav a { height: auto; min-height: 36px; padding: 6px 10px; font-size: 14px; white-space: normal; text-align: center; }
+@media (max-width: 1279px) { .frame[data-tl="true"] .topbar { flex-wrap: wrap; } .frame[data-tl="true"] .topNav { order: 3; flex-basis: 100%; } }
 .frame :is(a,button):focus-visible { outline: 2px solid var(--amafh-primary); outline-offset: 2px; }
 .topbar { grid-column: 1 / -1; position: sticky; z-index: 30; top: 0; display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 20px; padding: 12px 24px; border-bottom: 1px solid var(--amafh-border); background: var(--amafh-background); }
 .brand { display: flex; align-items: center; flex-shrink: 0; }

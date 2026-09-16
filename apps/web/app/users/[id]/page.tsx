@@ -31,6 +31,7 @@ import {
 } from "@/components/ui";
 import { apiGet, apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
+import { staffDesignationName } from "@/lib/staff-designation";
 import { getBrowserApiUrl } from "@/lib/env";
 import { auditDisplayEntries, auditEventSummary, auditFieldLabel, formatDateRange, formatLocalDateTime, formatStatusLabel, humanizeTechnicalLabel } from "@/lib/presentation";
 import type { AssetAllocationRecord, AssetRecord, UserRecord, UserTypeSummary } from "@/lib/types";
@@ -361,7 +362,7 @@ export default function UserProfilePage() {
               {locked ? <StatusBadge value="Locked" /> : null}
             </div>
             <p className="mt-1 break-words text-sm text-text-secondary">
-              {user.designation?.name ?? "No designation"} · {user.office?.name ?? "No office"}{user.department ? ` / ${user.department.name}` : ""}
+              {staffDesignationName(user) ?? "No designation"} · {user.office?.name ?? "No office"}{user.department ? ` / ${user.department.name}` : ""}
             </p>
             <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-text-secondary">
               <span><strong className="font-medium text-text-primary">Employee:</strong> {user.employeeCode}</span>
@@ -407,12 +408,11 @@ export default function UserProfilePage() {
             <Card>
               <SectionHeader title="Organization assignment" description="Current placement and reporting context." />
               <dl className="mt-4 grid min-w-0 gap-4 sm:grid-cols-2 xl:grid-cols-1">
-                <Definition label="Designation">{user.designation?.name ?? "Unassigned"}</Definition>
+                <Definition label="Designation">{staffDesignationName(user) ?? "Unassigned"}</Definition>
                 <Definition label="Office">{user.office?.name ?? "Unassigned"}</Definition>
                 <Definition label="Department">{user.department?.name ?? "Unassigned"}</Definition>
                 <Definition label="Business Unit">{user.businessUnit?.name ?? "Unassigned"}</Definition>
                 <Definition label="Team">{user.team?.name ?? "Unassigned"}</Definition>
-                <Definition label="User type">{user.userType?.name ?? "Unassigned"}</Definition>
                 <Definition label="Effective permissions">{user.permissions.length.toLocaleString()}</Definition>
               </dl>
             </Card>
@@ -427,22 +427,22 @@ export default function UserProfilePage() {
                     <Definition label="Lock state">{locked ? `Locked until ${formatLocalDateTime(user.lockedUntil!)}` : "Not locked"}</Definition>
                   </dl>
                   <div className="grid min-w-0 gap-3 border-t border-brand-border pt-4 sm:grid-cols-2">
-                    {user.userType?.code === "OWNER" ? <Definition label="User type">Owner</Definition> : can("Users.AssignUserType") ? (
-                      <Field label="Assign user type" help="OWNER cannot be assigned from this control.">
-                        <Select id="profile-user-type" aria-label="Assign user type" value={user.userType?.id ?? ""} onChange={(event) => {
+                    {user.userType?.code === "OWNER" ? <Definition label="Designation">Owner</Definition> : can("Users.AssignUserType") ? (
+                      <Field label="Designation" help="Uses the configured User Types. OWNER cannot be assigned from this control.">
+                        <Select id="profile-user-type" aria-label="Designation" value={user.userType?.id ?? ""} onChange={(event) => {
                           const selected = types.find((item) => item.id === event.target.value);
                           const trigger = document.getElementById("profile-user-type");
                           if (!selected || !trigger) return;
                           requestConfirmation(trigger, {
-                            title: "Assign user type?",
+                            title: "Assign designation?",
                             description: `Assign ${selected.name} to ${user.fullName}. This changes effective access according to the existing role policy.`,
-                            confirmLabel: "Assign user type",
+                            confirmLabel: "Assign designation",
                             path: `/api/v1/users/${user.id}/assign-type`,
                             body: { user_type_id: selected.id },
-                            success: "User type assigned.",
+                            success: "Designation assigned.",
                           });
                         }}>
-                          <option value="">Choose a user type</option>
+                          <option value="">Choose a designation</option>
                           {user.userType && !types.some(type => type.id === user.userType?.id) ? <option value={user.userType.id}>{user.userType.name}</option> : null}
                           {types.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
                         </Select>
