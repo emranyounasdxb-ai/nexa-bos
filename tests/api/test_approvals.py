@@ -144,7 +144,28 @@ async def test_approval_contract_private_summary_actions_and_pro_denial(client):
         assert response.status_code == 200, response.text
         row = response.json()
         queued = await items(owner, f"?module=Contracts&employee={employee['id']}")
-        assert len(queued) == 1 and "basicSalary" not in str(queued) and "6000" not in str(queued)
+        assert len(queued) == 1
+        # Validate the public summary shape, not a salary substring that may occur in a UUID.
+        assert set(queued[0]) == {
+            "id",
+            "module",
+            "status",
+            "employeeId",
+            "employee",
+            "requesterId",
+            "requester",
+            "department",
+            "departmentId",
+            "approvers",
+            "dueDate",
+            "createdAt",
+            "overdue",
+            "lockVersion",
+            "actions",
+            "href",
+        }
+        assert all(set(approver) == {"id", "name"} for approver in queued[0]["approvers"])
+        assert "basicSalary" not in str(queued)
         assert await items(lead, "?module=Contracts") == []
         await decide(lead, "Contracts", row, "approve", 404)
         await decide(hr, "Contracts", row, "return", 403)
