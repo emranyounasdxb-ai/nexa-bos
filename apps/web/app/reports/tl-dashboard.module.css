@@ -460,19 +460,19 @@
 .actionList li { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid var(--tl-line); }
 .actionList li:first-child { border-top: 0; padding-top: 0; }
 .actionList li > div { flex: 1; min-width: 0; overflow-wrap: anywhere; }
-.actionList small { font-size: 12px; color: var(--amafh-text-secondary); }
+.actionList small { font-size: var(--amafh-list-secondary); color: var(--amafh-text-secondary); }
 .actionList .forward { flex-shrink: 0; }
 .queueShortcuts { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 8px; }
 .summaryMetrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
 .summaryMetrics dd { font-size: 20px; }
 .teamPreview li { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }
-.teamPreview li span:last-child { margin-left: auto; font-size: 12px; color: var(--amafh-text-secondary); }
+.teamPreview li span:last-child { margin-left: auto; font-size: var(--amafh-list-secondary); color: var(--amafh-text-secondary); }
 .enterprise .activity li { display: flex; gap: 10px; margin: 0; padding: 0 0 14px; border: 0; }
 .enterprise .activity li::before { display: none; }
 .enterprise .activity li > div { min-width: 0; }
 .caseTableWrap { width: 100%; min-width: 0; }
-.caseTable { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 14px; }
-.caseTable th { text-align: left; color: var(--amafh-text-secondary); font-size: 12px; font-weight: 600; padding: 9px 8px; background: var(--amafh-subtle); }
+.caseTable { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: var(--amafh-table-body); }
+.caseTable th { text-align: left; color: var(--amafh-text-secondary); font-size: var(--amafh-table-heading); font-weight: 600; padding: 9px 8px; background: var(--amafh-subtle); }
 .caseTable td { vertical-align: top; padding: 12px 8px; border-bottom: 1px solid var(--tl-line); overflow-wrap: anywhere; }
 .caseTable th:first-child { width: 19%; }
 .caseTable th:nth-child(2) { width: 13%; }
@@ -482,11 +482,11 @@
 .caseTable th:nth-child(6) { width: 13%; }
 .caseTable th:last-child { width: 17%; }
 .caseTable td p { margin-top: 4px; }
-.caseTable details { margin-top: 6px; color: var(--amafh-text-secondary); font-size: 12px; }
+.caseTable details { margin-top: 6px; color: var(--amafh-text-secondary); font-size: var(--amafh-list-secondary); }
 .caseTable summary { cursor: pointer; width: fit-content; }
 .tableActions { display: flex; flex-direction: column; align-items: start; gap: 5px; }
-.tableActions .forward { white-space: normal; font-size: 13px; }
-.statusBadge { display: inline-flex; max-width: 100%; padding: 3px 7px; border-radius: 5px; background: var(--amafh-subtle); color: var(--amafh-text); font-size: 12px; font-weight: 600; }
+.tableActions .forward { white-space: normal; font-size: var(--amafh-table-body); }
+.statusBadge { display: inline-flex; max-width: 100%; padding: 3px 7px; border-radius: 5px; background: var(--amafh-subtle); color: var(--amafh-text); font-size: var(--amafh-list-status); font-weight: 600; }
 .statusBadge[data-stage="tl_booking"], .statusBadge[data-stage="sm"], .statusBadge[data-stage="coordinator"] { background: var(--amafh-brand-soft); color: var(--amafh-primary); }
 .statusBadge[data-stage="completed"] { background: var(--amafh-success-soft); color: var(--amafh-success); }
 .statusBadge[data-stage="returned"] { background: var(--amafh-warning-soft); color: var(--amafh-warning); }
@@ -528,7 +528,7 @@
 .timelineMarker { position: relative; flex-shrink: 0; z-index: 1; }
 .timelineEvent { flex: 1; min-width: 0; padding: 12px 14px; border: 1px solid var(--tl-line); border-radius: 8px; background: var(--amafh-surface); }
 .timelineHeading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px; }
-.timelineEvent p { margin-top: 6px; font-size: 13px; }
+.timelineEvent p { margin-top: 6px; font-size: var(--amafh-list-primary); }
 .enterprise .stateTransition { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 6px 9px; border-radius: 5px; background: var(--amafh-subtle); color: var(--amafh-text-secondary); }
 .timelineEvent dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 10px; margin-top: 8px; }
 .timelineEvent small { display: block; margin-top: 8px; }
@@ -544,4 +544,9 @@
 }
 @media (max-width: 1100px) { .actionSummary { gap: 8px; } .actionSummary a { padding: 12px; } .summaryLabel { gap: 5px; font-size: 13px; } .dashboardMain { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 900px) { .enterprise .personalGrid { grid-template-columns: minmax(0, 1fr); } .caseTable, .caseTable tbody { display: block; } .caseTable thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); } .caseTable tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 10px 0; border-bottom: 1px solid var(--tl-line); } .caseTable td { display: block; border: 0; padding: 6px 8px; } .caseTable td::before { content: attr(data-label); display: block; font-size: 12px; color: var(--amafh-text-secondary); margin-bottom: 4px; } .caseTable td:first-child, .caseTable td:last-child { grid-column: 1 / -1; } .tableActions { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 10px; } }
-@media (max-width: 639px) { .enterprise .sectionToolbar h2 { font-size: 22px; } .actionSummary { grid-template-columns: repeat(2, minmax(0, 1fr)); } .actionSummary a:first-child { grid-column: 1 / -1; grid-template-columns: minmax(0, 1fr) auto; } .actionSummary a:first-child small { grid-column: 1 / -1; } .cohortCards { grid-template-columns: minmax(0, 1fr); } .cohortTotal { flex-direction: column; gap: 0; } .pipeline { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; } .pipeline a { padding: 8px; gap: 3px 6px; } .pipeline a::after { display: none; } .scopeFilters > [role="combobox"] { width: 100%; } .rangeControls > [role="combobox"] { max-width: none; } .calendarIcon { display: none; } .rangeControls { width: 100%; } .summaryMetrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } .actionList li { flex-wrap: wrap; gap: 8px; } .actionList .forward { margin-left: 38px; } .enterprise .panelBody { padding-inline: 12px; } .enterprise .disclosure { padding-inline: 12px; } .milestones { grid-template-columns: repeat(2, minmax(0, 1fr)); } .earningGroups { grid-template-columns: minmax(0, 1fr); } .enterprise .memberStats { grid-template-columns: repeat(2, minmax(0, 1fr)); } .timelineEvent { padding: 10px; } .timelineEvent dl { grid-template-columns: minmax(0, 1fr); } .timelineHeading strong { font-size: 14px; } }
+@media (max-width: 639px) { .enterprise .sectionToolbar h2 { font-size: 22px; } .actionSummary { grid-template-columns: repeat(2, minmax(0, 1fr)); } .actionSummary a:first-child { grid-column: 1 / -1; grid-template-columns: minmax(0, 1fr) auto; } .actionSummary a:first-child small { grid-column: 1 / -1; } .cohortCards { grid-template-columns: minmax(0, 1fr); } .cohortTotal { flex-direction: column; gap: 0; } .pipeline { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; } .pipeline a { padding: 8px; gap: 3px 6px; } .pipeline a::after { display: none; } .scopeFilters > [role="combobox"] { width: 100%; } .rangeControls > [role="combobox"] { max-width: none; } .calendarIcon { display: none; } .rangeControls { width: 100%; } .summaryMetrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } .actionList li { flex-wrap: wrap; gap: 8px; } .actionList .forward { margin-left: 38px; } .enterprise .panelBody { padding-inline: 12px; } .enterprise .disclosure { padding-inline: 12px; } .milestones { grid-template-columns: repeat(2, minmax(0, 1fr)); } .earningGroups { grid-template-columns: minmax(0, 1fr); } .enterprise .memberStats { grid-template-columns: repeat(2, minmax(0, 1fr)); } .timelineEvent { padding: 10px; } .timelineEvent dl { grid-template-columns: minmax(0, 1fr); } .timelineHeading strong { font-size: var(--amafh-list-primary); } }
+
+/* The native case queue uses the same measured row roles as TableShell. */
+.caseTable th, .caseTable td { line-height: 1.45; }
+.caseTable details, .statusBadge { line-height: 20px; }
+@media (max-width: 900px) { .caseTable { font-size: var(--amafh-list-primary); } .tableActions .forward { font-size: inherit; } }

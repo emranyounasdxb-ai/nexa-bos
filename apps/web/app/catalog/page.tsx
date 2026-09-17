@@ -1,6 +1,6 @@
 "use client";
 
-import { ConfigurationWorkspace } from "@/components/page-patterns";
+import { ConfigurationWorkspace, RecordCard, RecordIdentity } from "@/components/page-patterns";
 import styles from "./catalog.module.css";
 
 import { useRouter, useSearchParams } from "next/navigation";
@@ -31,6 +31,7 @@ import {
   DialogPanel,
   EmptyState,
   ErrorText,
+  Field,
   LoadingState,
   SearchActionBar,
   Select,
@@ -583,9 +584,9 @@ function CatalogInner() {
   }
 
   return (
-    <section className="w-full space-y-4 pb-4">
+    <section className={`${styles.catalogPage} w-full space-y-4 pb-4`}>
       <Card className="overflow-hidden p-0">
-        <div className="flex flex-col gap-3 px-4 py-4 sm:px-5 lg:flex-row lg:items-center lg:justify-between">
+        <div className={styles.introduction}>
           <div className="min-w-0">
             <h2 className="text-[length:var(--amafh-text-section)] font-semibold tracking-tight text-slate-950">Catalogue workspace</h2>
             <p className="mt-1 max-w-4xl text-sm leading-5 text-slate-600">
@@ -621,6 +622,13 @@ function CatalogInner() {
           </div>
         </div>
       </Card>
+
+      {!feedback || feedback.tone !== "error" ? <dl className={styles.catalogMetrics} aria-label="Authorized catalogue counts">
+        <div data-tone="success"><dt><span className={styles.desktopMetricLabel}>Active banks</span><span className={styles.compactMetricLabel}>Banks</span></dt><dd>{activeBanks.length.toLocaleString()}</dd></div>
+        <div data-tone="info"><dt>Product categories</dt><dd>{products.length.toLocaleString()}</dd></div>
+        <div data-tone="brand"><dt><span className={styles.desktopMetricLabel}>Active variants</span><span className={styles.compactMetricLabel}>Variants</span></dt><dd>{variants.filter(item => item.status.toLowerCase() === "active").length.toLocaleString()}</dd></div>
+        <div data-tone="warning"><dt><span className={styles.desktopMetricLabel}>Bank-product mappings</span><span className={styles.compactMetricLabel}>Mappings</span></dt><dd>{mappings.length.toLocaleString()}</dd></div>
+      </dl> : null}
 
       {feedback?.tone === "error" ? <ErrorText>{feedback.text}</ErrorText> : null}
       {feedback?.tone === "success" ? (
@@ -1133,79 +1141,10 @@ function MasterCatalogTab({
   const pagination = useClientPagination(items, `${search}:${status}`);
   const noun = kind === "bank" ? "bank" : "product";
   const createLabel = `Add ${noun}`;
-  return (
-    <Card className="min-w-0 p-0">
-      <div id={panelId} role="tabpanel" aria-labelledby={`catalog-tab-${kind === "bank" ? "banks" : "products"}`}>
-        <ConfigurationWorkspace controls={<div className={styles.context}>
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <h2 className="text-[length:var(--amafh-text-section)] font-semibold text-slate-950">{title}</h2>
-              <p className="mt-1 text-sm text-slate-500">{description}</p>
-            </div>
-            <Badge>{totalItems} total</Badge>
-          </div>
-          <SearchActionBar
-            className="mt-4"
-            search={
-              <label className="block text-sm font-medium text-slate-700">
-                Search {title.toLowerCase()}
-                <TextInput
-                  type="search"
-                  aria-label={`Search ${title.toLowerCase()}`}
-                  placeholder="Name"
-                  value={search}
-                  onChange={(event) => onSearch(event.target.value)}
-                />
-              </label>
-            }
-            actions={
-              <>
-                <label className="block min-w-36 text-sm font-medium text-slate-700">
-                  Status
-                  <Select
-                    aria-label={`${title} status`}
-                    value={status}
-                    onChange={(event) => onStatus(event.target.value as StatusFilter)}
-                  >
-                    <option value="all">All statuses</option>
-                    <option value="active">Active</option>
-                    <option value="inactive">Inactive</option>
-                  </Select>
-                </label>
-                {canCreate ? (
-                  <Button type="button" className="sm:mt-[26px]" onClick={onCreate}>
-                    {kind === "bank" ? <IconBuildingBank className="size-4" /> : <IconPackages className="size-4" />}
-                    {createLabel}
-                  </Button>
-                ) : null}
-              </>
-            }
-          />
-        </div>}>
-
-        <TableShell className={`${styles.records} rounded-none border-x-0 border-b-0 shadow-none`}>
-          <TableHead>
-            <tr>
-              <Th>Full name</Th>
-              <Th>Status</Th>
-              <Th className="text-right">Actions</Th>
-            </tr>
-          </TableHead>
-          <tbody>
-            {pagination.pagedItems.map((item) => {
-              const isActive = item.status.toLowerCase() === "active";
-              const canChangeStatus = isActive ? canDeactivate : canActivate;
-              return (
-                <tr key={item.id}>
-                  <Td>
-                    <div className="flex items-center gap-2.5">
-                      <CatalogueImage item={item} api={getBrowserApiUrl()} />
-                      <span className="font-medium text-slate-900">{item.name}</span>
-                    </div>
-                  </Td>
-                  <Td><span className={styles.mobileLabel} aria-hidden="true">Status</span><StatusBadge value={formatStatusLabel(item.status)} /></Td>
-                  <Td>
-                    <div className="flex flex-wrap items-center justify-end gap-1">
+  function masterActions(item: CatalogItem) {
+    const isActive = item.status.toLowerCase() === "active";
+    const canChangeStatus = isActive ? canDeactivate : canActivate;
+    return (<div className="flex flex-wrap items-center justify-end gap-1">
                       {canEdit ? (
                         <>
                           <Button type="button" variant="ghost" size="compact" aria-label={`Manage image for ${item.name}`} onClick={() => onImage(item)}>
@@ -1228,8 +1167,77 @@ function MasterCatalogTab({
                           {isActive ? "Deactivate" : "Activate"}
                         </Button>
                       ) : null}
+                    </div>);
+  }
+  return (
+    <Card className={`${styles.masterPanel} min-w-0 p-0`}>
+      <div id={panelId} role="tabpanel" aria-labelledby={`catalog-tab-${kind === "bank" ? "banks" : "products"}`}>
+        <ConfigurationWorkspace toolbar controls={<div className={styles.context}>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="text-[length:var(--amafh-text-section)] font-semibold text-slate-950">{title}</h2>
+              <p className="mt-1 text-sm text-slate-500">{description}</p>
+            </div>
+            <Badge>{totalItems} total</Badge>
+          </div>
+          <SearchActionBar
+            className="mt-4"
+            search={
+              <Field label={`Search ${title.toLowerCase()}`}>
+                <TextInput
+                  type="search"
+                  aria-label={`Search ${title.toLowerCase()}`}
+                  placeholder={`Search ${kind === "bank" ? "bank" : "product"} by name`}
+                  value={search}
+                  onChange={(event) => onSearch(event.target.value)}
+                />
+              </Field>
+            }
+            filters={
+                <Field label="Status" className="min-w-36">
+                  <Select
+                    aria-label={`${title} status`}
+                    value={status}
+                    onChange={(event) => onStatus(event.target.value as StatusFilter)}
+                  >
+                    <option value="all">All statuses</option>
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                  </Select>
+                </Field>
+            }
+            activeFilters={status !== "all" ? [{ label: "Status", value: status }] : []}
+            actions={
+                canCreate ? (
+                  <Button type="button" className="sm:mt-[26px]" onClick={onCreate}>
+                    {kind === "bank" ? <IconBuildingBank className="size-4" /> : <IconPackages className="size-4" />}
+                    {createLabel}
+                  </Button>
+                ) : null
+            }
+          />
+        </div>}>
+
+        <TableShell headerTone="bright" mobileCards={false} className={`${styles.records} ${styles.masterDesktop} rounded-none border-x-0 border-b-0 shadow-none`}>
+          <TableHead>
+            <tr>
+              <Th>Full name</Th>
+              <Th>Status</Th>
+              <Th className="text-right">Actions</Th>
+            </tr>
+          </TableHead>
+          <tbody>
+            {pagination.pagedItems.map((item) => {
+              return (
+                <tr key={item.id}>
+                  <Td>
+                    <div className="flex items-center gap-2.5">
+                      <CatalogueImage item={item} api={getBrowserApiUrl()} />
+                      <span className="font-medium text-slate-900">{item.name}</span>
                     </div>
                   </Td>
+                  <Td><span className={styles.mobileLabel} aria-hidden="true">Status</span><StatusBadge value={formatStatusLabel(item.status)} /></Td>
+                  <Td>{masterActions(item)}</Td>
                 </tr>
               );
             })}
@@ -1245,6 +1253,7 @@ function MasterCatalogTab({
             ) : null}
           </tbody>
         </TableShell>
+        <div className={styles.masterCompact}>{pagination.pagedItems.map(item => <RecordCard key={item.id} identity={<div className="flex items-center gap-3"><RecordIdentity title={item.name} subtitle={kind === "bank" ? "Bank" : "Product"} icon={<CatalogueImage item={item} api={getBrowserApiUrl()} />} tone="success" navigable={false} /></div>} status={<StatusBadge value={formatStatusLabel(item.status)} />}>{masterActions(item)}</RecordCard>)}{items.length === 0 && <EmptyState>{totalItems === 0 ? `No ${title.toLowerCase()} have been created.` : "No records match the selected filters"}{totalItems === 0 && canCreate && <Button type="button" onClick={onCreate}>{createLabel}</Button>}</EmptyState>}</div>
         {pagination.totalPages > 1 ? (
           <Pagination
             page={pagination.page}
@@ -1402,7 +1411,7 @@ function ProductVariantsTab({
           />
         </div>}>
 
-        <TableShell className={`${styles.records} rounded-none border-x-0 border-b-0 shadow-none`}>
+        <TableShell headerTone="bright" mobileCards={false} className={`${styles.records} rounded-none border-x-0 border-b-0 shadow-none`}>
           <TableHead>
             <tr>
               <Th>Product Variant</Th>
@@ -1609,7 +1618,7 @@ function MappingTab({
           />
         </div>
 
-        <TableShell className={`${styles.records} rounded-none border-x-0 border-b-0 shadow-none`}>
+        <TableShell headerTone="bright" mobileCards={false} className={`${styles.records} rounded-none border-x-0 border-b-0 shadow-none`}>
           <TableHead>
             <tr>
               <Th>Bank</Th>

@@ -2,6 +2,32 @@
 // 5a0fe38e97784d94279ce4eb1bf85f9a91bf027e. Licensed under MIT.
 
 import { Icon, type IconProps } from "./icon";
+import type { CSSProperties } from "react";
+
+/** Exact exported Figma glyphs; the mask takes its color from the approved theme. */
+function FigmaGlyph({ asset, size = 22, className, style }: IconProps & { asset: string }) {
+  const bounds = asset === "search" || asset.startsWith("leave-") ? [22, 22] : asset === "more" ? [16.3667, 3.53333] : asset === "home" ? [18.2, 17.2833] : asset === "filter" ? [18.2, 12.7] : [18.2, 18.2];
+  return <span aria-hidden="true" data-amafh-ui-icon="" data-figma-glyph="" className={className} style={{ display: "inline-block", flexShrink: 0, width: size, height: size, backgroundColor: "currentColor", maskImage: `url(/icons/figma-v2/${asset}.svg)`, maskSize: `${bounds[0] / 22 * 100}% ${bounds[1] / 22 * 100}%`, maskRepeat: "no-repeat", maskPosition: "center", ...style } as CSSProperties} />;
+}
+
+export function IconHome(props: IconProps) {
+  return <FigmaGlyph {...props} asset="home" />;
+}
+
+export function IconNavCases(props: IconProps) { return <FigmaGlyph {...props} asset="cases" />; }
+export function IconNavPeople(props: IconProps) { return <FigmaGlyph {...props} asset="people" />; }
+export function IconNavReports(props: IconProps) { return <FigmaGlyph {...props} asset="reports" />; }
+export function IconAppFilter(props: IconProps) { return <FigmaGlyph {...props} asset="filter" />; }
+export function IconAppSearch(props: IconProps) { return <FigmaGlyph size={20} {...props} asset="search" />; }
+export function IconLeaveType({ code, ...props }: IconProps & { code: string }) {
+  const glyphs: Record<string, string> = { ANNUAL: "calendar", BEREAVEMENT: "heart", MATERNITY: "heart", OTHER: "briefcase", PARENTAL: "users", SICK: "medical", STUDY: "book", UNPAID: "leaf" };
+  return <FigmaGlyph size={16} {...props} asset={`leave-${glyphs[code.toUpperCase()] ?? "calendar"}`} />;
+}
+export function IconAsset(props: IconProps) { return <FigmaGlyph {...props} asset="asset" />; }
+
+export function IconDots(props: IconProps) {
+  return <FigmaGlyph {...props} asset="more" />;
+}
 
 export function IconLayoutDashboard(props: IconProps) {
   return (
@@ -599,4 +625,8 @@ export function IconChevronsRight(props: IconProps) {
       <path d="M13 7l5 5l-5 5" />
     </Icon>
   );
+}
+
+export function IconPlus(props: IconProps) {
+  return <Icon {...props}><path d="M12 5v14M5 12h14" /></Icon>;
 }

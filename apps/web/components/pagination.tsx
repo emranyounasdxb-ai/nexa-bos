@@ -137,7 +137,7 @@ export function Pagination({
           Rows per page
           <Select
             aria-label="Rows per page"
-            className="!mt-0 !min-h-8 w-auto !py-1 pl-2 pr-7 text-xs"
+            className="!mt-0 w-auto !py-1 pl-2 pr-7 text-xs"
             value={String(pageSize)}
             onChange={(event) =>
               onPageSizeChange(event.target.value === "all" ? "all" : (Number(event.target.value) as PageSize))

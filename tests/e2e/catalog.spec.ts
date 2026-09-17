@@ -408,6 +408,15 @@ test("catalog uses task tabs, modal editing, explicit rule saves, and mapping va
   for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
     await page.setViewportSize(viewport);
 
+    async function masterRecord(name: string) {
+      const record = viewport.width === 390
+        ? page.locator('[data-amafh-card]:visible').filter({ has: page.locator(':scope > details') }).filter({ has: page.locator('strong').filter({ hasText: name }) })
+        : page.getByRole("row").filter({ hasText: name });
+      await expect(record).toBeVisible();
+      if (viewport.width === 390) await record.getByText("Record details", { exact: true }).click();
+      return record;
+    }
+
     async function inspectRecord(row: Locator, name: string) {
       await row.scrollIntoViewIfNeeded();
       const actions = row.getByRole("button");
@@ -425,19 +434,21 @@ test("catalog uses task tabs, modal editing, explicit rule saves, and mapping va
 
     await page.goto("/catalog?tab=banks");
     await page.getByLabel("Search banks").fill(bankCode);
+    const responsiveBankRecord = await masterRecord(renamedBank);
     await expectUnframedCatalogueImage(
-      page.getByRole("row").filter({ hasText: renamedBank }).getByRole("img", { name: `${renamedBank} image` }),
+      responsiveBankRecord.getByRole("img", { name: `${renamedBank} image` }),
       2,
     );
-    await inspectRecord(page.getByRole("row").filter({ hasText: renamedBank }), "bank-record");
+    await inspectRecord(responsiveBankRecord, "bank-record");
 
     await page.goto("/catalog?tab=products");
     await page.getByLabel("Search products").fill(productCode);
+    const responsiveProductRecord = await masterRecord(productName);
     await expectUnframedCatalogueImage(
-      page.getByRole("row").filter({ hasText: productName }).getByRole("img", { name: `${productName} image` }),
+      responsiveProductRecord.getByRole("img", { name: `${productName} image` }),
       2,
     );
-    await inspectRecord(page.getByRole("row").filter({ hasText: productName }), "product-record");
+    await inspectRecord(responsiveProductRecord, "product-record");
 
     await page.goto("/catalog?tab=mappings");
     await page.getByLabel("Search mappings").fill(bankCode);
@@ -478,6 +489,9 @@ test("catalog uses task tabs, modal editing, explicit rule saves, and mapping va
     await responsiveApplicationDialog.getByRole("button", { name: "Cancel" }).click();
   }
 
+  // The responsive records and every mobile action have been inspected above.
+  // Continue the remaining lifecycle assertions on the desktop table DOM.
+  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/catalog?tab=variants");
   await selectBrandedOption(page.getByLabel("Variant bank"), { label: renamedBank });
   await selectBrandedOption(page.getByLabel("Variant product category"), { label: productName });

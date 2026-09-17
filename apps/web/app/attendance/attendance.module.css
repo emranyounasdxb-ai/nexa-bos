@@ -1,4 +1,20 @@
 /* One editable record tree: mobile presentation does not duplicate form controls. */
+.reportAnalysisHeading { display: none; }
+/* Approved compact report filters 326:5271 / 326:5374: title belongs inside the card. */
+@media (max-width: 1279px) {
+  .reportPage :global([data-amafh-list-workspace]) > header { display: none; }
+  .reportPage :global([data-amafh-list-filters]) { display: flex; flex-direction: column; gap: 12px; padding: 16px !important; border-radius: 20px; }
+  .reportAnalysisHeading { display: block; min-height: 28px; margin: 0; font-size: 17px; font-weight: 700; line-height: 25px; }
+  .reportPage :global([data-amafh-list-filters]) label { font-size: 12px; line-height: 17px; }
+  .reportPage :global([data-amafh-list-filters]) > div:last-child { margin-top: 0; }
+  .reportPage :global([data-amafh-list-filters]) > div:last-child button { width: 100%; }
+  .reportPage :global([data-amafh-filter-bar]) { gap: 12px; }
+}
+@media (min-width: 960px) and (max-width: 1279px) {
+  .reportPage :global([data-amafh-list-filters]), .reportPage :global([data-amafh-report-summary]) { grid-row: 1; }
+  .reportPage :global([data-amafh-table-shell]) { grid-row: 2; }
+  .reportPage :global([data-amafh-list-body]) > nav:last-child { grid-row: 3; }
+}
 .reportMetrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
 .reportMetrics > :global([data-amafh-card]) { padding: 16px; border-radius: 16px; background: var(--amafh-subtle); }
 @media (max-width: 639px) {
@@ -10,15 +26,15 @@
   .reportRecords tbody tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-bottom: 12px; padding: 12px; border: 0; border-radius: 16px; background: var(--amafh-subtle); }
   .reportRecords tbody td { display: block; min-width: 0; padding: 0; }
   .reportRecords tbody td:nth-child(2) { grid-column: 1 / -1; grid-row: 1; padding-bottom: 8px; border-bottom: 1px solid var(--amafh-border); font-weight: 500; }
-  .reportRecords tbody td::before { display: block; font-size: 11px; color: var(--amafh-text-secondary); }
-  .reportRecords tbody td:nth-child(1)::before { content: "Date"; }
-  .reportRecords tbody td:nth-child(3)::before { content: "Status"; }
-  .reportRecords tbody td:nth-child(4)::before { content: "Time in"; }
-  .reportRecords tbody td:nth-child(5)::before { content: "Time out"; }
+  .reportRecords tbody td::before { display: block; font-size: var(--amafh-list-secondary); color: var(--amafh-text-secondary);  line-height: 20px; }
+  .reportRecords tbody td:nth-child(1)::before { content: "Date";  line-height: 20px; }
+  .reportRecords tbody td:nth-child(3)::before { content: "Status";  line-height: 20px; }
+  .reportRecords tbody td:nth-child(4)::before { content: "Time in";  line-height: 20px; }
+  .reportRecords tbody td:nth-child(5)::before { content: "Time out";  line-height: 20px; }
   .reportRecords tbody td:nth-child(6) { grid-column: 1 / -1; }
-  .reportRecords tbody td:nth-child(6)::before { content: "Flags"; }
+  .reportRecords tbody td:nth-child(6)::before { content: "Flags";  line-height: 20px; }
   .reportRecords tbody td[colspan] { grid-column: 1 / -1; }
-  .reportRecords tbody td[colspan]::before { content: none; }
+  .reportRecords tbody td[colspan]::before { content: none;  line-height: 20px; }
 }
 @media (max-width: 639px) {
   .register { border: 0; border-radius: 0; overflow: visible; }

@@ -5,10 +5,10 @@
   .register tbody tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-bottom: 12px; padding: 16px; border-radius: 20px; border: 0; background: var(--amafh-surface); }
   .register tbody td { display: block; padding: 0; min-width: 0; overflow-wrap: anywhere; }
   .register tbody td:first-child, .register tbody td:nth-child(2), .register tbody td:last-child { grid-column: 1 / -1; }
-  .register tbody td:first-child { font-size: 16px; }
-  .register tbody td:nth-child(3)::before { content: "Contract type"; }
-  .register tbody td:nth-child(4)::before { content: "Dates"; }
-  .register tbody td:nth-child(5)::before { content: "Status"; }
-  .register tbody td::before { display: block; margin-bottom: 4px; font-size: 12px; color: var(--amafh-text-secondary); }
+  .register tbody td:first-child { font-size: var(--amafh-list-primary); }
+  .register tbody td:nth-child(3)::before { content: "Contract type";  line-height: 20px; }
+  .register tbody td:nth-child(4)::before { content: "Dates";  line-height: 20px; }
+  .register tbody td:nth-child(5)::before { content: "Status";  line-height: 20px; }
+  .register tbody td::before { display: block; margin-bottom: 4px; font-size: var(--amafh-list-secondary); color: var(--amafh-text-secondary);  line-height: 20px; }
   .register tbody td:last-child { padding-top: 8px; border-top: 1px solid var(--amafh-border); }
 }

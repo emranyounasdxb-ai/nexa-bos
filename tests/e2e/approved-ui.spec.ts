@@ -28,12 +28,15 @@ test("approved themes persist and popup navigation retains keyboard access", asy
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
 
   const sidebar = page.getByLabel("Application sidebar", { exact: true });
-  const trigger = page.getByLabel("Open navigation", { exact: true });
+  const trigger = page.getByRole("navigation", { name: "Mobile navigation", exact: true }).getByRole("button", { name: "More navigation", exact: true });
   for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
     await page.setViewportSize(viewport);
     for (const theme of ["light", "dark"]) {
-      if (viewport.width < 1024) await trigger.click();
-      await page.getByLabel(`${theme === "light" ? "Light" : "Dark"} theme`, { exact: true }).click();
+      if (viewport.width < 640) await page.getByLabel("Open user menu", { exact: true }).click();
+      if (await page.locator("html").getAttribute("data-theme") !== theme) {
+        await page.getByRole("button", { name: `${theme === "light" ? "Light" : "Dark"} theme`, exact: true }).click();
+      }
+      if (viewport.width < 640) await page.keyboard.press("Escape");
       const contrasts = await page.evaluate(() => {
         const style = getComputedStyle(document.documentElement);
         const context = document.createElement("canvas").getContext("2d")!;
@@ -56,9 +59,11 @@ test("approved themes persist and popup navigation retains keyboard access", asy
         });
       });
       for (const pair of contrasts) expect(pair.ratio, `${theme}: ${pair.foreground} on ${pair.background}`).toBeGreaterThanOrEqual(pair.foreground === "control-border" ? 3 : 4.5);
-      const people = sidebar.getByRole("button", { name: "People menu", exact: true });
+      if (viewport.width < 640) await trigger.click();
+      const navigation = viewport.width < 640 ? sidebar : page.getByRole("navigation", { name: "Primary", exact: true });
+      const people = navigation.getByRole("button", { name: "People & HR menu", exact: true });
       await people.click();
-      const popup = page.getByRole("dialog", { name: "People", exact: true });
+      const popup = page.getByRole("dialog", { name: "People & HR", exact: true });
       await expect(popup).toBeVisible();
       await expect(people).toHaveAttribute("aria-expanded", "true");
       await expect(popup.getByRole("link", { name: "Users", exact: true })).toHaveAttribute("href", "/users");
@@ -70,7 +75,7 @@ test("approved themes persist and popup navigation retains keyboard access", asy
       await page.keyboard.press("Escape");
       await expect(popup).toHaveCount(0);
       await expect(people).toBeFocused();
-      if (viewport.width < 1024) {
+      if (viewport.width < 640) {
         await page.keyboard.press("Escape");
         await expect(sidebar).toHaveJSProperty("inert", true);
         await expect(trigger).toBeFocused();
@@ -87,7 +92,8 @@ test("approved themes persist and popup navigation retains keyboard access", asy
       await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
       await page.reload();
       await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
-      await expect(page.getByRole("navigation", { name: "Workspace pages" }).getByRole("link", { name: "Applications", exact: true })).toHaveAttribute("aria-current", "page");
+      if (viewport.width < 640) await expect(page.getByRole("navigation", { name: "Mobile navigation", exact: true }).getByRole("link", { name: "Cases", exact: true })).toHaveAttribute("aria-current", "page");
+      else await expect(page.getByRole("navigation", { name: "Primary", exact: true }).getByRole("button", { name: "Cases menu", exact: true })).toHaveAttribute("data-active", "true");
       const account = page.getByLabel("Open user menu", { exact: true });
       await account.focus();
       await page.keyboard.press("ArrowDown");
@@ -97,7 +103,7 @@ test("approved themes persist and popup navigation retains keyboard access", asy
       await page.keyboard.press("Escape");
       await expect(account).toBeFocused();
       await account.click();
-      await page.getByRole("heading", { name: "Applications", exact: true }).click({ position: { x: 4, y: 4 } });
+      await page.getByRole("main").click({ position: { x: 4, y: 100 } });
       await expect(page.getByRole("menu", { name: "User account" })).toHaveCount(0);
       await expect(account).toBeFocused();
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy();
@@ -105,8 +111,8 @@ test("approved themes persist and popup navigation retains keyboard access", asy
   }
   await page.setViewportSize({ width: 390, height: 844 });
   await trigger.click();
-  await sidebar.getByRole("button", { name: "Operations menu", exact: true }).click();
-  await page.getByRole("dialog", { name: "Operations", exact: true }).getByRole("link", { name: "Applications", exact: true }).click();
+  await sidebar.getByRole("button", { name: "Cases menu", exact: true }).click();
+  await page.getByRole("dialog", { name: "Cases", exact: true }).getByRole("link", { name: "Applications", exact: true }).click();
   await expect(sidebar).toHaveJSProperty("inert", true);
   await expect(page.locator("body")).not.toHaveCSS("overflow", "hidden");
   for (let cycle = 0; cycle < 2; cycle += 1) {

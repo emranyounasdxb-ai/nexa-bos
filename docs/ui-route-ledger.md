@@ -1,7 +1,7 @@
 # Reference-led application route ledger
 
 Inventory from tracked App Router pages, not the build's generated-page total.
-There are 48 normal route entries and three parallel-modal implementations. Dynamic
+There are 49 normal route entries and three parallel-modal implementations. Dynamic
 records and query-backed tabs are states of these routes, not additional invented pages.
 
 Permission names below describe the existing access contract, not new grants. OWNER
@@ -12,6 +12,8 @@ in `lib/role-access.ts`. Direct API authorization remains authoritative.
 `Shared` means the page inherits Part 1 controls/surfaces/tables; it is not a claim of
 visual verification. `Refined` identifies Part 2/3 presentation changes. Part 4 records
 actual captures and state limitations in its external evidence index.
+
+Current Figma V2 implementation and verification are tracked in [ui-figma-v2-checklist.md](ui-figma-v2-checklist.md). Earlier Part 1–4 labels below are historical evidence. Organization has four master tabs; canonical Designations remains `/user-types`.
 
 | Route | Access / state | Design source and page family |
 | --- | --- | --- |
@@ -39,7 +41,7 @@ actual captures and state limitations in its external evidence index.
 | `/users/[id]/edit` | Users.Edit and record scope | Refined two-column form, unchanged organization dependency rules |
 | `/user-types` | UserTypes.View; creation separately gated | Refined persistent form labels/layout |
 | `/user-types/[id]` | Existing UserTypes permissions | Refined module heading; unchanged permission editor |
-| `/organization` | Existing organization-reader rule | Refined drawer headings; shared five master tabs |
+| `/organization` | Existing organization-reader rule | Figma V2 four master tabs; unified Designations remains `/user-types` |
 | `/organization/hierarchy` | Users.View and directory scope | Refined readable node metadata; contained tree scrolling retained |
 | `/catalog` | Existing catalogue-reader rule | Refined section headings; unframed authenticated images retained |
 | `/workflows` | Existing OWNER/GM master access | Refined section headings/stage metadata; existing designer |
@@ -54,6 +56,7 @@ actual captures and state limitations in its external evidence index.
 | `/transfers` | Transfers.View, ViewOwn or Recommend | Refined history heading; shared decision dialogs |
 | `/exits` | Exits.View, ViewOwn or Clearance | Refined detail headings; shared lifecycle/checklist |
 | `/approvals` | Approvals.View and individual decision authority | Shared queue and decision dialogs |
+| `/case-operations` | Existing case-operation permission and record scope | Shared-system adaptation; existing operational actions retained |
 | `/assets` | Assets.View and scope | Refined directory/drawer headings; shared register |
 | `/assets/[id]` | Assets.View and record scope | Refined confirmation heading; shared details/actions |
 | `/assets/categories` | Assets.ManageMaster | Refined section heading; shared form/table |

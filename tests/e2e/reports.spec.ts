@@ -92,7 +92,7 @@ test("dashboard distinguishes missing-period data from genuine operational zero"
   await expect(page.getByRole("link", { name: "Submitted KPI" })).toContainText("—");
   await expect(page.getByRole("link", { name: "Submitted KPI" })).toContainText("No data yet");
   await expect(page.getByText("Insights will appear when activity begins")).toBeVisible();
-  await expect(page.getByTestId("dashboard-analysis-grid").getByText("No performance data for this period")).toBeVisible();
+  await expect(page.getByTestId("dashboard-business-overview").getByText("No performance data for this period")).toBeVisible();
   await captureViewportPair(page, testInfo, "dashboard-empty-data");
 
   missingPeriodData = false;

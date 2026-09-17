@@ -5,8 +5,56 @@
   .requests tbody tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding: 12px; margin-bottom: 12px; border: 0; border-radius: 16px; background: var(--amafh-subtle); }
   .requests tbody td { display: block; min-width: 0; padding: 0; }
   .requests tbody td:first-child, .requests tbody td:nth-child(2), .requests tbody td:last-child { grid-column: 1 / -1; }
-  .requests tbody td:nth-child(3)::before { content: "Working days"; display: block; font-size: 11px; color: var(--amafh-text-secondary); }
+  .requests tbody td:nth-child(3)::before { content: "Working days"; display: block; font-size: var(--amafh-list-secondary); color: var(--amafh-text-secondary);  line-height: 20px; }
   .requests tbody td:nth-child(5) { grid-column: 1 / -1; font-size: 12px; color: var(--amafh-text-secondary); }
-  .requests tbody td:nth-child(5)::before { content: "Updated "; }
+  .requests tbody td:nth-child(5)::before { content: "Updated ";  line-height: 20px; }
   .requests tbody td:last-child { padding-top: 8px; border-top: 1px solid var(--amafh-border); }
 }
+.requests tbody tr { background: var(--amafh-surface); padding: 20px; border-radius: 20px; }
+.balanceGrid { display: grid; gap: 16px; }
+.balance { padding: 20px; border-radius: 20px; background: var(--amafh-subtle); min-width: 0; }
+.balance:first-child { background: var(--amafh-brand-soft); color: var(--amafh-primary); }
+.balanceValue { margin-block: 12px; font-size: 32px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.balanceIcon { display: none; }
+.balanceName, .balanceFooter { font-size: 12px; line-height: 17px; }
+@media (min-width: 1280px) {
+  .leavePage :global([aria-label="Leave balances"]) { padding: 20px; border-radius: 16px; }
+  .leavePage :global([aria-label="Leave balances"]) > h2 { padding: 0; font-size: 16px; line-height: 23px; font-weight: 600; }
+  .balanceGrid { gap: 12px; }
+  .balance { position: relative; display: grid; grid-template-columns: minmax(0,1fr) auto; height: 72px; padding: 12px; border-radius: 12px; background: var(--amafh-subtle); color: var(--amafh-text); box-shadow: 0 7px 21px rgb(21 30 75 / 5%); overflow: hidden; }
+  .balance:first-child { color: var(--amafh-text); background: #faf4f9; }
+  :global(:root[data-theme="dark"]) .balance:first-child { background: var(--amafh-subtle); }
+  .balanceName { display: flex; align-items: start; gap: 10px; padding-top: 3px; font-size: 11px; line-height: 16px; font-weight: 600; }
+  .balanceIcon { display: grid; place-items: center; width: 24px; height: 24px; margin-top: -3px; border-radius: 6px; background: var(--amafh-brand-soft); color: var(--amafh-primary); flex-shrink: 0; }
+  .balanceValue { margin: 0; font-size: 20px; line-height: 29px; font-weight: 700; }
+  .balanceUnit { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .balanceFooter { position: absolute; left: 0; right: 0; bottom: 0; height: 18px; padding: 4px 12px; font-size: 7px; line-height: 10px; background: var(--amafh-action); color: var(--amafh-action-text); }
+  .balance[data-leave-type="BEREAVEMENT"] .balanceFooter, .balance[data-leave-type="STUDY"] .balanceFooter { background: #6654b3; color: white; }
+  :global(:root[data-theme="dark"]) .balance:is([data-leave-type="BEREAVEMENT"],[data-leave-type="STUDY"]) .balanceFooter { background: #c2abff; color: var(--amafh-text-on-bright); }
+  .balance[data-leave-type="MATERNITY"] .balanceFooter { background: var(--amafh-danger); }
+  .balance:is([data-leave-type="OTHER"],[data-leave-type="UNPAID"]) .balanceFooter { background: var(--amafh-info); }
+  .balance[data-leave-type="PARENTAL"] .balanceFooter { background: var(--amafh-warning); }
+  .balance[data-leave-type="SICK"] .balanceFooter { background: var(--amafh-success); }
+  .balance:not([data-leave-type="ANNUAL"]):not([data-leave-type="BEREAVEMENT"]):not([data-leave-type="STUDY"]) .balanceFooter { color: white; }
+  :global(:root[data-theme="dark"]) .balance .balanceFooter { color: var(--amafh-text-on-bright) !important; }
+}
+@media (max-width: 639px) { .balance:first-child { padding: 16px; } .balanceValue { font-size: 40px; } .policy { border-radius: 20px; padding: 20px; } }
+
+.compactLeaveOverview { display: none; }
+@media (max-width: 1279px) {
+  .compactLeaveOverview { display: grid; gap: 18px; }
+  .annualHero { padding: 16px; border-radius: 20px; background: var(--amafh-brand-soft); }
+  .annualHero p { font-size: 13px; line-height: 19px; }
+  .annualHero p:first-child { color: var(--amafh-primary); }
+  .annualHero strong { display: block; margin-block: 12px; font-size: 40px; line-height: 58px; font-weight: 700; color: var(--amafh-primary); }
+  .compactLeaveOverview > button { width: 100%; }
+  .requestCounts { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }
+  .requestCounts > div { padding: 12px; border-radius: 20px; background: var(--amafh-warning-soft); }
+  .requestCounts > div + div { background: var(--amafh-success-soft); }
+  .requestCounts dd { font-size: 24px; line-height: 35px; font-weight: 700; }
+  .requestCounts dt { margin-top: 3px; font-size: 11px; line-height: 16px; }
+  .leavePage :global([aria-label="My leave requests"]), .leavePage :global([aria-label="Leave balances"]) { padding: 0; background: transparent; }
+  .leavePage :global([data-amafh-empty-state]) { min-height: 173px; padding: 24px; border-radius: 20px; background: var(--amafh-surface); }
+}
+@media (min-width: 1280px) { .policy { padding: 18px; border-radius: 16px; } }
+@media (min-width: 1280px) { :global(:root[data-theme="dark"]) .balance { box-shadow: 0 7px 21px rgb(15 23 41 / 12%); } }

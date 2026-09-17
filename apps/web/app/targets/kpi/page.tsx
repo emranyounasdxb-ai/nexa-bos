@@ -384,8 +384,8 @@ export default function KpiScorecardsPage() {
             <>
               <div className="grid gap-3 lg:grid-cols-2" aria-label="Configured scorecards">
                   {pagination.pagedItems.map((item) => (
-                    <article key={item.id} className="flex min-w-0 flex-col gap-4 rounded-[18px] bg-surface-subtle p-4">
-                      <header className="flex flex-wrap items-start justify-between gap-2"><h3 className="text-[17px] font-medium text-text-primary">{item.name}</h3>
+                    <article data-amafh-list-record="" key={item.id} className="flex min-w-0 flex-col gap-4 rounded-[18px] bg-surface-subtle p-4">
+                      <header className="flex flex-wrap items-start justify-between gap-2"><h3 data-amafh-record-primary="" className="font-medium text-text-primary">{item.name}</h3>
                       <StatusBadge value={item.status} /></header>
                       <div className="rounded-xl bg-surface p-3">
                         <p className="mb-2 text-xs text-text-secondary">Metric weight</p>

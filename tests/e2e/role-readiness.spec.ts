@@ -24,6 +24,22 @@ type RoleDefinition = {
 
 type PreparedRole = RoleDefinition & { email: string; password: string };
 
+// Approved labels and grouping change presentation, never fixture permissions.
+function approvedNavigationLabels(labels: string[]) {
+  const aliases: Record<string, string[]> = {
+    Reports: ["Comparison Reports", "Drill-down Reports"],
+    Assets: ["Asset Register"],
+    "Attendance reports": ["Attendance Reports"],
+    "Asset categories": ["Asset Categories"],
+  };
+  return labels.flatMap(label => aliases[label] ?? [label]);
+}
+
+function mobileNavigationTrigger(page: Page) {
+  return page.getByRole("navigation", { name: "Mobile navigation", exact: true })
+    .getByRole("button", { name: "More navigation", exact: true });
+}
+
 const roleDefinitions: RoleDefinition[] = [
   {
     code: "ITM",
@@ -582,7 +598,7 @@ async function signIn(page: Page, role: PreparedRole) {
 }
 
 async function signOut(page: Page) {
-  const navigationTrigger = page.getByRole("button", { name: "Open navigation" });
+  const navigationTrigger = mobileNavigationTrigger(page);
   if (await navigationTrigger.isVisible() && await navigationTrigger.getAttribute("aria-expanded") === "true") {
     await page.getByRole("button", { name: "Close navigation", exact: true }).click();
   }
@@ -629,10 +645,10 @@ test("approved roles land on Dashboard with permission-aware navigation and fail
       await page.keyboard.press("Escape");
       await expect(group).toBeFocused();
     }
-    for (const label of role.expectedLinks) {
+    for (const label of approvedNavigationLabels(role.expectedLinks)) {
       expect(actual.filter(item => item === label), `${role.code}: ${label}`).toHaveLength(1);
     }
-    for (const label of role.hiddenLinks) {
+    for (const label of approvedNavigationLabels(role.hiddenLinks)) {
       expect(actual.filter(item => item === label), `${role.code}: ${label}`).toHaveLength(0);
     }
     await page.goto("/workflows");
@@ -672,7 +688,7 @@ test("role actions remain bounded and responsive on desktop and mobile", async (
   await page.setViewportSize({ width: 390, height: 844 });
   for (const code of ["OM", "AUDITOR"] as const) {
     await signIn(page, byCode.get(code)!);
-    await page.getByRole("button", { name: "Open navigation" }).click();
+    await mobileNavigationTrigger(page).click();
     await expect(page.getByLabel("Application sidebar")).toBeVisible();
     expect(await page.evaluate(
       () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
@@ -779,7 +795,12 @@ test.describe("shared sidebar role regression matrix", () => {
     test(`${code}: authorized mobile menus, dismissal, keyboard exclusion and desktop navigation`, async ({ page }, testInfo) => {
       test.setTimeout(180_000);
       const role = roles.find((item) => item.code === code)!;
-      const expectedLinks = [...role.expectedLinks, ...additionalLinks[code === "OWNER" ? "GM" : code]].sort();
+      const expectedLinks = approvedNavigationLabels([...role.expectedLinks, ...additionalLinks[code === "OWNER" ? "GM" : code]]);
+      if (code === "OWNER" || (code !== "SE" && role.permissions.some(permission =>
+        ["Notifications.ManageRules", "Notifications.SendUrgent", "Notifications.ViewAudit"].includes(permission)))) {
+        expectedLinks.push("Notification Administration");
+      }
+      expectedLinks.sort();
       const longMenu = code === "OWNER" || code === "GM";
       await page.setViewportSize({ width: 390, height: 844 });
       await signIn(page, role);
@@ -833,7 +854,7 @@ test.describe("shared sidebar role regression matrix", () => {
           const box = element.getBoundingClientRect();
           return viewportWidth === 390
             ? (element as HTMLElement).inert && getComputedStyle(element).display === "none"
-            : box.width === 44;
+            : viewportWidth < 1280 ? box.width === 96 : getComputedStyle(element).display === "none";
         }, width)).toBe(true);
         expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
         await captureViewportThemes(page, testInfo.outputPath(`dashboard-${code}-${width}.png`));
@@ -841,10 +862,10 @@ test.describe("shared sidebar role regression matrix", () => {
       await verifyDashboard(390);
 
       const sidebar = page.locator('aside[aria-label="Application sidebar"]');
-      const navigation = sidebar.getByRole("navigation", { name: "Primary" });
-      const trigger = page.getByRole("button", { name: "Open navigation" });
+      const navigation = sidebar.getByRole("navigation", { name: "All modules" });
+      const trigger = mobileNavigationTrigger(page);
       const close = sidebar.getByRole("button", { name: "Close navigation" });
-      const dashboard = navigation.locator('a[aria-label="Dashboard"]');
+      const dashboard = page.getByRole("navigation", { name: "Primary", exact: true }).getByRole("link", { name: "Dashboard", exact: true });
       const notifications = page.getByRole("link", { name: /Notifications, \d+ unread/ });
       const avatar = page.getByRole("button", { name: "Open user menu" });
       const accountMenu = page.getByRole("menu", { name: "User account" });
@@ -866,10 +887,11 @@ test.describe("shared sidebar role regression matrix", () => {
         await expectNoOverflow();
       };
       const expectAuthorizedLinks = async () => {
-        const mobile = page.viewportSize()!.width < 1024;
+        const mobile = page.viewportSize()!.width < 640;
+        const activeNavigation = mobile ? navigation : page.getByRole("navigation", { name: "Primary", exact: true });
         if (mobile) await trigger.click();
-        const actual = await navigation.getByRole("link").evaluateAll(links => links.map(link => link.getAttribute("aria-label")!));
-        for (const parent of await navigation.getByRole("button").all()) {
+        const actual = await activeNavigation.getByRole("link").evaluateAll(links => links.map(link => link.getAttribute("aria-label")!));
+        for (const parent of await activeNavigation.getByRole("button").all()) {
           const name = (await parent.getAttribute("aria-label"))!.replace(/ menu$/, "");
           await expect(parent).toHaveAttribute("aria-expanded", "false");
           await parent.focus();
@@ -896,7 +918,7 @@ test.describe("shared sidebar role regression matrix", () => {
           await expect(popup).toHaveCount(0);
         }
         expect(actual.sort()).toEqual(expectedLinks);
-        for (const hidden of role.hiddenLinks) expect(actual).not.toContain(hidden);
+        for (const hidden of approvedNavigationLabels(role.hiddenLinks)) expect(actual).not.toContain(hidden);
         if (longMenu) expect(actual.length).toBeGreaterThan(10);
         if (mobile) {
           await page.keyboard.press("Escape");
@@ -933,8 +955,12 @@ test.describe("shared sidebar role regression matrix", () => {
         await page.keyboard.press("Enter");
         await page.keyboard.press("Tab");
         await expect(accountMenu).toHaveCount(0);
-        if (page.viewportSize()!.width < 1024) await expect(trigger).toBeFocused();
-        else await expect(dashboard).toBeFocused();
+        expect(await page.evaluate(() => {
+          const focused = document.activeElement as HTMLElement;
+          return focused !== document.body && focused.getClientRects().length > 0 &&
+            !focused.closest('[role="menu"], [inert]') && focused.tabIndex >= 0;
+        })).toBe(true);
+        await expect(avatar).not.toBeFocused();
       };
       await trigger.focus();
       await expectClosed();
@@ -954,7 +980,7 @@ test.describe("shared sidebar role regression matrix", () => {
       await expectAccountKeyboard();
       await page.setViewportSize({ width: 1440, height: 900 });
       await verifyDashboard(1440);
-      await expect(sidebar).toHaveCSS("width", "44px");
+      await expect(sidebar).toBeHidden();
       await expect(trigger).toBeHidden();
       await expect(sidebar).toHaveJSProperty("inert", false);
       await expectAuthorizedLinks();

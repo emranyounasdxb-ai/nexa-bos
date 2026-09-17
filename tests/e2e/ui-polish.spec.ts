@@ -57,13 +57,15 @@ test("complete breadcrumb labels remain reachable without moving the mobile page
     const breadcrumb = page.getByRole("navigation", { name: "Breadcrumb" });
     const current = breadcrumb.locator('[aria-current="page"]');
     await expect(current).toHaveText("Create customer");
-    await expect(current).toBeVisible();
+    if (viewport.width < 640) await expect(current).toBeHidden(); else await expect(current).toBeVisible();
     await expect(current).toHaveCSS("text-overflow", "clip");
+    if (viewport.width >= 640) {
     await expect.poll(() => current.evaluate(element => {
       const label = element.getBoundingClientRect();
       const strip = element.closest("nav")!.getBoundingClientRect();
       return label.left >= strip.left - 1 && label.right <= strip.right + 1;
     })).toBe(true);
+    }
     await captureViewport(page, testInfo.outputPath(`breadcrumb-current-${viewport.width}.png`));
     const mainTop = (await page.locator("main").boundingBox())!.y;
     const dashboard = breadcrumb.getByRole("link", { name: "Dashboard", exact: true });
@@ -85,7 +87,7 @@ test("complete breadcrumb labels remain reachable without moving the mobile page
 test("public account entry surfaces retain exact responsive viewports", async ({ page, request }, testInfo) => {
   test.setTimeout(120_000);
   await ensureOwner(request);
-  for (const [path, heading] of [["/login", "Sign in to AMAFH CORE"], ["/bootstrap", "First-time OWNER setup"], ["/setup", "Set your password"], ["/reset", "Reset your password"], ["/status", "Foundation smoke page"]]) {
+  for (const [path, heading] of [["/login", "Welcome Back"], ["/bootstrap", "First-time OWNER setup"], ["/setup", "Set your password"], ["/reset", "Reset your password"], ["/status", "Foundation smoke page"]]) {
     await page.goto(path);
     await expect(page.getByRole("heading", { name: heading, exact: true })).toBeVisible();
     await captureViewportPair(page, testInfo, `public-${path.slice(1)}-unsubmitted`);
@@ -134,9 +136,9 @@ test("dashboard presents a compact executive summary with bounded detail", async
     };
   });
   expect(shellBackgrounds.sidebar).toBe("rgba(0, 0, 0, 0)");
-  expect(shellBackgrounds.header).toBe("rgba(0, 0, 0, 0)");
+  expect(shellBackgrounds.header).toBe("rgb(21, 30, 75)");
   expect(shellBackgrounds.sidebarDivider).toBe("0px");
-  expect(shellBackgrounds.headerDivider).toBe("1px");
+  expect(shellBackgrounds.headerDivider).toBe("0px");
 
   const actionButtons = await page.getByTestId("dashboard-actions").getByRole("button").all();
   expect(actionButtons).toHaveLength(3);
@@ -154,7 +156,7 @@ test("dashboard presents a compact executive summary with bounded detail", async
   expect(Math.max(...actionYPositions.map((value) => value ?? 0)) - Math.min(...actionYPositions.map((value) => value ?? 0))).toBeLessThan(2);
   expect(await page.getByTestId("dashboard-actions").evaluate((element) => element.closest('[data-testid="dashboard-filters"]') !== null)).toBeTruthy();
   await expect(page.getByLabel(/Notifications, \d+ unread/).locator("svg")).toBeVisible();
-  const accountAvatar = page.getByTestId("account-actions").getByRole("button", { name: "Open user menu" }).locator('span[aria-hidden="true"]');
+  const accountAvatar = page.getByTestId("account-actions").getByRole("button", { name: "Open user menu" }).locator('[data-profile-photo]');
   await expect(accountAvatar).toBeVisible();
   await expect(accountAvatar).toHaveCSS("width", "30px");
   await expect(accountAvatar).toHaveCSS("height", "30px");
@@ -191,7 +193,7 @@ test("dashboard presents a compact executive summary with bounded detail", async
     element.style.visibility = "";
   });
   await page.mouse.move(1200, 300);
-  await expect(page.getByRole("complementary", { name: "Application sidebar" })).toHaveCSS("width", "44px");
+  await expect(page.getByRole("complementary", { name: "Application sidebar" })).toBeHidden();
   await page.screenshot({
     path: testInfo.outputPath("task16-2-tabler-sidebar-collapsed.png"),
     fullPage: false,
@@ -203,12 +205,9 @@ test("dashboard presents a compact executive summary with bounded detail", async
     return { x: box.x, y: box.y, width: box.width, height: box.height };
   }));
   expect(mobileCards).toHaveLength(4);
-  expect(Math.abs(mobileCards[0].y - mobileCards[1].y)).toBeLessThanOrEqual(1);
-  expect(Math.abs(mobileCards[2].y - mobileCards[3].y)).toBeLessThanOrEqual(1);
-  expect(mobileCards[2].y).toBeGreaterThan(mobileCards[0].y + mobileCards[0].height);
-  expect(Math.abs(mobileCards[0].x - mobileCards[2].x)).toBeLessThanOrEqual(1);
-  expect(Math.abs(mobileCards[1].x - mobileCards[3].x)).toBeLessThanOrEqual(1);
-  expect(Math.max(...mobileCards.map((card) => card.width)) - Math.min(...mobileCards.map((card) => card.width))).toBeLessThanOrEqual(1);
+  expect(mobileCards[0].width).toBeGreaterThan(mobileCards[1].width * 2);
+  for (const card of mobileCards.slice(1)) expect(card.y).toBeGreaterThan(mobileCards[0].y + mobileCards[0].height);
+  expect(Math.max(...mobileCards.slice(1).map(card => card.y)) - Math.min(...mobileCards.slice(1).map(card => card.y))).toBeLessThanOrEqual(1);
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
 });
 
@@ -224,7 +223,7 @@ test("list search and page actions share compact desktop rows", async ({ page, r
   await expect(customerSearch).toBeVisible();
   await expect(customerAction).toBeVisible();
   expect((await customerSearch.boundingBox())?.height).toBe(32);
-  expect((await customerAction.boundingBox())?.height).toBe(30);
+  expect((await customerAction.boundingBox())?.height).toBe(32);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBeTruthy();
 
   await page.goto("/users");
@@ -234,7 +233,7 @@ test("list search and page actions share compact desktop rows", async ({ page, r
   await expect(userSearch).toBeVisible();
   await expect(userAction).toBeVisible();
   expect((await userSearch.boundingBox())?.height).toBe(32);
-  expect((await userAction.boundingBox())?.height).toBe(30);
+  expect((await userAction.boundingBox())?.height).toBe(32);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBeTruthy();
 
   for (const item of [
@@ -254,7 +253,7 @@ test("list search and page actions share compact desktop rows", async ({ page, r
     expect(searchBox!.width).toBeGreaterThan(actionBox!.width);
     expect(searchBox!.height).toBe(32);
     expect(Math.abs(searchBox!.y + searchBox!.height - actionBox!.y - actionBox!.height)).toBeLessThan(2);
-    expect(actionBox!.height).toBe(30);
+    expect(actionBox!.height).toBe(32);
     await search.fill("layout verification");
     await expect(search).toHaveValue("layout verification");
     await search.fill("");
@@ -272,7 +271,7 @@ test("list search and page actions share compact desktop rows", async ({ page, r
   expect(assetSearchBox!.width).toBeGreaterThan(assetActionBox!.width);
   expect(assetSearchBox!.height).toBe(32);
   expect(Math.abs(assetSearchBox!.y + assetSearchBox!.height - assetActionBox!.y - assetActionBox!.height)).toBeLessThan(2);
-  expect(assetActionBox!.height).toBe(30);
+  expect(assetActionBox!.height).toBe(32);
   await assetSearch.fill("AST-");
   await expect(assetSearch).toHaveValue("AST-");
 
@@ -281,7 +280,7 @@ test("list search and page actions share compact desktop rows", async ({ page, r
   for (const label of ["Refresh", "Export"]) {
     const button = page.getByRole("button", { name: label, exact: true }).first();
     await expect(button).toBeVisible();
-    expect((await button.boundingBox())?.height).toBe(30);
+    expect((await button.boundingBox())?.height).toBe(32);
   }
 
   await page.goto("/users/new");
@@ -293,7 +292,7 @@ test("list search and page actions share compact desktop rows", async ({ page, r
     page.getByRole("button", { name: "Create User", exact: true }),
   ]) {
     await expect(control).toBeVisible();
-    expect((await control.boundingBox())?.height).toBe((await control.getAttribute("data-amafh-button")) === null ? 32 : 30);
+    expect((await control.boundingBox())?.height).toBe(32);
   }
   await expect(page.getByRole("button", { name: "Open calendar", exact: true })).toHaveCount(0);
 
@@ -306,7 +305,7 @@ test("list search and page actions share compact desktop rows", async ({ page, r
     page.getByRole("button", { name: "Save schedule", exact: true }),
   ]) {
     await expect(control).toBeVisible();
-    expect((await control.boundingBox())?.height).toBe((await control.getAttribute("data-amafh-button")) === null ? 32 : 30);
+    expect((await control.boundingBox())?.height).toBe(32);
   }
 
   for (const path of ["/customers", "/users", "/applications", "/assets", "/finance"]) {
@@ -555,10 +554,10 @@ test("dashboard charts render contract data responsively and preserve drill-down
   await page.goto("/reports?period=ytd");
   const sidebar = page.getByRole("complementary", { name: "Application sidebar" });
   await page.mouse.move(1200, 300);
-  await expect(sidebar).toHaveCSS("width", "44px");
+  await expect(sidebar).toBeHidden();
   const collapsedWidth = (await page.getByTestId("dashboard-trend-chart").boundingBox())?.width ?? 0;
-  await sidebar.hover();
-  await expect(sidebar).toHaveCSS("width", "44px");
+  await page.getByRole("navigation", { name: "Primary", exact: true }).hover();
+  await expect(sidebar).toBeHidden();
   await expect.poll(async () => (await page.getByTestId("dashboard-trend-chart").boundingBox())?.width ?? 0)
     .toBeCloseTo(collapsedWidth, 0);
 
@@ -604,18 +603,18 @@ test("sidebar popup remains usable while dashboard data loads", async ({ page, r
     await page.setViewportSize({ width: 1440, height: 900 });
     await setVisualTheme(page, "light");
     await expect(sidebar).toHaveJSProperty("inert", false);
-    await sidebar.getByRole("button", { name: "People menu", exact: true }).click();
-    const popup = page.getByRole("dialog", { name: "People", exact: true });
+    await page.getByRole("navigation", { name: "Primary", exact: true }).getByRole("button", { name: "People & HR menu", exact: true }).click();
+    const popup = page.getByRole("dialog", { name: "People & HR", exact: true });
     await expect(popup.getByRole("link", { name: "Users", exact: true })).toBeVisible();
-    await expect(sidebar).toHaveCSS("width", "44px");
+    await expect(sidebar).toBeHidden();
     release.resolve();
     await expect(skeleton).toHaveCount(0);
     await expect(page.getByTestId("dashboard-kpi-grid")).toBeVisible();
     await expect(popup).toBeVisible();
     await page.keyboard.press("Escape");
-    await expect(sidebar.getByRole("button", { name: "People menu", exact: true })).toBeFocused();
+    await expect(page.getByRole("navigation", { name: "Primary", exact: true }).getByRole("button", { name: "People & HR menu", exact: true })).toBeFocused();
     await page.mouse.move(1200, 300);
-    await expect(sidebar).toHaveCSS("width", "44px");
+    await expect(sidebar).toBeHidden();
     expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
   } finally {
     release.resolve();
@@ -629,31 +628,38 @@ test("sidebar groups open permission-backed popup cards on desktop and mobile", 
   await signIn(page, request);
   const sidebar = page.locator('aside[aria-label="Application sidebar"]');
   const groups = [
-    { label: "Operations", items: [["Customers", "/customers"], ["Applications", "/applications"], ["Workflows", "/workflows"], ["Case Operations", "/case-operations"]] },
-    { label: "People", items: [["Users", "/users"], ["HR Dashboard", "/hr"], ["PRO Dashboard", "/pro"], ["Organization", "/organization"], ["Hierarchy", "/organization/hierarchy"], ["Attendance", "/attendance"], ["Leave", "/leave"], ["Contracts", "/contracts"], ["Transfers", "/transfers"], ["Exit and offboarding", "/exits"], ["Approval Centre", "/approvals"], ["Attendance reports", "/attendance/reports"]] },
-    { label: "Performance", items: [["Targets", "/targets"], ["KPI scorecards", "/targets/kpi"], ["Reports", "/reports/compare"]] },
-    { label: "Assets", items: [["Assets", "/assets"], ["Asset categories", "/assets/categories"], ["Asset reports", "/assets/reports"]] },
-    { label: "Administration", items: [["Banks & products", "/catalog"], ["Designations", "/user-types"], ["Security", "/security"]] },
+    { label: "Cases", items: [["Applications", "/applications"], ["Customers", "/customers"]] },
+    { label: "Operations", items: [["Workflows", "/workflows"], ["Case Operations", "/case-operations"], ["Asset Register", "/assets"], ["Asset Categories", "/assets/categories"]] },
+    { label: "Performance", items: [["Targets", "/targets"], ["KPI scorecards", "/targets/kpi"]] },
+    { label: "People & HR", items: [["Users", "/users"], ["HR Dashboard", "/hr"], ["PRO Dashboard", "/pro"], ["Organization", "/organization"], ["Hierarchy", "/organization/hierarchy"], ["Attendance", "/attendance"], ["Leave", "/leave"], ["Contracts", "/contracts"], ["Transfers", "/transfers"], ["Exit and offboarding", "/exits"], ["Approval Centre", "/approvals"]] },
+    { label: "Finance", items: [["Finance", "/finance"]] },
+    { label: "Reports", items: [["Comparison Reports", "/reports/compare"], ["Drill-down Reports", "/reports/drill-down"], ["Attendance Reports", "/attendance/reports"], ["Asset reports", "/assets/reports"]] },
+    { label: "Administration", items: [["Banks & products", "/catalog"], ["Designations", "/user-types"], ["Security", "/security"], ["Notification Administration", "/notifications/manage"]] },
   ];
-  const dashboard = sidebar.getByRole("link", { name: "Dashboard", exact: true });
+  const primary = page.getByRole("navigation", { name: "Primary", exact: true });
+  const dashboard = primary.getByRole("link", { name: "Dashboard", exact: true });
   await expect(dashboard).toHaveAttribute("aria-current", "page");
-  await expect(sidebar.getByRole("link", { name: "Finance", exact: true })).toHaveAttribute("href", "/finance");
-  await expect(sidebar.getByRole("navigation", { name: "Primary" }).locator(":scope > a, :scope > button")).toHaveCount(7);
+  await expect(primary.getByRole("button", { name: "Finance menu", exact: true })).toBeVisible();
+  await expect(primary.locator(":scope > a, :scope > button")).toHaveCount(8);
   const geometry = await dashboard.boundingBox();
   for (let cycle = 0; cycle < 5; cycle++) {
-    await sidebar.hover();
-    await expect(sidebar).toHaveCSS("width", "44px");
+    await page.getByRole("navigation", { name: "Primary", exact: true }).hover();
+    await expect(sidebar).toBeHidden();
     expect(await dashboard.boundingBox()).toEqual(geometry);
     await page.mouse.move(1200, 300);
-    await expect(sidebar).toHaveCSS("width", "44px");
+    await expect(sidebar).toBeHidden();
     await expect(page.getByRole("dialog")).toHaveCount(0);
   }
   for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
     await page.setViewportSize(viewport);
-    if (viewport.width < 1024) await page.getByLabel("Open navigation", { exact: true }).click();
-    await expect(sidebar).toHaveCSS("width", viewport.width < 1024 ? "56px" : "44px");
+    if (viewport.width < 640) await page.getByRole("navigation", { name: "Mobile navigation", exact: true }).getByRole("button", { name: "More navigation", exact: true }).click();
+    if (viewport.width < 640) await expect(sidebar).toHaveCSS("width", "340px"); else await expect(sidebar).toBeHidden();
     for (const group of groups) {
-      const parent = sidebar.getByRole("button", { name: `${group.label} menu`, exact: true });
+      if (viewport.width < 640 && group.label === "Finance") {
+        await expect(sidebar.getByRole("link", { name: "Finance", exact: true })).toHaveAttribute("href", "/finance");
+        continue;
+      }
+      const parent = (viewport.width < 640 ? sidebar : primary).getByRole("button", { name: `${group.label} menu`, exact: true });
       await expect(parent).toHaveAttribute("aria-expanded", "false");
       await parent.focus();
       await parent.press("Enter");
@@ -677,8 +683,8 @@ test("sidebar groups open permission-backed popup cards on desktop and mobile", 
         await setVisualTheme(page, theme);
         for (const icon of await popup.locator('[data-submenu-item-icon]').all()) {
           await expect(icon).toBeVisible();
-          await expect(icon).toHaveCSS("width", "18px");
-          await expect(icon).toHaveCSS("height", "18px");
+          await expect(icon).toHaveCSS("width", "20px");
+          await expect(icon).toHaveCSS("height", "20px");
         }
         await captureViewport(page, testInfo.outputPath(`approved-${group.label.toLowerCase()}-popup-${theme}-${viewport.width}.png`));
       }
@@ -687,25 +693,26 @@ test("sidebar groups open permission-backed popup cards on desktop and mobile", 
       await expect(parent).toBeFocused();
       await expect(parent).toHaveAttribute("aria-expanded", "false");
     }
-    if (viewport.width < 1024) {
+    if (viewport.width < 640) {
       await page.keyboard.press("Escape");
       await expect(sidebar).toHaveJSProperty("inert", true);
-      await expect(page.getByLabel("Open navigation", { exact: true })).toBeFocused();
+      await expect(page.getByRole("navigation", { name: "Mobile navigation", exact: true }).getByRole("button", { name: "More navigation", exact: true })).toBeFocused();
     }
   }
   await page.setViewportSize({ width: 1440, height: 900 });
-  const people = sidebar.getByRole("button", { name: "People menu", exact: true });
+  const people = primary.getByRole("button", { name: "People & HR menu", exact: true });
   await people.click();
-  await page.getByRole("dialog", { name: "People", exact: true }).getByRole("link", { name: "Users", exact: true }).click();
+  await page.getByRole("dialog", { name: "People & HR", exact: true }).getByRole("link", { name: "Users", exact: true }).click();
   await expect(page).toHaveURL(/\/users(?:\?|$)/);
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(people).toHaveAttribute("data-active", "true");
-  await expect(page.getByRole("navigation", { name: "Workspace pages" }).getByRole("link", { name: "Users", exact: true })).toHaveAttribute("aria-current", "page");
+  await expect(page.getByRole("navigation", { name: "Workspace pages" })).toBeHidden();
+  await expect(people).toHaveAttribute("data-active", "true");
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.getByLabel("Open navigation", { exact: true }).click();
+  await page.getByRole("navigation", { name: "Mobile navigation", exact: true }).getByRole("button", { name: "More navigation", exact: true }).click();
   await expect(sidebar).toHaveAttribute("aria-modal", "true");
-  await sidebar.getByRole("button", { name: "Operations menu", exact: true }).click();
-  await page.getByRole("dialog", { name: "Operations", exact: true }).getByRole("link", { name: "Customers", exact: true }).click();
+  await sidebar.getByRole("button", { name: "Cases menu", exact: true }).click();
+  await page.getByRole("dialog", { name: "Cases", exact: true }).getByRole("link", { name: "Customers", exact: true }).click();
   await expect(page).toHaveURL(/\/customers(?:\?|$)/);
   await expect(sidebar).toHaveJSProperty("inert", true);
 });
@@ -717,21 +724,21 @@ test("shared shell keeps stable geometry, breadcrumbs, account and mobile popup 
   const sidebar = page.locator('aside[aria-label="Application sidebar"]');
   const content = page.getByTestId("authenticated-content");
   const breadcrumb = page.getByRole("navigation", { name: "Breadcrumb" });
-  await expect(sidebar).toHaveCSS("width", "44px");
+  await expect(sidebar).toBeHidden();
   await expect(page.getByRole("navigation", { name: "Primary" })).toBeVisible();
   await expect(page.getByLabel(/Notifications, \d+ unread/)).toBeVisible();
   await expect(breadcrumb.getByRole("link")).toHaveCount(0);
   await expect(breadcrumb.locator('[aria-current="page"]')).toHaveText("Dashboard");
   await expect(content.getByRole("heading", { name: "Dashboard", exact: true })).toBeVisible();
-  const [railBox, contentBox, headerBox, mainBox] = await Promise.all([
-    sidebar.boundingBox(), content.boundingBox(), content.getByTestId("page-header").boundingBox(), content.locator(":scope > main").boundingBox(),
+  const [contentBox, headerBox, mainBox] = await Promise.all([
+    content.boundingBox(), content.getByTestId("page-header").boundingBox(), content.locator(":scope > main").boundingBox(),
   ]);
-  expect(contentBox!.x - (railBox!.x + railBox!.width)).toBeCloseTo(20, 0);
+  expect(contentBox!.x).toBe(0);
   expect(headerBox!.x).toBeCloseTo(contentBox!.x, 0);
   expect(mainBox!.x).toBeCloseTo(contentBox!.x, 0);
   expect(mainBox!.width).toBeCloseTo(contentBox!.width, 0);
-  await sidebar.hover();
-  await expect(sidebar).toHaveCSS("width", "44px");
+  await page.getByRole("navigation", { name: "Primary", exact: true }).hover();
+  await expect(sidebar).toBeHidden();
   expect((await content.boundingBox())!.x).toBe(contentBox!.x);
   expect((await content.boundingBox())!.width).toBe(contentBox!.width);
   await page.getByLabel("Open user menu").click();
@@ -741,10 +748,10 @@ test("shared shell keeps stable geometry, breadcrumbs, account and mobile popup 
   await expect(accountMenu).toBeInViewport({ ratio: 1 });
   await page.keyboard.press("Escape");
   for (const route of [
-    { group: "Operations", item: "Applications", title: "Applications", href: "/applications" },
-    { group: "People", item: "Organization", title: "Organization masters", href: "/organization" },
+    { group: "Cases", item: "Applications", title: "Applications", href: "/applications" },
+    { group: "People & HR", item: "Organization", title: "Organization masters", href: "/organization" },
   ]) {
-    const trigger = sidebar.getByRole("button", { name: `${route.group} menu`, exact: true });
+    const trigger = page.getByRole("navigation", { name: "Primary", exact: true }).getByRole("button", { name: `${route.group} menu`, exact: true });
     await trigger.click();
     await page.getByRole("dialog", { name: route.group, exact: true }).getByRole("link", { name: route.item, exact: true }).click();
     await expect(page).toHaveURL(url => url.pathname === route.href);
@@ -762,17 +769,17 @@ test("shared shell keeps stable geometry, breadcrumbs, account and mobile popup 
   await expect(page).toHaveURL(/\/users(?:\?|$)/);
   await expect(breadcrumb.locator('[aria-current="page"]')).toHaveText("Users");
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.getByRole("button", { name: "Open navigation" }).click();
-  await expect(sidebar).toHaveCSS("width", "56px");
+  await page.getByRole("navigation", { name: "Mobile navigation", exact: true }).getByRole("button", { name: "More navigation", exact: true }).click();
+  await expect(sidebar).toHaveCSS("width", "340px");
   await expect(sidebar).toHaveAttribute("role", "dialog");
   await expect(sidebar).toHaveAttribute("aria-modal", "true");
-  await sidebar.getByRole("button", { name: "People menu" }).click();
-  await expect(page.getByRole("dialog", { name: "People", exact: true }).getByRole("link", { name: "Organization", exact: true })).toBeVisible();
+  await sidebar.getByRole("button", { name: "People & HR menu" }).click();
+  await expect(page.getByRole("dialog", { name: "People & HR", exact: true }).getByRole("link", { name: "Organization", exact: true })).toBeVisible();
   await captureViewport(page, testInfo.outputPath("approved-organization-mobile-popup.png"));
   await page.keyboard.press("Escape");
   await page.keyboard.press("Escape");
   await expect(sidebar).toHaveJSProperty("inert", true);
-  await expect(page.getByRole("button", { name: "Open navigation" })).toBeFocused();
+  await expect(page.getByRole("navigation", { name: "Mobile navigation", exact: true }).getByRole("button", { name: "More navigation", exact: true })).toBeFocused();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy();
 });
 
@@ -824,15 +831,15 @@ test("shared application layout stays compact, aligned, and overflow-free across
   const screenshotRoutes = new Set(routes);
 
   for (const viewport of [
-    { width: 1440, height: 900, expectedHeaderPaddingTop: "18px", label: "desktop" },
-    { width: 390, height: 844, expectedHeaderPaddingTop: "14px", label: "mobile" },
+    { width: 1440, height: 900, expectedHeaderPaddingTop: "24px", label: "desktop" },
+    { width: 390, height: 844, expectedHeaderPaddingTop: "18px", label: "mobile" },
   ]) {
     await page.setViewportSize(viewport);
     for (const route of routes) {
       await page.goto(route);
       await expect(page.getByTestId("authenticated-content")).toBeVisible({ timeout: 60_000 });
       await expect(page.getByTestId("page-header").locator("h1")).toHaveCount(1);
-      await expect(page.locator("body")).toHaveCSS("background-color", "rgb(246, 245, 248)");
+      await expect(page.locator("body")).toHaveCSS("background-color", "rgb(247, 248, 251)");
       await expect(page.getByTestId("page-header")).toHaveCSS("padding-top", viewport.expectedHeaderPaddingTop);
       await expect(page.getByTestId("page-main")).toHaveCSS("font-size", "15px");
 
@@ -873,13 +880,14 @@ test("shared application layout stays compact, aligned, and overflow-free across
 
       const card = page.locator("main [data-amafh-card]:visible").first();
       if (await card.count()) {
-        const integratedFilter = await card.evaluate(element => element.parentElement?.className.includes("listFilters"));
-        await expect(card).toHaveCSS("background-color", integratedFilter ? "rgba(0, 0, 0, 0)" : "rgb(255, 255, 255)");
+        const transparentGrouping = await card.evaluate((element, width) => element.parentElement?.className.includes("listFilters") || (width < 1280 && (element.hasAttribute("data-amafh-record-group") || element.className.includes("complianceCard"))), viewport.width);
+        await expect(card).toHaveCSS("background-color", transparentGrouping ? "rgba(0, 0, 0, 0)" : "rgb(255, 255, 255)");
         // Borderless nested cards use background grouping; visible edges use the theme border.
         const borderWidth = await card.evaluate(element => parseFloat(getComputedStyle(element).borderTopWidth));
-        if (borderWidth > 0) await expect(card).toHaveCSS("border-color", "rgb(236, 233, 239)");
+        if (borderWidth > 0) await expect(card).toHaveCSS("border-color", "rgb(225, 230, 240)");
         else await expect(card).toHaveCSS("border-top-width", "0px");
-        await expect(card).toHaveCSS("border-radius", /^(8|10)px$/);
+        const nestedListCard = await card.evaluate(element => element.parentElement?.hasAttribute("data-amafh-list-surface"));
+        await expect(card).toHaveCSS("border-radius", nestedListCard ? "8px" : /^(20|24)px$/);
       }
       for (const tableShell of await page.locator("main [data-amafh-table-shell]").all()) {
         await expect(tableShell).toHaveCSS("position", "relative");
@@ -887,7 +895,7 @@ test("shared application layout stays compact, aligned, and overflow-free across
 
       const sectionHeading = page.locator("main [data-amafh-section-header] h2:visible").first();
       if (await sectionHeading.count()) {
-        await expect(sectionHeading).toHaveCSS("font-size", "17px");
+        await expect(sectionHeading).toHaveCSS("font-size", "18px");
       }
 
       const tablist = page.locator('main [role="tablist"]:visible').first();
@@ -903,13 +911,13 @@ test("shared application layout stays compact, aligned, and overflow-free across
           };
         });
         expect(geometry.gap).toBe("4px");
-        expect(geometry.height).toBe(36);
+        expect(geometry.height).toBe(viewport.width < 640 ? 50 : 38);
         expect(geometry.overflowX).toBe("auto");
         for (const tab of await tabs.all()) {
-          expect((await tab.boundingBox())?.height).toBe(30);
+          expect((await tab.boundingBox())?.height).toBe(viewport.width < 640 ? 44 : 32);
         }
         if (await selected.count()) {
-          await expect(selected.first()).toHaveCSS("color", "rgb(255, 255, 255)");
+          await expect(selected.first()).toHaveCSS("color", viewport.width < 640 ? "rgb(152, 55, 149)" : "rgb(255, 255, 255)");
           await expect(selected.first()).toHaveCSS("border-bottom-width", "0px");
         }
       }
@@ -920,7 +928,8 @@ test("shared application layout stays compact, aligned, and overflow-free across
       for (const control of await controls.all()) {
         if (!(await control.isVisible())) continue;
         const box = await control.boundingBox();
-        expect(box?.height, `${route} single-line controls should remain 32px`).toBe(32);
+        const sizing = await control.evaluate(el => ({ label: el.getAttribute("aria-label"), classes: el.className, minimum: getComputedStyle(el).minHeight, maximum: getComputedStyle(el).maxHeight }));
+        expect(box?.height, `${route} single-line controls follow responsive sizing: ${JSON.stringify(sizing)}`).toBe(viewport.width < 640 || (viewport.width < 1280 && await control.evaluate(el => Boolean(el.closest('[role="dialog"]')))) ? 48 : 32);
       }
 
       if (screenshotRoutes.has(route)) {
@@ -934,7 +943,7 @@ test("shared application layout stays compact, aligned, and overflow-free across
     }
 
     await page.goto("/status");
-    await expect(page.locator("body")).toHaveCSS("background-color", "rgb(246, 245, 248)");
+    await expect(page.locator("body")).toHaveCSS("background-color", "rgb(247, 248, 251)");
     const publicSurface = page.locator("[data-amafh-public-surface]").first();
     await expect(publicSurface).toHaveCSS("background-color", "rgb(255, 255, 255)");
     await expect(publicSurface).toHaveCSS("border-top-width", "0px");
@@ -943,7 +952,7 @@ test("shared application layout stays compact, aligned, and overflow-free across
   }
 });
 
-test("empty table messages remain readable inside mobile horizontal scrollers", async ({ page, request }, testInfo) => {
+test("empty table messages remain readable in responsive table cards", async ({ page, request }, testInfo) => {
   await signIn(page, request);
   for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
     await page.setViewportSize(viewport);

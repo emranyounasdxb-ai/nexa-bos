@@ -28,6 +28,7 @@ import { apiGet, apiRequest, ApiClientError } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { getBrowserApiUrl } from "@/lib/env";
 import { RecordFrame } from "@/components/page-patterns";
+import { IconLeaveType } from "@/components/icons";
 
 type LeaveType = {
   id: string;
@@ -128,6 +129,7 @@ export default function LeavePage() {
   const [decision, setDecision] = useState<PendingDecision | null>(null);
   const [decisionComment, setDecisionComment] = useState("");
   const cancelReturnFocus = useRef<HTMLElement | null>(null);
+  const createReturnFocus = useRef<HTMLElement | null>(null);
   const decisionReturnFocus = useRef<HTMLElement | null>(null);
   const [draft, setDraft] = useState({
     employeeId: "",
@@ -216,7 +218,7 @@ export default function LeavePage() {
 
   function closeCreate() {
     setCreating(false);
-    requestAnimationFrame(() => document.getElementById("request-leave-trigger")?.focus());
+    requestAnimationFrame(() => (createReturnFocus.current ?? document.getElementById("request-leave-trigger"))?.focus());
   }
 
   function openCancellation(item: LeaveRequest, trigger: HTMLElement) {
@@ -361,17 +363,18 @@ export default function LeavePage() {
   if (!can("Leave.View")) return <ErrorText>Leave permission is required.</ErrorText>;
 
   const myRequests = requests.filter((item) => item.employeeId === user?.id);
+  const annualBalance = balances.find(item => item.leaveType.code.toUpperCase() === "ANNUAL");
   const approvalRequests = requests.filter((item) =>
     ["Submitted", "Manager Approved", "Cancellation Pending"].includes(item.status),
   );
 
   return (
-    <div className="space-y-3">
+    <div className={`${styles.leavePage} space-y-3`}>
       <PageHeader
         title="Leave management"
         description="Request leave, follow approvals and view balances using the configured UAE working calendar."
         actions={can("Leave.Request") || can("Leave.CreateForEmployee") ? (
-          <Button id="request-leave-trigger" type="button" onClick={() => setCreating(true)}>Request leave</Button>
+          <div data-desktop-page-actions={activeTab === "requests" && annualBalance && !loading && !error ? "" : undefined}><Button id="request-leave-trigger" type="button" onClick={event => { createReturnFocus.current = event.currentTarget; setCreating(true); }}>Request leave</Button></div>
         ) : undefined}
       />
       <div role="tablist" aria-label="Leave workspaces" className="flex min-w-0 overflow-x-auto border-b border-brand-border">
@@ -396,15 +399,21 @@ export default function LeavePage() {
       <ErrorText>{error}</ErrorText>
       {loading ? <LoadingState>Loading leave records…</LoadingState> : null}
 
+      {!loading && !error && annualBalance && activeTab === "requests" && <div className={styles.compactLeaveOverview}>
+        <div className={styles.annualHero}><p>Available annual leave</p><strong>{annualBalance.available} days</strong><p>Your current entitlement</p></div>
+        {(can("Leave.Request") || can("Leave.CreateForEmployee")) && <Button type="button" onClick={event => { createReturnFocus.current = event.currentTarget; setCreating(true); }}>Request leave</Button>}
+        <dl className={styles.requestCounts}><div><dd>{myRequests.filter(item => ["Submitted", "Manager Approved", "Cancellation Pending"].includes(item.status)).length}</dd><dt>Pending</dt></div><div><dd>{myRequests.filter(item => ["HR Approved", "Completed"].includes(item.status)).length}</dd><dt>Approved</dt></div></dl>
+      </div>}
+
       {!loading && activeTab === "requests" ? (
-        <RecordFrame summary={<section aria-label="Leave balances" className="space-y-3 rounded-[20px] bg-surface p-3">
+        <RecordFrame variant="balances" summary={<section aria-label="Leave balances" className="space-y-3 rounded-[20px] bg-surface p-3">
           <h2 className="px-2 py-1 text-[17px] font-medium">Leave balances</h2>
-          <div tabIndex={0} aria-label="Leave balance breakdown" className="grid auto-cols-[minmax(220px,80%)] grid-flow-col gap-2 overflow-x-auto rounded-xl focus-visible:outline-2 focus-visible:outline-brand-primary sm:auto-cols-auto sm:grid-flow-row sm:grid-cols-2 xl:grid-cols-1">
+          <div aria-label="Leave balance breakdown" className={styles.balanceGrid}>
             {balances.map((item) => (
-              <div key={item.leaveType.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 rounded-xl bg-surface-subtle px-3 py-2">
-                <p className="text-sm font-medium text-text-primary">{item.leaveType.name}</p>
-                <p className="row-span-2 text-2xl font-semibold tabular-nums text-text-primary">{item.available}</p>
-                <p className="text-xs text-text-secondary">{item.used} used · {item.pending} pending · {item.entitled + item.adjustments} entitled</p>
+              <div key={item.leaveType.id} data-leave-type={item.leaveType.code.toUpperCase()} className={styles.balance}>
+                <p className={styles.balanceName}><span className={styles.balanceIcon}><IconLeaveType code={item.leaveType.code} /></span>{item.leaveType.name}</p>
+                <p className={styles.balanceValue}><span>{item.available}</span><span className={styles.balanceUnit}> days</span></p>
+                <p className={styles.balanceFooter}>{item.used} used · {item.pending} pending · {item.entitled + item.adjustments} entitled</p>
               </div>
             ))}
           </div>
@@ -479,7 +488,7 @@ export default function LeavePage() {
 }
 
 function RequestTable({ items, own = false, canManager = false, canHr = false, canReturnReject = false, canCancelDecision = false, canOverride = false, onAction, onUpload, onCancel, onDecision }: { items: LeaveRequest[]; own?: boolean; canManager?: boolean; canHr?: boolean; canReturnReject?: boolean; canCancelDecision?: boolean; canOverride?: boolean; onAction: (item: LeaveRequest, path: string, payload?: object) => Promise<boolean>; onUpload?: (item: LeaveRequest, file: File) => Promise<void>; onCancel?: (item: LeaveRequest, trigger: HTMLElement) => void; onDecision?: (item: LeaveRequest, mode: DecisionMode, trigger: HTMLElement) => void }) {
-  return <TableShell className={styles.requests}><TableHead><tr><Th>Employee</Th><Th>Dates</Th><Th>Days</Th><Th>Status</Th><Th>Updated</Th><Th><span className="sr-only">Actions</span></Th></tr></TableHead><tbody>{items.map((item) => <tr key={item.id}><Td><p className="font-medium">{item.employee}</p><p className="text-xs text-text-secondary">Requested by {item.requestedBy}</p></Td><Td>{item.startDate} – {item.endDate}</Td><Td>{item.workingDays}</Td><Td><StatusBadge value={item.status} /></Td><Td>{new Date(item.updatedAt).toLocaleString()}</Td><Td><div className="flex flex-wrap justify-end gap-2">{own && onUpload && ["Draft", "Returned"].includes(item.status) ? <label className="inline-flex h-8 cursor-pointer items-center rounded-md border border-brand-primary px-2.5 text-xs font-medium text-brand-primary focus-within:outline focus-within:outline-2 focus-within:outline-brand-primary">Attach<input className="sr-only" type="file" accept=".pdf,.png,.jpg,.jpeg,.webp" onChange={(event) => { const file = event.target.files?.[0]; if (file) void onUpload(item, file); event.currentTarget.value = ""; }} /></label> : null}{own && ["Draft", "Returned"].includes(item.status) ? <Button size="compact" onClick={() => onAction(item, "submit")}>Submit</Button> : null}{own && onCancel && !["Cancelled", "Rejected", "Completed"].includes(item.status) ? <Button size="compact" variant="secondary" onClick={(event) => onCancel(item, event.currentTarget)}>Cancel</Button> : null}{canManager && item.status === "Submitted" ? <Button size="compact" onClick={() => onAction(item, "manager-approve")}>Manager approve</Button> : null}{canHr && item.status === "Manager Approved" ? <Button size="compact" onClick={() => onAction(item, "hr-approve")}>HR approve</Button> : null}{onDecision && canReturnReject && ["Submitted", "Manager Approved"].includes(item.status) ? <><Button size="compact" variant="secondary" onClick={(event) => onDecision(item, "return", event.currentTarget)}>Return</Button><Button size="compact" variant="danger" onClick={(event) => onDecision(item, "reject", event.currentTarget)}>Reject</Button></> : null}{onDecision && canOverride && ["Submitted", "Manager Approved", "Returned"].includes(item.status) ? <Button size="compact" variant="secondary" onClick={(event) => onDecision(item, "owner-override", event.currentTarget)}>OWNER override</Button> : null}{onDecision && canCancelDecision && item.status === "Cancellation Pending" && ((canManager && !canHr && !item.cancellationManagerApproved) || canHr) ? <Button size="compact" onClick={(event) => onDecision(item, "cancellation-approve", event.currentTarget)}>Approve cancellation</Button> : null}{onDecision && canCancelDecision && canHr && item.status === "Cancellation Pending" ? <Button size="compact" variant="danger" onClick={(event) => onDecision(item, "cancellation-reject", event.currentTarget)}>Reject cancellation</Button> : null}</div></Td></tr>)}</tbody></TableShell>;
+  return <TableShell mobileCards={false} className={styles.requests}><TableHead><tr><Th>Employee</Th><Th>Dates</Th><Th>Days</Th><Th>Status</Th><Th>Updated</Th><Th><span className="sr-only">Actions</span></Th></tr></TableHead><tbody>{items.map((item) => <tr key={item.id}><Td><p className="font-medium">{item.employee}</p><p className="text-xs text-text-secondary">Requested by {item.requestedBy}</p></Td><Td>{item.startDate} – {item.endDate}</Td><Td>{item.workingDays}</Td><Td><StatusBadge value={item.status} /></Td><Td>{new Date(item.updatedAt).toLocaleString()}</Td><Td><div className="flex flex-wrap justify-end gap-2">{own && onUpload && ["Draft", "Returned"].includes(item.status) ? <label className="inline-flex h-8 cursor-pointer items-center rounded-md border border-brand-primary px-2.5 text-xs font-medium text-brand-primary focus-within:outline focus-within:outline-2 focus-within:outline-brand-primary">Attach<input className="sr-only" type="file" accept=".pdf,.png,.jpg,.jpeg,.webp" onChange={(event) => { const file = event.target.files?.[0]; if (file) void onUpload(item, file); event.currentTarget.value = ""; }} /></label> : null}{own && ["Draft", "Returned"].includes(item.status) ? <Button size="compact" onClick={() => onAction(item, "submit")}>Submit</Button> : null}{own && onCancel && !["Cancelled", "Rejected", "Completed"].includes(item.status) ? <Button size="compact" variant="secondary" onClick={(event) => onCancel(item, event.currentTarget)}>Cancel</Button> : null}{canManager && item.status === "Submitted" ? <Button size="compact" onClick={() => onAction(item, "manager-approve")}>Manager approve</Button> : null}{canHr && item.status === "Manager Approved" ? <Button size="compact" onClick={() => onAction(item, "hr-approve")}>HR approve</Button> : null}{onDecision && canReturnReject && ["Submitted", "Manager Approved"].includes(item.status) ? <><Button size="compact" variant="secondary" onClick={(event) => onDecision(item, "return", event.currentTarget)}>Return</Button><Button size="compact" variant="danger" onClick={(event) => onDecision(item, "reject", event.currentTarget)}>Reject</Button></> : null}{onDecision && canOverride && ["Submitted", "Manager Approved", "Returned"].includes(item.status) ? <Button size="compact" variant="secondary" onClick={(event) => onDecision(item, "owner-override", event.currentTarget)}>OWNER override</Button> : null}{onDecision && canCancelDecision && item.status === "Cancellation Pending" && ((canManager && !canHr && !item.cancellationManagerApproved) || canHr) ? <Button size="compact" onClick={(event) => onDecision(item, "cancellation-approve", event.currentTarget)}>Approve cancellation</Button> : null}{onDecision && canCancelDecision && canHr && item.status === "Cancellation Pending" ? <Button size="compact" variant="danger" onClick={(event) => onDecision(item, "cancellation-reject", event.currentTarget)}>Reject cancellation</Button> : null}</div></Td></tr>)}</tbody></TableShell>;
 }
 
 function decisionTitle(mode: DecisionMode) {
@@ -490,5 +499,5 @@ function decisionTitle(mode: DecisionMode) {
 }
 
 function LeaveTypeForm({ item, onSave }: { item: LeaveType; onSave: (item: LeaveType, form: HTMLFormElement) => Promise<void> }) {
-  return <Card><form className="grid gap-3 sm:grid-cols-2" onSubmit={(event) => { event.preventDefault(); void onSave(item, event.currentTarget); }}><div className="sm:col-span-2"><h2 className="text-[length:var(--amafh-text-section)] font-semibold">{item.name}</h2></div><Field label="Yearly entitlement"><TextInput name="yearlyEntitlement" type="number" min="0" max="366" step="0.5" defaultValue={item.yearlyEntitlement} /></Field><Field label="Accrual"><Select name="accrualMethod" defaultValue={item.accrualMethod}><option value="none">Annual allocation</option><option value="monthly">Monthly accrual</option></Select></Field><Field label="Monthly accrual"><TextInput name="monthlyAccrual" type="number" min="0" max="31" step="0.5" defaultValue={item.monthlyAccrual} /></Field><Field label="Carry-forward limit"><TextInput name="carryForwardLimit" type="number" min="0" max="366" step="0.5" defaultValue={item.carryForwardLimit} /></Field><Field label="Carry-forward expiry (months)"><TextInput name="carryForwardExpiryMonths" type="number" min="1" max="24" defaultValue={item.carryForwardExpiryMonths ?? ""} /></Field><Field label="Eligibility"><TextInput name="eligibility" defaultValue={item.eligibility ?? ""} /></Field><label className="flex items-center gap-2 text-sm"><input name="isPaid" type="checkbox" defaultChecked={item.isPaid} />Paid leave</label><label className="flex items-center gap-2 text-sm"><input name="halfDayAllowed" type="checkbox" defaultChecked={item.halfDayAllowed} />Half day allowed</label><label className="flex items-center gap-2 text-sm"><input name="attachmentRequired" type="checkbox" defaultChecked={item.attachmentRequired} />Attachment required</label><div className="flex justify-end sm:col-span-2"><Button type="submit">Save {item.name}</Button></div></form></Card>;
+  return <Card className={styles.policy}><form className="grid gap-3 sm:grid-cols-2" onSubmit={(event) => { event.preventDefault(); void onSave(item, event.currentTarget); }}><div className="sm:col-span-2"><h2 className="text-[length:var(--amafh-text-section)] font-semibold">{item.name}</h2></div><Field label="Yearly entitlement"><TextInput name="yearlyEntitlement" type="number" min="0" max="366" step="0.5" defaultValue={item.yearlyEntitlement} /></Field><Field label="Accrual"><Select name="accrualMethod" defaultValue={item.accrualMethod}><option value="none">Annual allocation</option><option value="monthly">Monthly accrual</option></Select></Field><Field label="Monthly accrual"><TextInput name="monthlyAccrual" type="number" min="0" max="31" step="0.5" defaultValue={item.monthlyAccrual} /></Field><Field label="Carry-forward limit"><TextInput name="carryForwardLimit" type="number" min="0" max="366" step="0.5" defaultValue={item.carryForwardLimit} /></Field><Field label="Carry-forward expiry (months)"><TextInput name="carryForwardExpiryMonths" type="number" min="1" max="24" defaultValue={item.carryForwardExpiryMonths ?? ""} /></Field><Field label="Eligibility"><TextInput name="eligibility" defaultValue={item.eligibility ?? ""} /></Field><label className="flex items-center gap-2 text-sm"><input name="isPaid" type="checkbox" defaultChecked={item.isPaid} />Paid leave</label><label className="flex items-center gap-2 text-sm"><input name="halfDayAllowed" type="checkbox" defaultChecked={item.halfDayAllowed} />Half day allowed</label><label className="flex items-center gap-2 text-sm"><input name="attachmentRequired" type="checkbox" defaultChecked={item.attachmentRequired} />Attachment required</label><div className="flex justify-end sm:col-span-2"><Button type="submit">Save {item.name}</Button></div></form></Card>;
 }

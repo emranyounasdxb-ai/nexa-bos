@@ -61,7 +61,8 @@ test("Application dialog retains Bank focus when the background list finishes lo
   try {
     await page.goto("/applications");
     await fetched;
-    await expect(page.getByText("Loading applications…", { exact: true })).toBeVisible();
+    const loading = page.getByTestId("applications-table-scroll-region").getByText("Loading applications…", { exact: true });
+    await expect(loading).toBeVisible();
     await page.getByRole("button", { name: "Create application", exact: true }).click();
     const dialog = page.getByRole("dialog", { name: "Create application", exact: true });
     const bank = dialog.getByRole("combobox", { name: "Bank", exact: true });
@@ -70,7 +71,7 @@ test("Application dialog retains Bank focus when the background list finishes lo
     const listbox = page.getByRole("listbox");
     await expect(listbox).toBeVisible();
     release();
-    await expect(page.getByText("Loading applications…", { exact: true })).toBeHidden();
+    await expect(loading).toBeHidden();
     await expect(listbox).toBeVisible();
     await expect(dialog.getByRole("button", { name: "Close", exact: true })).not.toBeFocused();
     await page.keyboard.press("Escape");

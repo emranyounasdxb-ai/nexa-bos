@@ -710,7 +710,7 @@ export default function UserTypeDetailPage() {
 
   return (
     <section className="w-full space-y-4 pb-28">
-      <RecordFrame summary={<div className="space-y-4"><Card className="overflow-hidden p-0">
+      <RecordFrame variant="permissions" summary={<div className="space-y-4"><Card className="overflow-hidden p-0">
         <div className="flex flex-col gap-4 px-4 py-4 sm:px-5 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0 flex-1">
             <ButtonLink href="/user-types" variant="ghost" size="compact" className="-ml-2 mb-2">
@@ -1038,7 +1038,7 @@ export default function UserTypeDetailPage() {
 
       </RecordFrame>
       {canSave ? (
-        <div className="sticky bottom-3 z-20 w-full rounded-xl border border-slate-300 bg-surface/95 px-3 py-3 shadow-[0_12px_30px_rgba(15,23,42,0.14)] backdrop-blur sm:px-4">
+        <div data-amafh-sticky-actions="" className="sticky bottom-3 z-20 w-full rounded-xl border border-slate-300 bg-surface/95 px-3 py-3 shadow-[0_12px_30px_rgba(15,23,42,0.14)] backdrop-blur sm:px-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0" aria-live="polite">
               {saving ? (

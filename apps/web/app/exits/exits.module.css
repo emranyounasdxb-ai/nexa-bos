@@ -19,6 +19,6 @@
   .register tbody tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; padding: 12px; margin-bottom: 10px; border: 0; border-radius: 16px; background: var(--amafh-subtle); }
   .register tbody td { display: block; min-width: 0; padding: 0; }
   .register tbody td:first-child { grid-column: 1 / -1; font-weight: 600; }
-  .register tbody td:nth-child(3)::before { content: "Last working date"; display: block; font-size: 11px; color: var(--amafh-text-secondary); }
+  .register tbody td:nth-child(3)::before { content: "Last working date"; display: block; font-size: var(--amafh-list-secondary); color: var(--amafh-text-secondary);  line-height: 20px; }
   .register tbody td:last-child { justify-self: end; }
 }

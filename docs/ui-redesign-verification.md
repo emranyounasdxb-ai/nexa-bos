@@ -1,5 +1,9 @@
 # Approved UI redesign — verification ledger
 
+> Historical verification record: these results describe the earlier redesign and do not verify Figma V2. Current V2 checks and limitations are recorded in `ui-figma-v2-checklist.md`.
+
+The 17 September owner-requested correction retains accessible color adjustments and applies measured Figma geometry. Its page-by-page native screenshot reviews, responsive editor adaptations and current validation results are recorded in [the current Figma checklist](ui-figma-v2-checklist.md#correction-review--17-september-2026). Historical results below are not a current release gate; no GitHub or production delivery is authorized.
+
 Status: **Approved redesign implementation and local verification complete; GitHub delivery is pending.**
 
 ## Final local release gate — 13 September 2026

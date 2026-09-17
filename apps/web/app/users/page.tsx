@@ -342,7 +342,7 @@ function UsersDirectory() {
 
             <div className={loading ? "grid gap-2 p-2 opacity-70 min-[1024px]:grid-cols-2 min-[1400px]:hidden sm:p-3" : "grid gap-2 p-2 min-[1024px]:grid-cols-2 min-[1400px]:hidden sm:p-3"}>
               {items.map((user) => (
-                <article key={user.id} className="min-w-0 rounded-[10px] border border-brand-border p-2.5">
+                <article data-amafh-record-card="" key={user.id} className="min-w-0 rounded-[10px] border border-brand-border p-2.5">
                   <div className="flex min-w-0 items-center gap-2.5"><ProfilePhoto userId={user.id} fullName={user.fullName} hasPhoto={user.hasPhoto} version={user.updatedAt} size="list" /><Link className="min-w-0 flex-1 break-words font-semibold leading-5 text-brand-link underline" title={user.fullName} href={`/users/${user.id}`}>{user.fullName}</Link></div>
                   <dl className="mt-2 grid min-w-0 grid-cols-2 gap-x-3 gap-y-1.5 text-xs">
                     <div><dt className="text-text-secondary">Code</dt><dd className="text-text-primary"><DirectoryValue value={user.employeeCode} /></dd></div>

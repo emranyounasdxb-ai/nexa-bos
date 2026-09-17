@@ -1,38 +1,39 @@
 import type { LegendComponentOption, TooltipComponentOption } from "echarts/components";
 
 export const chartPalette = {
-  navy: "#6f0d83",
-  blue: "#a4259d",
-  blueSoft: "rgba(164, 37, 157, 0.10)",
-  emerald: "#15805d",
-  emeraldSoft: "rgba(21, 128, 93, 0.08)",
-  violet: "#e026aa",
-  amber: "#9a5a00",
-  red: "#c93646",
-  slate900: "#27242d",
-  slate700: "#6e6976",
-  slate500: "#8b8197",
-  slate300: "#ece9ef",
-  slate200: "#f5f5f5",
+  navy: "#983795",
+  blue: "#3979d4",
+  blueSoft: "rgba(57, 121, 212, 0.10)",
+  emerald: "#147c5a",
+  emeraldSoft: "rgba(20, 124, 90, 0.08)",
+  violet: "#6956b3",
+  amber: "#a85300",
+  red: "#e94b63",
+  slate900: "#192340",
+  slate700: "#617089",
+  slate500: "#78849c",
+  slate300: "#e1e6f0",
+  slate200: "#f3f4fa",
   white: "#ffffff",
 } as const;
 
 const darkColors = new Map<string, string>([
-  [chartPalette.navy, "#e4b5fa"], [chartPalette.blue, "#e9a6e4"],
-  [chartPalette.blueSoft, "rgba(233, 166, 228, 0.10)"],
-  [chartPalette.emerald, "#98d1b3"], [chartPalette.emeraldSoft, "rgba(152, 209, 179, 0.08)"],
-  [chartPalette.violet, "#ee8fce"], [chartPalette.amber, "#ebc78e"], [chartPalette.red, "#f5a6b2"],
-  [chartPalette.slate900, "#f3eff7"], [chartPalette.slate700, "#b9b0c4"],
-  [chartPalette.slate500, "#a99bb8"], [chartPalette.slate300, "#51485c"],
-  [chartPalette.slate200, "#403a49"], [chartPalette.white, "#25222a"],
+  [chartPalette.navy, "#ffd3fb"], [chartPalette.blue, "#c8e0ff"],
+  [chartPalette.blueSoft, "rgba(200, 224, 255, 0.10)"],
+  [chartPalette.emerald, "#a8ffe0"], [chartPalette.emeraldSoft, "rgba(168, 255, 224, 0.08)"],
+  [chartPalette.violet, "#e498df"], [chartPalette.amber, "#ffe0ab"], [chartPalette.red, "#ffd0d9"],
+  [chartPalette.slate900, "#f7faff"], [chartPalette.slate700, "#d1dcee"],
+  [chartPalette.slate500, "#adbfd9"], [chartPalette.slate300, "#334159"],
+  [chartPalette.slate200, "#202b40"], [chartPalette.white, "#161f30"],
 ]);
 
 // ECharts needs resolved color values. Only presentation color fields are
 // adapted; series data, names, formatters and all other options stay intact.
 export function withChartTheme<T>(option: T, theme: "light" | "dark"): T {
-  if (theme === "light") return option;
+  const font = typeof document === "undefined" ? "" : getComputedStyle(document.documentElement).getPropertyValue("--font-manrope").trim();
+  if (theme === "light" && !font) return option;
   function visit(value: unknown, key = ""): unknown {
-    if (typeof value === "string") return /color$/i.test(key) ? darkColors.get(value) ?? value : value;
+    if (typeof value === "string") return key === "fontFamily" && font ? `${font}, ui-sans-serif, sans-serif` : theme === "dark" && /color$/i.test(key) ? darkColors.get(value) ?? value : value;
     if (Array.isArray(value)) return value.map(item => visit(item, key));
     if (value && typeof value === "object" && Object.getPrototypeOf(value) === Object.prototype) {
       return Object.fromEntries(Object.entries(value).map(([name, item]) => [name, visit(item, name)]));

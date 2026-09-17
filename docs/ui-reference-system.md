@@ -1,5 +1,7 @@
 # AMAFH reference-led UI system
 
+Current visual authority is the approved Figma V2 file and the decisions in [ui-design-system.md](ui-design-system.md). The Pinterest/reference-led rollout below is retained as historical evidence. Its palette, capsule navigation, system font and phone table scrolling instructions are superseded. [The Figma V2 checklist](ui-figma-v2-checklist.md) distinguishes mapped screens from shared-system adaptations and records inspection and verification limits. Permission and workflow preservation requirements remain applicable.
+
 ## Reference lock and delivery boundaries
 
 The supplied 15-screen Pinterest pack is research, not new workflow authorization.

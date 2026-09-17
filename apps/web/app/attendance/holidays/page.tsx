@@ -168,7 +168,7 @@ export default function HolidaysPage() {
                 <Td>
                   {editingId === item.id ? (
                     <TextInput
-                      className="mt-0 !min-h-8 !py-1 text-xs"
+                      className="mt-0 !py-1 text-xs"
                       aria-label={`Edit ${item.name}`}
                       value={item.name}
                       onChange={(event) =>
@@ -186,7 +186,7 @@ export default function HolidaysPage() {
                 <Td>
                   {editingId === item.id ? (
                     <TextInput
-                      className="mt-0 !min-h-8 !py-1 text-xs"
+                      className="mt-0 !py-1 text-xs"
                       aria-label={`Edit details ${item.name}`}
                       value={item.notes ?? ""}
                       onChange={(event) =>

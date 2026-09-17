@@ -5,10 +5,11 @@ import styles from "./employee-dashboard.module.css";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
-import { IconRefresh } from "@/components/icons";
+import { IconRefresh, IconUserShield, IconUsers } from "@/components/icons";
+import { RecordCard, RecordIdentity } from "@/components/page-patterns";
 import { HrWorkflowSummary } from "@/components/hr-workflow-summary";
 import { Pagination, SERVER_PAGE_SIZE_OPTIONS, type ServerPageSize } from "@/components/pagination";
-import { Button, Card, EmptyState, ErrorText, Field, LoadingState, PageHeader, SectionHeader, Select, StatusBadge, TextInput } from "@/components/ui";
+import { Button, Card, EmptyState, ErrorText, Field, LoadingState, PageHeader, SectionHeader, Select, StatusBadge, TextInput, SearchActionBar, TableShell, TableHead, Th, Td } from "@/components/ui";
 import { apiGet } from "@/lib/api";
 import { getBrowserApiUrl } from "@/lib/env";
 import { formatLocalDateTime, formatStatusLabel, humanizeTechnicalLabel } from "@/lib/presentation";
@@ -50,8 +51,10 @@ function titleCaseLabel(value: string) {
     .replace(/\bHr\b/g, "HR");
 }
 
-function MetricCards({ cards }: { cards: Record<string, number> }) {
-  return <dl className={styles.metrics}>{Object.entries(cards).map(([key, count]) => <div key={key} className={styles.metric}><dt>{cardLabels[key] ?? key}</dt><dd>{count.toLocaleString()}</dd></div>)}</dl>;
+function MetricCards({ cards, featuredKey }: { cards: Record<string, number>; featuredKey: string }) {
+  const order = featuredKey === "totalEmployees" ? ["totalEmployees", "activeEmployees", "newJoiners", "pendingHrActions", "onProbation"] : ["pendingDocuments", "documentsActive", "expiringSoon", "expired", "totalEmployees"];
+  const compactLabels: Record<string, string> = { totalEmployees: "People overview", activeEmployees: "Active", newJoiners: "New joiners", pendingHrActions: "HR actions", documentsActive: "Active", expiringSoon: "Expiring", expired: "Expired", pendingDocuments: `Pending documents · ${cards.totalEmployees.toLocaleString()} employees` };
+  return <><dl className={styles.metrics}>{Object.entries(cards).sort(([a], [b]) => (order.includes(a) ? order.indexOf(a) : order.length) - (order.includes(b) ? order.indexOf(b) : order.length)).map(([key, count]) => <div key={key} data-metric={key} className={styles.metric}><dt><span className={styles.desktopMetricLabel}>{cardLabels[key] ?? key}</span><span className={styles.compactMetricLabel}>{compactLabels[key] ?? cardLabels[key] ?? key}</span></dt><dd>{count.toLocaleString()}</dd>{key === featuredKey && featuredKey === "totalEmployees" && <span className={styles.scopeCaption}>Employees in your scope</span>}</div>)}</dl>{featuredKey === "totalEmployees" && "onProbation" in cards && <dl className={styles.additionalMetrics}><div className={styles.metric}><dt>On Probation</dt><dd>{cards.onProbation.toLocaleString()}</dd></div></dl>}</>;
 }
 
 export function EmployeeDashboard({ mode }: { mode: "hr" | "pro" }) {
@@ -98,15 +101,20 @@ export function EmployeeDashboard({ mode }: { mode: "hr" | "pro" }) {
   if (!data) return <Card><ErrorText>{error}</ErrorText><Button className="mt-3" variant="secondary" onClick={() => void load()}><IconRefresh className="size-4" />Retry</Button></Card>;
   const hr = mode === "hr" ? data as HrDashboard : null;
   const pro = mode === "pro" ? data as ProDashboard : null;
-  return <section className="min-w-0 space-y-6">
-    <PageHeader description={mode === "hr" ? "Monitor workforce readiness, profile completeness, new joiners and actions requiring HR attention." : "Private employee-document compliance derived from current records."} actions={<Button variant="secondary" onClick={() => void load()} disabled={loading}><IconRefresh className="size-4" />{loading ? "Refreshing…" : "Refresh"}</Button>} title={mode === "hr" ? "HR Dashboard" : "PRO Dashboard"} />
+  return <section data-figma-large-header="" className="min-w-0 space-y-6">
+    <PageHeader description={mode === "hr" ? "Monitor workforce readiness, profile completeness, new joiners and actions requiring HR attention." : "Private employee-document compliance derived from current records."} actions={<div data-desktop-page-actions=""><Button className={styles.headerRefresh} onClick={() => void load()} disabled={loading}><IconRefresh className="size-4" />{loading ? "Refreshing…" : "Refresh"}</Button></div>} title={mode === "hr" ? "HR Dashboard" : "PRO Dashboard"} />
     {error ? <ErrorText>{error}</ErrorText> : null}
-    <div className={styles.overview}>
-    <MetricCards cards={data.cards} />
+    <div className={styles.overview} data-dashboard-mode={mode}>
+    <aside className={styles.snapshot} aria-label={mode === "hr" ? "Workforce snapshot" : "Document snapshot"}>
+    <MetricCards cards={data.cards} featuredKey={mode === "pro" ? "pendingDocuments" : "totalEmployees"} />
+    {hr ? <div className={styles.sidebarRecords}><ListCard title="New Joiners" items={hr.newJoiners.map((row) => ({ id: row.id, name: row.name, detail: `${row.employeeCode} · ${row.joiningDate}` }))} /><ListCard title="Probation Tracking" items={hr.probation.map((row) => ({ id: row.id, name: row.name, detail: `${row.state} · ${row.endDate ?? "End date missing"}` }))} /></div> : null}
+    {pro ? <div className={styles.sidebarRecords}><ExpiryCard title="Expiring In 7 Days" rows={pro.expiry.within7} /><ExpiryCard title="Expiring In 30 Days" rows={pro.expiry.within30} /><ExpiryCard title="Expiring In 60 Days" rows={pro.expiry.within60} /><ExpiryCard title="Expired" rows={pro.expiry.expired} /></div> : null}
+    <Button className={styles.compactRefresh} variant="secondary" onClick={() => void load()} disabled={loading}><IconRefresh className="size-4" />{loading ? "Refreshing…" : "Refresh"}</Button>
+    </aside>
     <div className={styles.activity}>
     {hr ? <>
       <HrWorkflowSummary />
-      <div className={styles.attention}><ListCard previewLimit={5} collapsible title="Pending HR Actions" items={hr.pendingActions.map((row) => ({ id: row.id, name: row.name, detail: row.completion.missing.join(", ") }))} /><ListCard title="New Joiners" items={hr.newJoiners.map((row) => ({ id: row.id, name: row.name, detail: `${row.employeeCode} · ${row.joiningDate}` }))} /><ListCard title="Probation Tracking" items={hr.probation.map((row) => ({ id: row.id, name: row.name, detail: `${row.state} · ${row.endDate ?? "End date missing"}` }))} /></div>
+      <div className={styles.attention}><ListCard previewLimit={5} collapsible title="Pending HR Actions" items={hr.pendingActions.map((row) => ({ id: row.id, name: row.name, detail: row.completion.missing.join(", ") }))} /></div>
       <ProfileCompleteness breakdowns={hr.breakdowns} />
       <RecentActivityCard rows={hr.recentActivity} />
     </> : null}
@@ -121,7 +129,6 @@ export function EmployeeDashboard({ mode }: { mode: "hr" | "pro" }) {
         onPage={setCompliancePage}
         onPageSize={handleCompliancePageSize}
       />
-      <div className="grid min-w-0 gap-4 lg:grid-cols-2"><ExpiryCard title="Expiring In 7 Days" rows={pro.expiry.within7} /><ExpiryCard title="Expiring In 30 Days" rows={pro.expiry.within30} /><ExpiryCard title="Expiring In 60 Days" rows={pro.expiry.within60} /><ExpiryCard title="Expired" rows={pro.expiry.expired} /></div>
     </> : null}
     </div>
     </div>
@@ -143,16 +150,17 @@ function ComplianceCard({ rows, pagination, search, status, onSearch, onStatus, 
     const timer = window.setTimeout(() => onSearch(searchDraft.trim()), 300);
     return () => window.clearTimeout(timer);
   }, [onSearch, searchDraft]);
+  const documentKinds = [...new Set(rows.flatMap(row => Object.keys(row.documents)))];
 
-  return <Card>
-    <SectionHeader title="Employee Compliance" description="Required Passport, Visa, Emirates ID, Work Permit, Medical and Insurance records." />
+  return <Card className={styles.complianceCard}>
+    <div className={styles.complianceHeading}><SectionHeader title="Employee Compliance" description="Required Passport, Visa, Emirates ID, Work Permit, Medical and Insurance records." /></div>
     {rows.length || search || status ? <>
-      <div className="mt-3 grid min-w-0 gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(12rem,.45fr)]">
-        <Field label="Search employees"><TextInput aria-label="Search employee compliance" placeholder="Search by employee name" value={searchDraft} onChange={(event) => setSearchDraft(event.target.value)} /></Field>
-        <Field label="Document status"><Select aria-label="Compliance status" value={status} onChange={(event) => onStatus(event.target.value)}><option value="">All statuses</option><option value="Active">Active</option><option value="Expiring Soon">Expiring Soon</option><option value="Expired">Expired</option><option value="Missing">Missing</option></Select></Field>
-      </div>
-      <p className="mt-3 text-xs text-text-secondary" aria-live="polite">{pagination.total.toLocaleString()} matching employee{pagination.total === 1 ? "" : "s"}</p>
-      {rows.length ? <div data-testid="employee-compliance-list" className="mt-3 grid gap-3 lg:grid-cols-2">{rows.map((row) => <article key={row.employeeId} className="rounded-lg border border-brand-border p-3"><Link href={`/users/${row.employeeId}?tab=pro`} className="text-sm font-semibold text-brand-primary hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-primary">{row.employee}</Link><div className="mt-2 flex flex-wrap gap-1.5">{Object.entries(row.documents).map(([kind, document]) => { const label = documentLabels[kind] ?? titleCaseLabel(kind); return <Link key={kind} href={`/users/${row.employeeId}?tab=pro${document.documentId ? `&document=${document.documentId}` : ""}`} aria-label={`${row.employee} ${label} ${document.status}`}><StatusBadge value={`${label}: ${formatStatusLabel(document.status)}`} /></Link>; })}</div></article>)}</div> : <EmptyState kind="search" title="No records match the selected filters" action={<Button type="button" variant="secondary" size="compact" onClick={() => { setSearchDraft(""); onSearch(""); onStatus(""); }}>Clear filters</Button>} />}
+      <SearchActionBar className={styles.complianceSearch} search={<Field label="Search employees"><TextInput aria-label="Search employee compliance" placeholder="Search by employee name" value={searchDraft} onChange={(event) => setSearchDraft(event.target.value)} /></Field>} filters={<Field label="Document status"><Select aria-label="Compliance status" value={status} onChange={(event) => onStatus(event.target.value)}><option value="">All statuses</option><option value="Active">Active</option><option value="Expiring Soon">Expiring Soon</option><option value="Expired">Expired</option><option value="Missing">Missing</option></Select></Field>} />
+      <p className={styles.matchingCount} aria-live="polite">{pagination.total.toLocaleString()} matching employee{pagination.total === 1 ? "" : "s"}</p>
+      {rows.length ? <div data-testid="employee-compliance-list" className="mt-3">
+        <TableShell headerTone="subtle" className={styles.desktopCompliance} mobileCards={false}><TableHead><tr><Th>Employee</Th>{documentKinds.map(kind => <Th key={kind}>{documentLabels[kind] ?? titleCaseLabel(kind)}</Th>)}<Th>Action</Th></tr></TableHead><tbody>{rows.map(row => <tr key={row.employeeId}><Td>{row.employee}</Td>{documentKinds.map(kind => { const document = row.documents[kind]; return <Td key={kind}>{document ? <Link href={`/users/${row.employeeId}?tab=pro${document.documentId ? `&document=${document.documentId}` : ""}`} data-document-state={document.status} aria-label={`${row.employee} ${documentLabels[kind] ?? titleCaseLabel(kind)} ${document.status}`}><StatusBadge value={formatStatusLabel(document.status)} /></Link> : "—"}</Td>; })}<Td><Link className="text-brand-link" href={`/users/${row.employeeId}?tab=pro`}>Review</Link></Td></tr>)}</tbody></TableShell>
+        <div className={styles.complianceList}>{rows.map((row) => <RecordCard key={row.employeeId} identity={<Link href={`/users/${row.employeeId}?tab=pro`}><RecordIdentity title={row.employee} subtitle={Object.keys(row.documents).slice(0, 3).map(kind => documentLabels[kind] ?? titleCaseLabel(kind)).join(", ") + (Object.keys(row.documents).length > 3 ? ` + ${Object.keys(row.documents).length - 3} more` : "")} icon={<IconUserShield />} /></Link>} status={<span>{Object.values(row.documents).filter(document => document.status === "Missing").length} documents missing</span>}><div className="flex flex-wrap gap-1.5">{Object.entries(row.documents).map(([kind, document]) => { const label = documentLabels[kind] ?? titleCaseLabel(kind); return <Link key={kind} href={`/users/${row.employeeId}?tab=pro${document.documentId ? `&document=${document.documentId}` : ""}`} aria-label={`${row.employee} ${label} ${document.status}`}><StatusBadge value={`${label}: ${formatStatusLabel(document.status)}`} /></Link>; })}</div></RecordCard>)}</div>
+      </div> : <EmptyState kind="search" title="No records match the selected filters" action={<Button type="button" variant="secondary" size="compact" onClick={() => { setSearchDraft(""); onSearch(""); onStatus(""); }}>Clear filters</Button>} />}
       <Pagination page={pagination.page} pageSize={pagination.pageSize} total={pagination.total} totalPages={pagination.totalPages} pageSizeOptions={SERVER_PAGE_SIZE_OPTIONS} onPageChange={onPage} onPageSizeChange={(value) => { if (value !== "all") onPageSize(value); }} />
     </> : <EmptyState>No employees are visible in the current scope.</EmptyState>}
   </Card>;
@@ -161,7 +169,7 @@ function ComplianceCard({ rows, pagination, search, status, onSearch, onStatus, 
 function ListCard({ title, items, collapsible = false, previewLimit }: { title: string; items: { id: string; name: string; detail: string }[]; collapsible?: boolean; previewLimit?: number }) {
   const [expanded, setExpanded] = useState(false);
   const visibleItems = previewLimit && !expanded ? items.slice(0, previewLimit) : items;
-  return <Card><SectionHeader title={title} />{items.length ? <><ul aria-label={title} className="mt-2 divide-y divide-slate-100">{visibleItems.map((row) => <li key={row.id} className="py-2"><Link className="text-sm font-medium text-brand-primary hover:underline" href={`/users/${row.id}?tab=hr`}>{row.name}</Link>{collapsible ? <details className="mt-1 text-xs text-text-secondary"><summary className="cursor-pointer rounded focus-visible:outline-2 focus-visible:outline-brand-primary">Review missing fields</summary><p className="mt-2 rounded-lg bg-surface-subtle p-2.5">{row.detail}</p></details> : <p className="text-xs text-text-secondary">{row.detail}</p>}</li>)}</ul>{previewLimit && items.length > previewLimit ? <Button type="button" variant="ghost" size="compact" className="mt-2" aria-expanded={expanded} onClick={() => setExpanded((current) => !current)}>{expanded ? "Show Fewer" : `View All (${items.length})`}</Button> : null}</> : <EmptyState>Nothing requires attention.</EmptyState>}</Card>;
+  return <Card className={collapsible ? styles.pendingCard : undefined}><SectionHeader title={title} />{items.length ? <>{collapsible ? <TableShell headerTone="subtle" className={styles.desktopPending} mobileCards={false}><TableHead><tr><Th>Employee</Th><Th>Action</Th></tr></TableHead><tbody>{visibleItems.map(row => <tr key={row.id}><Td><Link href={`/users/${row.id}?tab=hr`}>{row.name}</Link></Td><Td><details><summary>Review missing fields</summary><p>{row.detail}</p><Link href={`/users/${row.id}?tab=hr`}>Open employee →</Link></details></Td></tr>)}</tbody></TableShell> : null}<ul aria-label={title} className={collapsible ? styles.compactPending : "mt-2 divide-y divide-slate-100"}>{visibleItems.map((row) => <li key={row.id} className="py-2">{collapsible ? <RecordCard identity={<Link href={`/users/${row.id}?tab=hr`}><RecordIdentity icon={<IconUsers />} title={row.name} subtitle="Review missing profile fields" /></Link>} status={<span>Needs review</span>}><details className="text-xs text-text-secondary"><summary className="cursor-pointer rounded focus-visible:outline-2 focus-visible:outline-brand-primary">Review missing fields</summary><p className="mt-2 rounded-lg bg-surface-subtle p-2.5">{row.detail}</p></details></RecordCard> : <><Link className="text-sm font-medium text-brand-primary hover:underline" href={`/users/${row.id}?tab=hr`}>{row.name}</Link><p className="text-xs text-text-secondary">{row.detail}</p></>}</li>)}</ul>{previewLimit && items.length > previewLimit ? <Button type="button" variant="ghost" size="compact" className="mt-2" aria-expanded={expanded} onClick={() => setExpanded((current) => !current)}>{expanded ? "Show Fewer" : `View All (${items.length})`}</Button> : null}</> : <EmptyState>Nothing requires attention.</EmptyState>}</Card>;
 }
 
 function ProfileCompleteness({ breakdowns }: { breakdowns: HrDashboard["breakdowns"] }) {
@@ -171,7 +179,7 @@ function ProfileCompleteness({ breakdowns }: { breakdowns: HrDashboard["breakdow
     const recorded = recordedRows.reduce((total, row) => total + row.count, 0);
     return { key, label: titleCaseLabel(key), missing, recorded, recordedRows };
   });
-  return <Card><SectionHeader title="Profile Data Completeness" description="A concise view of recorded and missing workforce profile information." />{summaries.length ? <ul className="mt-3 grid min-w-0 gap-2 sm:grid-cols-2">{summaries.map((summary) => <li key={summary.key} className="rounded-lg border border-brand-border bg-surface-subtle p-3"><div className="flex items-center justify-between gap-3"><span className="text-sm font-medium text-text-primary">{summary.label}</span><span className="text-xs tabular-nums text-text-secondary">{summary.recorded} complete · {summary.missing} missing</span></div>{summary.recordedRows.length ? <details className="mt-2 text-xs text-text-secondary"><summary className="cursor-pointer rounded focus-visible:outline-2 focus-visible:outline-brand-primary">View Recorded Breakdown</summary><ul className="mt-2 space-y-1">{summary.recordedRows.map((row) => <li key={row.label} className="flex justify-between gap-3"><span>{row.label}</span><strong>{row.count}</strong></li>)}</ul></details> : null}</li>)}</ul> : <EmptyState title="—" description="No data yet" />}</Card>;
+  return <Card className={styles.completeness}><SectionHeader title="Profile Data Completeness" description="A concise view of recorded and missing workforce profile information." />{summaries.length ? <ul className={styles.completenessList}>{summaries.map((summary) => <li key={summary.key} className={styles.completenessRow}><div className="flex items-center justify-between gap-3"><span className="text-sm font-medium text-text-primary">{summary.label}</span><span className={styles.completenessTrack} aria-hidden="true"><span style={{ width: `${summary.recorded + summary.missing ? summary.recorded / (summary.recorded + summary.missing) * 100 : 0}%` }} /></span><span className="text-xs tabular-nums text-text-secondary">{summary.recorded} complete · {summary.missing} missing</span></div>{summary.recordedRows.length ? <details className="mt-2 text-xs text-text-secondary"><summary className="cursor-pointer rounded focus-visible:outline-2 focus-visible:outline-brand-primary">View Recorded Breakdown</summary><ul className="mt-2 space-y-1">{summary.recordedRows.map((row) => <li key={row.label} className="flex justify-between gap-3"><span>{row.label}</span><strong>{row.count}</strong></li>)}</ul></details> : null}</li>)}</ul> : <EmptyState title="—" description="No data yet" />}</Card>;
 }
 
 function RecentActivityCard({ rows }: { rows: HrDashboard["recentActivity"] }) {

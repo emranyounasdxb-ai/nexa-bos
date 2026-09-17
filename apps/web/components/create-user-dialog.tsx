@@ -95,8 +95,8 @@ export function CreateUserDialog() {
 
   if (!visible) return null;
   return (
-    <div data-testid="create-user-modal-backdrop" className="fixed inset-0 z-[70] flex items-center justify-center bg-[#17101f]/45 p-4 backdrop-blur-sm" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) close(); }}>
-      <section ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="create-user-dialog-title" className="flex max-h-[calc(100dvh-2rem)] w-full min-w-0 flex-col overflow-hidden rounded-[24px] border border-brand-border bg-surface shadow-[var(--amafh-shadow-elevated)] sm:max-w-xl">
+    <div data-amafh-editor-backdrop="" data-testid="create-user-modal-backdrop" className="fixed inset-0 z-[70] flex items-center justify-center bg-[#17101f]/45 p-4 backdrop-blur-sm" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) close(); }}>
+      <section data-amafh-editor-panel="" ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="create-user-dialog-title" className="flex max-h-[calc(100dvh-2rem)] w-full min-w-0 flex-col overflow-hidden rounded-[24px] border border-brand-border bg-surface shadow-[var(--amafh-shadow-elevated)] sm:max-w-xl">
         <header className="flex shrink-0 items-center justify-between gap-3 border-b border-brand-border px-4 py-3">
           <h2 id="create-user-dialog-title" className="text-lg font-semibold">Create User</h2>
           <Button data-dialog-close="" type="button" variant="ghost" size="compact" disabled={submitting} aria-label="Close Create User" onClick={close}>Close</Button>

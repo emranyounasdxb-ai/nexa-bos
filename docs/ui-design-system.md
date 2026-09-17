@@ -1,5 +1,40 @@
 # AMAFH CORE — approved application design system
 
+## Current authority: approved Figma V2 (2026-09-17)
+
+The approved [AMAFH CORE Dashboard / Applications V2](https://www.figma.com/design/DTIFDUyNT3SlZoXMd2tByz/?node-id=0-1) replaces the visual references below. The earlier approval, captures and delivery notes are retained as historical evidence; they do not authorize release of this implementation. Work is on `codex/figma-v2-app-design`, based on clean `main` at `26e9055c3ce63194489ef2eba9739a19f1606fbe`. No merge, push or VPS deployment is authorized.
+
+Approved decisions: preserve all business logic, APIs, permissions, fields, actions, validation and submission flows; retain the unified Designations model (`/user-types`) and the four organization masters (Offices, Departments, Business Units, Teams). Do not add the obsolete standalone organization designation master. Preserve the official logo, PWA assets, uploads, secrets, backups and unrelated files. No fabricated data, additional metrics or unsupported interaction is approved. Screens without dedicated frames use the same shared system with their existing functionality and are explicitly recorded as adaptations in [the screen checklist](ui-figma-v2-checklist.md).
+
+Approved navigation assignment: Dashboard → existing role dashboard; Cases → Applications, Customers; Operations → Workflows, Case Operations, Asset Register, Asset Categories; Performance → Targets, KPI Scorecards; People & HR → Users, HR, PRO, Organization, Hierarchy, Attendance, Leave, Contracts, Transfers, Exit/Offboarding, Approval Centre; Finance → existing Finance page; Reports → Comparison/Drill-down, Attendance Reports, Asset Reports; Administration → Banks & Products, unified Designations, Security, existing Notification Administration. Existing route and permission guards remain authoritative, empty groups are hidden, and the personal notification bell remains in the header.
+Manrope is bundled locally under its SIL Open Font License; no third-party font service is required. Existing `ui.tsx`, page patterns, navigation permission groups, charts, select/date/file controls and theme persistence remain the shared implementation. Desktop uses a navy horizontal header at 1280px and above; 640–1279px uses a persistent five-destination rail; smaller widths use the approved app-style cards and fixed bottom navigation. Existing permitted destinations remain available through group dialogs and More; the duplicated contextual strip is hidden for the generic shell. TL retains its existing query-backed workspace strip as a role adaptation. Do not render fake phone status bars or OS gesture handles. Phone controls use 48px heights, tabs at least 44px, safe-area bottom padding, and single-column forms where required.
+
+| Token purpose | Light | Dark |
+| --- | --- | --- |
+| Canvas | `#F7F8FB` | `#0D1320` |
+| Surface / nested surface | `#FFFFFF` / `#F3F4FA` | `#161F30` / `#202B40` |
+| Text / supporting text source | `#192340` / `#66748E` | `#F7FAFF` / `#D1DCEE` |
+| Action / action text | `#983795` / `#FFFFFF` | `#E498DF` / `#192338` |
+| Brand-soft surface | `#F7EDF7` | `#604765` |
+| Border / control boundary | `#E1E6F0` / `#78849C` | `#334159` / `#8196B6` |
+| Screen table header / text | `#3B3D73` / `#FFFFFF` | `#272D46` / `#F7FAFF` |
+
+The design-system palette still records `#594CB2`; inspected Applications and Designations desktop table frames establish `#3B3D73` for those light screen tables. Dark Applications (296:715, header 296:868) and catalogue references use the bright `#91BFFF` header with `#192338` text. HR, PRO, Asset Register, Asset Categories and Asset Reports use their subtle screen-header tone: light `#F3F2FA`, dark `#202B40`, with the approved accessible foregrounds. Remaining tables use the shared dark `#272D46` token. Screen-specific headers resolve the discrepancy.
+
+Measured geometry for the current correction: desktop header 56px. The owner's subsequent header review explicitly overrides Figma's original 10px menu text and left grouping: navigation is centered relative to the full page using equal outer grid tracks, with Manrope 14/600/20px text, 40px menu controls, 8px radii, 4px between items and 12px dropdown arrows. Utilities retain 34px controls and 17px radii; the theme control reuses the existing sun/moon artwork and matches adjacent utilities. Compact header controls are 44px with 16px radii, including the theme button. The tablet rail is 96px wide; mobile top navigation is 64px and bottom navigation 84px plus the real safe area. Default desktop fields/actions are 36px with 8px radii; screen references override these where measured (Applications 40/10, Designations 38/9, Organization 44/10). Compact editable controls use 48/14. Standard cards use 16px desktop and 20px compact radii; asset/HR/PRO desktop panels use their measured 14px radius. Phone editor sheets have zero outer radius, retaining the original forms and submissions. Status badges, icons and charts keep their measured shape-specific geometry instead of imposing one radius on every surface.
+
+Owner clarification on 17 September: keep the accessible color adjustments and match Figma geometry and layout exactly. Source semantic colors remain available as solid tokens. Readable small-text aliases use light supporting `#617089`, success `#147C5A`, warning `#A85300`, danger `#B9233B`, info `#2C61AF` on the approved soft surfaces. These slight foreground adjustments preserve the existing 4.5:1 text and 3:1 necessary-control contrast checks; source supporting `#66748E` on `#F3F4FA` and warning `#B95D00` on `#FFF3E5` fall below 4.5:1. Dark semantic pairs follow the inspected references. Status meaning and visible labels remain unchanged.
+
+Native reference sizes are desktop 1440px (height varies by frame), tablet 1194×834 and mobile 393×852. Main-workspace tablet fields/actions and mobile fields/actions use 48px app-style controls; public mobile forms inherit the same touch dimensions. Verification must include both themes, intermediate widths, fixed navigation, overflow, dialogs, keyboard access and genuine loading/empty/error/validation states. Test only against a separately created, connected-identity-verified disposable database. External screenshots and private test configuration are excluded from Git and deployment assets.
+
+### List and table typography: Customers reference (17 September 2026)
+
+The owner's subsequent typography approval uses the current rendered Customers list as the reference. This overrides the original 8–10px screen-specific table typography without changing Customers itself. At 100% zoom, Manrope table headers measure 11px/15.95px with weight 600; primary rows and links measure 12px/17.4px. Supporting row text and status labels use 11px/20px on desktop. Customers' tablet table retains 11px headers and 12px rows, while supporting/status text uses 12px/20px. Its mobile cards use 14px/21px primary text and links, with 12px/20px secondary text, detail labels/values and statuses. Both themes use the same sizes.
+
+The existing TableShell, RecordIdentity and RecordCard own these roles through shared list/table tokens. Native case queues consume the same tokens. Page overrides must not shrink text to fit columns; preserve wrapping and existing table scrolling. Typography changes do not authorize changes to page headings, navigation, columns, permissions, data, filters, actions or workflows. Verification and coverage limits are recorded in [the list typography review](ui-list-typography-review.md).
+
+## Historical visual decision and delivery record (superseded)
+
 Status: **Visual direction approved; implementation and release pending.**
 
 Approval: the OWNER navigation preview was accepted in this task, followed by explicit authorization to update the complete frontend, push a PR, pass CI and merge to `main`. This is not deployment authorization.

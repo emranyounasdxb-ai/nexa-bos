@@ -184,14 +184,21 @@ test("company hierarchy filters, locates, expands, inspects, and refreshes repor
   );
 
   const csrfToken = await signIn(page, "owner@example.com", "OwnerPass1!");
-  await page.getByRole("button", { name: "People menu" }).click();
+  await page.getByRole("button", { name: "People & HR menu", exact: true }).click();
   await page.getByRole("link", { name: "Hierarchy", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Organization hierarchy" })).toBeVisible();
   await selectBrandedOption(page.getByLabel("Office filter"), dxb.id);
   await selectBrandedOption(page.getByLabel("Department filter"), department.id);
+  const filteredResponse = page.waitForResponse(response => {
+    const url = new URL(response.url());
+    return response.ok() && url.pathname === "/api/v1/organization/hierarchy" && url.searchParams.get("teamId") === team.id && url.searchParams.get("departmentId") === department.id;
+  });
   await selectBrandedOption(page.getByLabel("Team filter"), team.id);
+  const filteredHierarchy = await (await filteredResponse).json() as { nodes: unknown[]; scope: string; rootIds: string[] };
+  await expect(page.getByText(`${filteredHierarchy.nodes.length} visible employees · ${filteredHierarchy.scope} scope`, { exact: true })).toBeVisible();
 
   const reportingTree = page.getByRole("list", { name: "Reporting tree" });
+  await expect.poll(() => reportingTree.locator(':scope > li > [data-testid^="hierarchy-node-"]').evaluateAll(nodes => nodes.map(node => node.getAttribute("data-testid")!.replace("hierarchy-node-", "")))).toEqual(filteredHierarchy.rootIds);
   const ownerNode = page.getByTestId(`hierarchy-node-${owner.id}`);
   await expect(ownerNode).toBeVisible();
   const hierarchyCanvas = page.getByTestId("hierarchy-canvas");

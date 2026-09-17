@@ -50,14 +50,14 @@ async function signIn(
 }
 
 async function ensureAssetsMenuOpen(page: Page) {
-  const assetsLink = page.getByRole("dialog", { name: "Assets", exact: true }).getByRole("link", { name: "Assets", exact: true });
+  const assetsLink = page.getByRole("dialog", { name: "Operations", exact: true }).getByRole("link", { name: "Asset Register", exact: true });
   if (!(await assetsLink.isVisible())) {
-    await expect(page.getByRole("button", { name: "Assets menu" })).toBeVisible({
+    await expect(page.getByRole("button", { name: "Operations menu" })).toBeVisible({
       timeout: 30_000,
     });
-    await page.getByRole("button", { name: "Assets menu" }).click();
+    await page.getByRole("button", { name: "Operations menu" }).click();
   }
-  await expect(page.getByRole("dialog", { name: "Assets", exact: true }).getByRole("link", { name: "Assets", exact: true })).toBeVisible({
+  await expect(assetsLink).toBeVisible({
     timeout: 5_000,
   });
 }
@@ -126,7 +126,7 @@ test("owner completes tracked Asset creation, custody, profile, offboarding, ret
   const suffix = `${Date.now()}`.slice(-8);
 
   await signIn(page, request);
-  await page.getByRole("dialog", { name: "Assets", exact: true }).getByRole("link", { name: "Assets", exact: true }).click();
+  await page.getByRole("dialog", { name: "Operations", exact: true }).getByRole("link", { name: "Asset Register", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Asset Register" })).toBeVisible();
 
   await page.getByRole("button", { name: "Add asset" }).click();
@@ -139,6 +139,7 @@ test("owner completes tracked Asset creation, custody, profile, offboarding, ret
   await page.getByLabel("Serial Number / Service Tag").fill(serial);
   await page.getByRole("button", { name: "Create asset", exact: true }).click();
   await expect(page.getByText(/AST-\d{6} created/)).toBeVisible();
+  await page.getByLabel("Search Assets", { exact: true }).fill(serial);
   const pcRow = page.getByRole("row").filter({ hasText: serial });
   await expect(pcRow).toBeVisible();
   const assetCode = (await pcRow.getByRole("link").textContent()) ?? "";
@@ -151,7 +152,11 @@ test("owner completes tracked Asset creation, custody, profile, offboarding, ret
   await page.getByLabel("Model").fill("iPhone 17");
   const imei = `3598765${suffix}`.slice(0, 15);
   await page.getByLabel("IMEI").fill(imei);
+  const phoneCreateRefresh = page.waitForResponse(response => response.request().method() === "GET" && response.url().includes("/api/v1/assets?") && new URL(response.url()).searchParams.get("q") === serial);
   await page.getByRole("button", { name: "Create asset", exact: true }).click();
+  await (await phoneCreateRefresh).finished();
+  await expect(page.getByText("Updating results…", { exact: true })).toHaveCount(0);
+  await page.getByLabel("Search Assets", { exact: true }).fill(imei);
   await expect(page.getByRole("row").filter({ hasText: imei })).toBeVisible();
 
   await page.getByRole("button", { name: "Add asset" }).click();
@@ -162,9 +167,14 @@ test("owner completes tracked Asset creation, custody, profile, offboarding, ret
   await page.getByLabel("Mobile Number").fill(mobile);
   await page.getByLabel("ICCID / SIM Identifier").fill(iccid);
   await page.getByLabel("Operator / Provider").fill("du");
+  const simCreateRefresh = page.waitForResponse(response => response.request().method() === "GET" && response.url().includes("/api/v1/assets?") && new URL(response.url()).searchParams.get("q") === imei);
   await page.getByRole("button", { name: "Create asset", exact: true }).click();
+  await (await simCreateRefresh).finished();
+  await expect(page.getByText("Updating results…", { exact: true })).toHaveCount(0);
+  await page.getByLabel("Search Assets", { exact: true }).fill(iccid);
   await expect(page.getByRole("row").filter({ hasText: iccid })).toBeVisible();
 
+  await page.getByLabel("Search Assets", { exact: true }).fill(serial);
   await pcRow.getByRole("link", { name: assetCode }).click();
   await expect(page.getByRole("heading", { name: "Asset identity and custody" })).toBeVisible({ timeout: 30_000 });
   await page.getByRole("tab", { name: "Custody" }).click();
@@ -213,7 +223,8 @@ test("owner completes tracked Asset creation, custody, profile, offboarding, ret
   await expect(page.getByText("CSV", { exact: true })).toHaveCount(0);
 
   await ensureAssetsMenuOpen(page);
-  await page.getByRole("dialog", { name: "Assets", exact: true }).getByRole("link", { name: "Assets", exact: true }).click();
+  await page.getByRole("dialog", { name: "Operations", exact: true }).getByRole("link", { name: "Asset Register", exact: true }).click();
+  await page.getByLabel("Search Assets", { exact: true }).fill(assetCode);
   await page.getByRole("row").filter({ hasText: assetCode }).getByRole("link").click();
   await page.getByRole("tab", { name: "Custody" }).click();
   await selectBrandedOption(page.getByLabel("Return Condition"), "Fair");
@@ -336,7 +347,7 @@ test("Assets.View-only user sees own custody without privileged controls or muta
 
   await signIn(page, request, viewer.email, "UserPass1!");
   await expect(page.getByRole("link", { name: "Asset categories" })).toHaveCount(0);
-  await page.getByRole("dialog", { name: "Assets", exact: true }).getByRole("link", { name: "Assets", exact: true }).click();
+  await page.getByRole("dialog", { name: "Operations", exact: true }).getByRole("link", { name: "Asset Register", exact: true }).click();
   await expect(page.getByRole("row").filter({ hasText: asset.assetCode })).toBeVisible();
   await expect(page.getByRole("button", { name: "Add asset" })).toHaveCount(0);
   await page.getByRole("link", { name: asset.assetCode }).click();
@@ -412,8 +423,8 @@ test("Asset drawer and custody workspace preserve keyboard focus and avoid viewp
   await addAsset.click();
   const box = await drawer.boundingBox();
   expect(box).not.toBeNull();
-  expect(box!.x).toBe(12);
-  expect(box!.width).toBe(366);
+  expect(box!.x).toBe(0);
+  expect(box!.width).toBe(390);
   expect(
     await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth),
   ).toBeTruthy();
