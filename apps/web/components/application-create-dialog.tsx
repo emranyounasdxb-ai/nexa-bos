@@ -370,6 +370,7 @@ export function ApplicationCreateDialog({
 
   return (
     <div
+      data-amafh-dialog-backdrop=""
       className="fixed inset-0 z-[70] flex items-center justify-center bg-[#17101f]/45 p-3 backdrop-blur-sm sm:p-4"
       role="presentation"
       onMouseDown={(event) => {
@@ -377,6 +378,7 @@ export function ApplicationCreateDialog({
       }}
     >
       <section
+        data-amafh-create-application=""
         ref={dialogRef}
         role="dialog"
         aria-modal="true"
@@ -405,7 +407,7 @@ export function ApplicationCreateDialog({
             void submit();
           }}
         >
-          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto bg-surface-subtle px-4 py-4 sm:px-5">
+          <div data-amafh-application-form="" className="min-h-0 flex-1 space-y-4 overflow-y-auto bg-surface-subtle px-4 py-4 sm:px-5">
             {error ? <ErrorText>{error}</ErrorText> : null}
             <fieldset className="min-w-0 rounded-[10px] border border-brand-border p-3 sm:p-4">
               <legend className="px-1 text-sm font-semibold text-text-primary">Customer</legend>

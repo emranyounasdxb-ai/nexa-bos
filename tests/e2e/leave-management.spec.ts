@@ -63,6 +63,16 @@ test("leave workspace supports keyboard-safe request, balances and URL tabs", as
   await prepareLeave(request);
   await page.setViewportSize({ width: 1440, height: 900 });
   await signIn(page);
+  const existingRequests = await page.request.get(`${apiOrigin}/api/v1/leave/requests`);
+  expect(existingRequests.ok(), await existingRequests.text()).toBeTruthy();
+  const occupied = ((await existingRequests.json()) as { items: { startDate: string; endDate: string }[] }).items;
+  let requestStart = new Date("2027-04-05T00:00:00Z");
+  const dateOnly = (date: Date) => date.toISOString().slice(0, 10);
+  const requestEnd = () => new Date(requestStart.getTime() + 86_400_000);
+  while (occupied.some(item => item.startDate <= dateOnly(requestEnd()) && item.endDate >= dateOnly(requestStart))) {
+    requestStart = new Date(requestStart.getTime() + 7 * 86_400_000);
+  }
+  expect(requestStart.getUTCFullYear()).toBe(2027);
   await page.goto("/leave");
   await expect(page.getByRole("heading", { name: "Leave management" })).toBeVisible();
   await expect(page.getByText("Annual", { exact: true })).toBeVisible();
@@ -77,17 +87,17 @@ test("leave workspace supports keyboard-safe request, balances and URL tabs", as
   await expect(trigger).toBeFocused();
 
   await trigger.click();
-  await page.getByLabel("Start date").fill("2027-04-05");
-  await page.getByLabel("End date").fill("2027-04-06");
+  await page.getByLabel("Start date").fill(dateOnly(requestStart));
+  await page.getByLabel("End date").fill(dateOnly(requestEnd()));
   await page.getByLabel("Reason", { exact: true }).fill("Synthetic browser leave request");
   await captureViewportPair(page, testInfo, "leave-request-filled");
   await page.getByRole("button", { name: "Submit request" }).click();
   await expect(page.getByText("Leave request submitted for approval.")).toBeVisible();
-  await expect(page.getByText("2027-04-05 – 2027-04-06")).toBeVisible();
+  await expect(page.getByText(`${dateOnly(requestStart)} – ${dateOnly(requestEnd())}`)).toBeVisible();
   await captureViewportPair(page, testInfo, "leave-submitted");
   await captureViewportPair(page, testInfo, "leave-submitted-record", page.getByRole("heading", { name: "My requests", exact: true }));
 
-  const cancelTrigger = page.getByRole("button", { name: "Cancel", exact: true });
+  const cancelTrigger = page.locator("tr").filter({ hasText: `${dateOnly(requestStart)} – ${dateOnly(requestEnd())}` }).getByRole("button", { name: "Cancel", exact: true });
   await cancelTrigger.click();
   const cancelDialog = page.getByRole("dialog", { name: "Cancel leave request" });
   await expect(cancelDialog).toBeVisible();

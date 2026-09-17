@@ -25,3 +25,7 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+## Manrope
+
+Manrope variable font is self-hosted from the Google Fonts repository (`ofl/manrope/Manrope[wght].ttf`). Copyright 2018 The Manrope Project Authors. SIL Open Font License 1.1; the complete license is preserved in `apps/web/public/fonts/manrope/OFL.txt`. Font SHA256: `3ae11c49db0455a3cc33e37d380f20fdb8c7f8b41dc07625c177e3d87a9d6ae6`.

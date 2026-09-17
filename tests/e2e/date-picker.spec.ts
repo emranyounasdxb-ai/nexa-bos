@@ -213,7 +213,7 @@ test("application filters use the compact responsive grid without resizing contr
   const layouts = [
     { width: 1824, height: 1000, columns: 6, maxCardHeight: 300 },
     { width: 1440, height: 900, columns: 6, maxCardHeight: 160 },
-    { width: 390, height: 844, columns: 2, maxCardHeight: 520 },
+    { width: 393, height: 852, columns: 1, maxCardHeight: 760 },
   ];
 
   for (const layout of layouts) {
@@ -247,7 +247,7 @@ test("application filters use the compact responsive grid without resizing contr
     });
 
     expect(metrics.cardHeight).toBeLessThan(layout.maxCardHeight);
-    expect(metrics.controlHeights.every((height) => height === 32)).toBeTruthy();
+    expect(metrics.controlHeights.every((height) => height === (layout.width < 640 ? 48 : 32))).toBeTruthy();
     expect(metrics.childrenFit).toBeTruthy();
     expect(metrics.pageOverflows).toBeFalsy();
   }

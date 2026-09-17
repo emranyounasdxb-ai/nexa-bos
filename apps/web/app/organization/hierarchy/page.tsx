@@ -12,6 +12,7 @@ import {
   Field,
   PageHeader,
   Select,
+  SearchActionBar,
   TextInput,
   cx,
 } from "@/components/ui";
@@ -21,6 +22,7 @@ import { staffDesignationName } from "@/lib/staff-designation";
 import { ConfigurationWorkspace } from "@/components/page-patterns";
 import { ProfilePhoto } from "@/components/profile-photo";
 import type { HierarchyNode, HierarchyPayload } from "@/lib/types";
+import styles from "./hierarchy.module.css";
 
 export default function OrganizationHierarchyPage() {
   const api = getBrowserApiUrl();
@@ -118,7 +120,7 @@ export default function OrganizationHierarchyPage() {
   }
 
   return (
-    <section className="space-y-4">
+    <section className={`${styles.hierarchy} space-y-4`}>
       <PageHeader
         title="Organization hierarchy"
         description="Current reporting relationships from saved employee reporting-manager data."
@@ -135,8 +137,17 @@ export default function OrganizationHierarchyPage() {
       />
       <ErrorText>{error}</ErrorText>
 
-      <ConfigurationWorkspace controls={<Card className="space-y-4">
-        <div className="grid gap-3 md:grid-cols-4">
+      <ConfigurationWorkspace toolbar controls={<Card className={`${styles.toolbar} space-y-4`}>
+        <form onSubmit={submitSearch}>
+        <SearchActionBar search={<Field label="Employee search" htmlFor="hierarchy-search">
+          <TextInput id="hierarchy-search" aria-label="Employee search" placeholder="Search people or employee code" value={searchDraft} onChange={(event) => setSearchDraft(event.target.value)} />
+        </Field>} activeFilters={[
+          ...(officeId ? [{ label: "Office", value: data?.filters.offices.find(office => office.id === officeId)?.name ?? officeId }] : []),
+          ...(departmentId ? [{ label: "Department", value: data?.filters.departments.find(department => department.id === departmentId)?.name ?? departmentId }] : []),
+          ...(businessUnitId ? [{ label: "Business Unit", value: data?.filters.businessUnits.find(unit => unit.id === businessUnitId)?.name ?? businessUnitId }] : []),
+          ...(teamId ? [{ label: "Team", value: data?.filters.teams.find(team => team.id === teamId)?.name ?? teamId }] : []),
+          ...(includeInactive ? [{ label: "Employees", value: "Includes inactive" }] : []),
+        ]} filters={<div className="grid gap-3 md:grid-cols-4">
           <Field label="Company / Office" htmlFor="hierarchy-office">
             <Select
               id="hierarchy-office"
@@ -213,21 +224,12 @@ export default function OrganizationHierarchyPage() {
             />
             Include inactive / historical employees
           </label>
-        </div>
-        <form className="flex flex-wrap items-end gap-2" onSubmit={submitSearch}>
-          <Field label="Employee search" htmlFor="hierarchy-search" className="min-w-0 basis-full">
-            <TextInput
-              id="hierarchy-search"
-              aria-label="Employee search"
-              placeholder="Employee code or name"
-              value={searchDraft}
-              onChange={(event) => setSearchDraft(event.target.value)}
-            />
-          </Field>
+        </div>} actions={<>
           <Button type="submit">Search</Button>
           <Button type="button" variant="secondary" onClick={resetSelection}>
             Clear search
           </Button>
+        </>} />
         </form>
         {searchQuery ? (
           <div aria-label="Hierarchy search results" className="flex flex-wrap gap-2">
@@ -258,7 +260,7 @@ export default function OrganizationHierarchyPage() {
         </div>
       </div>
 
-      <div className="grid min-w-0 gap-4 2xl:grid-cols-[minmax(0,1fr)_18rem]">
+      <div className={`${styles.treeLayout} grid min-w-0 gap-6`}>
         <div data-testid="hierarchy-canvas" className="min-w-0">
           <Card className="min-w-0 overflow-x-auto p-3">
             {data?.rootIds.length ? (
@@ -315,7 +317,7 @@ function HierarchyBranch({
   const hasParentConnector = siblingIndex !== undefined && siblingCount !== undefined;
   const multipleSiblings = hasParentConnector && siblingCount > 1;
   return (
-    <li className={cx("relative flex flex-col items-center px-2", hasParentConnector && "pt-5")}>
+    <li data-hierarchy-branch="" className={cx("relative flex flex-col items-center px-2", hasParentConnector && "pt-5")}>
       {hasParentConnector ? (
         <>
           <span

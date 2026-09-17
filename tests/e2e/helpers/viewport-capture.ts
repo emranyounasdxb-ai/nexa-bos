@@ -25,26 +25,39 @@ export async function waitForSettledCharts(page: Page) {
   }, { timeout: 10_000, intervals: [100, 100, 200, 200], message: "Chart SVG geometry must settle before visual evidence" }).toBe(true);
 }
 
-export async function captureViewport(page: Page, path: string, anchor?: Locator) {
+export async function captureViewport(page: Page, path: string, anchor?: Locator, anchorOffset = 0) {
   const viewport = page.viewportSize();
   expect(viewport).not.toBeNull();
-  await page.waitForLoadState("networkidle");
+  await page.waitForLoadState("domcontentloaded");
   await expect(page.getByText(/^Loading(?:[ .…]|$)/i)).toHaveCount(0);
   await expect(page.getByRole("button", { name: /^(?:Saving|Submitting|Processing)(?:\.{3}|…)?$/i })).toHaveCount(0);
   await expect(page.locator('[aria-busy="true"]')).toHaveCount(0);
   await page.evaluate(() => document.fonts.ready);
+  await expect.poll(() => page.locator("img:visible").evaluateAll(images => images.every(image => (image as HTMLImageElement).complete)), { message: "Visible images must settle before screenshots" }).toBe(true);
+  let previousLayout = "";
+  let stableLayoutSamples = 0;
+  await expect.poll(async () => {
+    const layout = await page.locator("main:visible").evaluateAll(elements => elements.map(element => ({ text: element.textContent, width: element.clientWidth, height: element.scrollHeight })));
+    const signature = JSON.stringify(layout);
+    stableLayoutSamples = signature === previousLayout ? stableLayoutSamples + 1 : 0;
+    previousLayout = signature;
+    return stableLayoutSamples >= 2;
+  }, { intervals: [100, 100, 200, 200], message: "Loaded page content and geometry must settle before screenshots" }).toBe(true);
   const sidebar = page.locator('aside[aria-label="Application sidebar"]');
   if (await sidebar.count()) {
-    await expect.poll(() => sidebar.evaluate((element, mobile) => {
+    await expect.poll(() => sidebar.evaluate((element, width) => {
       const box = element.getBoundingClientRect();
-      return mobile
-        ? element.getAttribute("data-mobile-open") === "true" ? Math.abs(box.width - 56) < 0.1 : (element as HTMLElement).inert && getComputedStyle(element).display === "none"
-        : Math.abs(box.width - 44) < 0.1;
-    }, viewport!.width < 1024)).toBe(true);
+      const visible = getComputedStyle(element).display !== "none";
+      if (width < 640) return element.getAttribute("data-mobile-open") === "true"
+        ? visible && box.width <= width - 32 && box.width >= Math.min(340,width - 32) - 1
+        : (element as HTMLElement).inert && !visible;
+      return width < 1280 ? visible && Math.abs(box.width - 96) < 1 : !visible;
+    }, viewport!.width)).toBe(true);
   }
   if (anchor) {
     await anchor.scrollIntoViewIfNeeded();
     await anchor.evaluate(element => element.scrollIntoView({ block: "start", inline: "nearest", behavior: "instant" }));
+    if (anchorOffset) await page.evaluate(offset => window.scrollBy(0, -offset), anchorOffset);
     await expect(anchor).toBeInViewport();
   } else {
     await page.evaluate(() => window.scrollTo(0, 0));
@@ -67,7 +80,7 @@ export async function captureViewport(page: Page, path: string, anchor?: Locator
     return tab.left < strip.left - 1 || tab.right > strip.right + 1 ? [selected.textContent] : [];
   })), { message: "Selected tabs must remain visible within their own horizontal strip" }).toEqual([]);
   await waitForSettledCharts(page);
-  await page.screenshot({ path, fullPage: false, animations: "disabled" });
+  await page.screenshot({ path, fullPage: false, animations: "disabled", style: "nextjs-portal { display: none !important; }" });
 }
 
 /** Preserve an open workflow state and viewport while inspecting both themes. */
@@ -83,12 +96,12 @@ export async function captureViewportThemes(page: Page, path: string, anchor?: L
   }
 }
 
-/** Capture the same real state at both review sizes, then restore the test size. */
+/** Capture the same real state at native review sizes, then restore the test size. */
 export async function captureViewportPair(page: Page, testInfo: TestInfo, name: string, anchor?: Locator) {
   const original = page.viewportSize();
   const originalTheme = await page.locator("html").getAttribute("data-theme");
   try {
-    for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
+    for (const viewport of [{ width: 1440, height: 1120 }, { width: 1194, height: 834 }, { width: 393, height: 852 }]) {
       await page.setViewportSize(viewport);
       for (const theme of ["light", "dark"] as const) {
         await setVisualTheme(page, theme);

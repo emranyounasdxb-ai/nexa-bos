@@ -1,6 +1,7 @@
 "use client";
 
-import { ListWorkspace } from "@/components/page-patterns";
+import { AssetWorkspaceTabs, ListWorkspace, RecordCard, RecordIdentity } from "@/components/page-patterns";
+import styles from "./assets.module.css";
 
 import Link from "next/link";
 import {
@@ -12,7 +13,7 @@ import {
   type FormEvent,
 } from "react";
 
-import { IconX } from "@/components/icons";
+import { IconX, IconPlus, IconDevices2, IconCategory, IconChartBar, IconFileDescription } from "@/components/icons";
 import {
   Pagination,
   type PaginatedResponse,
@@ -29,7 +30,6 @@ import {
   FilterBar,
   LoadingState,
   PageHeader,
-  ResponsiveFilterPanel,
   SearchActionBar,
   Select,
   TableHead,
@@ -318,13 +318,15 @@ export default function AssetsPage() {
   }
 
   return (
-    <section className="min-w-0 space-y-4">
+    <section data-figma-large-header="" className={`${styles.assetPage} min-w-0 space-y-4`}>
       <PageHeader
         title="Asset Register"
         description="Track company Assets, current Office custody, and employee assignments."
+        actions={can("Assets.ManageStock") ? <div data-desktop-page-actions=""><Button className={styles.headerCreate} type="button" disabled={!options} onClick={(event) => openDrawer(event.currentTarget)}><IconPlus className="size-4" />Add asset</Button></div> : undefined}
       />
+      <AssetWorkspaceTabs active="/assets" items={[{href:"/assets",label:"Asset Register"},...(can("Assets.ManageMaster") ? [{href:"/assets/categories",label:"Asset Categories"}] : []),{href:"/assets/reports",label:"Asset Reports"}]} />
 
-      <ListWorkspace title="Asset records" filters={
+      <ListWorkspace title="Asset records" description="Find an asset by code or identifier." summary={<><h2 className={styles.overviewHeading}>Asset overview</h2><Card className={styles.total}><span className={styles.totalLabel}><IconFileDescription className={styles.totalIcon} /><span className={styles.desktopTotalLabel}>Authorized assets</span><span className={styles.compactTotalLabel}>Assets</span></span><strong>{loading ? "Loading…" : pageError ? "Unavailable" : total.toLocaleString()}</strong></Card></>} filters={
       <>
       <SearchActionBar search={
         <Field label="Search assets">
@@ -338,13 +340,12 @@ export default function AssetsPage() {
             }}
           />
         </Field>
-      } actions={can("Assets.ManageStock") ? <Button type="button" disabled={!options} onClick={(event) => openDrawer(event.currentTarget)}>Add asset</Button> : null} />
-      <ResponsiveFilterPanel activeFilters={[
+      } actions={can("Assets.ManageStock") ? <Button type="button" disabled={!options} onClick={(event) => openDrawer(event.currentTarget)}>Add asset</Button> : null} activeFilters={[
         q ? { label: "Search", value: q } : null,
         status ? { label: "Status", value: status } : null,
         office ? { label: "Office", value: options?.offices.find((item) => item.id === office)?.name ?? office } : null,
         category ? { label: "Category", value: options?.categories.find((item) => item.id === category)?.name ?? category } : null,
-      ].filter((item): item is { label: string; value: string } => Boolean(item))}>
+      ].filter((item): item is { label: string; value: string } => Boolean(item))} filters={
       <FilterBar className="sm:grid-cols-2 lg:grid-cols-[repeat(3,minmax(9rem,1fr))_auto]">
         <Field label="Status">
           <Select aria-label="Asset status filter" value={status} onChange={(event) => { setStatus(event.target.value); setPage(1); }}>
@@ -368,14 +369,14 @@ export default function AssetsPage() {
           <Button type="button" onClick={() => void refresh()}>Apply filters</Button>
         </div>
       </FilterBar>
-      </ResponsiveFilterPanel>
+      } />
       </>
       }>
 
       {pageError ? <ErrorText>{pageError}</ErrorText> : null}
       {message ? <p role="status" className="text-sm font-medium text-success">{message}</p> : null}
-      <Card className="!p-0">
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-brand-border px-3 py-2 sm:px-4">
+      <Card data-amafh-record-group="" className={styles.recordGroup}>
+        <div className={`${styles.recordsHeading} flex flex-wrap items-center justify-between gap-2 border-b border-brand-border px-3 py-2 sm:px-4`}>
           <div>
             <h2 className="text-[length:var(--amafh-text-section)] font-semibold text-text-primary">Assets in scope</h2>
             <p className="text-xs text-text-secondary">{loading ? "Refreshing…" : `${total.toLocaleString()} authorized record${total === 1 ? "" : "s"}`}</p>
@@ -383,9 +384,9 @@ export default function AssetsPage() {
           {loading && assets.length > 0 ? <span role="status" className="text-xs text-text-secondary">Updating results…</span> : null}
         </div>
         {loading && assets.length === 0 ? <LoadingState>Loading Assets…</LoadingState> : null}
-        {!loading && assets.length === 0 ? <EmptyState kind="search" title="No records match the selected filters" /> : null}
+        {!loading && !pageError && assets.length === 0 ? <EmptyState kind={q || status || office || category ? "search" : "records"} title={q || status || office || category ? "No records match the selected filters" : "Your asset register is ready"} description={q || status || office || category ? undefined : "Add an asset, set office custody and assign it to an employee."} /> : null}
         {assets.length > 0 ? (
-          <TableShell className={loading ? "opacity-70" : undefined}>
+          <TableShell headerTone="subtle" mobileCards={false} className={`${styles.desktopRecords} ${loading ? "opacity-70" : ""}`}>
             <TableHead>
               <tr>
                 <Th>Asset Code</Th>
@@ -410,6 +411,7 @@ export default function AssetsPage() {
             </tbody>
           </TableShell>
         ) : null}
+        <div className={styles.compactRecords}>{assets.map(asset => <RecordCard key={asset.id} identity={<Link href={`/assets/${asset.id}`}><RecordIdentity title={asset.assetCode} subtitle={`${asset.category.name} · ${identity(asset)}`} icon={<IconDevices2 />} tone="success" /></Link>} status={<Badge>{asset.status}</Badge>}><dl><div><dt>Office custody</dt><dd>{asset.office?.name ?? "—"}</dd></div><div><dt>Assigned to</dt><dd>{asset.currentAllocation?.employeeName ?? "Stock"}</dd></div><div><dt>Outstanding</dt><dd>{asset.outstanding ? "Yes" : "No"}</dd></div></dl></RecordCard>)}</div>
         <Pagination
           page={page}
           pageSize={pageSize}
@@ -423,8 +425,11 @@ export default function AssetsPage() {
         />
       </Card>
 
+      <nav className={styles.related} aria-label="Asset workspaces">{can("Assets.ManageMaster") && <Link href="/assets/categories"><RecordIdentity title="Asset categories" subtitle="Define which details to track" icon={<IconCategory />} /></Link>}<Link href="/assets/reports"><RecordIdentity title="Asset reports" subtitle="Review custody and assignments" icon={<IconChartBar />} tone="info" /></Link></nav>
+
       {drawerOpen ? (
         <div
+          data-amafh-editor-backdrop=""
           className="fixed inset-0 z-50 flex justify-end bg-[#17101f]/45 p-3 backdrop-blur-sm"
           role="presentation"
           onMouseDown={(event) => {
@@ -432,6 +437,7 @@ export default function AssetsPage() {
           }}
         >
           <aside
+            data-amafh-editor-panel=""
             ref={drawerRef}
             role="dialog"
             aria-modal="true"

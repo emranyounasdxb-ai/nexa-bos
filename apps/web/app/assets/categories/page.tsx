@@ -1,10 +1,11 @@
 "use client";
 
-import { RegisterWorkspace } from "@/components/page-patterns";
+import { AssetWorkspaceTabs, RegisterWorkspace, RecordCard, RecordIdentity } from "@/components/page-patterns";
+import styles from "../assets.module.css";
 
 import { useCallback, useEffect, useState } from "react";
 
-import { IconEdit, IconPower } from "@/components/icons";
+import { IconEdit, IconPower, IconAsset } from "@/components/icons";
 import { Pagination, useClientPagination } from "@/components/pagination";
 import {
   Badge,
@@ -116,11 +117,13 @@ export default function AssetCategoriesPage() {
   }
 
   return (
-    <section className="space-y-4">
+    <section data-figma-large-header="" className={`${styles.assetPage} ${styles.categoryPage} space-y-4`}>
       <PageHeader
         title="Asset Categories"
         description="Configure future individually tracked Asset types without changing the custody model."
       />
+      <AssetWorkspaceTabs active="/assets/categories" items={[...(can("Assets.View") ? [{href:"/assets",label:"Asset Register"},{href:"/assets/reports",label:"Asset Reports"}] : []),{href:"/assets/categories",label:"Asset Categories"}].sort((a,b) => ["/assets","/assets/categories","/assets/reports"].indexOf(a.href)-["/assets","/assets/categories","/assets/reports"].indexOf(b.href))} />
+      <h2 className={`${styles.categoryCount} ${styles.compactRecords}`}>{items.length} categories · {items.filter(item => item.status === "active").length} active</h2>
       <RegisterWorkspace editor={
       <Card>
         <h3 className="text-lg font-semibold text-slate-900">New category</h3>
@@ -135,7 +138,7 @@ export default function AssetCategoriesPage() {
               <Field label="Field key"><TextInput aria-label="Category field key" value={fieldKey} placeholder="manufacturer" onChange={(event) => setFieldKey(event.target.value)} /></Field>
               <Field label="Display label"><TextInput aria-label="Category field label" value={fieldLabel} placeholder="Manufacturer" onChange={(event) => setFieldLabel(event.target.value)} /></Field>
               <label className="flex items-end gap-2 pb-2 text-sm"><input type="checkbox" checked={fieldRequired} onChange={(event) => setFieldRequired(event.target.checked)} />Required</label>
-              <div className="flex items-end"><Button type="button" variant="secondary" onClick={addField}>Add field</Button></div>
+              <div className="flex items-end"><Button type="button" onClick={addField}>Add field</Button></div>
             </div>
             {fields.length ? <ul className="mt-3 space-y-1 text-sm">{fields.map((field) => <li key={field.key}>{field.label} ({field.key}){field.required ? " — required" : ""}</li>)}</ul> : <p className="mt-3 text-sm text-slate-500">No fields added yet.</p>}
           </div>
@@ -145,7 +148,9 @@ export default function AssetCategoriesPage() {
       }>
       <ErrorText>{error}</ErrorText>
       {message ? <p className="text-sm text-slate-700">{message}</p> : null}
-      <TableShell className="rounded-b-none">
+      <Card className={styles.categoryRegister}>
+      <div className={styles.categoryRegisterHeading}><h2>Configured categories</h2><p>{items.length} categories · {items.filter(item => item.status === "active").length} active</p></div>
+      <TableShell headerTone="subtle" mobileCards={false} className={`${styles.desktopRecords} rounded-b-none`}>
         <TableHead><tr><Th>Category</Th><Th>Fields</Th><Th>Status</Th><Th>Actions</Th></tr></TableHead>
         <tbody>
           {pagination.pagedItems.map((item) => (
@@ -153,13 +158,23 @@ export default function AssetCategoriesPage() {
               <Td><p className="font-medium">{item.name}</p><p className="text-xs text-slate-500">{item.description}</p></Td>
               <Td>{item.fields.map((field) => field.label).join(", ") || "No additional fields"}</Td>
               <Td><Badge>{item.status}</Badge></Td>
-              <Td><div className="flex gap-1.5"><Button type="button" variant="secondary" size="compact" onClick={() => void rename(item)}><IconEdit className="size-4" />Rename</Button><Button type="button" variant="secondary" size="compact" onClick={() => void toggle(item)}><IconPower className="size-4" />{item.status === "active" ? "Deactivate" : "Activate"}</Button></div></Td>
+              <Td><div className={styles.categoryActions}><Button type="button" size="compact" onClick={() => void rename(item)}><IconEdit className="size-4" />Rename</Button><Button type="button" variant="secondary" size="compact" onClick={() => void toggle(item)}><IconPower className="size-4" />{item.status === "active" ? "Deactivate" : "Activate"}</Button></div></Td>
             </tr>
           ))}
         </tbody>
       </TableShell>
       <Pagination
-        className="-mt-6 rounded-b-[10px] border border-slate-200"
+        page={pagination.page}
+        pageSize={pagination.pageSize}
+        total={pagination.total}
+        totalPages={pagination.totalPages}
+        onPageChange={pagination.setPage}
+        onPageSizeChange={pagination.setPageSize}
+      />
+      </Card>
+      <div className={styles.compactRecords}>{pagination.pagedItems.map(item => <RecordCard key={item.id} identity={<div className="flex items-center gap-3"><RecordIdentity title={item.name} subtitle={item.fields.map(field => field.label).join(" · ") || "No additional fields"} icon={<IconAsset />} tone="success" navigable={false} /></div>} status={<Badge tone={item.status === "active" ? "green" : "neutral"}>{item.status}</Badge>}><p>{item.description}</p><div className="mt-3 flex flex-wrap gap-2"><Button type="button" variant="secondary" size="compact" onClick={() => void rename(item)}><IconEdit className="size-4" />Rename</Button><Button type="button" variant="secondary" size="compact" onClick={() => void toggle(item)}><IconPower className="size-4" />{item.status === "active" ? "Deactivate" : "Activate"}</Button></div></RecordCard>)}</div>
+      <Pagination
+        className={styles.compactPagination}
         page={pagination.page}
         pageSize={pagination.pageSize}
         total={pagination.total}

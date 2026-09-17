@@ -48,7 +48,8 @@ async function signIn(page: Page, request: APIRequestContext) {
 }
 
 async function openFinance(page: Page) {
-  await page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "Finance", exact: true }).click();
+  await page.getByRole("navigation", { name: "Primary" }).getByRole("button", { name: "Finance menu", exact: true }).click();
+  await page.getByRole("dialog", { name: "Finance", exact: true }).getByRole("link", { name: "Finance", exact: true }).click();
   await expect(page).toHaveURL(/\/finance(?:\?|$)/, { timeout: 30_000 });
 }
 

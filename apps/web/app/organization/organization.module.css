@@ -1,0 +1,36 @@
+/* Organization references: Offices 90:2863, Departments 90:2995,
+   Business Units 90:3253, Teams 90:3419 and their inspected compact/dark variants. */
+.organization { min-width: 0; }
+.compactSummary { display: none; }
+.organization .toolbar { position: relative; padding: 18px; border: 1px solid var(--amafh-border); border-radius: 16px; box-shadow: none; }
+@media (min-width: 1280px) {
+  .organization :global([data-amafh-section-header]) h2 { font-size: 16px; line-height: 20px; font-weight: 700; }
+  .organization :global([data-amafh-section-header]) p { margin-top: 3px; font-size: 9px; line-height: 13px; }
+  .toolbar :global([data-testid="search-actions"]) { position: absolute; top: 18px; right: 18px; }
+  .toolbar :global([data-amafh-responsive-filters]) { width: 208px; background: transparent; border: 0; }
+  .toolbar :global([data-amafh-filter-toggle]) { display: none; }
+  .toolbar :global([data-amafh-filter-content]) { padding: 0; }
+  .toolbar :global(label) > span:first-child { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .toolbar :global([data-testid="search-action-bar"]) { padding-top: 16px; align-items: end; }
+  .organization :global([data-amafh-table-shell]) { border: 1px solid var(--amafh-border); border-radius: 16px; box-shadow: none; }
+  .organization :global([data-amafh-table-shell]) th { height: 42px; padding: 10px 12px; font-weight: 600; }
+  .organization :global([data-amafh-table-shell]) td { height: 58px; padding: 8px 12px; }
+  .organization :global([data-amafh-button]), .organization :global(button[role="combobox"]) { font-size: 10px; font-weight: 600; }
+}
+@media (max-width: 1279px) {
+  .compactSummary { display: flex; flex-direction: column; gap: 10px; padding: 20px 16px; border-radius: 20px; background: var(--amafh-brand-soft); }
+  .compactSummary strong { font-size: 24px; line-height: 35px; font-weight: 700; color: var(--amafh-primary); }
+  .compactSummary p { font-size: 13px; line-height: 19px; }
+  .organization .toolbar { padding: 0; border: 0; background: transparent; border-radius: 0; }
+  .toolbar :global([data-amafh-section-header]) { display: none; }
+  .toolbar :global([role="status"]) { font-size: 12px; }
+}
+@media (min-width: 1280px) {
+  .organization.organization :global([role="tab"]) { font-size: 10px !important; line-height: 14px !important; font-weight: 600 !important; }
+  .organization :global([data-amafh-table-shell]) td > span { border-radius: 999px; min-width: 72px; min-height: 26px; justify-content: center; }
+}
+@media (min-width: 1280px) {
+  .organization.organization :global(input:not([type="checkbox"])), .organization.organization :global(button[role="combobox"]) { height: 44px; min-height: 44px !important; border-radius: 10px !important; font-size: 10px; }
+  .toolbar :global([data-amafh-responsive-filters]) { width: 238px; }
+  .organization :global([data-amafh-button]) { border-radius: 9px !important; }
+}

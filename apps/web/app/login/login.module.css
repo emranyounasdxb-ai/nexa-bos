@@ -24,11 +24,11 @@
   width: min(100%, 500px);
   max-height: calc(100dvh - 56px);
   overflow-y: auto;
-  border: 1px solid rgba(113, 35, 137, .5);
+  border: 1px solid var(--amafh-border);
   border-radius: 20px;
   color: var(--amafh-text);
-  background: rgba(252, 249, 253, .9);
-  box-shadow: 0 28px 80px rgba(8, 5, 18, .4), inset 0 1px rgba(255, 255, 255, .65);
+  background: var(--amafh-surface);
+  box-shadow: var(--amafh-shadow-elevated);
   backdrop-filter: blur(24px) saturate(125%);
   -webkit-backdrop-filter: blur(24px) saturate(125%);
 }
@@ -58,28 +58,28 @@
   height: 2px;
   margin: 28px 0 24px;
   border-radius: 2px;
-  background: linear-gradient(90deg, #ee34ad, #78249b);
+  background: var(--amafh-action);
 }
 
 .cardContent h1 { margin: 0; color: var(--amafh-text); font-size: 27px; font-weight: 650; letter-spacing: -.025em; line-height: 1.2; }
 .mfaDescription { margin: 8px 0 0; color: var(--amafh-text-secondary); font-size: 14px; line-height: 1.5; }
 .form { display: flex; flex-direction: column; gap: 17px; margin-top: 22px; }
 .field { display: block; min-width: 0; color: var(--amafh-text); font-size: 14px; font-weight: 600; }
-.input { height: 46px; margin-top: 7px; border: 1px solid var(--amafh-control-border); border-radius: 8px; padding-inline: 13px; background: rgba(255, 255, 255, .64); }
-.input:focus { background: rgba(255, 255, 255, .84); }
-.submit { height: 48px; border-radius: 8px; background: linear-gradient(110deg, #e326a8, #7b2398); color: #fff !important; font-weight: 700; box-shadow: 0 12px 26px rgba(116, 23, 143, .28); }
-.submit:hover:not(:disabled) { background: linear-gradient(110deg, #ef38b5, #8d2bab); }
+.input { height: 48px; margin-top: 7px; border: 1px solid var(--amafh-control-border); border-radius: 14px; padding-inline: 13px; background: var(--amafh-surface); }
+.input:focus { background: var(--amafh-surface); }
+.submit { height: 48px; border-radius: 14px; background: var(--amafh-action); color: var(--amafh-action-text) !important; font-weight: 700; box-shadow: none; }
+.submit:hover:not(:disabled) { background: var(--amafh-action-hover); }
 .bootstrap { margin: 18px 0 0; color: var(--amafh-text-secondary); font-size: 13px; line-height: 1.5; }
 .bootstrap a { color: var(--amafh-link); font-weight: 650; }
 
 :global(:root[data-theme="dark"]) .backdrop { background: linear-gradient(90deg, rgba(8, 8, 20, .18), rgba(6, 5, 14, .52)); }
 :global(:root[data-theme="dark"]) .loginCard[data-amafh-public-surface] {
-  border-color: rgba(224, 58, 179, .5);
-  background: rgba(24, 20, 31, .88);
-  box-shadow: 0 30px 90px rgba(3, 2, 10, .62), inset 0 1px rgba(255, 255, 255, .08);
+  border-color: var(--amafh-border);
+  background: var(--amafh-surface);
+  box-shadow: var(--amafh-shadow-elevated);
 }
-:global(:root[data-theme="dark"]) .input { background: rgba(23, 19, 30, .72); }
-:global(:root[data-theme="dark"]) .input:focus { background: rgba(31, 25, 40, .9); }
+:global(:root[data-theme="dark"]) .input { background: var(--amafh-surface); }
+:global(:root[data-theme="dark"]) .input:focus { background: var(--amafh-surface); }
 
 @media (max-width: 900px) {
   .page { padding-inline: clamp(24px, 6vw, 54px); }
@@ -96,10 +96,10 @@
     background-position: 43% center;
   }
   .backdrop { background: linear-gradient(180deg, rgba(10, 8, 22, .28), rgba(7, 5, 14, .58)); }
-  .loginCard[data-amafh-public-surface] { width: 100%; max-height: none; margin-block: auto; border-radius: 16px; }
+  .loginCard[data-amafh-public-surface] { width: 100%; max-height: none; margin-block: auto; border-radius: 24px; }
   .cardContent { padding: 28px 24px; }
   .themeControls { top: 14px; right: 14px; }
-  .logoWrap { width: 190px; margin-bottom: 26px; }
+  .logoWrap { width: 190px; margin-top: 48px; margin-bottom: 26px; }
   .brandMessage h2 { max-width: 320px; font-size: 30px; }
   .description { font-size: 14px; }
   .divider { margin: 23px 0 20px; }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import { IconChevronDown, IconFilter } from "@/components/icons";
+import { IconChevronDown, IconAppFilter } from "@/components/icons";
 
 export function ResponsiveFilterPanel({
   children,
@@ -16,7 +16,7 @@ export function ResponsiveFilterPanel({
   const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
-    const query = window.matchMedia("(min-width: 640px)");
+    const query = window.matchMedia("(min-width: 1280px)");
     const update = () => setDesktop(query.matches);
     update();
     query.addEventListener("change", update);
@@ -31,9 +31,10 @@ export function ResponsiveFilterPanel({
         data-amafh-filter-toggle=""
         className="flex min-h-10 w-full items-center gap-2 rounded-lg px-3 text-left text-sm font-semibold text-text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary"
         aria-expanded={expanded}
+        aria-label={activeFilters.length ? `${title}, ${activeFilters.length} active` : title}
         onClick={() => { if (!desktop) setMobileOpen((current) => !current); }}
       >
-        <IconFilter className="size-4 text-brand-primary" />
+        <IconAppFilter className="size-4 text-brand-primary" />
         <span>{title}</span>
         {activeFilters.length ? <span className="rounded-full bg-brand-soft px-2 py-0.5 text-xs text-brand-primary">{activeFilters.length} active</span> : <span className="text-xs font-normal text-text-secondary">All permitted records</span>}
         <IconChevronDown className={`ml-auto size-4 transition-transform ${expanded ? "rotate-180" : ""}`} />

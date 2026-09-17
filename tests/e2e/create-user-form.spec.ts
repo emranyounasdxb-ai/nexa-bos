@@ -91,8 +91,8 @@ for (const width of [1440, 390]) {
     await page.getByLabel(/^Personal Mobile/).fill("+971500004444");
     const nameBox = await name.boundingBox();
     const emailBox = await email.boundingBox();
-    expect(nameBox?.height).toBe(32);
-    expect(emailBox?.height).toBe(32);
+    expect(nameBox?.height).toBe(width < 640 ? 48 : 32);
+    expect(emailBox?.height).toBe(width < 640 ? 48 : 32);
     if (width === 1440) {
       expect(Math.abs(nameBox!.y - emailBox!.y)).toBeLessThan(2);
       expect(emailBox!.x).toBeGreaterThan(nameBox!.x);

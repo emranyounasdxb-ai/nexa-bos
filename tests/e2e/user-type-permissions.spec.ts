@@ -53,7 +53,7 @@ test("User Type editor groups permissions and saves existing settings without ch
     for (const label of ["Name", "Description"]) {
       const field = page.getByRole("textbox", { name: label, exact: true });
       await expect(field).toBeVisible();
-      expect((await field.boundingBox())?.height).toBe(32);
+      expect((await field.boundingBox())?.height).toBe(viewport.width < 640 ? 48 : 38);
     }
     await expect(page.getByRole("textbox", { name: "Unique code", exact: true })).toHaveCount(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);

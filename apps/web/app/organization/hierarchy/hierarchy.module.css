@@ -1,0 +1,28 @@
+.treeLayout { align-items: start; }
+.toolbar { border: 1px solid var(--amafh-border); }
+@media (min-width: 1280px) {
+  .toolbar :global([data-testid="search-action-bar"]) { flex-wrap: wrap; }
+  .toolbar :global([data-amafh-responsive-filters]) { flex: 1 0 100%; order: -1; }
+  .toolbar :global([data-amafh-filter-toggle]) { display: none; }
+  .toolbar :global([data-amafh-filter-content]) { padding: 0; }
+}
+@media (max-width: 1279px) {
+  .toolbar { padding: 0 !important; background: transparent !important; border: 0; border-radius: 0; }
+  .toolbar :global([data-testid="search-actions"]) { display: flex; flex-wrap: nowrap; }
+  .toolbar :global([data-testid="search-actions"]) button { width: auto !important; flex: 1; font-size: 12px !important; }
+}
+@media (min-width: 960px) { .treeLayout { grid-template-columns: minmax(0,1fr) 376px; } }
+.hierarchy :global([data-testid="hierarchy-canvas"]) > div { border-radius: 16px !important; padding: 14px !important; }
+.hierarchy :global([data-hierarchy-branch]) > div { border-radius: 14px; box-shadow: none; }
+@media (max-width: 1279px) {
+  .hierarchy :global([data-testid="hierarchy-canvas"]) > div { border-radius: 20px !important; }
+}
+@media (min-width: 1280px) { .treeLayout { grid-template-columns: minmax(0,1fr) 368px; gap: 16px; } }
+@media (max-width: 1279px) {
+  .hierarchy :global([aria-label="Reporting tree"]), .hierarchy :global([data-hierarchy-branch]) ul { flex-direction: column; width: 100%; gap: 18px; }
+  .hierarchy :global([data-hierarchy-branch]) { width: 100%; padding-inline: 0; }
+  .hierarchy :global([data-hierarchy-branch]) > div { width: 100%; min-height: 72px; padding: 16px; border-radius: 20px; }
+  .hierarchy :global([data-hierarchy-branch]) > div:has(>ul) { margin-top: 0; padding: 0; }
+  .hierarchy :global([data-hierarchy-branch]) [title] { font-size: var(--amafh-list-primary); line-height: var(--amafh-list-primary-line); }
+  .hierarchy :global([data-hierarchy-branch]) [title] + [title] { font-size: var(--amafh-list-secondary); line-height: 20px; }
+}

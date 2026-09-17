@@ -1,6 +1,6 @@
 "use client";
 
-import { ListWorkspace } from "@/components/page-patterns";
+import { AssetWorkspaceTabs, ListWorkspace } from "@/components/page-patterns";
 import styles from "./asset-reports.module.css";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -141,9 +141,10 @@ export default function AssetReportsPage() {
   }
 
   const columns = data?.items.length ? Object.keys(data.items[0]) : [];
+  const exportActions = <div className="flex flex-wrap gap-2">{(["xlsx", "pdf", "print"] as const).map(format => <Button key={format} type="button" variant="secondary" onClick={() => void exportReport(format)}>{format === "xlsx" ? "Excel" : format === "pdf" ? "PDF" : "Print"}</Button>)}</div>;
 
   return (
-    <section className="space-y-4">
+    <section data-figma-large-header="" className={`${styles.reportPage} space-y-4`}>
       <PageHeader
         title="Asset Reports"
         description={
@@ -152,22 +153,15 @@ export default function AssetReportsPage() {
             : "Office-wise, employee-wise, custody, condition, and offboarding views."
         }
         actions={
-          <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="secondary" onClick={() => void exportReport("xlsx")}>
-              Excel
-            </Button>
-            <Button type="button" variant="secondary" onClick={() => void exportReport("pdf")}>
-              PDF
-            </Button>
-            <Button type="button" variant="secondary" onClick={() => void exportReport("print")}>
-              Print
-            </Button>
-          </div>
+          <div data-desktop-page-actions="">{exportActions}</div>
         }
       />
+      <AssetWorkspaceTabs active="/assets/reports" items={[{href:"/assets",label:"Asset Register"},...(can("Assets.ManageMaster") ? [{href:"/assets/categories",label:"Asset Categories"}] : []),{href:"/assets/reports",label:"Asset Reports"}]} />
 
-      <ListWorkspace title="Asset analysis" filters={
-      <FilterBar>
+      <ListWorkspace hideHeader title="Asset analysis" variant="report" summary={<div className={styles.snapshot}><h2>Report snapshot</h2>{data ? <dl><div><dt>Report</dt><dd>{data.title}</dd></div><div><dt>Authorized scope</dt><dd>{data.reportingScope}</dd></div><div><dt>Rows</dt><dd>{data.total.toLocaleString()}</dd></div></dl> : <p>Run the report to view its current results.</p>}</div>} filters={
+      <FilterBar className={styles.analysis}>
+        <h2 className={styles.analysisTitle}>Asset analysis</h2>
+        <p className={styles.analysisDescription}>Choose a report and narrow the authorized records included.</p>
         <Field label="Report">
           <Select aria-label="Asset report" value={report} onChange={(event) => {
             setData(null);
@@ -210,12 +204,15 @@ export default function AssetReportsPage() {
       </FilterBar>
       }>
 
+      <div className={styles.results}>
+      <h2>Report results</h2>
+      {data ? <p className={styles.resultDescription}>{data.title} · {data.reportingScope} scope · {data.total.toLocaleString()} rows</p> : null}
       {error ? <ErrorText>{error}</ErrorText> : null}
       {loading && !data ? <p className="text-sm text-slate-500">Loading report…</p> : null}
       {!loading && data && data.items.length === 0 ? <EmptyState kind="search" title="No records match the selected filters" /> : null}
       {data && data.items.length ? (
         <div className={loading ? "opacity-60" : undefined} aria-busy={loading}>
-        <TableShell className={styles.records}>
+        <TableShell headerTone="subtle" mobileCards={false} className={styles.records}>
           <TableHead><tr>{columns.map((column) => <Th key={column}>{column}</Th>)}</tr></TableHead>
           <tbody>
             {data.items.map((row, index) => (
@@ -240,7 +237,9 @@ export default function AssetReportsPage() {
           }
         />
       ) : null}
+      </div>
       </ListWorkspace>
+      <div className={styles.compactExports} aria-label="Export report results">{exportActions}</div>
     </section>
   );
 }

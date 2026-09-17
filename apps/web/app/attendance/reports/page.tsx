@@ -121,7 +121,7 @@ export default function AttendanceReportsPage() {
   }
 
   return (
-    <section className="space-y-4">
+    <section className={`${styles.reportPage} space-y-4`}>
       <PageHeader
         title="Attendance reports"
         description="Attendance totals are separate from business performance metrics."
@@ -131,7 +131,8 @@ export default function AttendanceReportsPage() {
           </ButtonLink>
         }
       />
-      <ListWorkspace title="Attendance analysis" filters={
+      <ListWorkspace variant="report" title="Attendance analysis" filters={<>
+      <h2 className={styles.reportAnalysisHeading}>Attendance analysis</h2>
       <FilterBar>
         <label className="col-span-2 text-sm sm:col-span-1">
           Report date
@@ -210,7 +211,6 @@ export default function AttendanceReportsPage() {
           </Select>
         </label>
       </FilterBar>
-      }>
       <div className="flex flex-wrap gap-4 text-sm">
         <label>
           <input type="checkbox" className="mr-2" checked={late} onChange={(event) => setLate(event.target.checked)} />
@@ -233,9 +233,10 @@ export default function AttendanceReportsPage() {
           Run report
         </Button>
       </div>
+      </>}>
       <ErrorText>{error}</ErrorText>
       {summary ? (
-        <div className={styles.reportMetrics}>
+        <div data-amafh-report-summary="" className={styles.reportMetrics}>
           <Card>
             <p className="text-xs uppercase text-slate-500">Present</p>
             <p className="mt-2 text-xl font-semibold">{summary.presentCount}</p>
@@ -256,7 +257,7 @@ export default function AttendanceReportsPage() {
           </Card>
         </div>
       ) : null}
-      <TableShell className={`${styles.reportRecords} ${loading && items.length > 0 ? "opacity-70" : ""}`}>
+      <TableShell tabletCards className={`${styles.reportRecords} ${loading && items.length > 0 ? "opacity-70" : ""}`}>
         <TableHead>
           <tr>
             <Th>Date</Th>

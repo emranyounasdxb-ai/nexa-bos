@@ -60,6 +60,11 @@ async function seedTarget(request: APIRequestContext, month: string) {
   const employee = options.employees.find((item) => item.fullName === "Platform Owner") ?? options.employees[0];
   const product = options.products[0];
   if (!employee || !product) throw new Error("Disposable target options were not available.");
+  const existing = await expectOk(await request.get(`${apiOrigin}/api/v1/targets?period_month=${month}`));
+  const records = ((await existing.json()) as { items: { level: string; entityId: string; productId: string; bankId: string | null; milestone: string; status: string }[] }).items;
+  if (records.some(item => item.level === "employee" && item.entityId === employee.id && item.productId === product.id && !item.bankId && item.milestone === "submitted" && item.status === "active")) {
+    return { employee, options, product }; // Retain the existing disposable fixture; never reset it.
+  }
   await expectOk(await request.post(`${apiOrigin}/api/v1/targets`, {
     headers,
     data: {
@@ -137,7 +142,7 @@ test("Targets workspace keeps URL tabs, compact filters, results, and drawer foc
 
   await expect(page).toHaveURL(/\/targets\?tab=targets$/);
   await expect(page.getByRole("heading", { name: "Targets", exact: true })).toBeVisible();
-  await expect(page.getByRole("main").getByRole("link", { name: "KPI scorecards", exact: true })).toBeVisible();
+  await expect(page.getByTestId("page-header").getByRole("link", { name: "KPI scorecards", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Create target", exact: true })).toHaveCount(1);
   const tabs = page.getByRole("tablist", { name: "Target workspaces" });
   const targetsTab = tabs.getByRole("tab", { name: "Targets", exact: true });
@@ -148,8 +153,8 @@ test("Targets workspace keeps URL tabs, compact filters, results, and drawer foc
   const resultPeriod = toolbar.getByLabel("Result period");
   const targetMonth = toolbar.getByLabel("Target month filter");
   const refresh = toolbar.getByRole("button", { name: "Refresh results" });
-  for (const [index, control] of [level, resultPeriod, targetMonth, refresh].entries()) {
-    expect((await control.boundingBox())?.height).toBe(index < 3 ? 32 : 30);
+  for (const control of [level, resultPeriod, targetMonth, refresh]) {
+    expect((await control.boundingBox())?.height).toBe(36);
   }
   // The approved desktop layout places filters in a context column beside results.
   const boxes = await Promise.all([level, resultPeriod, targetMonth, refresh].map(control => control.boundingBox()));

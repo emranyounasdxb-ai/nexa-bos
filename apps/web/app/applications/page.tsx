@@ -1,6 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import styles from "./applications.module.css";
+import { IconFileDescription, IconPlus } from "@/components/icons";
+import { RecordCard, RecordFrame, RecordIdentity } from "@/components/page-patterns";
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
@@ -15,6 +18,7 @@ import {
 import {
   Badge,
   Button,
+  Card,
   EmptyState,
   ErrorText,
   Field,
@@ -64,6 +68,14 @@ const DASHBOARD_FILTER_LABELS: Record<string, string> = {
 };
 
 function ApplicationsPageInner() {
+  const [desktop, setDesktop] = useState(false);
+  useEffect(() => {
+    const query = window.matchMedia("(min-width: 1280px)");
+    const update = () => setDesktop(query.matches);
+    update();
+    query.addEventListener("change", update);
+    return () => query.removeEventListener("change", update);
+  }, []);
   const { can } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -158,13 +170,19 @@ function ApplicationsPageInner() {
   }, [api, applied, dashboardFilter, page, pageSize, query, requestVersion]);
 
   const hasResultFilters = Boolean(query || dashboardFilter.metric || Object.values(applied).some(Boolean));
+  const createAction = can("Applications.Create") ? <button
+    id="create-application-trigger" type="button" className={`${primaryButtonClass} ${styles.createAction}`}
+    onClick={() => { setMessage(""); setCreateOpen(true); }}
+  ><IconPlus className="size-4" />Create application</button> : null;
 
   return (
-    <section className="space-y-4">
+    <section className={`${styles.applications} space-y-4`}>
       <PageHeader
         title="Applications"
         description="Search and filter applications in your current scope, then open permitted workflow records."
+        actions={desktop ? createAction : undefined}
       />
+      <div className={styles.compactTotal}><strong>{loading ? "Loading…" : error ? "Unavailable" : total.toLocaleString()}</strong><span>Authorized applications</span></div>
       {dashboardFilter.metric ? (
         <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-[10px] border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-900">
           <p className="min-w-0">
@@ -184,9 +202,10 @@ function ApplicationsPageInner() {
           </Button>
         </div>
       ) : null}
+      <RecordFrame variant="responsive" summary={<Card><h2 className="text-lg font-semibold">Case inbox</h2><p className="mt-4 text-sm text-text-secondary">Authorized applications</p><p className="mt-2 text-2xl font-bold tabular-nums">{loading ? "Loading…" : error ? "Unavailable" : total.toLocaleString()}</p></Card>}>
       <div data-amafh-list-surface="">
       <SearchActionBar
-        className="p-4"
+        className={`p-4 ${styles.searchActions}`}
         search={
           <TextInput
             className="mt-0"
@@ -199,21 +218,7 @@ function ApplicationsPageInner() {
             aria-label="Search applications"
           />
         }
-        actions={
-          can("Applications.Create") ? (
-            <button
-              id="create-application-trigger"
-              type="button"
-              className={primaryButtonClass}
-              onClick={() => {
-                setMessage("");
-                setCreateOpen(true);
-              }}
-            >
-              Create application
-            </button>
-          ) : null
-        }
+        actions={!desktop ? createAction : undefined}
       />
       {message ? (
         <p role="status" className="rounded-[10px] border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-800">
@@ -229,7 +234,7 @@ function ApplicationsPageInner() {
       ].filter((item): item is { label: string; value: string } => Boolean(item))}>
       <form
         data-testid="application-filters"
-        className="grid min-w-0 grid-cols-2 gap-x-3 gap-y-3 rounded-xl border border-slate-200 bg-surface p-3 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(15.5rem,1.6fr)_auto] xl:items-end"
+        className="grid min-w-0 grid-cols-1 gap-x-3 gap-y-3 rounded-xl border border-slate-200 bg-surface p-3 sm:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(15.5rem,1.6fr)_auto] xl:items-end"
         onSubmit={(event) => {
           event.preventDefault();
           setPage(1);
@@ -292,7 +297,7 @@ function ApplicationsPageInner() {
             ))}
           </Select>
         </Field>
-        <Field label="Created Date" className="col-span-2 min-w-0 xl:col-span-1">
+        <Field label="Created Date" className="min-w-0 sm:col-span-2 xl:col-span-1">
           <DateRangePicker
             aria-label="Created Date"
             from={filters.created_from}
@@ -302,7 +307,7 @@ function ApplicationsPageInner() {
             }
           />
         </Field>
-        <div className="col-span-2 flex flex-wrap items-center justify-end gap-2 self-end xl:col-span-1 xl:flex-nowrap">
+        <div className="flex flex-wrap items-center justify-end gap-2 self-end sm:col-span-2 xl:col-span-1 xl:flex-nowrap">
           <Button type="submit">Apply filters</Button>
           <Button
             variant="secondary"
@@ -319,12 +324,11 @@ function ApplicationsPageInner() {
       </form>
       </ResponsiveFilterPanel>
       <ErrorText>{error}</ErrorText>
-      <p className="applications-table-scroll-hint">
-        Swipe horizontally or use the arrow keys to view every application column.
-      </p>
-      <div className="applications-table-scroll-frame">
+      <div className={`applications-table-scroll-frame ${styles.desktopRecords}`}>
         <TableShell
-          aria-label="Applications table. Scroll horizontally to view all columns."
+          headerTone="bright"
+          tabletCards
+          aria-label="Applications records"
           className={loading && items.length > 0 ? "opacity-70" : undefined}
           data-testid="applications-table-scroll-region"
           tabIndex={0}
@@ -404,6 +408,25 @@ function ApplicationsPageInner() {
           </tbody>
         </TableShell>
       </div>
+      <div className={styles.appRecords} aria-label="Application cards">
+        {loading && items.length === 0 ? <EmptyState>Loading applications…</EmptyState> : items.length === 0 ? (
+          hasResultFilters ? <EmptyState kind="search" title="No records match the selected filters" /> : <EmptyState kind="records">No applications are available in your authorized scope.</EmptyState>
+        ) : items.map(item => (
+          <RecordCard key={item.id} identity={<Link href={`/applications/${item.id}`}><RecordIdentity icon={<IconFileDescription />} title={item.customerName} subtitle={<>{item.bankName ?? "Unavailable bank"} · {item.applicationCode}</>} /></Link>} status={<span className={styles.stage}>{item.currentStage ?? "Unavailable stage"}</span>}>
+              <dl>
+                <div><dt>Application ID</dt><dd>{item.applicationCode}</dd></div>
+                <div><dt>Bank File / Case Number</dt><dd>{item.bankCaseNumber ?? "Not assigned"}</dd></div>
+                <div><dt>Customer</dt><dd>{item.customerCode} · {item.customerName}</dd></div>
+                <div><dt>Bank / Product Category / Variant</dt><dd>{item.bankName ?? "Unavailable bank"} · {item.productName ?? "Unavailable product"} · {item.productVariantName ?? "Legacy: no Product Variant"}</dd></div>
+                <div><dt>Case Owner</dt><dd>{item.caseOwnerName}</dd></div>
+                <div><dt>Stage</dt><dd>{item.currentStage}</dd></div>
+                <div><dt>Outcome</dt><dd>{item.terminalOutcome ?? "Open"}</dd></div>
+                <div><dt>TAT</dt><dd>{formatDuration(item.terminal ? item.totalDurationSeconds : item.currentElapsedSeconds)}</dd></div>
+                <div><dt>Delay</dt><dd>{item.hasActiveDelay && item.activeDelay ? `Delay · ${item.activeDelay.delayType}` : "—"}</dd></div>
+              </dl>
+          </RecordCard>
+        ))}
+      </div>
       <Pagination
         page={page}
         pageSize={pageSize}
@@ -416,6 +439,7 @@ function ApplicationsPageInner() {
         }}
       />
       </div>
+      </RecordFrame>
       <ApplicationCreateDialog
         open={createOpen}
         onClose={closeCreate}

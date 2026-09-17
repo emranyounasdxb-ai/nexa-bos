@@ -538,33 +538,27 @@ test("owner can create an application and filter the list", async ({ page, reque
   await expect(page.getByRole("link", { name: applicationId })).toBeVisible();
 
   await page.setViewportSize({ width: 390, height: 844 });
-  await expect(page.getByRole("button", { name: "Open navigation" })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Mobile navigation", exact: true }).getByRole("button", { name: "More navigation", exact: true })).toBeVisible();
   await expect.poll(() => page.locator("#application-sidebar").evaluate(
     (element) => element.getBoundingClientRect().right,
   )).toBeLessThanOrEqual(0);
   await page.evaluate(() => window.scrollTo({ top: 0 }));
-  const tableScroller = page.getByTestId("applications-table-scroll-region");
-  await expect(page.getByText("Swipe horizontally or use the arrow keys to view every application column.")).toBeVisible();
-  await expect(tableScroller).toHaveAttribute("tabindex", "0");
-  const initialTableState = await tableScroller.evaluate((element) => ({
-    clientWidth: element.clientWidth,
-    overflowX: getComputedStyle(element).overflowX,
-    scrollLeft: element.scrollLeft,
-    scrollWidth: element.scrollWidth,
-    touchAction: getComputedStyle(element).touchAction,
-  }));
-  expect(initialTableState.overflowX).toBe("auto");
-  expect(initialTableState.scrollWidth).toBeGreaterThan(initialTableState.clientWidth);
-  expect(initialTableState.scrollLeft).toBe(0);
-  expect(initialTableState.touchAction).toContain("pan-x");
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBeTruthy();
-  await captureViewportThemes(page, testInfo.outputPath("applications-mobile-scroll-initial.png"), tableScroller);
-  await tableScroller.focus();
-  await expect(tableScroller).toBeFocused();
-  for (let index = 0; index < 8; index += 1) await page.keyboard.press("ArrowRight");
-  await expect.poll(() => tableScroller.evaluate((element) => element.scrollLeft)).toBeGreaterThan(0);
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBeTruthy();
-  await captureViewportThemes(page, testInfo.outputPath("applications-mobile-scroll-keyboard.png"), tableScroller);
+  const mobileRecords = page.getByLabel("Application cards", { exact: true });
+  const mobileRow = mobileRecords.locator(":scope > div").filter({ hasText: applicationId });
+  await expect(mobileRow).toBeVisible();
+  await mobileRow.getByText("Record details", { exact: true }).click();
+  await expect(mobileRow.locator("dd")).toHaveCount(9);
+  expect(await mobileRow.locator("dt").allTextContents()).toEqual([
+    "Application ID", "Bank File / Case Number", "Customer", "Bank / Product Category / Variant", "Case Owner", "Stage", "Outcome", "TAT", "Delay",
+  ]);
+  for (const cell of await mobileRow.locator("dd").all()) await expect(cell).toBeVisible();
+  expect(await mobileRecords.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  await captureViewportThemes(page, testInfo.outputPath("applications-mobile-cards.png"), mobileRecords);
+  await mobileRow.getByRole("link").focus();
+  await expect(mobileRow.getByRole("link")).toBeFocused();
+  await expect(mobileRow.getByRole("link")).toHaveAttribute("href", /\/applications\/[0-9a-f-]+$/);
+
 });
 
 test("application detail sections, confirmations, timeline filters, permissions, and responsive layout", async ({ page, request }, testInfo) => {

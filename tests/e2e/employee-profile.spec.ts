@@ -527,7 +527,8 @@ test("HR and PRO dashboards expose only implemented profile work", async ({ brow
     await expect(proPage).not.toHaveURL(/\/login$/, { timeout: 30_000 });
     await proPage.goto("/pro");
     await expect(proPage.getByRole("heading", { name: "PRO Dashboard" })).toBeVisible();
-    await expect(proPage.getByText("Pending Documents")).toBeVisible();
+    await expect(proPage.getByText(/^Pending documents · \d+ employees$/)).toBeVisible();
+    for (const details of await proPage.getByTestId("employee-compliance-list").locator("details").all()) await details.locator("summary").click();
     await expect(proPage.getByText(/^Passport:/).first()).toBeVisible();
     await expect(proPage.getByText(/^Visa:/).first()).toBeVisible();
     await expect(proPage.getByText(/^Emirates ID:/).first()).toBeVisible();
@@ -537,7 +538,7 @@ test("HR and PRO dashboards expose only implemented profile work", async ({ brow
         await target.setViewportSize(viewport);
         await expectNoHorizontalOverflow(target);
         if (viewport.width === 390) {
-          await expect(target.getByRole("button", { name: "Open navigation" })).toHaveAttribute("aria-expanded", "false");
+          await expect(target.getByRole("navigation", { name: "Mobile navigation", exact: true }).getByRole("button", { name: "More navigation", exact: true })).toHaveAttribute("aria-expanded", "false");
           await expect.poll(() => target.getByLabel("Application sidebar").evaluate(element => element.getBoundingClientRect().right)).toBeLessThanOrEqual(0);
         }
         await captureViewport(target, testInfo.outputPath(`${mode}-dashboard-${viewport.width}.png`));

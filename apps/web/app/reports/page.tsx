@@ -29,16 +29,18 @@ import {
   IconCreditCard,
   IconFilter,
   IconInbox,
+  IconCalendarCheck,
+  IconMenu2,
+  IconPlus,
+  IconChartBar,
   IconRefresh,
 } from "@/components/icons";
 import {
   Badge,
   Button,
-  Card,
   ErrorText,
   PageHeader,
   Select,
-  SectionHeader,
   primaryButtonClass,
 } from "@/components/ui";
 import { apiGet, ApiClientError } from "@/lib/api";
@@ -72,6 +74,7 @@ import { TlDashboard } from "./tl-dashboard";
 import { SeDashboard } from "./se-dashboard";
 import { RoleWorkspace } from "./role-workspace";
 import overview from "./overview.module.css";
+import { DashboardCard, DashboardOverviewLayout } from "./dashboard-overview-layout";
 
 const comparisonPeriodFor: Partial<Record<string, string>> = {
   mtd: "month",
@@ -105,7 +108,7 @@ function DashboardSkeleton() {
       <span className="sr-only">Loading dashboard metrics…</span>
       <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
         {Array.from({ length: 4 }, (_, index) => (
-          <div key={index} className="h-32 animate-pulse rounded-[10px] border border-slate-200 bg-surface p-4">
+          <div key={index} data-amafh-card="" className="h-32 animate-pulse border border-slate-200 bg-surface p-4">
             <div className="h-3 w-20 rounded bg-slate-200" />
             <div className="mt-4 h-6 w-28 rounded bg-slate-200" />
             <div className="mt-3 h-3 w-32 rounded bg-slate-100" />
@@ -113,11 +116,11 @@ function DashboardSkeleton() {
         ))}
       </div>
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(18rem,0.6fr)]">
-        <div className="h-44 animate-pulse rounded-[10px] border border-slate-200 bg-surface p-4">
+        <div data-amafh-card="" className="h-44 animate-pulse border border-slate-200 bg-surface p-4">
           <div className="h-4 w-36 rounded bg-slate-200" />
           <div className="mt-5 h-28 rounded-lg bg-slate-100" />
         </div>
-        <div className="h-44 animate-pulse rounded-[10px] border border-slate-200 bg-surface p-4">
+        <div data-amafh-card="" className="h-44 animate-pulse border border-slate-200 bg-surface p-4">
           <div className="h-4 w-32 rounded bg-slate-200" />
           <div className="mt-5 grid grid-cols-2 gap-3">
             {Array.from({ length: 4 }, (_, index) => (
@@ -383,7 +386,7 @@ function DashboardInner() {
   }
 
   return (
-    <section className={`${overview.dashboard} space-y-4`}>
+    <section className={`${overview.dashboard} ${user?.userType?.code === "OWNER" ? overview.ownerDashboard : ""} space-y-4`} data-executive={Boolean(data?.reportingScope)}>
       <PageHeader
         title="Dashboard"
         description={data && !data.reportingScope ? "Your permitted work areas, personal performance and read-only attendance." : "Review application performance, pipeline movement, target progress, and items that may need attention."}
@@ -641,23 +644,29 @@ function DashboardInner() {
           <PersonalPerformanceAttendance performance={data.personalPerformance} attendance={data.personalAttendance} />
         </div>
       ) : data ? (
-        <div data-testid="dashboard-overview" className="space-y-4">
-          <div data-testid="dashboard-kpi-charts" className={overview.summary}>
+        <DashboardOverviewLayout
+          owner={user?.userType?.code === "OWNER"}
+          hero={<div className={overview.hero}>
+            <header className={overview.heroHeading}><p>Dashboard</p><h2><span className={overview.desktopHeroTitle}>Executive Dashboard</span><span className={overview.compactHeroTitle}>Your day at a glance</span></h2><small>Application performance across your authorized reporting scope.</small></header>
             <div data-testid="dashboard-kpi-grid" className={overview.metrics}>
               <KpiCard featured empty={data.empty} label="Submitted" count={data.kpis.submitted.count} value={data.kpis.submitted.value} href={drill("submitted")} tone="blue" icon={IconInbox} context={<DirectionIndicator direction={submittedDirection} comparisonLabel={comparisonLabel} />} />
               <KpiCard empty={data.empty} label="Approved" count={data.kpis.approved.count} value={data.kpis.approved.value} href={drill("approved")} tone="violet" icon={IconCircleCheck} context={<span className="text-xs font-medium text-slate-500">Approval conversion {formatPct(data.conversions.submittedToApproved)}</span>} />
               <KpiCard empty={data.empty} label="Funded" count={data.kpis.funded.count} value={data.kpis.funded.value} href={drill("funded")} tone="green" icon={IconCashBanknote} context={<DirectionIndicator direction={fundedDirection} comparisonLabel={comparisonLabel} />} />
               <KpiCard empty={data.empty} label="Pending" count={data.kpis.pending.count} href={drill("pending")} tone="amber" icon={IconClock} context={<span className="text-xs font-medium text-slate-500">Open at reporting cutoff</span>} />
             </div>
-
-            <Card className={`${overview.pipeline} p-3 sm:p-3.5`}>
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <h2 className="text-sm font-semibold text-slate-950">Pipeline snapshot</h2>
-                  <p className="mt-0.5 text-xs text-slate-500">Selected-period outcomes and product mix.</p>
-                </div>
-                <Badge>{data.currency}</Badge>
-              </div>
+          </div>}
+          shortcuts={<nav className={overview.mobileShortcuts} aria-label="Dashboard shortcuts">
+              {can("Applications.Create") && <Link href="/applications?create=true"><IconPlus className="size-6" /><span>New case</span></Link>}
+              {can("Leave.View") && <Link href="/leave"><IconCalendarCheck className="size-6" /><span>My leave</span></Link>}
+              {can("Reports.View") && <Link href="/reports/compare"><IconChartBar className="size-6" /><span>Reports</span></Link>}
+              <button type="button" onClick={event => window.dispatchEvent(new CustomEvent("nexa-open-modules", { detail: event.currentTarget }))}><IconMenu2 className="size-6" /><span>All apps</span></button>
+            </nav>}
+          trend={<div data-testid="dashboard-charts-grid" className={overview.trend}>
+              <DashboardCard owner={user?.userType?.code === "OWNER"} className="h-full min-w-0 p-4 sm:p-4" title="Application performance trend" description="Submitted and funded applications over authoritative reporting periods." summary={data.trend.length > 0 ? <Badge>{data.trend.length} {data.trend.length === 1 ? "period" : "periods"}</Badge> : null}>
+                <TimeSeriesChart rows={data.trend} />
+              </DashboardCard>
+            </div>}
+          pipeline={<DashboardCard owner={user?.userType?.code === "OWNER"} title="Pipeline snapshot" description="Selected-period outcomes and product mix." summary={<Badge>{data.currency}</Badge>} legacyHeader={<div className="flex flex-wrap items-center justify-between gap-2"><div><h2 className="text-sm font-semibold text-slate-950">Pipeline snapshot</h2><p className="mt-0.5 text-xs text-slate-500">Selected-period outcomes and product mix.</p></div><Badge>{data.currency}</Badge></div>} className={`${overview.pipeline} p-3 sm:p-3.5`}>
               <div className={overview.pipelineItems}>
                 <PipelineMetric empty={data.empty} label="Booked" count={data.kpis.booked.count} value={data.kpis.booked.value} href={drill("booked")} tone="green" icon={IconBook2} />
                 <PipelineMetric empty={data.empty} label="Returned / Requirement Pending" count={data.kpis.returnedRequirementPending.count} href={drill("returned")} tone="amber" icon={IconArrowBackUp} />
@@ -668,28 +677,15 @@ function DashboardInner() {
                 <PipelineMetric empty={data.empty} label="PF Count / Value" count={data.kpis.personalFinance.count} value={data.kpis.personalFinance.value} href={drill("pf_value")} icon={IconCashBanknote} />
                 <PipelineMetric empty={data.empty} label="CC Count" count={data.kpis.creditCard.count} href={drill("cc_count")} icon={IconCreditCard} />
               </div>
-            </Card>
-
-            <div data-testid="dashboard-charts-grid" className={overview.trend}>
-              <Card className="h-full min-w-0 p-4 sm:p-4">
-                <SectionHeader title="Application performance trend" description="Submitted and funded applications over authoritative reporting periods." actions={data.trend.length > 0 ? <Badge>{data.trend.length} {data.trend.length === 1 ? "period" : "periods"}</Badge> : null} />
-                <TimeSeriesChart rows={data.trend} />
-              </Card>
-            </div>
-          </div>
-
-          <div data-testid="dashboard-analysis-grid" className="grid min-w-0 items-start gap-4 xl:grid-cols-2">
-            <Card className="min-w-0 p-4 sm:p-4">
-              <SectionHeader title="Stage distribution" description="Largest current workflow queues at the reporting cutoff." />
-              <StageDistribution rows={data.stageBreakdown} drill={drill} />
-            </Card>
-            <Card className="min-w-0 p-4 sm:p-4">
-              <SectionHeader title="Conversion summary" description="Selected-period movement through the application funnel." />
+            </DashboardCard>}
+          stages={<DashboardCard owner={user?.userType?.code === "OWNER"} className={`${overview.stageDistribution} min-w-0 p-4 sm:p-4`} title="Stage distribution" description="Largest current workflow queues at the reporting cutoff." summary={user?.userType?.code === "OWNER" ? <Badge>{data.stageBreakdown.reduce((sum, row) => sum + row.count, 0).toLocaleString()} pending · {data.stageBreakdown.length} stages</Badge> : null}>
+              <StageDistribution rows={data.stageBreakdown} drill={drill} compact={user?.userType?.code === "OWNER"} />
+            </DashboardCard>}
+          conversion={<DashboardCard owner={user?.userType?.code === "OWNER"} className="min-w-0 p-4 sm:p-4" title="Conversion summary" description="Selected-period movement through the application funnel.">
               <ConversionSummary values={data.conversions} drill={drill} />
-            </Card>
-            <Card className="min-w-0 p-4 sm:p-4">
-              <SectionHeader title="Attention required" description="Active delay drivers that may need management action." />
-              <div className="mt-2 grid min-w-0 items-center gap-3 sm:grid-cols-[minmax(0,1fr)_12rem]">
+            </DashboardCard>}
+          attention={<DashboardCard owner={user?.userType?.code === "OWNER"} data-empty-delay={data.activeDelays.total === 0} className={`${overview.attention} min-w-0 p-4 sm:p-4`} title="Attention required" description="Active delay drivers that may need management action." summary={user?.userType?.code === "OWNER" ? <Badge>{data.activeDelays.total} delays</Badge> : null}>
+              <div className={`${overview.delayBody} mt-2 grid min-w-0 items-center gap-3 sm:grid-cols-[minmax(0,1fr)_12rem]`}>
                 <DonutChart
                   rows={(["Bank", "Customer", "Internal", "Other"] as const).map((type) => ({
                     name: type,
@@ -698,7 +694,7 @@ function DashboardInner() {
                   accessibleDescription={`${data.activeDelays.total} active delays split across Bank, Customer, Internal and Other drivers.`}
                   testId="dashboard-delay-chart"
                 />
-                <div className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-1">
+                <div className={`${overview.delayLinks} grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-1`}>
                   {(["Bank", "Customer", "Internal", "Other"] as const).map((type) => (
                     <Link key={type} href={drill(`delay_${type.toLowerCase()}`)} aria-label={`${type} delays`} className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50/50 px-2.5 py-2 text-sm hover:bg-surface">
                       <span className="text-slate-600">{type}</span>
@@ -707,37 +703,26 @@ function DashboardInner() {
                   ))}
                 </div>
               </div>
-            </Card>
-            {data.targetsSummary && data.targetsSummary.items.length > 0 ? (
-              <Card className="min-w-0 p-4 sm:p-4">
-                <SectionHeader title="Target performance" description="Progress against effective targets in scope." actions={<Link className="inline-flex items-center gap-1 text-sm font-semibold text-brand-link hover:underline" href="/targets">Open targets <IconArrowUpRight className="size-4" /></Link>} />
+            </DashboardCard>}
+          targets={data.targetsSummary && data.targetsSummary.items.length > 0 ? (
+              <DashboardCard owner={user?.userType?.code === "OWNER"} className="min-w-0 p-4 sm:p-4" title="Target performance" description="Progress against effective targets in scope." actions={<Link className="inline-flex items-center gap-1 text-sm font-semibold text-brand-link hover:underline" href="/targets">Open targets <IconArrowUpRight className="size-4" /></Link>}>
                 <TargetProgress summary={data.targetsSummary} />
-              </Card>
+              </DashboardCard>
             ) : (
-              <Card className="min-w-0 p-4 sm:p-4">
-                <SectionHeader title="Target performance" description="Progress against effective targets in scope." />
+              <DashboardCard owner={user?.userType?.code === "OWNER"} className="min-w-0 p-4 sm:p-4" title="Target performance" description="Progress against effective targets in scope.">
                 <CompactEmpty>No performance data for this period</CompactEmpty>
-              </Card>
+              </DashboardCard>
             )}
-          </div>
-
-          <Card className="p-3.5 sm:p-4">
-            <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
-              <div>
-                <h2 className="text-base font-semibold text-slate-950">Performance rankings</h2>
-                <p className="mt-0.5 text-sm text-slate-500">Leaders for the selected ranking metric.</p>
-              </div>
-              <Badge>{appliedQuery.ranking_metric.replaceAll("_", " ")}</Badge>
-            </div>
-            <div className="grid items-start gap-2.5 md:grid-cols-2 xl:grid-cols-4">
+          rankings={<DashboardCard owner={user?.userType?.code === "OWNER"} title="Performance rankings" description="Leaders for the selected ranking metric." summary={<Badge>{appliedQuery.ranking_metric.replaceAll("_", " ")}</Badge>} legacyHeader={<div className="mb-3 flex flex-wrap items-end justify-between gap-3"><div><h2 className="text-base font-semibold text-slate-950">Performance rankings</h2><p className="mt-0.5 text-sm text-slate-500">Leaders for the selected ranking metric.</p></div><Badge>{appliedQuery.ranking_metric.replaceAll("_", " ")}</Badge></div>} className="p-3.5 sm:p-4">
+            <div data-dashboard-rankings="" className="grid items-start gap-2.5 md:grid-cols-2 xl:grid-cols-4">
               <RankingList title="Top employees" rows={data.rankings.employees} metric={data.rankings.metric} hrefFor={(row) => `/reports/employees/${row.id}?${toSearchParams(appliedQuery)}`} />
               <RankingList title="Top teams" rows={data.rankings.teams} metric={data.rankings.metric} hrefFor={(row) => drill("funded", { team_id: row.id })} />
               <RankingList title="Top offices" rows={data.rankings.offices} metric={data.rankings.metric} hrefFor={(row) => drill("funded", { office_id: row.id })} />
               <RankingList title="Top bank / product" rows={data.rankings.bankProducts} metric={data.rankings.metric} hrefFor={(row) => drill("funded", { bank_id: row.bankId ?? "", product_id: row.productId ?? "" })} />
             </div>
-          </Card>
-          <PersonalPerformanceAttendance performance={data.personalPerformance} attendance={data.personalAttendance} />
-        </div>
+          </DashboardCard>}
+          personal={<PersonalPerformanceAttendance performance={data.personalPerformance} attendance={data.personalAttendance} />}
+        />
       ) : null}
       <RoleWorkspace />
     </section>

@@ -157,9 +157,11 @@ export function PipelineMetric({
 export function StageDistribution({
   rows,
   drill,
+  compact = false,
 }: {
   rows: DashboardPayload["stageBreakdown"];
   drill: (metric: string, extra?: Record<string, string>) => string;
+  compact?: boolean;
 }) {
   if (rows.length === 0) {
     return (
@@ -177,6 +179,7 @@ export function StageDistribution({
         rows={ranked.map((row) => ({ id: row.stageId ?? row.name, label: row.name, value: row.count }))}
         accessibleDescription={`Top workflow stages by pending application count. ${total} pending applications across ${rows.length} stages.`}
         testId="stage-distribution-chart"
+        compact={compact}
       />
       <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-2.5 text-xs text-slate-500"><span>{total.toLocaleString()} pending applications</span><span>{rows.length} workflow stages</span></div>
       <details className="group mt-2 rounded-lg border border-slate-200 bg-slate-50/60">
@@ -205,7 +208,7 @@ export function ConversionSummary({ values, drill }: { values: DashboardPayload[
     return <div className="mt-3"><EmptyState title="—" description="No data yet" /></div>;
   }
   return (
-    <div className="mt-3 space-y-2">
+    <div data-dashboard-conversions="" className="mt-3 space-y-2">
       {rows.map(([label, value, metric, color]) => {
         const bounded = value === null || value === undefined ? 0 : Math.min(100, Math.max(0, value));
         return (
@@ -222,7 +225,7 @@ export function ConversionSummary({ values, drill }: { values: DashboardPayload[
 export function TargetProgress({ summary }: { summary: NonNullable<DashboardPayload["targetsSummary"]> }) {
   const visibleItems = summary.items.slice(0, 4);
   return (
-    <div className="mt-3">
+    <div data-dashboard-targets="" className="mt-3">
       <div className="grid gap-2">
       {visibleItems.map((item) => {
         const achievement = item.result?.achievementPct;

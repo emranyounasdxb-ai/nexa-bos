@@ -16,9 +16,9 @@ test("chart themes change presentation colors without changing data or formatter
   const original = JSON.stringify(option);
   expect(withChartTheme(option, "light")).toBe(option);
   const dark = withChartTheme(option, "dark");
-  expect(dark.color).toEqual(["#e4b5fa", "#98d1b3"]);
-  expect(dark.xAxis.axisLabel.color).toBe("#b9b0c4");
-  expect(dark.series[0].itemStyle.color).toBe("#e4b5fa");
+  expect(dark.color).toEqual(["#ffd3fb", "#a8ffe0"]);
+  expect(dark.xAxis.axisLabel.color).toBe("#d1dcee");
+  expect(dark.series[0].itemStyle.color).toBe("#ffd3fb");
   expect(dark.series[0].data).toEqual(option.series[0].data);
   expect(dark.series[0].name).toBe(option.series[0].name);
   expect(dark.dataset).toEqual(option.dataset);

@@ -428,7 +428,7 @@ function ImpactRules({ canManage }: { canManage: boolean }) {
           </div>
         </form>
       ) : null}
-      <ul className="divide-y divide-slate-100 rounded-t-[10px] border border-slate-200 bg-surface text-[13px]">
+      <ul className="divide-y divide-slate-100 rounded-t-[10px] border border-slate-200 bg-surface text-sm">
         {pagination.pagedItems.map((item) => (
           <li key={item.id} className="px-3 py-2">
             {item.condition}

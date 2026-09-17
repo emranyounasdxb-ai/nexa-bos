@@ -241,7 +241,7 @@ function CustomersDirectory() {
 
             <div className={loading ? "grid gap-2 p-3 opacity-70 sm:hidden" : "grid gap-2 p-3 sm:hidden"}>
               {items.map((customer) => (
-                <article key={customer.id} className="min-w-0 rounded-[10px] border border-brand-border p-3">
+                <article data-amafh-record-card="" key={customer.id} className="min-w-0 rounded-[10px] border border-brand-border p-3">
                   <div className="flex min-w-0 items-start justify-between gap-2">
                     <div className="min-w-0">
                       <Link className="font-semibold text-brand-link underline" href={`/customers/${customer.id}`}>{customer.customerCode}</Link>

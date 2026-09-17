@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
+import { Children, cloneElement, isValidElement, type ReactElement } from "react";
 import type {
   ButtonHTMLAttributes,
   HTMLAttributes,
@@ -8,10 +9,11 @@ import type {
   TextareaHTMLAttributes,
 } from "react";
 
-import { IconAlertTriangle, IconChartBar, IconFilter, IconInbox, IconInfoCircle, IconX } from "@/components/icons";
+import { IconAlertTriangle, IconAppSearch, IconChartBar, IconFilter, IconInbox, IconInfoCircle, IconX } from "@/components/icons";
 import { BrandedSelect, type BrandedSelectProps } from "@/components/select";
 import { Tooltip } from "@/components/tooltip";
 import { ThemeControls } from "@/components/theme-controls";
+import { ResponsiveFilterPanel } from "./responsive-filter-panel";
 import patterns from "./page-patterns.module.css";
 
 export function cx(...parts: Array<string | false | null | undefined>): string {
@@ -22,19 +24,19 @@ export const focusRing =
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary";
 
 const controlSurfaceClass = cx(
-  "w-full rounded-xl border border-control-border bg-surface px-3 text-sm text-text-primary transition-colors placeholder:text-text-secondary",
+  "w-full rounded-[8px] border border-control-border bg-surface px-3 text-sm text-text-primary transition-colors placeholder:text-text-secondary",
   "hover:border-brand-primary focus:border-brand-primary disabled:cursor-not-allowed disabled:border-brand-border disabled:bg-surface-subtle disabled:text-text-disabled",
   focusRing,
 );
 
-export const controlClass = cx("h-8 py-0", controlSurfaceClass);
+export const controlClass = cx("h-9 py-0", controlSurfaceClass);
 
 export const multilineControlClass = cx("min-h-10 py-2", controlSurfaceClass);
 
 export const controlErrorClass = "border-danger focus:border-danger";
 
 const buttonBaseClass = cx(
-  "inline-flex items-center justify-center whitespace-nowrap rounded-full font-medium transition-colors",
+  "inline-flex items-center justify-center whitespace-nowrap rounded-[8px] font-medium transition-colors",
   "disabled:cursor-not-allowed disabled:opacity-50",
   focusRing,
 );
@@ -42,9 +44,9 @@ const buttonBaseClass = cx(
 type ButtonSize = "default" | "compact" | "icon";
 
 const buttonSizeClass: Record<ButtonSize, string> = {
-  default: "h-8 gap-1.5 px-3 py-0 text-sm",
-  compact: "h-8 gap-1.5 px-2.5 py-0 text-xs",
-  icon: "size-8 shrink-0 gap-0 p-0 text-sm",
+  default: "h-9 gap-1.5 px-3 py-0 text-sm",
+  compact: "h-9 gap-1.5 px-2.5 py-0 text-xs",
+  icon: "size-9 shrink-0 gap-0 p-0 text-sm",
 };
 
 const primaryButtonTone =
@@ -82,44 +84,32 @@ export const dangerButtonClass = cx(
   dangerButtonTone,
 );
 
-export function PageHeader({
-  description,
-  actions,
-}: {
-  title: string;
-  description?: string;
-  actions?: ReactNode;
-}) {
-  if (!description && !actions) return null;
-  return (
-    <div data-amafh-page-purpose="" className="flex min-w-0 flex-wrap items-center justify-between gap-2 sm:gap-3">
-      {description ? (
-        <p data-testid="page-purpose" className="min-w-0 max-w-4xl text-sm leading-5 text-text-secondary">
-          {description}
-        </p>
-      ) : <span aria-hidden="true" />}
-      {actions ? <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">{actions}</div> : null}
-    </div>
-  );
-}
+export { PageHeader } from "./page-header";
 
 export function SearchActionBar({
   search,
   actions,
   className,
+  filters,
+  activeFilters,
 }: {
   search: ReactNode;
   actions?: ReactNode;
   className?: string;
+  filters?: ReactNode;
+  activeFilters?: { label: string; value: string }[];
 }) {
   return (
     <div
       data-testid="search-action-bar"
+      data-compact-filters={filters ? "true" : undefined}
       className={cx("flex min-w-0 flex-col gap-2 sm:flex-row sm:items-end", className)}
     >
       <div data-testid="search-action-field" className="min-w-0 flex-1">
+        <IconAppSearch data-compact-search-glyph="" className="amafh-compact-search-glyph" />
         {search}
       </div>
+      {filters && <ResponsiveFilterPanel activeFilters={activeFilters}>{filters}</ResponsiveFilterPanel>}
       {actions ? (
         <div data-testid="search-actions" className="flex shrink-0 flex-wrap items-center justify-end gap-2">
           {actions}
@@ -129,9 +119,9 @@ export function SearchActionBar({
   );
 }
 
-export { ResponsiveFilterPanel } from "./responsive-filter-panel";
+export { ResponsiveFilterPanel };
 
-export function Card({ children, className }: { children: ReactNode; className?: string }) {
+export function Card({ children, className, ...props }: { children: ReactNode; className?: string } & HTMLAttributes<HTMLDivElement>) {
   return (
     <div
       data-amafh-card=""
@@ -139,6 +129,7 @@ export function Card({ children, className }: { children: ReactNode; className?:
         "min-w-0 rounded-[20px] bg-surface p-4 sm:p-5",
         className,
       )}
+      {...props}
     >
       {children}
     </div>
@@ -181,7 +172,7 @@ export function Field({
   helpLabel?: string;
 }) {
   return (
-    <label className={cx("block min-w-0 text-sm font-medium text-text-primary", className)} htmlFor={htmlFor}>
+    <label data-amafh-field="" className={cx("block min-w-0 text-sm font-medium text-text-primary", className)} htmlFor={htmlFor}>
       <span className="inline-flex items-center gap-1.5">
         {label}
         {help ? <Tooltip label={helpLabel ?? `About ${label}`} text={help} /> : null}
@@ -304,7 +295,7 @@ const badgeToneClass: Record<BadgeTone, string> = {
 
 export function Badge({ children, tone = "neutral" }: { children: ReactNode; tone?: BadgeTone }) {
   return (
-    <span className={cx("inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium", badgeToneClass[tone])}>
+    <span data-amafh-badge="" className={cx("inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium", badgeToneClass[tone])}>
       {children}
     </span>
   );
@@ -380,8 +371,33 @@ export function EmptyState({
 export function TableShell({
   children,
   className,
+  mobileCards = true,
+  tabletCards = false,
+  headerTone = "default",
   ...props
-}: { children: ReactNode; className?: string } & HTMLAttributes<HTMLDivElement>) {
+}: { children: ReactNode; className?: string; mobileCards?: boolean; tabletCards?: boolean; headerTone?: "default" | "bright" | "subtle" } & HTMLAttributes<HTMLDivElement>) {
+  const headings: string[] = [];
+  const text = (value: ReactNode): string => Children.toArray(value).map(child => isValidElement<{ children?: ReactNode }>(child) ? text(child.props.children) : typeof child === "string" || typeof child === "number" ? String(child) : "").join(" ").trim();
+  const collect = (value: ReactNode) => Children.forEach(value, child => {
+    if (!isValidElement<{ children?: ReactNode }>(child)) return;
+    if (child.type === Th || child.type === "th") headings.push(text(child.props.children));
+    else if (child.type !== Td && child.type !== "td") collect(child.props.children);
+  });
+  collect(children);
+  const labelRows = (value: ReactNode): ReactNode => Children.map(value, child => {
+    if (!isValidElement<{ children?: ReactNode }>(child) || child.type === Td || child.type === "td" || child.type === Th || child.type === "th") return child;
+    if (child.type === "tr") {
+      let column = 0;
+      return cloneElement(child, { children: Children.map(child.props.children, cell => {
+        if (!isValidElement<{ colSpan?: number }>(cell) || (cell.type !== Td && cell.type !== "td")) return cell;
+        const span = cell.props.colSpan ?? 1;
+        const label = span > 1 ? "" : headings[column] ?? "";
+        column += span;
+        return cloneElement(cell as ReactElement<{ label?: string; "data-label"?: string }>, cell.type === Td ? { label } : { "data-label": label });
+      }) });
+    }
+    return cloneElement(child, { children: labelRows(child.props.children) });
+  });
   return (
     <div
       className={cx(
@@ -389,10 +405,13 @@ export function TableShell({
         className,
       )}
       data-amafh-table-shell=""
+      data-mobile-cards={mobileCards || undefined}
+      data-tablet-cards={tabletCards || undefined}
+      data-header-tone={headerTone}
       {...props}
     >
-      <table className="w-full min-w-full text-left text-sm leading-5 [&_tbody_tr]:border-t [&_tbody_tr]:border-brand-border [&_tbody_tr]:transition-colors [&_tbody_tr:hover]:bg-surface-subtle">
-        {children}
+      <table role="table" className="w-full min-w-full text-left text-sm leading-5 [&_tbody_tr]:border-t [&_tbody_tr]:border-brand-border [&_tbody_tr]:transition-colors [&_tbody_tr:hover]:bg-surface-subtle">
+        {mobileCards || tabletCards ? labelRows(children) : children}
       </table>
     </div>
   );
@@ -403,11 +422,11 @@ export function TableHead({ children }: { children: ReactNode }) {
 }
 
 export function Th({ children, className }: { children: ReactNode; className?: string }) {
-  return <th className={cx("whitespace-nowrap px-4 py-2.5 font-semibold leading-5", className)}>{children}</th>;
+  return <th scope="col" className={cx("whitespace-nowrap px-4 py-2.5 font-semibold leading-5", className)}>{children}</th>;
 }
 
-export function Td({ children, className }: { children: ReactNode; className?: string }) {
-  return <td className={cx("px-4 py-2 align-middle leading-5 text-text-primary", className)}>{children}</td>;
+export function Td({ children, className, label }: { children: ReactNode; className?: string; label?: string }) {
+  return <td data-label={label} className={cx("px-4 py-2 align-middle leading-5 text-text-primary", className)}>{children}</td>;
 }
 
 export function DialogPanel({
@@ -424,8 +443,9 @@ export function DialogPanel({
   className?: string;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#17101f]/45 p-4 backdrop-blur-sm" role="presentation">
+    <div data-amafh-dialog-backdrop="" className="fixed inset-0 z-50 flex items-center justify-center bg-[#17101f]/45 p-4 backdrop-blur-sm" role="presentation">
       <section
+        data-amafh-dialog-panel=""
         role="dialog"
         aria-modal="true"
         aria-labelledby="bos-dialog-title"
@@ -448,7 +468,8 @@ export function DialogPanel({
   );
 }
 
-export function BrandLogo({ className = "" }: { className?: string }) {
+export function BrandLogo({ className = "", mark = false }: { className?: string; mark?: boolean }) {
+  if (mark) return <Image className={className} src="/brand/amafh-core-mark-exact.svg" alt="AMAFH CORE" width={801} height={908} priority unoptimized />;
   return <span className={cx("amafh-full-logo", className)}>
     <Image data-logo-theme="light" src="/brand/amafh-core-full-logo-exact.svg" alt="AMAFH CORE" width={1551} height={479} priority unoptimized />
     <Image data-logo-theme="dark" src="/brand/amafh-core-full-logo-dark.svg" alt="AMAFH CORE" width={1551} height={479} priority unoptimized />

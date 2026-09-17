@@ -150,8 +150,8 @@ test("Organization masters use URL tabs, filters, dependent drawers, and accessi
   await expect(page.getByLabel("Organization master summary")).toContainText("Offices");
   await expect(page.getByLabel("Offices status filter")).toHaveAttribute("value", "all");
   await expect(page.getByRole("navigation", { name: "List pagination" })).toBeVisible();
-  expect((await page.getByLabel("Search offices").boundingBox())?.height).toBe(32);
-  expect((await page.getByLabel("Offices status filter").boundingBox())?.height).toBe(32);
+  expect((await page.getByLabel("Search offices").boundingBox())?.height).toBe(44);
+  expect((await page.getByLabel("Offices status filter").boundingBox())?.height).toBe(44);
 
   await page.getByLabel("Search offices").fill(seeded.inactiveOffice.code);
   await selectBrandedOption(page.getByLabel("Offices status filter"), "inactive");
@@ -236,7 +236,7 @@ test("Organization masters use URL tabs, filters, dependent drawers, and accessi
   await expectNoPageOverflow(page);
 });
 
-test("Organization masters use readable mobile cards and an inset drawer without overflow", async ({
+test("Organization masters use readable mobile cards and an app-style editor without overflow", async ({
   page,
   request,
 }) => {
@@ -254,8 +254,8 @@ test("Organization masters use readable mobile cards and an inset drawer without
   await addTeam.click();
   const drawer = page.getByRole("dialog", { name: "Add team" });
   const drawerBox = await drawer.boundingBox();
-  expect(drawerBox?.x).toBe(12);
-  expect(drawerBox?.width).toBe(366);
+  expect(drawerBox?.x).toBe(0);
+  expect(drawerBox?.width).toBe(390);
   await expect(drawer.getByRole("combobox", { name: "Office", exact: true })).toBeFocused();
   await expect(drawer.getByRole("combobox", { name: "Office", exact: true })).toHaveAttribute("value", "");
   await expect(drawer.getByRole("combobox", { name: "Department", exact: true })).toBeDisabled();
@@ -275,7 +275,7 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
     await page.goto("/organization?tab=business-units");
     const tabs = page.getByRole("tablist", { name: "Organization masters" });
     await expect(tabs.getByRole("tab")).toHaveText(["Offices", "Departments", "Business Units", "Teams"]);
-    const add = page.getByRole("button", { name: "Add business unit", exact: true });
+    const add = page.getByRole("button", { name: "+ Add business unit", exact: true });
     await add.click();
     const drawer = page.getByRole("dialog", { name: "Add business unit", exact: true });
     const department = drawer.getByRole("combobox", { name: "Department", exact: true });
@@ -291,6 +291,7 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
     await expect(drawer).toHaveCount(0);
     await page.getByLabel("Search business units").fill(code);
     const region = viewport.width === 390 ? page.getByTestId("organization-mobile-list") : page.locator("tbody");
+    if (viewport.width === 390) await region.locator("details").first().locator("summary").click();
     const remove = region.getByRole("button", { name: /Delete/ });
     await remove.click();
     let dialog = page.getByRole("dialog", { name: "Delete organization master" });
@@ -328,6 +329,7 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
     if (viewport.width === 390) await captureViewportThemes(page, testInfo.outputPath(`org-business-unit-records-${viewport.width}.png`), page.getByTestId("organization-mobile-list"));
     await expectNoPageOverflow(page);
     await page.getByLabel("Search business units").fill(`BU${seeded.teamA.code}`);
+    if (viewport.width === 390) await region.locator("details").first().locator("summary").click();
     const usedRemove = region.getByRole("button", { name: /Delete/ });
     await usedRemove.click();
     dialog = page.getByRole("dialog", { name: "Delete organization master" });
@@ -338,7 +340,7 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
     await expect(usedRemove).toBeFocused();
 
     await tabs.getByRole("tab", { name: "Teams", exact: true }).click();
-    await page.getByRole("button", { name: "Add team", exact: true }).click();
+    await page.getByRole("button", { name: "+ Add team", exact: true }).click();
     const teamDrawer = page.getByRole("dialog", { name: "Add team", exact: true });
     const unitSelect = teamDrawer.getByRole("combobox", { name: "Business Unit", exact: true });
     await expect(unitSelect).toBeDisabled();

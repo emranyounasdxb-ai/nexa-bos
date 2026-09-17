@@ -469,7 +469,7 @@ export default function TargetsPage() {
           <div id="targets-panel" role="tabpanel" aria-labelledby="targets-tab" className="space-y-3 p-3 sm:p-4">
             <ConfigurationWorkspace controls={<div
               data-testid="target-filter-toolbar"
-              className="grid min-w-0 grid-cols-2 gap-3 rounded-[18px] bg-surface-subtle p-3 sm:p-4 xl:grid-cols-1"
+              className="grid min-w-0 grid-cols-2 gap-3 rounded-[20px] bg-surface-subtle p-3 sm:p-4 xl:grid-cols-1 xl:rounded-2xl"
             >
               <Field label="Level" className="min-w-0">
                 <Select aria-label="Filter level" value={filterLevel} onChange={(event) => { setFilterLevel(event.target.value); setPage(1); }}>
@@ -489,7 +489,7 @@ export default function TargetsPage() {
               </Field>
               <Field
                 label="Month"
-                className="col-span-2 min-w-0 xl:col-span-1 [&>div]:grid [&>div]:grid-cols-[minmax(0,1fr)_auto] [&>div]:items-center [&>div]:gap-2 [&>div>button]:mt-0 [&>div>button]:h-8 [&>div>button]:rounded-md [&>div>button]:border [&>div>button]:border-brand-border [&>div>button]:px-2.5 [&>div>button]:text-xs [&>div>button]:no-underline"
+                className="col-span-2 min-w-0 xl:col-span-1 [&>div]:grid [&>div]:grid-cols-[minmax(0,1fr)_auto] [&>div]:items-center [&>div]:gap-2 [&>div>button]:mt-0 [&>div>button]:h-12 [&>div>button]:rounded-[14px] xl:[&>div>button]:h-9 xl:[&>div>button]:rounded-lg [&>div>button]:border [&>div>button]:border-brand-border [&>div>button]:px-2.5 [&>div>button]:text-xs [&>div>button]:no-underline"
               >
                 <DatePicker
                   aria-label="Target month filter"
@@ -513,7 +513,7 @@ export default function TargetsPage() {
             {message ? <p role="status" className="rounded-md border border-success-soft bg-success-soft px-3 py-2 text-sm text-text-primary">{message}</p> : null}
             <div data-testid="target-results" aria-busy={loading}>
               {loading && items.length === 0 ? (
-                <div role="status" className="flex min-h-20 items-center gap-3 rounded-[10px] border border-brand-border px-4 py-4 text-sm text-text-secondary">
+                <div data-amafh-card="" role="status" className="flex min-h-20 items-center gap-3 border border-brand-border px-4 py-4 text-sm text-text-secondary">
                   <span className="size-5 animate-spin rounded-full border-2 border-brand-border border-t-brand-primary" aria-hidden="true" />
                   Loading targets…
                 </div>
@@ -553,7 +553,7 @@ export default function TargetsPage() {
                   </TableShell>
                   <ul className={cx("grid gap-2 lg:hidden", loading && "opacity-70")} aria-label="Target results">
                     {items.map((item) => (
-                      <li key={item.id} className="min-w-0 rounded-[10px] border border-brand-border bg-surface p-3">
+                      <li data-amafh-record-card="" key={item.id} className="min-w-0 rounded-[10px] border border-brand-border bg-surface p-3">
                         <div className="flex min-w-0 items-start justify-between gap-2">
                           <div className="min-w-0"><span className="block text-xs capitalize text-text-secondary">{item.level}</span>{item.level === "employee" ? <Link className="block truncate font-medium text-brand-link" href={`/reports/employees/${item.entityId}`}>{item.entityName}</Link> : <span className="block truncate font-medium">{item.entityName}</span>}</div>
                           <div className="flex shrink-0 flex-wrap justify-end gap-1"><StatusBadge value={humanize(item.status)} />{item.locked ? <Badge tone="red">Locked</Badge> : null}</div>

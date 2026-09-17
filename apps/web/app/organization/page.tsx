@@ -9,7 +9,7 @@ import {
   type FormEvent,
 } from "react";
 
-import { IconEdit, IconPower, IconX } from "@/components/icons";
+import { IconBuildingCommunity, IconEdit, IconHierarchy3, IconPower, IconUsers, IconX } from "@/components/icons";
 import { OrganizationDeleteDialog } from "@/components/organization-delete-dialog";
 import { Pagination, useClientPagination } from "@/components/pagination";
 import {
@@ -34,7 +34,8 @@ import {
 import { ApiClientError, apiGet, apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { getBrowserApiUrl } from "@/lib/env";
-import { RecordFrame } from "@/components/page-patterns";
+import { RecordCard, RecordFrame, RecordIdentity } from "@/components/page-patterns";
+import styles from "./organization.module.css";
 import { canReadOrganization } from "@/lib/role-access";
 import type { ManagerOption, OrgRef } from "@/lib/types";
 
@@ -461,10 +462,10 @@ export default function OrganizationPage() {
   }
 
   return (
-    <section className="min-w-0 space-y-4">
+    <section data-organization-screen="" className={`${styles.organization} min-w-0 space-y-4`}>
       <PageHeader
         title="Organization masters"
-        description="Manage offices, departments, Business Units and teams. Staff designations use the configured User Types."
+        description="Manage Offices, Departments, Business Units and Teams. Staff use the unified Designations model."
         actions={
           can("Users.View") ? (
             <ButtonLink href="/organization/hierarchy" variant="secondary">
@@ -478,7 +479,7 @@ export default function OrganizationPage() {
       {loading ? (
         <OrganizationLoadingState />
       ) : (
-        <RecordFrame summary={<section className="space-y-3 rounded-[20px] bg-surface p-3">
+        <RecordFrame variant="organization" summary={<section className="space-y-3 rounded-[20px] bg-surface p-3">
           <h2 className="px-2 py-1 text-[17px] font-medium">Organization</h2>
           <div className="grid min-w-0 grid-flow-col auto-cols-[130px] gap-2 overflow-x-auto xl:grid-flow-row xl:auto-cols-auto xl:grid-cols-1" aria-label="Organization master summary" tabIndex={0}>
             {MASTER_TABS.map((kind) => {
@@ -496,6 +497,7 @@ export default function OrganizationPage() {
             })}
           </div>
         </section>}>
+          <div className={styles.compactSummary}><strong>{filteredItems.length.toLocaleString()} {currentConfig.label.toLowerCase()}</strong><p>{currentConfig.description}</p></div>
           <div
             role="tablist"
             aria-label="Organization masters"
@@ -528,17 +530,10 @@ export default function OrganizationPage() {
             aria-labelledby={`organization-tab-${activeTab}`}
             className="min-w-0 space-y-3"
           >
-            <Card className="space-y-3">
+            <Card className={`${styles.toolbar} space-y-3`}>
               <SectionHeader
                 title={currentConfig.label}
                 description={currentConfig.description}
-                actions={
-                  can(currentConfig.permission) ? (
-                    <Button type="button" onClick={(event) => openCreate(activeTab, event.currentTarget)}>
-                      Add {currentConfig.singular.toLowerCase()}
-                    </Button>
-                  ) : null
-                }
               />
               <SearchActionBar
                 search={
@@ -551,7 +546,8 @@ export default function OrganizationPage() {
                     />
                   </Field>
                 }
-                actions={
+                actions={can(currentConfig.permission) ? <Button type="button" onClick={(event) => openCreate(activeTab, event.currentTarget)}>+ Add {currentConfig.singular.toLowerCase()}</Button> : null}
+                filters={
                   <Field label="Status" htmlFor="organization-status" className="w-full sm:w-44">
                     <Select
                       id="organization-status"
@@ -630,6 +626,7 @@ export default function OrganizationPage() {
 
       {drawer && drawerConfig ? (
         <div
+          data-amafh-editor-backdrop=""
           className="fixed inset-0 z-50 flex justify-end bg-black/40 p-3 backdrop-blur-sm"
           role="presentation"
           onMouseDown={(event) => {
@@ -637,6 +634,7 @@ export default function OrganizationPage() {
           }}
         >
           <aside
+            data-amafh-editor-panel=""
             ref={drawerRef}
             role="dialog"
             aria-modal="true"
@@ -824,8 +822,8 @@ function MasterList({ kind, items, officeById, departmentById, businessUnitById,
 }) {
   return (
     <>
-      <div className="hidden min-w-0 md:block">
-        <TableShell>
+      <div className="hidden min-w-0 xl:block">
+        <TableShell tabletCards>
           <TableHead><tr><Th>Name</Th>{(kind === "departments" || kind === "teams") && <Th>Office</Th>}{kind === "teams" && <Th>Department</Th>}<Th>Status</Th>{kind === "teams" && <Th>Team leader</Th>}{canManage && <Th className="text-right">Actions</Th>}</tr></TableHead>
           <tbody>
             {items.map((item) => (
@@ -857,10 +855,9 @@ function MasterList({ kind, items, officeById, departmentById, businessUnitById,
         </TableShell>
       </div>
 
-      <div className="grid min-w-0 gap-2 md:hidden" data-testid="organization-mobile-list">
+      <div className="grid min-w-0 gap-[18px] xl:hidden" data-testid="organization-mobile-list">
         {items.map((item) => (
-          <Card key={item.id} className="!p-3">
-            <div className="flex min-w-0 items-start justify-between gap-3"><p className="min-w-0 break-words text-sm font-semibold text-text-primary">{item.name}</p><StatusBadge value={normalizedStatus(item)} /></div>
+          <RecordCard key={item.id} identity={canManage ? <button type="button" aria-label={`Edit ${item.name}`} onClick={event => onEdit(kind, item, event.currentTarget)}><RecordIdentity tone="success" title={item.name} icon={kind === "offices" ? <IconBuildingCommunity /> : kind === "departments" ? <IconHierarchy3 /> : <IconUsers />} subtitle={kind === "offices" ? "Office" : kind === "departments" ? officeById.get(item.officeId ?? "")?.name ?? "Unavailable office" : kind === "business-units" ? <>{officeById.get(item.officeId ?? "")?.name} · {departmentById.get(item.departmentId ?? "")?.name}</> : businessUnitById.get(item.businessUnitId ?? "")?.name ?? "Not assigned"} /></button> : <RecordIdentity tone="success" title={item.name} icon={kind === "offices" ? <IconBuildingCommunity /> : <IconUsers />} subtitle={kind === "offices" ? "Office" : officeById.get(item.officeId ?? "")?.name ?? "Unavailable office"} navigable={false} />} status={<StatusBadge value={normalizedStatus(item)} />}>
             {(kind === "departments" || kind === "teams") && <p className="mt-3 text-xs text-text-secondary"><span className="font-medium text-text-primary">Office:</span> {item.officeId ? officeById.get(item.officeId)?.name ?? "Unavailable" : "—"}</p>}
             {kind === "teams" && (
               <><p className="mt-1 text-xs text-text-secondary"><span className="font-medium text-text-primary">Department:</span> {item.departmentId ? departmentById.get(item.departmentId)?.name ?? "Unavailable" : "—"}</p>
@@ -870,7 +867,7 @@ function MasterList({ kind, items, officeById, departmentById, businessUnitById,
             {kind === "business-units" ? <p className="mt-2 text-xs text-text-secondary">{officeById.get(item.officeId ?? "")?.name} · {departmentById.get(item.departmentId ?? "")?.name}</p> : null}
             {kind === "teams" ? <p className="mt-2 text-xs text-text-secondary">Business Unit: {businessUnitById.get(item.businessUnitId ?? "")?.name ?? "Not assigned"}</p> : null}
             {canManage && <div className="mt-3 flex flex-wrap justify-end gap-1 border-t border-brand-border pt-3"><Button type="button" variant="ghost" size="compact" onClick={(event) => onEdit(kind, item, event.currentTarget)}><IconEdit className="size-4" /> Edit</Button><Button type="button" variant="secondary" size="compact" onClick={() => onStatus({ kind, item })}><IconPower className="size-4" />{normalizedStatus(item) === "active" ? "Deactivate" : "Activate"}</Button>{canDelete ? <Button type="button" variant="danger" size="compact" aria-label={`Delete ${item.name}`} onClick={(event) => onDelete(kind, item, event.currentTarget)}>Delete</Button> : null}</div>}
-          </Card>
+          </RecordCard>
         ))}
       </div>
     </>

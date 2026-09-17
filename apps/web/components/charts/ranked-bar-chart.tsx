@@ -25,11 +25,13 @@ export function RankedBarChart({
   accessibleDescription,
   limit = 6,
   testId = "ranked-bar-chart",
+  compact = false,
 }: {
   rows: RankedBarDatum[];
   accessibleDescription: string;
   limit?: number;
   testId?: string;
+  compact?: boolean;
 }) {
   const ranked = useMemo(
     () => [...rows].sort((left, right) => right.value - left.value).slice(0, limit),
@@ -103,7 +105,7 @@ export function RankedBarChart({
         empty={ranked.length === 0}
         emptyMessage="Insights will appear when activity begins"
         testId={testId}
-        height={Math.max(198, ranked.length * 34)}
+        height={compact ? Math.max(104, ranked.length * 34 + 36) : Math.max(198, ranked.length * 34)}
       />
       {ranked.length > 0 ? (
         <ol className="sr-only">

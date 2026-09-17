@@ -7,7 +7,7 @@
   .queue tbody td { display: block; min-width: 0; padding: 0; }
   .queue tbody td:first-child, .queue tbody td:last-child { grid-column: 1 / -1; }
   .queue tbody td:first-child { padding-bottom: 8px; border-bottom: 1px solid var(--amafh-border); }
-  .queue tbody td:nth-child(2)::before { content: "Requester"; display: block; font-size: 12px; color: var(--amafh-text-secondary); }
-  .queue tbody td:nth-child(4)::before { content: "Due date"; display: block; font-size: 12px; color: var(--amafh-text-secondary); }
+  .queue tbody td:nth-child(2)::before { content: "Requester"; display: block; font-size: var(--amafh-list-secondary); color: var(--amafh-text-secondary);  line-height: 20px; }
+  .queue tbody td:nth-child(4)::before { content: "Due date"; display: block; font-size: var(--amafh-list-secondary); color: var(--amafh-text-secondary);  line-height: 20px; }
   .queue tbody td:last-child { padding-top: 8px; border-top: 1px solid var(--amafh-border); }
 }

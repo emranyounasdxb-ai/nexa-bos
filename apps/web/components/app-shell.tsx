@@ -15,7 +15,6 @@ import {
   IconGitBranch,
   IconHierarchy3,
   IconLayoutDashboard,
-  IconPackages,
   IconReportAnalytics,
   IconShieldLock,
   IconTargetArrow,
@@ -52,44 +51,44 @@ type NavGroup = {
 type RouteContext = { group: string; title: string; parent?: { href: string; label: string } };
 
 const routeContext = (pathname: string): RouteContext => {
-  if (pathname !== "/applications/new" && /^\/applications\/[^/]+$/.test(pathname)) return { group: "Operations", title: "Application details", parent: { href: "/applications", label: "Applications" } };
-  if (pathname !== "/customers/new" && /^\/customers\/[^/]+$/.test(pathname)) return { group: "Operations", title: "Customer details", parent: { href: "/customers", label: "Customers" } };
-  if (/^\/users\/[^/]+\/edit$/.test(pathname)) return { group: "People", title: "Edit employee profile", parent: { href: "/users", label: "Users" } };
-  if (pathname !== "/users/new" && /^\/users\/[^/]+$/.test(pathname)) return { group: "People", title: "Employee profile", parent: { href: "/users", label: "Users" } };
-  if (/^\/assets\/[^/]+$/.test(pathname) && !["/assets/categories", "/assets/reports"].includes(pathname)) return { group: "Assets", title: "Asset details", parent: { href: "/assets", label: "Assets" } };
+  if (pathname !== "/applications/new" && /^\/applications\/[^/]+$/.test(pathname)) return { group: "Cases", title: "Application details", parent: { href: "/applications", label: "Applications" } };
+  if (pathname !== "/customers/new" && /^\/customers\/[^/]+$/.test(pathname)) return { group: "Cases", title: "Customer details", parent: { href: "/customers", label: "Customers" } };
+  if (/^\/users\/[^/]+\/edit$/.test(pathname)) return { group: "People & HR", title: "Edit employee profile", parent: { href: "/users", label: "Users" } };
+  if (pathname !== "/users/new" && /^\/users\/[^/]+$/.test(pathname)) return { group: "People & HR", title: "Employee profile", parent: { href: "/users", label: "Users" } };
+  if (/^\/assets\/[^/]+$/.test(pathname) && !["/assets/categories", "/assets/reports"].includes(pathname)) return { group: "Operations", title: "Asset details", parent: { href: "/assets", label: "Assets" } };
   if (/^\/user-types\/[^/]+$/.test(pathname)) return { group: "Administration", title: "Designation details", parent: { href: "/user-types", label: "Designations" } };
   const routes = [
-    { prefix: "/reports/compare", group: "Performance", title: "Comparisons" },
-    { prefix: "/reports/drill-down", group: "Performance", title: "Report drill-down", parent: { href: "/reports/compare", label: "Reports" } },
-    { prefix: "/reports/employees", group: "Performance", title: "Employee report", parent: { href: "/reports/compare", label: "Reports" } },
+    { prefix: "/reports/compare", group: "Reports", title: "Comparisons" },
+    { prefix: "/reports/drill-down", group: "Reports", title: "Report drill-down", parent: { href: "/reports/compare", label: "Reports" } },
+    { prefix: "/reports/employees", group: "Reports", title: "Employee report", parent: { href: "/reports/compare", label: "Reports" } },
     { prefix: "/reports", group: "Workspace", title: "Dashboard" },
-    { prefix: "/customers/new", group: "Operations", title: "Create customer", parent: { href: "/customers", label: "Customers" } },
-    { prefix: "/customers", group: "Operations", title: "Customers" },
-    { prefix: "/applications/new", group: "Operations", title: "Create application", parent: { href: "/applications", label: "Applications" } },
-    { prefix: "/applications", group: "Operations", title: "Applications" },
+    { prefix: "/customers/new", group: "Cases", title: "Create customer", parent: { href: "/customers", label: "Customers" } },
+    { prefix: "/customers", group: "Cases", title: "Customers" },
+    { prefix: "/applications/new", group: "Cases", title: "Create application", parent: { href: "/applications", label: "Applications" } },
+    { prefix: "/applications", group: "Cases", title: "Applications" },
     { prefix: "/workflows", group: "Operations", title: "Workflow Designer" },
     { prefix: "/case-operations", group: "Operations", title: "Case Operations" },
-    { prefix: "/users/new", group: "People", title: "Create user", parent: { href: "/users", label: "Users" } },
-    { prefix: "/users", group: "People", title: "Users" },
-    { prefix: "/hr", group: "People", title: "HR Dashboard" },
-    { prefix: "/pro", group: "People", title: "PRO Dashboard" },
-    { prefix: "/organization/hierarchy", group: "People", title: "Organization hierarchy", parent: { href: "/organization", label: "Organization" } },
-    { prefix: "/organization", group: "People", title: "Organization masters" },
-    { prefix: "/attendance/reports", group: "People", title: "Attendance reports", parent: { href: "/attendance", label: "Attendance" } },
-    { prefix: "/attendance/holidays", group: "People", title: "Official holidays", parent: { href: "/attendance", label: "Attendance" } },
-    { prefix: "/attendance/schedules", group: "People", title: "Attendance schedules", parent: { href: "/attendance", label: "Attendance" } },
-    { prefix: "/attendance", group: "People", title: "Attendance" },
-    { prefix: "/leave", group: "People", title: "Leave management" },
-    { prefix: "/contracts", group: "People", title: "Employment contracts" },
-    { prefix: "/transfers", group: "People", title: "Employee transfers" },
-    { prefix: "/exits", group: "People", title: "Exit and offboarding" },
-    { prefix: "/approvals", group: "People", title: "Approval Centre" },
+    { prefix: "/users/new", group: "People & HR", title: "Create user", parent: { href: "/users", label: "Users" } },
+    { prefix: "/users", group: "People & HR", title: "Users" },
+    { prefix: "/hr", group: "People & HR", title: "HR Dashboard" },
+    { prefix: "/pro", group: "People & HR", title: "PRO Dashboard" },
+    { prefix: "/organization/hierarchy", group: "People & HR", title: "Organization hierarchy", parent: { href: "/organization", label: "Organization" } },
+    { prefix: "/organization", group: "People & HR", title: "Organization masters" },
+    { prefix: "/attendance/reports", group: "Reports", title: "Attendance reports", parent: { href: "/attendance", label: "Attendance" } },
+    { prefix: "/attendance/holidays", group: "People & HR", title: "Official holidays", parent: { href: "/attendance", label: "Attendance" } },
+    { prefix: "/attendance/schedules", group: "People & HR", title: "Attendance schedules", parent: { href: "/attendance", label: "Attendance" } },
+    { prefix: "/attendance", group: "People & HR", title: "Attendance" },
+    { prefix: "/leave", group: "People & HR", title: "Leave management" },
+    { prefix: "/contracts", group: "People & HR", title: "Employment contracts" },
+    { prefix: "/transfers", group: "People & HR", title: "Employee transfers" },
+    { prefix: "/exits", group: "People & HR", title: "Exit and offboarding" },
+    { prefix: "/approvals", group: "People & HR", title: "Approval Centre" },
     { prefix: "/targets/kpi", group: "Performance", title: "KPI scorecards", parent: { href: "/targets", label: "Targets" } },
     { prefix: "/targets", group: "Performance", title: "Targets" },
     { prefix: "/finance", group: "Finance", title: "Finance" },
-    { prefix: "/assets/categories", group: "Assets", title: "Asset Categories", parent: { href: "/assets", label: "Assets" } },
-    { prefix: "/assets/reports", group: "Assets", title: "Asset Reports", parent: { href: "/assets", label: "Assets" } },
-    { prefix: "/assets", group: "Assets", title: "Asset Register" },
+    { prefix: "/assets/categories", group: "Operations", title: "Asset Categories", parent: { href: "/assets", label: "Assets" } },
+    { prefix: "/assets/reports", group: "Reports", title: "Asset Reports", parent: { href: "/assets", label: "Assets" } },
+    { prefix: "/assets", group: "Operations", title: "Asset Register" },
     { prefix: "/notifications/manage", group: "Administration", title: "Notification administration", parent: { href: "/notifications", label: "Notifications" } },
     { prefix: "/notifications", group: "Notifications", title: "Notifications" },
     { prefix: "/catalog", group: "Administration", title: "Banks and products" },
@@ -172,20 +171,28 @@ function Shell({ children }: { children: ReactNode }) {
     {
       label: "Workspace",
       icon: IconLayoutDashboard,
-      items: [{ href: "/reports", label: "Dashboard", icon: IconLayoutDashboard, show: can("Dashboard.View") }],
+      items: [{ href: user ? landingFor(user) : "/reports", label: "Dashboard", icon: IconLayoutDashboard, show: Boolean(user) && (can("Dashboard.View") || can("UserProfiles.HR.View") || can("UserProfiles.PRO.View")) }],
+    },
+    {
+      label: "Cases",
+      icon: IconFileDescription,
+      items: [
+        { href: "/applications", label: "Applications", icon: IconFileDescription, show: can("Applications.View") },
+        { href: "/customers", label: "Customers", icon: IconUser, show: canManageCustomers(user) },
+      ],
     },
     {
       label: "Operations",
       icon: IconBriefcase2,
       items: [
-        { href: "/customers", label: "Customers", icon: IconUser, show: canManageCustomers(user) },
-        { href: "/applications", label: "Applications", icon: IconFileDescription, show: can("Applications.View") },
         { href: "/workflows", label: "Workflows", icon: IconGitBranch, show: canReadWorkflows(user) },
         { href: "/case-operations", label: "Case Operations", icon: IconHierarchy3, show: user?.userType?.code !== "TL" && (can("CaseOperations.ViewRules") || can("CaseOperations.ViewRouting") || can("CaseOperations.StageCsv") || can("CaseOperations.ViewReports")) },
+        { href: "/assets", label: "Asset Register", icon: IconDevices2, show: can("Assets.View") },
+        { href: "/assets/categories", label: "Asset Categories", icon: IconCategory, show: can("Assets.ManageMaster") },
       ],
     },
     {
-      label: "People",
+      label: "People & HR",
       icon: IconUsersGroup,
       items: [
         { href: "/users", label: "Users", icon: IconUsers, show: can("Users.View") },
@@ -204,7 +211,6 @@ function Shell({ children }: { children: ReactNode }) {
         { href: "/transfers", label: "Transfers", icon: IconHierarchy3, show: can("Transfers.View") || can("Transfers.ViewOwn") || can("Transfers.Recommend") },
         { href: "/exits", label: "Exit and offboarding", icon: IconFileDescription, show: can("Exits.View") || can("Exits.ViewOwn") || can("Exits.Clearance") },
         { href: "/approvals", label: "Approval Centre", icon: IconFileDescription, show: can("Approvals.View") },
-        { href: "/attendance/reports", label: "Attendance reports", icon: IconReportAnalytics, show: can("Attendance.Reports") },
       ],
     },
     {
@@ -213,7 +219,6 @@ function Shell({ children }: { children: ReactNode }) {
       items: [
         { href: "/targets", label: "Targets", icon: IconTargetArrow, show: can("Targets.View") },
         { href: "/targets/kpi", label: "KPI scorecards", icon: IconGauge, show: can("Targets.View") },
-        { href: "/reports/compare", label: "Reports", icon: IconReportAnalytics, show: can("Reports.View") },
       ],
     },
     {
@@ -229,11 +234,12 @@ function Shell({ children }: { children: ReactNode }) {
       ],
     },
     {
-      label: "Assets",
-      icon: IconPackages,
+      label: "Reports",
+      icon: IconReportAnalytics,
       items: [
-        { href: "/assets", label: "Assets", icon: IconDevices2, show: can("Assets.View") },
-        { href: "/assets/categories", label: "Asset categories", icon: IconCategory, show: can("Assets.ManageMaster") },
+        { href: "/reports/compare", label: "Comparison Reports", icon: IconReportAnalytics, show: can("Reports.View") },
+        { href: "/reports/drill-down", label: "Drill-down Reports", icon: IconReportAnalytics, show: can("Reports.View") },
+        { href: "/attendance/reports", label: "Attendance Reports", icon: IconReportAnalytics, show: can("Attendance.Reports") },
         { href: "/assets/reports", label: "Asset reports", icon: IconReportAnalytics, show: can("Assets.View") },
       ],
     },
@@ -244,13 +250,16 @@ function Shell({ children }: { children: ReactNode }) {
         { href: "/catalog", label: "Banks & products", icon: IconBuildingBank, show: canReadCatalog(user) },
         { href: "/user-types", label: "Designations", icon: IconUserShield, show: can("UserTypes.View") },
         { href: "/security", label: "Security", icon: IconShieldLock, show: can("Security.ManageSettings") },
+        { href: "/notifications/manage", label: "Notification Administration", icon: IconShieldLock, show: user?.userType?.code !== "SE" && (can("Notifications.ManageRules") || can("Notifications.SendUrgent") || can("Notifications.ViewAudit")) },
       ],
     },
   ];
 
+  const headerOrder = ["Workspace", "Cases", "Operations", "Performance", "People & HR", "Finance", "Reports", "Administration"];
   const visibleGroups = groups
-    .map((group) => ({ ...group, items: group.items.filter((item) => item.show) }))
+    .map((group) => ({ ...group, items: group.items.filter((item) => item.show && (user?.userType?.code !== "TL" || ["/reports", "/applications", "/customers"].includes(item.href))) }))
     .filter((group) => group.items.length > 0);
+  visibleGroups.sort((left, right) => headerOrder.indexOf(left.label) - headerOrder.indexOf(right.label));
   return <WorkspaceFrame user={user} groups={visibleGroups} context={context} pathname={pathname}
     home={user ? landingFor(user) : "/login"} notifications={can("Notifications.View")}
     isActive={href => isActiveRoute(pathname, href)} onLogout={logout}>{tlLegacyCases ? <p role="status">Opening Cases…</p> : tlForbidden ? <p role="status">Returning to TL Dashboard…</p> : children}</WorkspaceFrame>;

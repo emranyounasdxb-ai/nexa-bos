@@ -37,13 +37,12 @@ async function signIn(page: Page, request: APIRequestContext) {
   await page.getByLabel("Email").fill("owner@example.com");
   await page.getByLabel("Password").fill("OwnerPass1!");
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible({
+  await expect(page.getByRole("heading", { name: "Dashboard", exact: true })).toBeVisible({
     timeout: 30_000,
   });
 }
 
 async function openGroup(page: Page, label: string) {
-  if (label === "Finance") return; // Single-destination rail item.
   const parent = page.getByRole("button", { name: `${label} menu` });
   if ((await parent.getAttribute("aria-expanded")) !== "true") {
     await parent.click();
@@ -67,16 +66,18 @@ async function expectCompactShell(page: Page, title: string) {
   expect(headerBox).not.toBeNull();
   expect(mainBox).not.toBeNull();
   expect(firstContentBox).not.toBeNull();
-  expect(headerBox!.height).toBeLessThanOrEqual(90);
+  const largeDesktopHeader = page.viewportSize()!.width >= 1280 && ["Asset Register", "Asset Categories"].includes(title);
+  if (largeDesktopHeader) expect(headerBox!.height).toBe(128); // Approved asset-frame header.
+  else expect(headerBox!.height).toBeLessThanOrEqual(page.viewportSize()!.width < 640 ? 90 : 100);
   expect(mainBox!.y - (headerBox!.y + headerBox!.height)).toBeGreaterThanOrEqual(-1);
-  expect(firstContentBox!.y - (headerBox!.y + headerBox!.height)).toBeLessThanOrEqual(16);
+  expect(firstContentBox!.y - (headerBox!.y + headerBox!.height)).toBeLessThanOrEqual(largeDesktopHeader ? 20 : 16);
   expect(firstContentBox!.y - (headerBox!.y + headerBox!.height)).toBeGreaterThanOrEqual(0);
-  const trigger = page.getByRole("button", { name: "Open navigation" });
-  if (page.viewportSize()!.width < 1024) {
+  const trigger = page.getByRole("navigation", { name: "Mobile navigation", exact: true }).getByRole("button", { name: "More navigation" });
+  if (page.viewportSize()!.width < 640) {
     const triggerBox = await trigger.boundingBox();
     expect(triggerBox).not.toBeNull();
-    expect(Math.abs(triggerBox!.width - 32)).toBeLessThanOrEqual(1);
-    expect(Math.abs(triggerBox!.height - 32)).toBeLessThanOrEqual(1);
+    expect(Math.abs(triggerBox!.width - (page.viewportSize()!.width - 24) / 5)).toBeLessThanOrEqual(1);
+    expect(Math.abs(triggerBox!.height - 44)).toBeLessThanOrEqual(1);
   } else {
     await expect(trigger).toBeHidden();
   }
@@ -91,7 +92,7 @@ test("mobile sidebar Escape and close button restore focus and exclude closed co
   await page.setViewportSize({ width: 390, height: 844 });
   await signIn(page, request);
   const sidebar = page.locator('aside[aria-label="Application sidebar"]');
-  const trigger = page.getByRole("button", { name: "Open navigation" });
+  const trigger = page.getByRole("navigation", { name: "Mobile navigation", exact: true }).getByRole("button", { name: "More navigation" });
   const close = sidebar.getByRole("button", { name: "Close navigation" });
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
@@ -123,13 +124,13 @@ test("mobile sidebar Escape and close button restore focus and exclude closed co
     await expect(trigger).toHaveAttribute("aria-expanded", "true");
     await expect(sidebar).toHaveJSProperty("inert", false);
     await expect(close).toBeFocused();
-    const operations = sidebar.getByRole("button", { name: "Operations menu" });
+    const operations = sidebar.getByRole("button", { name: "Cases menu" });
     await operations.focus();
     await expect(operations).toBeFocused();
     await page.keyboard.press("Enter");
     await expect(operations).toHaveAttribute("aria-expanded", "true");
     await page.keyboard.press("Tab");
-    await expect(page.getByRole("dialog", { name: "Operations", exact: true }).getByRole("link", { name: "Customers", exact: true })).toBeFocused();
+    await expect(page.getByRole("dialog", { name: "Cases", exact: true }).getByRole("link", { name: "Applications", exact: true })).toBeFocused();
     await page.keyboard.press("Escape");
     await expect(operations).toBeFocused();
     await page.keyboard.press("Escape");
@@ -139,12 +140,12 @@ test("mobile sidebar Escape and close button restore focus and exclude closed co
     await expect(close).toBeFocused();
     await close.click();
     await expectClosed();
-    await expect(sidebar.getByRole("button", { name: "Operations menu", includeHidden: true })).toHaveAttribute("aria-expanded", "false");
+    await expect(sidebar.getByRole("button", { name: "Cases menu", includeHidden: true })).toHaveAttribute("aria-expanded", "false");
   }
 
   await trigger.click();
-  await sidebar.getByRole("button", { name: "Operations menu" }).click();
-  const applications = page.getByRole("dialog", { name: "Operations", exact: true }).getByRole("link", { name: "Applications", exact: true });
+  await sidebar.getByRole("button", { name: "Cases menu" }).click();
+  const applications = page.getByRole("dialog", { name: "Cases", exact: true }).getByRole("link", { name: "Applications", exact: true });
   await applications.focus();
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/\/applications$/);
@@ -153,70 +154,45 @@ test("mobile sidebar Escape and close button restore focus and exclude closed co
   expect(errors).toEqual([]);
 });
 
-test("sidebar keyboard focus remains usable across desktop and mobile breakpoints", async ({
-  page,
-  request,
-}) => {
-  test.setTimeout(60_000);
-  await page.setViewportSize({ width: 1440, height: 900 });
+test("navigation keyboard focus remains usable across desktop, tablet and mobile", async ({ page, request }) => {
+  test.setTimeout(90_000);
+  await page.setViewportSize({ width: 1440, height: 1120 });
   await signIn(page, request);
-  const sidebar = page.locator('aside[aria-label="Application sidebar"]');
-  const dashboard = sidebar.locator('a[aria-label="Dashboard"]');
-  const trigger = page.getByRole("button", { name: "Open navigation" });
-  await expect(sidebar).toHaveJSProperty("inert", false);
-  await expect(sidebar).toHaveCSS("width", "44px");
-  expect((await sidebar.boundingBox())!.x).toBe(16);
-  await expect(sidebar.getByRole("group", { name: "Appearance", exact: true })).toHaveCount(0);
-  await expect(sidebar.getByRole("link", { name: "My profile", exact: true })).toHaveCount(0);
-  await expect(sidebar.getByRole("button", { name: "Sign out", exact: true })).toBeVisible();
-  await dashboard.hover();
-  await expect(page.getByRole("tooltip", { name: "Dashboard", exact: true })).toBeVisible();
-  await expect(page.getByRole("tooltip", { name: "Dashboard", exact: true })).toBeInViewport({ ratio: 1 });
-  await expect(dashboard).toHaveAttribute("aria-describedby", "application-sidebar-tooltip");
-  await dashboard.focus();
-  await expect(dashboard).toBeFocused();
-  await expect(page.getByRole("tooltip", { name: "Dashboard", exact: true })).toBeVisible();
-  await expect(sidebar).toHaveCSS("width", "44px");
-  await page.keyboard.press("Escape");
-  await expect(dashboard).toBeFocused();
+  const sidebar = page.getByLabel("Application sidebar", { exact: true });
+  const primary = page.getByRole("navigation", { name: "Primary", exact: true });
+  const tablet = page.getByRole("navigation", { name: "Tablet navigation", exact: true });
+  const trigger = page.getByRole("navigation", { name: "Mobile navigation", exact: true }).getByRole("button", { name: "More navigation", exact: true });
+  await expect(sidebar).toBeHidden();
+  await primary.getByRole("link", { name: "Dashboard", exact: true }).focus();
+  await page.setViewportSize({ width: 1194, height: 834 });
+  await expect(tablet).toBeVisible();
+  await expect(tablet).toHaveCSS("width", "96px");
+  await expect.poll(() => tablet.evaluate(el => el.contains(document.activeElement))).toBe(true);
   await expect(trigger).toBeHidden();
-  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
-
-  await page.setViewportSize({ width: 390, height: 844 });
+  await page.setViewportSize({ width: 393, height: 852 });
   await expect(sidebar).toHaveJSProperty("inert", true);
-  await expect(dashboard).not.toBeFocused();
-  await trigger.focus();
-  await page.keyboard.press("Enter");
+  await expect(trigger).toBeFocused();
+  await trigger.press("Enter");
   await expect(sidebar.getByRole("button", { name: "Close navigation" })).toBeFocused();
-  expect((await sidebar.boundingBox())!.x).toBe(20);
-  await expect(page.getByRole("tooltip", { name: "Close navigation", exact: true })).toBeInViewport({ ratio: 1 });
+  await expect(sidebar).toHaveCSS("width", "340px");
   await page.keyboard.press("Escape");
   await expect(trigger).toBeFocused();
-  await expect(sidebar).toHaveJSProperty("inert", true);
-  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
-
-  await page.setViewportSize({ width: 1440, height: 900 });
-  await expect(sidebar).toHaveJSProperty("inert", false);
-  await dashboard.focus();
-  await expect(dashboard).toBeFocused();
+  await page.setViewportSize({ width: 1440, height: 1120 });
+  await expect.poll(() => primary.evaluate(el => el.contains(document.activeElement))).toBe(true);
+  await primary.getByRole("link", { name: "Dashboard", exact: true }).focus();
   await page.keyboard.press("Tab");
-  await expect(sidebar.getByRole("button", { name: "Operations menu" })).toBeFocused();
-  await expect(page.getByRole("tooltip", { name: "Operations", exact: true })).toBeInViewport({ ratio: 1 });
-  await expect(sidebar.getByRole("button", { name: "Operations menu" })).toHaveAttribute("aria-describedby", "application-sidebar-tooltip");
-  await expect(trigger).toBeHidden();
-  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
-
-  const topbar = page.getByRole("banner");
-  const appearance = topbar.getByRole("group", { name: "Appearance", exact: true });
-  await expect(appearance).toBeVisible();
+  await expect(primary.getByRole("button", { name: "Cases menu", exact: true })).toBeFocused();
+  const appearance = page.getByRole("banner").getByRole("group", { name: "Appearance", exact: true });
+  if (await page.locator("html").getAttribute("data-theme") === "dark") {
+    await appearance.getByRole("button", { name: "Light theme", exact: true }).click();
+  }
   await appearance.getByRole("button", { name: "Dark theme", exact: true }).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
-  await expect(appearance.getByRole("button", { name: "Dark theme", exact: true })).toHaveAttribute("aria-pressed", "true");
   await page.reload();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
-  await expect(page.getByRole("banner").getByRole("group", { name: "Appearance", exact: true })).toBeVisible();
-  await page.getByRole("banner").getByRole("button", { name: "Light theme", exact: true }).click();
+  await appearance.getByRole("button", { name: "Light theme", exact: true }).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
 });
 
 test("compact shared header and permitted breadcrumbs align existing workspaces on desktop and mobile", async ({
@@ -255,7 +231,8 @@ test("compact shared header and permitted breadcrumbs align existing workspaces 
       if (workspace.parentPath === "/organization") await expect(page).toHaveURL(/tab=offices/);
       await expectCompactShell(page, workspace.parentTitle);
     }
-    await breadcrumb.getByRole("link", { name: "Dashboard", exact: true }).click();
+    if (viewport.width < 640) await page.getByRole("navigation", { name: "Mobile navigation", exact: true }).getByRole("link", { name: "Home", exact: true }).click();
+    else await breadcrumb.getByRole("link", { name: "Dashboard", exact: true }).click();
     await expect(page).toHaveURL(/\/reports$/);
     await expectCompactShell(page, "Dashboard");
     await expect(breadcrumb.getByRole("link")).toHaveCount(0);
@@ -269,16 +246,16 @@ test("owner can log in, navigate major screens, sign out, and log in again", asy
 }) => {
   test.setTimeout(150_000);
   await signIn(page, request);
-  await openGroup(page, "People");
+  await openGroup(page, "People & HR");
   await page.locator("#workspace-submenu, nav[aria-label=Primary]").getByRole("link", { name: "Users", exact: true }).click();
   await expect(page.getByRole("link", { name: "Platform Owner", exact: true })).toBeVisible();
   await expect(page.getByLabel("Authenticator code")).toHaveCount(0);
 
-  await openGroup(page, "Operations");
+  await openGroup(page, "Cases");
   await page.locator("#workspace-submenu, nav[aria-label=Primary]").getByRole("link", { name: "Customers", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Customers", exact: true })).toBeVisible();
 
-  await openGroup(page, "Operations");
+  await openGroup(page, "Cases");
   await page.locator("#workspace-submenu, nav[aria-label=Primary]").getByRole("link", { name: "Applications", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Applications" })).toBeVisible();
 
@@ -287,13 +264,13 @@ test("owner can log in, navigate major screens, sign out, and log in again", asy
   await expect(page.getByRole("heading", { name: "Workflow Designer" })).toBeVisible();
 
   await page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "Dashboard", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Dashboard", exact: true })).toBeVisible();
 
-  await openGroup(page, "Performance");
-  await page.locator("#workspace-submenu, nav[aria-label=Primary]").getByRole("link", { name: "Reports", exact: true }).click();
+  await openGroup(page, "Reports");
+  await page.locator("#workspace-submenu, nav[aria-label=Primary]").getByRole("link", { name: "Comparison Reports", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Comparisons" })).toBeVisible();
 
-  await openGroup(page, "People");
+  await openGroup(page, "People & HR");
   await page.locator("#workspace-submenu, nav[aria-label=Primary]").getByRole("link", { name: "Attendance", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Attendance" })).toBeVisible();
 
@@ -312,19 +289,19 @@ test("owner can log in, navigate major screens, sign out, and log in again", asy
   await expect(page.getByRole("link", { name: "Banks & products", exact: true })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Designations", exact: true })).toHaveCount(0);
 
-  await openGroup(page, "Assets");
-  await page.locator("#workspace-submenu, nav[aria-label=Primary]").getByRole("link", { name: "Assets", exact: true }).click();
+  await openGroup(page, "Operations");
+  await page.locator("#workspace-submenu, nav[aria-label=Primary]").getByRole("link", { name: "Asset Register", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Asset Register" })).toBeVisible();
 
   await openGroup(page, "Administration");
   await page.locator("#workspace-submenu, nav[aria-label=Primary]").getByRole("link", { name: "Designations" }).click();
-  await expect(page.getByRole("heading", { name: "Designations" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Designations", exact: true })).toBeVisible();
 
-  await openGroup(page, "People");
+  await openGroup(page, "People & HR");
   await page.locator("#workspace-submenu, nav[aria-label=Primary]").getByRole("link", { name: "Organization" }).click();
   await expect(page.getByRole("heading", { name: "Organization masters" })).toBeVisible();
 
-  await openGroup(page, "People");
+  await openGroup(page, "People & HR");
   await page.locator("#workspace-submenu, nav[aria-label=Primary]").getByRole("link", { name: "Hierarchy", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Organization hierarchy" })).toBeVisible();
 
@@ -354,7 +331,7 @@ test("owner can log in, navigate major screens, sign out, and log in again", asy
   await page.getByLabel("Email").fill("owner@example.com");
   await page.getByLabel("Password").fill("OwnerPass1!");
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible({
+  await expect(page.getByRole("heading", { name: "Dashboard", exact: true })).toBeVisible({
     timeout: 30_000,
   });
   await expect(page.getByLabel("Authenticator code")).toHaveCount(0);
@@ -435,18 +412,34 @@ test("approved AMAFH CORE branding is used across public and responsive authenti
     for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
       await page.setViewportSize(viewport);
       for (const theme of ["light", "dark"] as const) {
-        await page.getByRole("button", { name: `${theme === "light" ? "Light" : "Dark"} theme`, exact: true }).click();
+        const accountAppearance = surface === "workspace" && viewport.width < 1280;
+        if (accountAppearance) await page.getByLabel("Open user menu", { exact: true }).click();
+        if (surface !== "workspace" || accountAppearance || await page.locator("html").getAttribute("data-theme") !== theme) await (accountAppearance ? page.getByRole("menu", { name: "User account" }) : page).getByRole("button", { name: `${theme === "light" ? "Light" : "Dark"} theme`, exact: true }).click();
+        if (accountAppearance) await page.keyboard.press("Escape");
+        if (surface === "workspace" && viewport.width < 640) {
+          await expect(page.getByRole("link", { name: "Back to workspace", exact: true })).toBeVisible();
+          await expect(page.getByRole("link", { name: "AMAFH CORE home", exact: true })).toBeHidden();
+          await page.screenshot({ path: testInfo.outputPath(`brand-${surface}-${theme}-${viewport.width}.png`), animations: "disabled" });
+          continue;
+        }
         const logo = page.locator('.amafh-full-logo img:visible');
-        await expect(logo).toHaveAttribute("src", `/brand/amafh-core-full-logo-${theme === "light" ? "exact" : "dark"}.svg`);
+        await expect(logo).toHaveAttribute("src", `/brand/amafh-core-full-logo-${surface === "workspace" || theme === "dark" ? "dark" : "exact"}.svg`);
         await expect(logo).toBeVisible();
         await expect(logo).toHaveJSProperty("complete", true);
         expect(await logo.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(0);
         const box = await logo.boundingBox();
         expect(box).not.toBeNull();
-        expect(box!.width / box!.height).toBeCloseTo(1551 / 479, 1);
+        if (surface === "public") expect(box!.width / box!.height).toBeCloseTo(1551 / 479, 1);
+        else {
+          const brandArea = (await page.getByRole("link", { name: "AMAFH CORE home", exact: true }).boundingBox())!;
+          // The centered header uses the official logo's measured native width.
+          expect(brandArea.width).toBeCloseTo(103.609375, 1); expect(brandArea.height).toBe(32);
+          expect(box!.height).toBe(32);
+          expect(box!.width / box!.height).toBeCloseTo(1551 / 479, 1);
+        }
         if (surface === "workspace") {
-          if (viewport.width === 390) await page.getByRole("button", { name: "Open navigation" }).click();
-          await expect(page.getByLabel("Application sidebar").locator("img")).toHaveCount(0);
+          if (viewport.width === 390) await page.getByRole("navigation", { name: "Mobile navigation", exact: true }).getByRole("button", { name: "More navigation" }).click();
+          await expect(page.getByLabel("Application sidebar").locator("img")).toHaveAttribute("src", "/brand/amafh-core-mark-exact.svg");
         }
         expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
         await page.screenshot({ path: testInfo.outputPath(`brand-${surface}-${theme}-${viewport.width}.png`), animations: "disabled" });
@@ -463,28 +456,30 @@ test("approved AMAFH CORE branding is used across public and responsive authenti
 
   await signIn(page, request);
   const sidebar = page.getByLabel("Application sidebar");
+  if (await page.locator("html").getAttribute("data-theme") !== "light") await page.getByRole("button", { name: "Light theme", exact: true }).click();
   const home = page.getByRole("link", { name: "AMAFH CORE home" });
-  await expect(sidebar).toHaveCSS("width", "44px");
-  await expect(sidebar.locator("img")).toHaveCount(0);
+  await expect(sidebar).toBeHidden();
+  await expect(sidebar.locator("img")).toHaveAttribute("src", "/brand/amafh-core-mark-exact.svg");
   await expect(home).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
   await expect(home.locator("img:visible")).toHaveCount(1);
   await expect(home.locator('img:visible')).toBeVisible();
 
-  await sidebar.hover();
-  await expect(sidebar).toHaveCSS("width", "44px");
+  await home.hover();
+  await expect(sidebar).toBeHidden();
   await expect(home).toHaveAccessibleName("AMAFH CORE home");
 
   await page.mouse.move(1200, 700);
-  await expect(sidebar).toHaveCSS("width", "44px");
-  await expect(sidebar.locator("img")).toHaveCount(0);
+  await expect(sidebar).toBeHidden();
+  await expect(sidebar.locator("img")).toHaveAttribute("src", "/brand/amafh-core-mark-exact.svg");
 
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.getByRole("button", { name: "Open navigation" }).click();
+  await page.getByRole("navigation", { name: "Mobile navigation", exact: true }).getByRole("button", { name: "More navigation" }).click();
   await expect(sidebar).toBeVisible();
-  await expect(sidebar).toHaveCSS("width", "56px");
-  await expect(sidebar.locator("img")).toHaveCount(0);
-  await expect(home.locator('img:visible')).toBeVisible();
+  await expect(sidebar).toHaveCSS("width", "340px");
+  await expect(sidebar.locator("img")).toHaveAttribute("src", "/brand/amafh-core-mark-exact.svg");
+  await expect(home).toBeHidden();
   await page.keyboard.press("Escape");
+  await expect(page.getByRole("link", { name: "Back to workspace", exact: true })).toBeVisible();
   await verifyLogoThemes("workspace");
 });
 
@@ -495,6 +490,7 @@ test("AMAFH CORE semantic colors drive primary actions, focus, navigation, and s
   await ensureOwner(request);
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/login");
+  await expect(page.getByRole("button", { name: "Sign in", exact: true })).toBeVisible();
 
   const tokens = await page.evaluate(() => {
     const styles = window.getComputedStyle(document.documentElement);
@@ -514,49 +510,49 @@ test("AMAFH CORE semantic colors drive primary actions, focus, navigation, and s
         "--amafh-warning",
         "--amafh-danger",
         "--amafh-info",
-      ].map((name) => [name, styles.getPropertyValue(name).trim()]),
+      ].map((name) => [name, styles.getPropertyValue(name).trim().replace(/^#([\da-f])([\da-f])([\da-f])$/i, (_match, r: string, g: string, b: string) => `#${r}${r}${g}${g}${b}${b}`)]),
     );
   });
   expect(tokens).toEqual({
-    "--amafh-primary": "#6f0d83",
-    "--amafh-primary-hover": "#570a68",
-    "--amafh-primary-pressed": "#430750",
-    "--amafh-link": "#6f0d83",
-    "--amafh-brand-soft": "#f5edf9",
-    "--amafh-background": "#f6f5f8",
-    "--amafh-surface": "#fff",
-    "--amafh-border": "#ece9ef",
-    "--amafh-text": "#27242d",
-    "--amafh-text-secondary": "#6e6976",
+    "--amafh-primary": "#983795",
+    "--amafh-primary-hover": "#802d7d",
+    "--amafh-primary-pressed": "#692466",
+    "--amafh-link": "#983795",
+    "--amafh-brand-soft": "#f7edf7",
+    "--amafh-background": "#f7f8fb",
+    "--amafh-surface": "#ffffff",
+    "--amafh-border": "#e1e6f0",
+    "--amafh-text": "#192340",
+    "--amafh-text-secondary": "#617089",
     "--amafh-success": "#147c5a",
-    "--amafh-warning": "#9a5a00",
-    "--amafh-danger": "#c33343",
-    "--amafh-info": "#3d5bd9",
+    "--amafh-warning": "#a85300",
+    "--amafh-danger": "#b9233b",
+    "--amafh-info": "#2c61af",
   });
-  await expect(page.locator("body")).toHaveCSS("background-color", "rgb(246, 245, 248)");
+  await expect(page.locator("body")).toHaveCSS("background-color", "rgb(247, 248, 251)");
   await expect(page.getByRole("button", { name: "Sign in", exact: true })).toHaveCSS(
     "background-image",
-    "linear-gradient(110deg, rgb(227, 38, 168), rgb(123, 35, 152))",
+    "none",
   );
 
   const email = page.getByLabel("Email");
   await email.focus();
-  await expect(email).toHaveCSS("outline-color", "rgb(111, 13, 131)");
+  await expect(email).toHaveCSS("outline-color", "rgb(152, 55, 149)");
   await expect(email).toHaveCSS("outline-width", "2px");
 
   await signIn(page, request);
   const dashboardLink = page
-    .getByLabel("Application sidebar")
+    .getByRole("navigation", { name: "Primary", exact: true })
     .getByRole("link", { name: "Dashboard", exact: true });
-  await expect(dashboardLink).toHaveCSS("background-color", "rgb(111, 13, 131)");
+  await expect(dashboardLink).toHaveCSS("background-color", "rgb(155, 57, 143)");
   await expect(dashboardLink).toHaveCSS("color", "rgb(255, 255, 255)");
 
   const refresh = page.getByTestId("dashboard-actions").getByRole("button", { name: "Refresh" });
-  await expect(refresh).toHaveCSS("background-color", "rgb(40, 36, 46)");
+  await expect(refresh).toHaveCSS("background-color", "rgb(152, 55, 149)");
   await expect(refresh).toHaveCSS("color", "rgb(255, 255, 255)");
 
   const compare = page.getByTestId("dashboard-actions").getByRole("button", { name: "Compare" });
   await expect(compare).toHaveCSS("background-color", "rgb(255, 255, 255)");
-  await expect(compare).toHaveCSS("border-color", "rgb(236, 233, 239)");
-  await expect(compare).toHaveCSS("color", "rgb(39, 36, 45)");
+  await expect(compare).toHaveCSS("border-color", "rgb(225, 230, 240)");
+  await expect(compare).toHaveCSS("color", "rgb(25, 35, 64)");
 });
