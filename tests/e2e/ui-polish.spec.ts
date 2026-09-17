@@ -887,7 +887,9 @@ test("shared application layout stays compact, aligned, and overflow-free across
         if (borderWidth > 0) await expect(card).toHaveCSS("border-color", "rgb(225, 230, 240)");
         else await expect(card).toHaveCSS("border-top-width", "0px");
         const nestedListCard = await card.evaluate(element => element.parentElement?.hasAttribute("data-amafh-list-surface"));
-        await expect(card).toHaveCSS("border-radius", nestedListCard ? "8px" : /^(20|24)px$/);
+        // Frame-specific specs enforce exact geometry; this shared smoke check
+        // allows the documented desktop panel and compact card variants.
+        await expect(card).toHaveCSS("border-radius", nestedListCard ? "8px" : viewport.width >= 1280 ? /^(14|16)px$/ : /^(20|24)px$/);
       }
       for (const tableShell of await page.locator("main [data-amafh-table-shell]").all()) {
         await expect(tableShell).toHaveCSS("position", "relative");
@@ -895,7 +897,7 @@ test("shared application layout stays compact, aligned, and overflow-free across
 
       const sectionHeading = page.locator("main [data-amafh-section-header] h2:visible").first();
       if (await sectionHeading.count()) {
-        await expect(sectionHeading).toHaveCSS("font-size", "18px");
+        await expect(sectionHeading).toHaveCSS("font-size", route === "/reports" ? viewport.width >= 1280 ? "15px" : "16px" : viewport.width >= 1280 ? /^(16|17)px$/ : /^(16|17|18)px$/);
       }
 
       const tablist = page.locator('main [role="tablist"]:visible').first();

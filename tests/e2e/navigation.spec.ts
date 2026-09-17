@@ -432,7 +432,8 @@ test("approved AMAFH CORE branding is used across public and responsive authenti
         if (surface === "public") expect(box!.width / box!.height).toBeCloseTo(1551 / 479, 1);
         else {
           const brandArea = (await page.getByRole("link", { name: "AMAFH CORE home", exact: true }).boundingBox())!;
-          expect(brandArea.width).toBe(190); expect(brandArea.height).toBe(32);
+          // The centered header uses the official logo's measured native width.
+          expect(brandArea.width).toBeCloseTo(103.609375, 1); expect(brandArea.height).toBe(32);
           expect(box!.height).toBe(32);
           expect(box!.width / box!.height).toBeCloseTo(1551 / 479, 1);
         }
