@@ -10,6 +10,7 @@ from openpyxl import Workbook
 from openpyxl.styles import Font
 from openpyxl.utils import get_column_letter
 
+from nexa_bos_api.core.spreadsheets import spreadsheet_safe
 from nexa_bos_api.identity.models import User
 
 
@@ -45,9 +46,7 @@ def _pdf_safe(value: object) -> str:
 
 
 def _spreadsheet_safe(value: object) -> object:
-    if isinstance(value, str) and value.startswith(("=", "+", "-", "@")):
-        return f"'{value}"
-    return value
+    return spreadsheet_safe(value)
 
 
 def build_excel(
@@ -73,7 +72,7 @@ def build_excel(
         start=1,
     ):
         meta_sheet.cell(index, 1, label).font = header
-        meta_sheet.cell(index, 2, value)
+        meta_sheet.cell(index, 2, _spreadsheet_safe(value))
     data_sheet = workbook.create_sheet("Results")
     rows = _tabular_rows(payload)
     for row_index, row in enumerate(rows, start=1):

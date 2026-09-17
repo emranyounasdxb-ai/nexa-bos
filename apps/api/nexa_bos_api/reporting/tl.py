@@ -64,19 +64,36 @@ QUEUE_LABELS = {
 }
 
 
+MAX_HISTORY_POINTS = 366
+
+
 def _history_cutoffs(window: PeriodWindow, now: datetime) -> list[datetime]:
-    """Daily period endpoints, or monthly YTD endpoints; never invent future points."""
+    """Bounded exact endpoints over the full period; never invent future points."""
     last = min(window.end, now)
     cursor = window.date_from
+    span = (last.date() - cursor).days + 1
+    if span <= 0:
+        return []
+    step = max(1, (span + MAX_HISTORY_POINTS - 1) // MAX_HISTORY_POINTS)
+    month_count = (last.year - cursor.year) * 12 + last.month - cursor.month + 1
+    month_step = max(1, (month_count + MAX_HISTORY_POINTS - 1) // MAX_HISTORY_POINTS)
     cutoffs = []
     while cursor <= last.date():
         if window.key == "ytd":
-            next_month = _month_start_shift(cursor.replace(day=1), 1)
+            remaining_months = (last.year - cursor.year) * 12 + last.month - cursor.month + 1
+            if remaining_months <= month_step:
+                cutoffs.append(last)
+                break
+            next_month = _month_start_shift(cursor.replace(day=1), month_step)
             cutoff = min(end_of_day(next_month - timedelta(days=1)), last)
             cursor = next_month
         else:
-            cutoff = min(end_of_day(cursor), last)
-            cursor += timedelta(days=1)
+            remaining_days = (last.date() - cursor).days + 1
+            if remaining_days <= step:
+                cutoffs.append(last)
+                break
+            cutoff = min(end_of_day(cursor + timedelta(days=step - 1)), last)
+            cursor += timedelta(days=step)
         cutoffs.append(cutoff)
     return cutoffs
 

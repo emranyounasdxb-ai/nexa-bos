@@ -99,9 +99,13 @@ async def test_contract_permissions_activation_private_access_and_history(
         assert created["history"][-1]["action"] == "create"
 
         assert (await employee_client.get("/api/v1/contracts")).status_code == 403
-        assert (await outsider_client.get(f"/api/v1/contracts/{created['id']}")).status_code == 404
+        assert (
+            await outsider_client.get(f"/api/v1/contracts/{created['id']}")
+        ).status_code == 404
         assert (await pro_client.get("/api/v1/contracts/types")).status_code == 403
-        assert (await pro_client.get(f"/api/v1/contracts/{created['id']}")).status_code == 403
+        assert (
+            await pro_client.get(f"/api/v1/contracts/{created['id']}")
+        ).status_code == 403
 
         invalid = await hr_client.post(
             f"/api/v1/contracts/{created['id']}/attachment",
@@ -133,9 +137,16 @@ async def test_contract_permissions_activation_private_access_and_history(
         ).status_code == 403
 
         await _signed_attachment(hr_client, created["id"])
+        stale_review = await owner.post(
+            f"/api/v1/contracts/{created['id']}/activate",
+            json={"lock_version": pending["lockVersion"]},
+        )
+        assert stale_review.status_code == 409, stale_review.text
+        reviewed = (await owner.get(f"/api/v1/contracts/{created['id']}")).json()
+        assert reviewed["lockVersion"] > pending["lockVersion"]
         activated = await owner.post(
             f"/api/v1/contracts/{created['id']}/activate",
-            json={"lock_version": pending["lockVersion"], "comment": "OWNER approval"},
+            json={"lock_version": reviewed["lockVersion"], "comment": "OWNER approval"},
         )
         assert activated.status_code == 200, activated.text
         active = activated.json()
@@ -194,7 +205,9 @@ async def test_contract_renewal_supersedes_once_and_concurrency_is_fail_closed(
     suffix = uuid4().hex[1:]
     lower_id = UUID("1" + suffix)
     higher_id = UUID("e" + suffix)
-    first_id, renewal_id = (higher_id, lower_id) if renewal_sorts_first else (lower_id, higher_id)
+    first_id, renewal_id = (
+        (higher_id, lower_id) if renewal_sorts_first else (lower_id, higher_id)
+    )
     try:
         await authenticate(hr_client, hr["email"], "UserPass1!")
         await authenticate(other_hr_client, other_hr["email"], "UserPass1!")
@@ -214,10 +227,12 @@ async def test_contract_renewal_supersedes_once_and_concurrency_is_fail_closed(
             )
         ).json()
         await _signed_attachment(hr_client, first["id"])
+        reviewed_first = (await owner.get(f"/api/v1/contracts/{first['id']}")).json()
+        assert reviewed_first["lockVersion"] > submitted_first["lockVersion"]
         active_first = (
             await owner.post(
                 f"/api/v1/contracts/{first['id']}/activate",
-                json={"lock_version": submitted_first["lockVersion"]},
+                json={"lock_version": reviewed_first["lockVersion"]},
             )
         ).json()
 
@@ -242,10 +257,12 @@ async def test_contract_renewal_supersedes_once_and_concurrency_is_fail_closed(
             ),
         )
         assert sorted(response.status_code for response in concurrent) == [200, 409]
-        pending = next(response.json() for response in concurrent if response.status_code == 200)
+        pending = next(
+            response.json() for response in concurrent if response.status_code == 200
+        )
         await _signed_attachment(hr_client, renewal["id"])
         current = (await owner.get(f"/api/v1/contracts/{renewal['id']}")).json()
-        assert current["lockVersion"] == pending["lockVersion"]
+        assert current["lockVersion"] > pending["lockVersion"]
         assert current["storedStatus"] == "Pending Approval"
         stale = await owner.post(
             f"/api/v1/contracts/{renewal['id']}/activate",
@@ -271,15 +288,21 @@ async def test_contract_renewal_supersedes_once_and_concurrency_is_fail_closed(
             retained = (await owner.get(f"/api/v1/contracts/{first['id']}")).json()
             assert retained["storedStatus"] == "Active"
             assert retained["lockVersion"] == active_first["lockVersion"]
-            assert not any(event["action"] == "supersede" for event in retained["history"])
+            assert not any(
+                event["action"] == "supersede" for event in retained["history"]
+            )
             unchanged = (await owner.get(f"/api/v1/contracts/{renewal['id']}")).json()
             assert unchanged["storedStatus"] == "Pending Approval"
             assert unchanged["lockVersion"] == current["lockVersion"]
-            assert not any(event["action"] == "activate" for event in unchanged["history"])
+            assert not any(
+                event["action"] == "activate" for event in unchanged["history"]
+            )
         finally:
             async with app.state.engine.begin() as connection:
                 await connection.execute(
-                    text(f'ALTER TABLE employment_contracts DROP CONSTRAINT "{constraint}"')
+                    text(
+                        f'ALTER TABLE employment_contracts DROP CONSTRAINT "{constraint}"'
+                    )
                 )
         activated = await owner.post(
             f"/api/v1/contracts/{renewal['id']}/activate",
@@ -291,8 +314,14 @@ async def test_contract_renewal_supersedes_once_and_concurrency_is_fail_closed(
         assert previous.status_code == 200
         assert previous.json()["storedStatus"] == "Superseded"
         assert previous.json()["contractNumber"] == active_first["contractNumber"]
-        assert sum(event["action"] == "supersede" for event in previous.json()["history"]) == 1
-        assert sum(event["action"] == "activate" for event in activated.json()["history"]) == 1
+        assert (
+            sum(event["action"] == "supersede" for event in previous.json()["history"])
+            == 1
+        )
+        assert (
+            sum(event["action"] == "activate" for event in activated.json()["history"])
+            == 1
+        )
 
         register = (await owner.get("/api/v1/contracts")).json()["items"]
         active_rows = [
@@ -377,10 +406,12 @@ async def test_contract_decisions_cancellation_and_reminder_milestones(
             )
         ).json()
         await _signed_attachment(first_client, expiring["id"])
+        reviewed = (await owner.get(f"/api/v1/contracts/{expiring['id']}")).json()
+        assert reviewed["lockVersion"] > submitted["lockVersion"]
         assert (
             await owner.post(
                 f"/api/v1/contracts/{expiring['id']}/activate",
-                json={"lock_version": submitted["lockVersion"]},
+                json={"lock_version": reviewed["lockVersion"]},
             )
         ).status_code == 200
         reminders = (await owner.get("/api/v1/contracts/reminders")).json()["items"]

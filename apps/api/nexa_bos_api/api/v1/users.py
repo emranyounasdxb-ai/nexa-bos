@@ -496,6 +496,8 @@ async def history(
     session: SessionDep,
     actor: CurrentUser,
 ) -> dict[str, object]:
+    if actor.id != user_id and not has_permission(actor, USERS_VIEW):
+        raise AppError(status_code=403, code="FORBIDDEN", message="User view permission required")
     target = await get_visible_user(session, actor, user_id)
     data = await profile_history(session, target.id)
     if actor.id != target.id:
@@ -524,7 +526,7 @@ async def _store_photo(session, actor, target, file: UploadFile):
         raise AppError(
             status_code=422, code="PHOTO_TYPE", message="Photo must be JPEG, PNG, or WebP"
         )
-    data = await file.read()
+    data = await file.read(2 * 1024 * 1024 + 1)
     if len(data) > 2 * 1024 * 1024:
         raise AppError(
             status_code=422, code="PHOTO_TOO_LARGE", message="Photo must be 2MB or smaller"

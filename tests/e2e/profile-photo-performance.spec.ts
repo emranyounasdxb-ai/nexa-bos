@@ -220,11 +220,13 @@ test("large authenticated views bound profile-photo requests and transfer thumbn
   page.on("response", (response) => {
     if (response.url().includes(`/api/v1/users/${ownerId}/photo`)) ownerNavigationRequests += 1;
   });
-  await page.locator('#application-sidebar a[aria-label="My profile"]').click();
+  await page.getByRole("button", { name: "Open user menu", exact: true }).click();
+  await page.getByRole("menu", { name: "User account" }).getByRole("menuitem", { name: "My profile", exact: true }).click();
   await expect(page.getByLabel("Profile photo for Platform Owner").locator("img")).toBeVisible();
   await page.locator('#application-sidebar a[aria-label="Dashboard"]').click();
   await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
-  await page.locator('#application-sidebar a[aria-label="My profile"]').click();
+  await page.getByRole("button", { name: "Open user menu", exact: true }).click();
+  await page.getByRole("menu", { name: "User account" }).getByRole("menuitem", { name: "My profile", exact: true }).click();
   await expect(page.getByLabel("Profile photo for Platform Owner").locator("img")).toBeVisible();
   expect(ownerNavigationRequests).toBeLessThanOrEqual(1);
 

@@ -15,6 +15,7 @@ from nexa_bos_api.applications.visibility import visible_case_owner_ids
 from nexa_bos_api.case_operations.models import CaseEarning, CaseEarningReversal
 from nexa_bos_api.catalog.models import Product
 from nexa_bos_api.core.exceptions import AppError
+from nexa_bos_api.core.spreadsheets import spreadsheet_safe
 from nexa_bos_api.customers.models import Customer
 from nexa_bos_api.identity.access import has_user_type, tl_team_owner_ids
 from nexa_bos_api.identity.models import User, UserType
@@ -151,7 +152,7 @@ def case_report_xlsx(payload: dict[str, object]) -> bytes:
     sheet.title = "Case Operations"
     sheet.append([label for _, label in REPORT_COLUMNS])
     for item in payload["items"]:
-        sheet.append([item.get(key) for key, _ in REPORT_COLUMNS])
+        sheet.append([spreadsheet_safe(item.get(key)) for key, _ in REPORT_COLUMNS])
     stream = BytesIO()
     workbook.save(stream)
     return stream.getvalue()

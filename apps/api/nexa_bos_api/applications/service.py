@@ -805,6 +805,12 @@ async def _first_or_correct_case_number(
     *,
     reason: str | None,
 ) -> ApplicationEvent:
+    if application.submitted_at is None and not has_permission(actor, APPLICATIONS_SUBMIT):
+        raise AppError(
+            status_code=403,
+            code="FORBIDDEN",
+            message="Submission requires Applications.Submit",
+        )
     normalized = value.strip()
     duplicate = (
         await session.execute(
