@@ -41,6 +41,44 @@ def _utcnow() -> datetime:
     return datetime.now(UTC)
 
 
+async def _record_auth_failure(
+    session: AsyncSession, user: User, now: datetime, *, action: str
+) -> None:
+    """Caller holds the user row lock; the budget spans both factors/challenges."""
+    user.failed_login_count += 1
+    settings = await get_settings_row(session)
+    if user.failed_login_count >= FAILED_LOGIN_LIMIT:
+        user.locked_until = now + timedelta(minutes=settings.lockout_minutes)
+        user.failed_login_count = 0
+        await terminate_sessions(session, user.id)
+        await session.execute(
+            update(OneTimeToken)
+            .where(
+                OneTimeToken.user_id == user.id,
+                OneTimeToken.purpose == TokenPurpose.MFA_LOGIN,
+                OneTimeToken.used_at.is_(None),
+            )
+            .values(used_at=now)
+        )
+        await record_audit(
+            session,
+            action="auth.lock",
+            entity_type="user",
+            entity_id=str(user.id),
+            target_user_id=user.id,
+            new_values={"lockedUntil": user.locked_until.isoformat()},
+        )
+    await record_audit(
+        session,
+        action=action,
+        entity_type="user",
+        entity_id=str(user.id),
+        target_user_id=user.id,
+    )
+    # Persist failure accounting before the public authentication error is raised.
+    await session.commit()
+
+
 async def get_settings_row(session: AsyncSession) -> SecuritySettings:
     row = await session.get(SecuritySettings, 1)
     if row is None:
@@ -135,6 +173,8 @@ async def login(
             select(User)
             .options(selectinload(User.user_type).selectinload(UserType.permissions))
             .where(User.email == email.lower())
+            .with_for_update(of=User)
+            .execution_options(populate_existing=True)
         )
     ).scalar_one_or_none()
     if user is None:
@@ -152,28 +192,7 @@ async def login(
         or not user.password_hash
         or not verify_password(password, user.password_hash)
     ):
-        user.failed_login_count += 1
-        sec = await get_settings_row(session)
-        if user.failed_login_count >= FAILED_LOGIN_LIMIT:
-            user.locked_until = now + timedelta(minutes=sec.lockout_minutes)
-            user.failed_login_count = 0
-            await terminate_sessions(session, user.id)
-            await record_audit(
-                session,
-                action="auth.lock",
-                entity_type="user",
-                entity_id=str(user.id),
-                target_user_id=user.id,
-                new_values={"lockedUntil": user.locked_until.isoformat()},
-            )
-        await record_audit(
-            session,
-            action="auth.login_failed",
-            entity_type="user",
-            entity_id=str(user.id),
-            target_user_id=user.id,
-        )
-        await session.commit()
+        await _record_auth_failure(session, user, now, action="auth.login_failed")
         if user.locked_until and user.locked_until > now:
             raise AppError(
                 status_code=423,
@@ -191,8 +210,6 @@ async def login(
             message="This user type is inactive",
         )
 
-    user.failed_login_count = 0
-    user.locked_until = None
     if user.mfa_enabled:
         if not user.mfa_secret:
             raise AppError(
@@ -223,6 +240,8 @@ async def login(
         user = await load_user_with_type(session, user.id)
         assert user is not None
         return user, None, None, challenge
+    user.failed_login_count = 0
+    user.locked_until = None
     token, csrf = await create_session(session, user)
     await record_audit(
         session,
@@ -245,6 +264,27 @@ async def complete_mfa_login(
     row = (
         await session.execute(select(OneTimeToken).where(OneTimeToken.token_hash == token_hash))
     ).scalar_one_or_none()
+    if row is not None:
+        # Lock order is always account -> challenge, including concurrent renewals.
+        user = (
+            await session.execute(
+                select(User)
+                .options(selectinload(User.user_type).selectinload(UserType.permissions))
+                .where(User.id == row.user_id)
+                .with_for_update(of=User)
+                .execution_options(populate_existing=True)
+            )
+        ).scalar_one_or_none()
+        row = (
+            await session.execute(
+                select(OneTimeToken)
+                .where(OneTimeToken.token_hash == token_hash)
+                .with_for_update()
+                .execution_options(populate_existing=True)
+            )
+        ).scalar_one_or_none()
+    else:
+        user = None
     now = _utcnow()
     if (
         row is None
@@ -257,7 +297,6 @@ async def complete_mfa_login(
             code="TOKEN_INVALID",
             message="MFA challenge is invalid or expired",
         )
-    user = await load_user_with_type(session, row.user_id)
     if user is None or not user.mfa_enabled or not user.mfa_secret:
         raise AppError(
             status_code=400,
@@ -285,8 +324,15 @@ async def complete_mfa_login(
             message="This user type is inactive",
         )
     if not pyotp.TOTP(user.mfa_secret).verify(code, valid_window=1):
+        await _record_auth_failure(session, user, now, action="auth.mfa_failed")
+        if user.locked_until and user.locked_until > now:
+            raise AppError(
+                status_code=423, code="ACCOUNT_LOCKED", message="Account is temporarily locked"
+            )
         raise AppError(status_code=422, code="MFA_INVALID", message="Invalid authenticator code")
     row.used_at = now
+    user.failed_login_count = 0
+    user.locked_until = None
     token, csrf = await create_session(session, user)
     await record_audit(
         session,

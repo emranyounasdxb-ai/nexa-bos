@@ -39,6 +39,7 @@ from nexa_bos_api.identity.enums import AccountStatus
 from nexa_bos_api.identity.models import User, new_uuid
 from nexa_bos_api.identity.permissions import (
     CONTRACTS_APPROVE,
+    CONTRACTS_HISTORY,
     CONTRACTS_VIEW,
     CONTRACTS_VIEW_OWN,
 )
@@ -237,12 +238,22 @@ def _event(
     )
 
 
+def _can_view_history(actor: User) -> bool:
+    return is_owner(actor) or (
+        has_permission(actor, CONTRACTS_VIEW) and has_permission(actor, CONTRACTS_HISTORY)
+    )
+
+
 def _payload(
     row: EmploymentContract,
+    actor: User,
     *,
     include_history: bool = True,
     active_attachments_only: bool = False,
 ) -> dict[str, object]:
+    history_allowed = _can_view_history(actor)
+    include_history = include_history and history_allowed
+    active_attachments_only = active_attachments_only or not history_allowed
     attachments = (
         [item for item in row.attachments if item.is_active]
         if active_attachments_only
@@ -300,7 +311,7 @@ async def list_contracts(
     if employee_id:
         stmt = stmt.where(EmploymentContract.employee_id == employee_id)
     rows = (await session.scalars(stmt)).all()
-    payloads = [_payload(row) for row in rows]
+    payloads = [_payload(row, actor) for row in rows]
     return [item for item in payloads if status is None or item["status"] == status]
 
 
@@ -327,7 +338,7 @@ async def own_active_contract(session: AsyncSession, actor: User) -> dict[str, o
         target_user_id=actor.id,
     )
     await session.commit()
-    return _payload(row, include_history=False, active_attachments_only=True)
+    return _payload(row, actor, include_history=False, active_attachments_only=True)
 
 
 async def get_contract(session: AsyncSession, actor: User, contract_id: UUID) -> dict[str, object]:
@@ -347,6 +358,7 @@ async def get_contract(session: AsyncSession, actor: User, contract_id: UUID) ->
     operational = is_owner(actor) or has_permission(actor, CONTRACTS_VIEW)
     return _payload(
         row,
+        actor,
         include_history=operational,
         active_attachments_only=not operational,
     )
@@ -644,6 +656,10 @@ async def upload_attachment(
         replacement_reason=reason,
     )
     session.add(attachment)
+    # The reviewed revision covers evidence as well as scalar contract fields.
+    row.lock_version += 1
+    row.updated_by_id = actor.id
+    row.updated_at = _now()
     await record_audit(
         session,
         action="contract.attachment.upload" if not active else "contract.attachment.replace",
@@ -670,7 +686,7 @@ async def attachment_file(
     attachment = next((item for item in row.attachments if item.id == attachment_id), None)
     if attachment is None:
         raise AppError(status_code=404, code="NOT_FOUND", message="Attachment was not found")
-    if not attachment.is_active and not (is_owner(actor) or has_permission(actor, CONTRACTS_VIEW)):
+    if not attachment.is_active and not _can_view_history(actor):
         raise AppError(status_code=404, code="NOT_FOUND", message="Attachment was not found")
     path = _attachment_path(attachment.storage_key)
     if not path.is_file():
@@ -707,7 +723,9 @@ async def reminders(session: AsyncSession, actor: User) -> list[dict[str, object
         if days is None or days < 0 or days > 90:
             continue
         milestone = next(limit for limit in (7, 30, 60, 90) if days <= limit)
-        items.append({**_payload(row), "daysRemaining": days, "reminderMilestone": milestone})
+        items.append(
+            {**_payload(row, actor), "daysRemaining": days, "reminderMilestone": milestone}
+        )
     return items
 
 

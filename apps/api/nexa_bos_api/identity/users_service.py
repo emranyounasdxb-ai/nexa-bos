@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import os
 import secrets
+import warnings
+from contextlib import suppress
 from datetime import UTC, date, datetime
 from io import BytesIO
 from pathlib import Path
@@ -15,13 +17,19 @@ from sqlalchemy.orm import selectinload
 
 from nexa_bos_api.core.config import get_settings
 from nexa_bos_api.core.exceptions import AppError
+from nexa_bos_api.core.image_storage import validate_image_dimensions, validate_image_header
 from nexa_bos_api.core.pagination import PageResult
 from nexa_bos_api.identity.access import (
+    application_visibility_scope,
     can_view_user,
+    customer_visibility_scope,
     descendant_ids,
     has_permission,
+    has_user_type,
     is_owner,
+    reporting_visibility_scope,
     user_load_options,
+    visibility_scope,
     visible_user_ids,
 )
 from nexa_bos_api.identity.assignments import record_assignment
@@ -35,6 +43,7 @@ from nexa_bos_api.identity.enums import (
     AssignmentField,
     EmploymentStatus,
     MasterStatus,
+    VisibilityScope,
 )
 from nexa_bos_api.identity.models import (
     AuditEvent,
@@ -524,6 +533,46 @@ async def _initial_assignments(
     )
 
 
+def _assert_org_assignment_scope(
+    actor: User,
+    target: User | None,
+    *,
+    office_id: UUID | None,
+    department_id: UUID | None,
+    team_id: UUID | None,
+    business_unit_id: UUID | None,
+) -> None:
+    destination = (office_id, department_id, team_id, business_unit_id)
+    if target is not None:
+        current = (target.office_id, target.department_id, target.team_id, target.business_unit_id)
+        if destination == current:
+            return
+        if actor.id == target.id and (
+            has_user_type(actor, "TL")
+            or any(
+                scope not in {None, VisibilityScope.COMPANY}
+                for scope in (
+                    visibility_scope(actor),
+                    customer_visibility_scope(actor),
+                    application_visibility_scope(actor),
+                    reporting_visibility_scope(actor),
+                )
+            )
+        ):
+            raise AppError(
+                status_code=403,
+                code="SELF_SCOPE_CHANGE_FORBIDDEN",
+                message="Restricted users cannot change their own scope-defining assignments",
+            )
+    if visibility_scope(actor) in {VisibilityScope.OFFICE, VisibilityScope.OWN}:
+        if office_id != actor.office_id:
+            raise AppError(
+                status_code=403,
+                code="OUT_OF_SCOPE",
+                message="Destination office is outside your assignment scope",
+            )
+
+
 async def create_user(session: AsyncSession, actor: User, payload: UserCreateRequest) -> User:
     await assert_unique_email(session, payload.email)
     await assert_unique_employee_code(session, payload.employee_code)
@@ -547,6 +596,14 @@ async def create_user(session: AsyncSession, actor: User, payload: UserCreateReq
         business_unit_id=payload.business_unit_id,
     )
     user_type = None
+    _assert_org_assignment_scope(
+        actor,
+        None,
+        office_id=office.id if office else None,
+        department_id=department.id if department else None,
+        team_id=team.id if team else None,
+        business_unit_id=payload.business_unit_id or (team.business_unit_id if team else None),
+    )
     if payload.user_type_id:
         if not _can_assign_final_user_type(actor):
             raise AppError(
@@ -917,6 +974,14 @@ async def update_user(
         )
         if business_unit_id is None and team is not None and team.id != target.team_id:
             business_unit_id = team.business_unit_id
+        _assert_org_assignment_scope(
+            actor,
+            target,
+            office_id=office.id if office else None,
+            department_id=department.id if department else None,
+            team_id=team.id if team else None,
+            business_unit_id=business_unit_id,
+        )
         if target.business_unit_id != business_unit_id:
             unit = await session.get(BusinessUnit, business_unit_id) if business_unit_id else None
             await record_assignment(
@@ -1226,6 +1291,14 @@ async def rehire_user(
         or payload.team_id is not None
         or payload.business_unit_id is not None
     ):
+        _assert_org_assignment_scope(
+            actor,
+            target,
+            office_id=office.id if office else None,
+            department_id=department.id if department else None,
+            team_id=team.id if team else None,
+            business_unit_id=payload.business_unit_id or (team.business_unit_id if team else None),
+        )
         target.office_id = office.id if office else None
         target.department_id = department.id if department else None
         target.team_id = team.id if team else None
@@ -1320,26 +1393,63 @@ async def save_photo(
     content_type: str,
     original_name: str,
 ) -> User:
-    filename = f"{target.id}{suffix}"
+    if len(data) > 2 * 1024 * 1024:
+        raise AppError(
+            status_code=422, code="PHOTO_TOO_LARGE", message="Photo must be 2MB or smaller"
+        )
+    validate_image_header(data, content_type)
+    variants = {
+        variant: _profile_photo_variant_bytes(BytesIO(data), variant)
+        for variant in PROFILE_PHOTO_VARIANT_WIDTHS
+    }
+    await session.execute(select(User.id).where(User.id == target.id).with_for_update())
+    await session.refresh(target, attribute_names=["profile_photo_key"])
+    previous = photo_path(target)
+    # New immutable file names keep rejected uploads and rollbacks from
+    # overwriting the currently referenced original or any of its derivatives.
+    filename = f"{target.id}-{secrets.token_hex(12)}{suffix}"
     path = storage_dir() / filename
-    path.write_bytes(data)
-    _remove_photo_variants(target.id)
-    for variant in PROFILE_PHOTO_VARIANT_WIDTHS:
-        profile_photo_variant_path(target, variant, source_path=path)
-    target.profile_photo_key = filename
-    target.profile_photo_content_type = content_type
-    target.profile_photo_original_name = original_name
-    target.updated_at = utcnow()
-    await record_audit(
-        session,
-        action="user.photo",
-        entity_type="user",
-        entity_id=str(target.id),
-        actor_id=actor.id,
-        target_user_id=target.id,
-        new_values={"key": filename, "contentType": content_type},
-    )
-    await session.commit()
+    created = []
+    try:
+        for destination, content in [
+            (path, data),
+            *[
+                (_photo_variant_path(target.id, variant, source_path=path), content)
+                for variant, content in variants.items()
+            ],
+        ]:
+            created.append(destination)
+            destination.write_bytes(content)
+        target.profile_photo_key = filename
+        target.profile_photo_content_type = content_type
+        target.profile_photo_original_name = original_name
+        target.updated_at = utcnow()
+        await record_audit(
+            session,
+            action="user.photo",
+            entity_type="user",
+            entity_id=str(target.id),
+            actor_id=actor.id,
+            target_user_id=target.id,
+            new_values={"key": filename, "contentType": content_type},
+        )
+        await session.commit()
+    except Exception:
+        await session.rollback()
+        for destination in created:
+            with suppress(OSError):
+                destination.unlink(missing_ok=True)
+        raise
+    if previous is not None:
+        for obsolete in [
+            previous,
+            *[
+                _photo_variant_path(target.id, variant, source_path=previous)
+                for variant in PROFILE_PHOTO_VARIANT_WIDTHS
+            ],
+        ]:
+            with suppress(OSError):
+                obsolete.unlink(missing_ok=True)
     return await reload_user(session, target.id)
 
 
@@ -1352,13 +1462,40 @@ def photo_path(user: User) -> Path | None:
     return path
 
 
-def _photo_variant_path(user_id: UUID, variant: str) -> Path:
-    return storage_dir() / f"{user_id}-{variant}.webp"
+def _photo_variant_path(user_id: UUID, variant: str, *, source_path: Path | None = None) -> Path:
+    stem = source_path.stem if source_path else str(user_id)
+    return storage_dir() / f"{stem}-{variant}.webp"
 
 
-def _remove_photo_variants(user_id: UUID) -> None:
-    for variant in PROFILE_PHOTO_VARIANT_WIDTHS:
-        _photo_variant_path(user_id, variant).unlink(missing_ok=True)
+def _profile_photo_variant_bytes(source: Path | BytesIO, variant: str) -> bytes:
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", Image.DecompressionBombWarning)
+            with Image.open(source) as decoded:
+                validate_image_dimensions(*decoded.size)
+                normalized = ImageOps.exif_transpose(decoded)
+                normalized.thumbnail(
+                    (PROFILE_PHOTO_VARIANT_WIDTHS[variant], PROFILE_PHOTO_VARIANT_WIDTHS[variant]),
+                    Image.Resampling.LANCZOS,
+                )
+                output = BytesIO()
+                normalized.convert("RGB").save(output, "WEBP", quality=82, method=6)
+        return output.getvalue()
+    except AppError:
+        raise
+    except (
+        UnidentifiedImageError,
+        OSError,
+        SyntaxError,
+        ValueError,
+        Image.DecompressionBombError,
+        Image.DecompressionBombWarning,
+    ):
+        raise AppError(
+            status_code=422,
+            code="IMAGE_CONTENT_INVALID",
+            message="Cannot safely decode profile photo",
+        ) from None
 
 
 def profile_photo_variant_path(
@@ -1373,26 +1510,32 @@ def profile_photo_variant_path(
     source = source_path or photo_path(user)
     if source is None:
         return None
-    destination = _photo_variant_path(user.id, variant)
+    destination = _photo_variant_path(user.id, variant, source_path=source)
     if destination.is_file() and destination.stat().st_mtime_ns >= source.stat().st_mtime_ns:
         return destination
 
     temporary = destination.with_name(f".{destination.name}.{secrets.token_hex(6)}.tmp")
     try:
-        with Image.open(source) as decoded:
-            normalized = ImageOps.exif_transpose(decoded)
-            normalized.thumbnail(
-                (PROFILE_PHOTO_VARIANT_WIDTHS[variant], PROFILE_PHOTO_VARIANT_WIDTHS[variant]),
-                Image.Resampling.LANCZOS,
-            )
-            output = BytesIO()
-            normalized.convert("RGB").save(output, "WEBP", quality=82, method=6)
-        temporary.write_bytes(output.getvalue())
+        temporary.write_bytes(_profile_photo_variant_bytes(source, variant))
         os.replace(temporary, destination)
         return destination
-    except UnidentifiedImageError, OSError, SyntaxError, ValueError:
+    except AppError:
         temporary.unlink(missing_ok=True)
-        return source
+        raise
+    except (
+        UnidentifiedImageError,
+        OSError,
+        SyntaxError,
+        ValueError,
+        Image.DecompressionBombError,
+        Image.DecompressionBombWarning,
+    ):
+        temporary.unlink(missing_ok=True)
+        raise AppError(
+            status_code=422,
+            code="IMAGE_CONTENT_INVALID",
+            message="Cannot safely decode profile photo",
+        ) from None
 
 
 async def profile_history(session: AsyncSession, user_id: UUID) -> dict[str, object]:

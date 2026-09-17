@@ -37,7 +37,7 @@ class ValidatedImage:
     height: int
 
 
-def _validate_dimensions(width: int, height: int) -> None:
+def validate_image_dimensions(width: int, height: int) -> None:
     if (
         width < 1
         or height < 1
@@ -50,6 +50,38 @@ def _validate_dimensions(width: int, height: int) -> None:
             code="IMAGE_DIMENSIONS_INVALID",
             message="Image dimensions must be between 1 and 4096 pixels per side",
         )
+
+
+def validate_image_header(payload: bytes, declared_type: str) -> str:
+    """Verify bounded dimensions/type before decoding, without changing bytes."""
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", Image.DecompressionBombWarning)
+            with Image.open(BytesIO(payload)) as probe:
+                detected_format = probe.format
+                validate_image_dimensions(*probe.size)
+                if detected_format not in _FORMATS:
+                    raise AppError(
+                        status_code=422, code="IMAGE_TYPE_INVALID", message="Unsupported image type"
+                    )
+                if _FORMATS[detected_format][0] != declared_type:
+                    raise AppError(
+                        status_code=422,
+                        code="IMAGE_TYPE_MISMATCH",
+                        message="Image content does not match its declared type",
+                    )
+                probe.verify()
+        return detected_format
+    except AppError:
+        raise
+    except Image.DecompressionBombError, Image.DecompressionBombWarning:
+        raise AppError(
+            status_code=422, code="IMAGE_DIMENSIONS_INVALID", message="Image exceeds safe limits"
+        ) from None
+    except UnidentifiedImageError, OSError, SyntaxError, ValueError:
+        raise AppError(
+            status_code=422, code="IMAGE_CONTENT_INVALID", message="The file is not a valid image"
+        ) from None
 
 
 async def validate_image_upload(upload: UploadFile) -> ValidatedImage:
@@ -75,15 +107,12 @@ async def validate_image_upload(upload: UploadFile) -> ValidatedImage:
     try:
         with warnings.catch_warnings():
             warnings.simplefilter("error", Image.DecompressionBombWarning)
-            with Image.open(BytesIO(payload)) as probe:
-                detected_format = probe.format
-                _validate_dimensions(*probe.size)
-                probe.verify()
+            detected_format = validate_image_header(payload, declared_type)
             with Image.open(BytesIO(payload)) as decoded:
                 decoded.load()
                 normalized = ImageOps.exif_transpose(decoded)
                 width, height = normalized.size
-                _validate_dimensions(width, height)
+                validate_image_dimensions(width, height)
                 if detected_format not in _FORMATS:
                     raise AppError(
                         status_code=422,

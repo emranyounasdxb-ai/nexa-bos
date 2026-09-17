@@ -375,7 +375,7 @@ test("profile photo uses the accessible shared image picker without uploading on
   await photoInput.setInputFiles({
     name: "profile-preview.png",
     mimeType: "image/png",
-    buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M/wHwAEAQH/2c2pWQAAAABJRU5ErkJggg==", "base64"),
+    buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNg+M/wHwAEAQH/cetH5QAAAABJRU5ErkJggg==", "base64"),
   });
   await expect(photoPicker.getByText("profile-preview.png", { exact: true })).toBeVisible();
   await expect(photoPicker.getByRole("img", { name: "Selected preview for profile-preview.png" })).toBeVisible();

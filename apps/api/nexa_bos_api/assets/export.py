@@ -10,13 +10,12 @@ from openpyxl import Workbook
 from openpyxl.styles import Font
 from openpyxl.utils import get_column_letter
 
+from nexa_bos_api.core.spreadsheets import spreadsheet_safe
 from nexa_bos_api.identity.models import User
 
 
 def _safe_cell(value: object) -> object:
-    if isinstance(value, str) and value.startswith(("=", "+", "-", "@")):
-        return f"'{value}"
-    return value
+    return spreadsheet_safe(value)
 
 
 def _metadata(payload: dict[str, Any], actor: User) -> list[tuple[str, str]]:

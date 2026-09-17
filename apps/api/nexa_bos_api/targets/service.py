@@ -5,7 +5,7 @@ from datetime import UTC, date, datetime
 from decimal import Decimal
 from uuid import UUID
 
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import and_, func, or_, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -1231,15 +1231,18 @@ def serialize_scorecard(card: KpiScorecard) -> dict[str, object]:
     }
 
 
-async def _load_scorecard(session: AsyncSession, scorecard_id: UUID) -> KpiScorecard:
-    row = (
-        await session.execute(
-            select(KpiScorecard)
-            .options(selectinload(KpiScorecard.metrics))
-            .where(KpiScorecard.id == scorecard_id)
-            .execution_options(populate_existing=True)
-        )
-    ).scalar_one_or_none()
+async def _load_scorecard(
+    session: AsyncSession, scorecard_id: UUID, *, lock: bool = False
+) -> KpiScorecard:
+    stmt = (
+        select(KpiScorecard)
+        .options(selectinload(KpiScorecard.metrics))
+        .where(KpiScorecard.id == scorecard_id)
+        .execution_options(populate_existing=True)
+    )
+    if lock:
+        stmt = stmt.with_for_update()
+    row = (await session.execute(stmt)).scalar_one_or_none()
     if row is None:
         raise AppError(
             status_code=404, code="KPI_SCORECARD_NOT_FOUND", message="KPI scorecard was not found"
@@ -1305,12 +1308,14 @@ async def create_scorecard(
 async def update_scorecard(
     session: AsyncSession, actor: User, scorecard_id: UUID, payload: KpiScorecardUpdateRequest
 ) -> dict[str, object]:
-    card = await _load_scorecard(session, scorecard_id)
+    card = await _load_scorecard(session, scorecard_id, lock=True)
     old = serialize_scorecard(card)
     if payload.name is not None:
         card.name = payload.name.strip()
     if payload.metrics is not None:
         _validate_metrics(payload.metrics)
+        if card.status == KPI_STATUS_ACTIVE:
+            _assert_active_invariant(payload.metrics)
         card.metrics.clear()
         await session.flush()
         for index, item in enumerate(payload.metrics):
@@ -1324,8 +1329,6 @@ async def update_scorecard(
                     sort_order=item.sort_order if item.sort_order is not None else index,
                 )
             )
-        if card.status == KPI_STATUS_ACTIVE:
-            _assert_active_invariant(payload.metrics)
     card.updated_at = utcnow()
     card.updated_by_id = actor.id
     await record_audit(
@@ -1344,14 +1347,18 @@ async def update_scorecard(
 async def set_scorecard_status(
     session: AsyncSession, actor: User, scorecard_id: UUID, *, active: bool
 ) -> dict[str, object]:
-    card = await _load_scorecard(session, scorecard_id)
+    # Switching the single active card touches two parents. Serialize switches
+    # before acquiring either row to avoid inverse-order multi-card deadlocks.
+    await session.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": 0x4E4558414B5049})
+    card = await _load_scorecard(session, scorecard_id, lock=True)
     if active:
         _assert_active_invariant(card.metrics)
         current = (
             await session.execute(
-                select(KpiScorecard).where(
-                    KpiScorecard.status == KPI_STATUS_ACTIVE, KpiScorecard.id != card.id
-                )
+                select(KpiScorecard)
+                .where(KpiScorecard.status == KPI_STATUS_ACTIVE, KpiScorecard.id != card.id)
+                .with_for_update()
+                .execution_options(populate_existing=True)
             )
         ).scalar_one_or_none()
         if current is not None:

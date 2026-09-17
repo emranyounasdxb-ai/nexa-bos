@@ -13,6 +13,7 @@ from nexa_bos_api.applications.models import Application, WorkflowStage, Workflo
 from nexa_bos_api.applications.schemas import StageUpdateRequest
 from nexa_bos_api.applications.service import update_stage
 from nexa_bos_api.core.exceptions import AppError
+from nexa_bos_api.core.spreadsheets import spreadsheet_safe
 from nexa_bos_api.identity.access import has_user_type
 from nexa_bos_api.identity.audit import record_audit
 from nexa_bos_api.identity.models import User
@@ -133,6 +134,7 @@ async def validate_rows(
             str(current.id).casefold(),
             current.code.casefold(),
             current.name.casefold(),
+            str(spreadsheet_safe(current.name)).casefold(),
         }:
             errors.append(
                 _error(index, "current_stage", f"Current stage changed; use {current.name}")
@@ -162,6 +164,7 @@ async def validate_rows(
             str(current.id).casefold(),
             current.code.casefold(),
             current.name.casefold(),
+            str(spreadsheet_safe(current.name)).casefold(),
         }:
             validated.append(
                 ValidatedStageRow(
@@ -251,7 +254,7 @@ async def current_cases_csv(session: AsyncSession, actor: User) -> bytes:
         writer.writerow(
             {
                 "case_id": application.application_code,
-                "current_stage": stage.name,
+                "current_stage": spreadsheet_safe(stage.name),
                 "new_stage": "",
                 "stage_date": date.today().isoformat(),
                 "note": "",

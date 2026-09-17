@@ -697,6 +697,8 @@ async def cancel_request(
     }:
         target = LeaveStatus.CANCELLED
     elif row.status in APPROVED_STATUSES:
+        # Consent belongs to this cancellation attempt, never an earlier one.
+        row.cancellation_manager_approved_at = None
         target = LeaveStatus.CANCELLATION_PENDING
     else:
         raise AppError(status_code=409, code="LEAVE_STATE_INVALID", message="Cannot cancel request")
@@ -769,6 +771,8 @@ async def decide_cancellation(
                 message="Manager cancellation approval is required",
             )
         target = LeaveStatus.CANCELLED if payload.approve else LeaveStatus.HR_APPROVED
+        if not payload.approve:
+            row.cancellation_manager_approved_at = None
         session.add(
             _event(
                 row,

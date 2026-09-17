@@ -10,7 +10,7 @@ import { profileCountries } from "../../apps/web/lib/profile-countries";
 const apiOrigin = `http://127.0.0.1:${process.env.PLAYWRIGHT_API_PORT ?? "8010"}`;
 const secret = process.env.BOOTSTRAP_SECRET ?? "nexa-test-bootstrap-secret";
 const employeePhoto = Buffer.from(
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M/wHwAEAQH/2c2pWQAAAABJRU5ErkJggg==",
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNg+M/wHwAEAQH/cetH5QAAAABJRU5ErkJggg==",
   "base64",
 );
 
