@@ -58,7 +58,12 @@ from nexa_bos_api.identity.permissions import (
     NOTIFICATIONS_SEND_URGENT,
 )
 
-router = APIRouter(prefix="/attendance", tags=["attendance"])
+def _require_company_policy_scope(actor: CurrentUser) -> None:
+    if visibility_scope(actor) is not VisibilityScope.COMPANY:
+        raise AppError(status_code=403, code="FORBIDDEN", message="Company scope is required to change company-wide attendance settings.")
+
+
+router = APIRouter(prefix="/attendance", tags=["attendance"], dependencies=[Depends(require_permission("Attendance.View"))])
 
 
 @router.get("/working-days")
@@ -75,6 +80,7 @@ async def working_days_put(
     session: SessionDep,
     actor: Annotated[CurrentUser, Depends(require_permission(ATTENDANCE_MANAGE))],
 ) -> dict[str, object]:
+    _require_company_policy_scope(actor)
     return await set_working_days(session, actor, payload.weekdays)
 
 
@@ -91,8 +97,9 @@ async def leave_types_list(
 async def leave_types_create(
     payload: LeaveTypeCreateRequest,
     session: SessionDep,
-    actor: Annotated[CurrentUser, Depends(require_permission(ATTENDANCE_MANAGE))],
+    actor: Annotated[CurrentUser, Depends(require_permission("Attendance.ManageLeaveTypes"))],
 ) -> dict[str, object]:
+    _require_company_policy_scope(actor)
     return await create_leave_type(session, actor, payload)
 
 
@@ -101,17 +108,23 @@ async def leave_types_update(
     leave_type_id: UUID,
     payload: LeaveTypeUpdateRequest,
     session: SessionDep,
-    actor: Annotated[CurrentUser, Depends(require_permission(ATTENDANCE_MANAGE))],
+    actor: Annotated[CurrentUser, Depends(require_permission("Attendance.ManageLeaveTypes"))],
 ) -> dict[str, object]:
+    _require_company_policy_scope(actor)
     return await update_leave_type(session, actor, leave_type_id, payload)
 
 
 @router.get("/schedules")
 async def schedules_list(
     session: SessionDep,
-    _actor: Annotated[CurrentUser, Depends(require_permission(ATTENDANCE_VIEW))],
+    actor: Annotated[CurrentUser, Depends(require_permission(ATTENDANCE_VIEW))],
 ) -> dict[str, object]:
-    return {"items": await list_schedules(session)}
+    schedules = await list_schedules(session)
+    if visibility_scope(actor) is VisibilityScope.COMPANY:
+        return {"items": schedules}
+    options = await filter_options(session, actor)
+    allowed_offices = {office["id"] for office in options["offices"]}
+    return {"items": [row for row in schedules if row["officeId"] in allowed_offices]}
 
 
 @router.post("/schedules")
@@ -120,6 +133,9 @@ async def schedules_create(
     session: SessionDep,
     actor: Annotated[CurrentUser, Depends(require_permission(ATTENDANCE_MANAGE))],
 ) -> dict[str, object]:
+    from nexa_bos_api.attendance.service import _assert_filter_scope
+    from nexa_bos_api.attendance.management_guards import scoped_ids
+    await _assert_filter_scope(session, await scoped_ids(session, actor), employee_id=None, office_id=payload.office_id, department_id=payload.department_id)
     return await create_schedule(session, actor, payload)
 
 
@@ -130,6 +146,13 @@ async def schedules_update(
     session: SessionDep,
     actor: Annotated[CurrentUser, Depends(require_permission(ATTENDANCE_MANAGE))],
 ) -> dict[str, object]:
+    from nexa_bos_api.attendance.models import AttendanceSchedule
+    from nexa_bos_api.attendance.service import _assert_filter_scope
+    from nexa_bos_api.attendance.management_guards import scoped_ids
+    schedule = await session.get(AttendanceSchedule, schedule_id)
+    if schedule is None:
+        raise AppError(status_code=404, code="NOT_FOUND", message="Schedule was not found")
+    await _assert_filter_scope(session, await scoped_ids(session, actor), employee_id=None, office_id=schedule.office_id, department_id=schedule.department_id)
     return await update_schedule(session, actor, schedule_id, payload)
 
 
@@ -145,8 +168,9 @@ async def holidays_list(
 async def holidays_create(
     payload: HolidayCreateRequest,
     session: SessionDep,
-    actor: Annotated[CurrentUser, Depends(require_permission(ATTENDANCE_MANAGE))],
+    actor: Annotated[CurrentUser, Depends(require_permission("Attendance.ManageHolidays"))],
 ) -> dict[str, object]:
+    _require_company_policy_scope(actor)
     return await create_holiday(session, actor, payload)
 
 
@@ -155,8 +179,9 @@ async def holidays_update(
     holiday_id: UUID,
     payload: HolidayUpdateRequest,
     session: SessionDep,
-    actor: Annotated[CurrentUser, Depends(require_permission(ATTENDANCE_MANAGE))],
+    actor: Annotated[CurrentUser, Depends(require_permission("Attendance.ManageHolidays"))],
 ) -> dict[str, object]:
+    _require_company_policy_scope(actor)
     return await update_holiday(session, actor, holiday_id, payload)
 
 
@@ -200,6 +225,7 @@ async def impact_rules_put(
     session: SessionDep,
     actor: Annotated[CurrentUser, Depends(require_permission(ATTENDANCE_MANAGE))],
 ) -> dict[str, object]:
+    _require_company_policy_scope(actor)
     return await upsert_impact_rule(session, actor, payload)
 
 
@@ -214,7 +240,7 @@ async def attendance_filters(
 @router.get("/day")
 async def attendance_day(
     session: SessionDep,
-    actor: Annotated[CurrentUser, Depends(require_permission(ATTENDANCE_VIEW))],
+    actor: Annotated[CurrentUser, Depends(require_permission("Attendance.Daily"))],
     pagination: PaginationDep,
     attendance_date: date,
     office_id: UUID | None = None,
@@ -237,12 +263,10 @@ async def attendance_save(
     session: SessionDep,
     actor: Annotated[
         CurrentUser,
-        Depends(require_any_permission(ATTENDANCE_MANAGE, ATTENDANCE_MANAGE_OFFICE)),
+        Depends(require_permission(ATTENDANCE_MANAGE_OFFICE)),
     ],
 ) -> dict[str, object]:
-    if not has_permission(actor, ATTENDANCE_MANAGE) and (
-        visibility_scope(actor) is not VisibilityScope.OFFICE or actor.office_id is None
-    ):
+    if visibility_scope(actor) is VisibilityScope.OFFICE and actor.office_id is None:
         raise AppError(
             status_code=403,
             code="OFFICE_ATTENDANCE_SCOPE_REQUIRED",
@@ -312,7 +336,7 @@ async def attendance_employee_summary(
     date_from: date,
     date_to: date,
 ) -> dict[str, object]:
-    if not (has_permission(actor, ATTENDANCE_VIEW) or has_permission(actor, ATTENDANCE_REPORTS)):
+    if not has_permission(actor, "Attendance.Calendar"):
         raise AppError(status_code=403, code="FORBIDDEN", message="Permission denied")
     summary = await employee_attendance_summary(
         session, actor, employee_id, date_from=date_from, date_to=date_to
@@ -320,3 +344,7 @@ async def attendance_employee_summary(
     if summary is None:
         raise AppError(status_code=404, code="NOT_FOUND", message="Employee was not found")
     return summary
+
+# Attendance Management reuses the existing authorization and attendance services.
+from nexa_bos_api.attendance.management_api import router as management_router  # noqa: E402
+router.include_router(management_router)

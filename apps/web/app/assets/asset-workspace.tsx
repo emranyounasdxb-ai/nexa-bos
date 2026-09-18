@@ -1,12 +1,14 @@
 "use client";
 
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { AssetDrawer } from "./asset-drawer";
 import { AssetDetails } from "./asset-details";
 import { IssueAssetAction } from "./asset-issue";
 import { AssetCustodian, AssetStatusBadge } from "./asset-position";
 import { AssetSettings } from "./asset-settings";
 import workspace from "./workspace.module.css";
-import { formatLocalDateTime, humanizeTechnicalLabel } from "@/lib/presentation";
+import { auditDisplayEntries, formatLocalDateTime, humanizeTechnicalLabel } from "@/lib/presentation";
 
 
 
@@ -102,7 +104,11 @@ type WorkspaceView = "all" | "assigned" | "returns" | "history";
 type ReportData = PaginatedResponse<Record<string, unknown>> & { title: string; reportingScope: string };
 
 export function AssetManagementWorkspace({ initialAssetId, initialSettings = false, initialExport = false }: { initialAssetId?: string; initialSettings?: boolean; initialExport?: boolean }) {
-  const { can } = useAuth();
+  const { can, user } = useAuth();
+  const search = useSearchParams();
+  const router = useRouter();
+  const adminOfficer = user?.userType?.code === "ADMIN_OFFICER";
+  const reportsView = can("Assets.Reports") && search.get("view") === "reports";
   const api = getBrowserApiUrl();
   const [options, setOptions] = useState<(AssetOptions & { categoryManagementAllowed?: boolean }) | null>(null);
   const [assets, setAssets] = useState<AssetRecord[]>([]);
@@ -133,7 +139,7 @@ export function AssetManagementWorkspace({ initialAssetId, initialSettings = fal
   const [revision, setRevision] = useState(0);
   const requestId = useRef(0);
   const filterDetails = useRef<HTMLDetailsElement>(null);
-  const canSettings = can("Assets.ManageMaster") && Boolean(options?.categoryManagementAllowed);
+  const canSettings = can("Assets.ManageCategories") && Boolean(options?.categoryManagementAllowed);
   const closeDetails = useCallback(() => setSelectedAsset(""), []);
   const closeSettings = useCallback(() => setSettingsOpen(false), []);
   const closeExport = useCallback(() => setExportOpen(false), []);
@@ -209,7 +215,7 @@ export function AssetManagementWorkspace({ initialAssetId, initialSettings = fal
   }, [api, can, q, office, category, revision]);
 
   useEffect(() => {
-    if (!exportOpen || !can("Assets.View") || (report === "asset_history" && !can("Assets.ViewAudit"))) return;
+    if (!(exportOpen || reportsView) || !can("Assets.Reports") || (report === "asset_history" && !can("Assets.ViewAudit"))) return;
     let active = true;
     const params = appliedQuery();
     if (reportEmployee) params.set("employeeId", reportEmployee);
@@ -217,7 +223,7 @@ export function AssetManagementWorkspace({ initialAssetId, initialSettings = fal
     setReportBusy(true); setReportError(""); setReportData(null);
     void apiGet<ReportData>(`/api/v1/assets/reports/${report}?${params}`, api).then(data => { if (active) setReportData(data); }).catch(error => { if (active) setReportError(error instanceof Error ? error.message : "Unable to load report"); }).finally(() => { if (active) setReportBusy(false); });
     return () => { active = false; };
-  }, [api, can, exportOpen, appliedQuery, report, reportEmployee, reportPage, reportPageSize, revision]);
+  }, [api, can, exportOpen, reportsView, appliedQuery, report, reportEmployee, reportPage, reportPageSize, revision]);
 
   async function exportReport(format: "xlsx" | "pdf" | "print") {
     // Open the print window from the user gesture; the authenticated export remains server-scoped.
@@ -233,8 +239,8 @@ export function AssetManagementWorkspace({ initialAssetId, initialSettings = fal
     finally { setReportBusy(false); }
   }
   function clearFilters() { setQ(""); setStatus(""); setCategory(""); setOffice(""); setOutstanding(false); setPage(1); }
-  function chooseView(next: WorkspaceView) { setView(next); setStatus(""); setOutstanding(false); setPage(1); }
-  function chooseSummary(index: number) { setView(index === 2 ? "assigned" : "all"); setStatus(index === 1 ? "In Stock" : index === 3 ? "Under Repair" : ""); setOutstanding(index === 4); setPage(1); }
+  function chooseView(next: WorkspaceView) { if (reportsView) router.push("/assets"); setView(next); setStatus(""); setOutstanding(false); setPage(1); }
+  function chooseSummary(index: number) { if (reportsView) router.push("/assets"); setView(index === 2 ? "assigned" : "all"); setStatus(index === 1 ? "In Stock" : index === 3 ? "Under Repair" : ""); setOutstanding(index === 4); setPage(1); }
 
   function closeDrawer() {
     setDrawerOpen(false);
@@ -392,17 +398,26 @@ export function AssetManagementWorkspace({ initialAssetId, initialSettings = fal
     }
   }
 
+  if ((initialSettings && !can("Assets.ManageCategories")) || ((initialExport || search.get("view") === "reports") && !can("Assets.Reports"))) return <EmptyState>You do not have permission to access this asset view.</EmptyState>;
   if (!can("Assets.View")) {
     return <EmptyState>You do not have permission to view Assets.</EmptyState>;
   }
 
   const viewTitle = view === "assigned" ? "Assigned assets" : view === "returns" ? "Returns & repairs" : view === "history" ? "Asset history" : "All assets";
   const filtered = Boolean(q || status || category || office || outstanding);
-  const columns = reportData?.items.length ? Object.keys(reportData.items[0]) : [];
+  const columns = reportData?.items.length ? Object.keys(reportData.items[0]).filter(column => !/(?:^id$|(?:Id|_id)$|uuid|record.?source|old.?values|new.?values|legacy|lock.?version)/i.test(column)) : [];
+  const reportContent = <div className={workspace.exportControls}>
+      <p className="text-sm text-text-secondary">Reports and exports use your authorized scope and the workspace's applied search, status, category, office and view filters. Exports include all matching records, across every page.</p>
+      <Field label="Report"><Select value={report} aria-label="Asset report" onChange={event => { setReport(event.target.value); setReportPage(1); }}>{options?.reports.filter(item => item.key !== "asset_history" || can("Assets.ViewAudit")).map(item => <option key={item.key} value={item.key}>{item.title}</option>)}</Select></Field>
+      <Field label="Employee (optional)"><Select value={reportEmployee} aria-label="Asset report employee" onChange={event => { setReportEmployee(event.target.value); setReportPage(1); }}><option value="">All permitted employees</option>{options?.employees.map(item => <option key={item.id} value={item.id}>{item.fullName} ({item.userCode})</option>)}</Select></Field>
+      <div>{(["xlsx", "pdf", "print"] as const).map(format => <Button key={format} variant="secondary" hidden={!can("Assets.Export")} disabled={reportBusy || !reportData || !can("Assets.Export")} onClick={() => void exportReport(format)}>{format === "xlsx" ? "Excel" : format === "pdf" ? "PDF" : "Print"}</Button>)}</div>
+      {reportError ? <ErrorText>{reportError}</ErrorText> : null}{reportBusy ? <LoadingState>Preparing report…</LoadingState> : null}
+      {reportData ? <><p className="text-sm text-text-secondary">{reportData.title} · {reportData.reportingScope} scope · {reportData.pagination.total} records</p>{reportData.items.length ? <TableShell mobileCards={false} headerTone="subtle"><TableHead><tr>{columns.map(column => <Th key={column}>{humanizeTechnicalLabel(column)}</Th>)}</tr></TableHead><tbody>{reportData.items.map((row, index) => <tr key={index}>{columns.map(column => <Td key={column}>{auditDisplayEntries({ [column]: row[column] })[0]?.value ?? "—"}</Td>)}</tr>)}</tbody></TableShell> : <EmptyState>No records match this report and the applied filters.</EmptyState>}<Pagination page={reportData.pagination.page} pageSize={reportPageSize} total={reportData.pagination.total} totalPages={reportData.pagination.totalPages} onPageChange={setReportPage} pageSizeOptions={SERVER_PAGE_SIZE_OPTIONS} onPageSizeChange={value => { if (value !== "all") setReportPageSize(value); setReportPage(1); }} /></> : null}
+    </div>;
   return <section className={workspace.workspace}>
     <PageHeader title="Asset Management" description="Manage inventory, employee custody, returns and repairs in one workspace." actions={<div className="flex flex-wrap items-center gap-2">
       {can("Assets.ManageStock") ? <Button type="button" disabled={!options} onClick={event => openDrawer(event.currentTarget)}><IconPlus className="size-4" />Add Asset</Button> : null}
-      <Button variant="secondary" onClick={() => { setReport(view === "history" ? "asset_history" : "asset_register"); setReportPage(1); setExportOpen(true); }}>Export</Button>
+      {can("Assets.Reports") && <Button variant="secondary" onClick={() => { setReport(view === "history" ? "asset_history" : "asset_register"); setReportPage(1); setExportOpen(true); }}>Reports{can("Assets.Export") ? " & Export" : ""}</Button>}
       {canSettings ? <Button variant="secondary" onClick={() => setSettingsOpen(true)}>Asset Settings</Button> : null}
     </div>} />
     <div className={workspace.summary} aria-label="Asset summaries">
@@ -411,7 +426,7 @@ export function AssetManagementWorkspace({ initialAssetId, initialSettings = fal
     {countError ? <ErrorText>{countError}</ErrorText> : null}
     {message ? <p role="status" className="text-sm text-success">{message}</p> : null}
     <div className={workspace.surface}>
-      <div className={workspace.toolbar}><nav className={workspace.tabs} aria-label="Asset views">{([ ["all", "All Assets"], ["assigned", "Assigned"], ["returns", "Returns & Repairs"], ...(can("Assets.ViewAudit") ? [["history", "History"]] : []) ] as [WorkspaceView, string][]).map(([key, label]) => <button key={key} type="button" className={workspace.tab} aria-current={view === key ? "page" : undefined} onClick={() => chooseView(key)}>{label}</button>)}</nav><span className={workspace.scope}>{loading ? "Loading…" : pageError ? "Results unavailable" : `${total.toLocaleString()} ${view === "history" ? "events" : "assets"}`} · {filtered ? "Filtered permitted records" : "All permitted records"}</span></div>
+      <div className={workspace.toolbar}><nav className={workspace.tabs} aria-label="Asset views">{([ ["all", "All Assets"], ["assigned", "Assigned"], ["returns", "Returns & Repairs"], ...(can("Assets.ViewAudit") ? [["history", "History"]] : []) ] as [WorkspaceView, string][]).map(([key, label]) => <button key={key} type="button" className={workspace.tab} aria-current={!reportsView && view === key ? "page" : undefined} onClick={() => chooseView(key)}>{label}</button>)}{can("Assets.Reports") && <Link className={workspace.tab} href="/assets?view=reports" aria-current={reportsView ? "page" : undefined}>Reports</Link>}</nav><span className={workspace.scope}>{loading ? "Loading…" : pageError ? "Results unavailable" : `${total.toLocaleString()} ${view === "history" ? "events" : "assets"}`} · {filtered ? "Filtered permitted records" : "All permitted records"}</span></div>
       <details ref={filterDetails} open className={workspace.filters}><summary>Search and filters <span aria-hidden="true">⌄</span></summary><form onSubmit={event => { event.preventDefault(); void refresh(); }}>
         <Field label="Search assets"><TextInput aria-label="Search assets" placeholder="Asset code, brand or identifier" value={q} onChange={event => { setQ(event.target.value); setPage(1); }} /></Field>
         <Field label="Status"><Select aria-label="Asset status filter" value={status} onChange={event => { setStatus(event.target.value); setPage(1); }}><option value="">All statuses</option>{options?.statuses.map(item => <option key={item} value={item}>{item === "Allocated" ? "Assigned" : item}</option>)}</Select></Field>
@@ -419,6 +434,7 @@ export function AssetManagementWorkspace({ initialAssetId, initialSettings = fal
         <Field label="Office"><Select aria-label="Asset office filter" value={office} onChange={event => { setOffice(event.target.value); setPage(1); }}><option value="">All authorized offices</option>{options?.offices.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</Select></Field>
         <Button type="button" variant="secondary" onClick={clearFilters}>Clear filters</Button>
       </form></details>
+      {reportsView ? reportContent : <>
       {view === "returns" || outstanding ? <p className="px-4 py-2 text-sm text-text-secondary">Return pending identifies active custody held by employees on notice, resigned, terminated or inactive. Repairs remain recorded in the asset history.</p> : null}
       {pageError ? <div className="p-4"><ErrorText>{pageError}</ErrorText><Button variant="secondary" onClick={() => void refresh()}>Retry</Button></div> : null}
       {loading && !assets.length && !events.length ? <LoadingState>Loading {viewTitle.toLowerCase()}…</LoadingState> : null}
@@ -426,19 +442,13 @@ export function AssetManagementWorkspace({ initialAssetId, initialSettings = fal
       {view !== "history" && assets.length ? <TableShell headerTone="subtle" mobileCards={false} className={workspace.table}><TableHead><tr>{["Asset", "Category", "Office", "Current Custodian", "Status", "Condition", "Last Updated", "Actions"].map(label => <Th key={label}>{label}</Th>)}</tr></TableHead><tbody>{assets.map(asset => <tr key={asset.id} className={workspace.row} onClick={event => { if (event.currentTarget.contains(event.target as Node) && !(event.target as HTMLElement).closest("button,a")) setSelectedAsset(asset.id); }}>
         <Td><button className={workspace.assetLink} onClick={() => setSelectedAsset(asset.id)}>{asset.assetCode}</button><span className={workspace.secondary}>{[asset.brand, asset.model, identity(asset) !== "—" && ![asset.brand, asset.model].includes(identity(asset)) ? identity(asset) : null].filter(Boolean).join(" · ") || "Identity not recorded"}</span></Td><Td>{asset.category.name}</Td><Td>{asset.office?.name ?? "—"}</Td><Td><AssetCustodian asset={asset} /></Td><Td><AssetStatusBadge asset={asset} /></Td><Td>{asset.condition}</Td><Td>{formatLocalDateTime(asset.updatedAt)}</Td><Td><div className="flex flex-wrap items-center gap-2"><IssueAssetAction asset={asset} onIssued={updated => { setAssets(current => current.map(item => item.id === updated.id ? updated : item)); setMessage(`${updated.assetCode} assigned to ${updated.currentAllocation?.employeeName ?? "the selected employee"}`); afterMutation(); }} /><Button variant="secondary" size="compact" onClick={() => setSelectedAsset(asset.id)}>View asset</Button></div></Td>
       </tr>)}</tbody></TableShell> : null}
-      {view === "history" && events.length ? <TableShell headerTone="subtle" mobileCards={false}><TableHead><tr><Th>Asset</Th><Th>Action</Th><Th>Reason</Th><Th>Recorded</Th><Th>Actions</Th></tr></TableHead><tbody>{events.map(event => <tr key={event.id}><Td><button className={workspace.assetLink} onClick={() => setSelectedAsset(event.entityId)}>{String(event.assetCode ?? event.newValues?.assetCode ?? event.oldValues?.assetCode ?? event.entityId)}</button></Td><Td>{humanizeTechnicalLabel(event.action)}</Td><Td>{event.reason ?? "—"}</Td><Td>{formatLocalDateTime(event.createdAt)}</Td><Td><Button variant="secondary" size="compact" onClick={() => setSelectedAsset(event.entityId)}>View history</Button></Td></tr>)}</tbody></TableShell> : null}
+      {view === "history" && events.length ? <TableShell headerTone="subtle" mobileCards={false}><TableHead><tr><Th>Asset</Th><Th>Action</Th><Th>Reason</Th><Th>Recorded</Th><Th>Actions</Th></tr></TableHead><tbody>{events.map(event => <tr key={event.id}><Td><button className={workspace.assetLink} onClick={() => setSelectedAsset(event.entityId)}>{String(event.assetCode ?? event.newValues?.assetCode ?? event.oldValues?.assetCode ?? "Not recorded")}</button></Td><Td>{humanizeTechnicalLabel(event.action)}</Td><Td>{event.reason ?? "—"}</Td><Td>{formatLocalDateTime(event.createdAt)}</Td><Td><Button variant="secondary" size="compact" onClick={() => setSelectedAsset(event.entityId)}>View history</Button></Td></tr>)}</tbody></TableShell> : null}
       {!pageError ? <Pagination page={page} pageSize={pageSize} total={total} totalPages={totalPages} pageSizeOptions={SERVER_PAGE_SIZE_OPTIONS} onPageChange={setPage} onPageSizeChange={value => { if (value !== "all") setPageSize(value); setPage(1); }} /> : null}
+      </>}
     </div>
     {selectedAsset ? <AssetDrawer title="Asset details" onClose={closeDetails}><AssetDetails key={selectedAsset} assetId={selectedAsset} onMutation={afterMutation} initialTab={view === "history" ? "audit" : undefined} /></AssetDrawer> : null}
     {settingsOpen && canSettings ? <AssetDrawer title="Asset Settings" onClose={closeSettings}><AssetSettings editable={canSettings} onMutation={afterMutation} /></AssetDrawer> : null}
-    {exportOpen ? <AssetDrawer title="Asset reports and export" onClose={closeExport}><div className={workspace.exportControls}>
-      <p className="text-sm text-text-secondary">Reports and exports use your authorized scope and the workspace's applied search, status, category, office and view filters. Exports include all matching records, across every page.</p>
-      <Field label="Report"><Select value={report} aria-label="Asset report" onChange={event => { setReport(event.target.value); setReportPage(1); }}>{options?.reports.filter(item => item.key !== "asset_history" || can("Assets.ViewAudit")).map(item => <option key={item.key} value={item.key}>{item.title}</option>)}</Select></Field>
-      <Field label="Employee (optional)"><Select value={reportEmployee} aria-label="Asset report employee" onChange={event => { setReportEmployee(event.target.value); setReportPage(1); }}><option value="">All permitted employees</option>{options?.employees.map(item => <option key={item.id} value={item.id}>{item.fullName} ({item.userCode})</option>)}</Select></Field>
-      <div>{(["xlsx", "pdf", "print"] as const).map(format => <Button key={format} variant="secondary" disabled={reportBusy || !reportData} onClick={() => void exportReport(format)}>{format === "xlsx" ? "Excel" : format === "pdf" ? "PDF" : "Print"}</Button>)}</div>
-      {reportError ? <ErrorText>{reportError}</ErrorText> : null}{reportBusy ? <LoadingState>Preparing report…</LoadingState> : null}
-      {reportData ? <><p className="text-sm text-text-secondary">{reportData.title} · {reportData.reportingScope} scope · {reportData.pagination.total} records</p>{reportData.items.length ? <TableShell mobileCards={false} headerTone="subtle"><TableHead><tr>{columns.map(column => <Th key={column}>{column}</Th>)}</tr></TableHead><tbody>{reportData.items.map((row, index) => <tr key={index}>{columns.map(column => <Td key={column}>{String(row[column] ?? "—")}</Td>)}</tr>)}</tbody></TableShell> : <EmptyState>No records match this report and the applied filters.</EmptyState>}<Pagination page={reportData.pagination.page} pageSize={reportPageSize} total={reportData.pagination.total} totalPages={reportData.pagination.totalPages} onPageChange={setReportPage} pageSizeOptions={SERVER_PAGE_SIZE_OPTIONS} onPageSizeChange={value => { if (value !== "all") setReportPageSize(value); setReportPage(1); }} /></> : null}
-    </div></AssetDrawer> : null}
+    {exportOpen && can("Assets.Reports") && !reportsView ? <AssetDrawer title="Asset reports and export" onClose={closeExport}>{reportContent}</AssetDrawer> : null}
       {drawerOpen ? (
         <div
           data-amafh-editor-backdrop=""

@@ -12,8 +12,8 @@ from nexa_bos_api.core.master_codes import generate_master_code
 from nexa_bos_api.identity.audit import record_audit
 from nexa_bos_api.identity.auth_service import terminate_sessions
 from nexa_bos_api.identity.enums import UserTypeStatus, VisibilityScope
-from nexa_bos_api.identity.models import User, UserType, UserTypePermission, new_uuid
-from nexa_bos_api.identity.permissions import ALL_PERMISSION_CODES
+from nexa_bos_api.identity.models import Permission, User, UserType, UserTypePermission, new_uuid
+from nexa_bos_api.identity.permissions import ALL_PERMISSION_CODES, MODULE_PERMISSION_DEPENDENCIES
 from nexa_bos_api.identity.schemas import UserTypeCreateRequest, UserTypeUpdateRequest
 
 
@@ -208,6 +208,10 @@ async def assign_permissions(
             message="Permissions are system-defined and cannot be created",
             details=unknown,
         )
+    selected = set(permissions)
+    missing = {code: [required for required in dependencies if required not in selected] for code, dependencies in MODULE_PERMISSION_DEPENDENCIES.items() if code in selected and any(required not in selected for required in dependencies)}
+    if missing:
+        raise AppError(status_code=422, code="PERMISSION_DEPENDENCY_REQUIRED", message="Include required module view and report permissions.", details=[{"permission": code, "requires": requirements} for code, requirements in missing.items()])
     if user_type.code == "PENDING" and permissions:
         raise AppError(
             status_code=403,
@@ -220,6 +224,9 @@ async def assign_permissions(
             code="OWNER_PROTECTED",
             message="OWNER always has full access",
         )
+    registered = set((await session.scalars(select(Permission.code).where(Permission.code.in_(permissions)))).all())
+    if set(permissions) - registered:
+        raise AppError(status_code=503, code="PERMISSION_REGISTRATION_REQUIRED", message="These permission options are not available yet. Contact your system administrator.")
     old = sorted(row.permission_code for row in user_type.permissions)
     for row in list(user_type.permissions):
         await session.delete(row)

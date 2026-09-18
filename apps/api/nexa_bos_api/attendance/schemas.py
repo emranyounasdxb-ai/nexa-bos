@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, time
+from datetime import date, datetime, time
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -79,6 +79,7 @@ class AttendanceBulkRequest(BaseModel):
 
 
 class AttendanceCorrectionRequest(BaseModel):
+    expected_updated_at: datetime | None = None
     reason: str = Field(min_length=1, max_length=2000)
     status: AttendanceStatus | None = None
     time_in: time | None = None

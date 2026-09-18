@@ -132,7 +132,7 @@ function Shell({ children }: { children: ReactNode }) {
   const baseContext = routeContext(pathname);
   const tlLegacyCases = user?.userType?.code === "TL" && ["/applications", "/applications/new"].includes(pathname);
   const tlForbidden = user?.userType?.code === "TL" && !(
-    pathname === "/reports" || pathname === "/account" || pathname === "/notifications" ||
+    (pathname.startsWith("/assets") && can("Assets.View")) || (pathname.startsWith("/attendance") && can("Attendance.View")) || pathname === "/reports" || pathname === "/account" || pathname === "/notifications" ||
     pathname === "/applications" || /^\/applications\/[^/]+$/.test(pathname) ||
     pathname === "/customers" || /^\/customers\/[^/]+$/.test(pathname)
   );
@@ -252,8 +252,13 @@ function Shell({ children }: { children: ReactNode }) {
   ];
 
   const headerOrder = ["Workspace", "Cases", "Operations", "Performance", "People & HR", "Finance", "Reports", "Administration"];
-  const visibleGroups = groups
-    .map((group) => ({ ...group, items: group.items.filter((item) => item.show && (user?.userType?.code !== "TL" || ["/reports", "/applications", "/customers"].includes(item.href))) }))
+  const moduleGroups = [
+    { label: "Assets", icon: IconDevices2, items: [{ href: "/assets", label: "Assets", icon: IconDevices2, show: can("Assets.View") }] },
+    { label: "Attendance", icon: IconCalendarCheck, items: [{ href: "/attendance", label: "Attendance", icon: IconCalendarCheck, show: can("Attendance.View") }] },
+  ];
+  const permissionGroups = [...groups.map(group => ({ ...group, items: group.items.filter(item => !item.href.startsWith("/assets") && !item.href.startsWith("/attendance")) })), ...moduleGroups];
+  const visibleGroups = permissionGroups
+    .map((group) => ({ ...group, items: group.items.filter((item) => item.show && (user?.userType?.code !== "TL" || ["/reports", "/applications", "/customers"].includes(item.href) || (item.href.startsWith("/assets") && can("Assets.View")) || (item.href.startsWith("/attendance") && can("Attendance.View")))) }))
     .filter((group) => group.items.length > 0);
   visibleGroups.sort((left, right) => headerOrder.indexOf(left.label) - headerOrder.indexOf(right.label));
   return <WorkspaceFrame user={user} groups={visibleGroups} context={context} pathname={pathname}

@@ -1,5 +1,6 @@
 "use client";
 
+import { AttendancePolicyTools } from "../attendance-management";
 import { RegisterWorkspace } from "@/components/page-patterns";
 
 import { useCallback, useEffect, useState } from "react";
@@ -31,7 +32,7 @@ type Holiday = {
 };
 
 export default function HolidaysPage() {
-  const { can } = useAuth();
+  const { can, user } = useAuth();
   const api = getBrowserApiUrl();
   const [items, setItems] = useState<Holiday[]>([]);
   const [name, setName] = useState("");
@@ -40,7 +41,7 @@ export default function HolidaysPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
-  const canManage = can("Attendance.Manage");
+  const canManage = can("Attendance.ManageHolidays") && (user?.userType?.code === "OWNER" || user?.userType?.visibilityScope === "company");
   const canSendUrgent = can("Notifications.SendUrgent");
   const pagination = useClientPagination(items);
 
@@ -254,6 +255,7 @@ export default function HolidaysPage() {
         onPageSizeChange={pagination.setPageSize}
       />
       </RegisterWorkspace>
+      <AttendancePolicyTools />
     </section>
   );
 }

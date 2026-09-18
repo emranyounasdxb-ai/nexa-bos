@@ -9,7 +9,13 @@ from fastapi.responses import Response
 from nexa_bos_api.api.v1.deps import CurrentUser, require_permission
 from nexa_bos_api.api.v1.pagination import PaginationDep
 from nexa_bos_api.assets.enums import AssetReport, AssetStatus
-from nexa_bos_api.assets.export import build_excel, build_pdf, build_print_html, lifecycle_export_payload
+from nexa_bos_api.assets.export import (
+    build_excel,
+    build_lifecycle_csv,
+    build_pdf,
+    build_print_html,
+    lifecycle_export_payload,
+)
 from nexa_bos_api.assets.schemas import (
     AssetAllocationRequest,
     AssetLifecycleExportRequest,
@@ -62,7 +68,7 @@ from nexa_bos_api.identity.permissions import (
     ASSETS_VIEW_AUDIT,
 )
 
-router = APIRouter(prefix="/assets", tags=["assets"])
+router = APIRouter(prefix="/assets", tags=["assets"], dependencies=[Depends(require_permission("Assets.View"))])
 
 
 def _require_history_permission(actor: CurrentUser, report: AssetReport) -> None:
@@ -96,7 +102,7 @@ async def categories_list(
 async def categories_create(
     payload: AssetCategoryCreateRequest,
     session: SessionDep,
-    actor: Annotated[CurrentUser, Depends(require_permission(ASSETS_MANAGE_MASTER))],
+    actor: Annotated[CurrentUser, Depends(require_permission("Assets.ManageCategories"))],
 ) -> dict[str, object]:
     return await create_category(session, actor, payload)
 
@@ -106,7 +112,7 @@ async def categories_update(
     category_id: UUID,
     payload: AssetCategoryUpdateRequest,
     session: SessionDep,
-    actor: Annotated[CurrentUser, Depends(require_permission(ASSETS_MANAGE_MASTER))],
+    actor: Annotated[CurrentUser, Depends(require_permission("Assets.ManageCategories"))],
 ) -> dict[str, object]:
     return await update_category(session, actor, category_id, payload)
 
@@ -115,7 +121,7 @@ async def categories_update(
 async def categories_activate(
     category_id: UUID,
     session: SessionDep,
-    actor: Annotated[CurrentUser, Depends(require_permission(ASSETS_MANAGE_MASTER))],
+    actor: Annotated[CurrentUser, Depends(require_permission("Assets.ManageCategories"))],
 ) -> dict[str, object]:
     return await set_category_status(session, actor, category_id, active=True)
 
@@ -124,7 +130,7 @@ async def categories_activate(
 async def categories_deactivate(
     category_id: UUID,
     session: SessionDep,
-    actor: Annotated[CurrentUser, Depends(require_permission(ASSETS_MANAGE_MASTER))],
+    actor: Annotated[CurrentUser, Depends(require_permission("Assets.ManageCategories"))],
 ) -> dict[str, object]:
     return await set_category_status(session, actor, category_id, active=False)
 
@@ -133,7 +139,7 @@ async def categories_deactivate(
 async def report_view(
     report: AssetReport,
     session: SessionDep,
-    actor: Annotated[CurrentUser, Depends(require_permission(ASSETS_VIEW))],
+    actor: Annotated[CurrentUser, Depends(require_permission("Assets.Reports"))],
     pagination: PaginationDep,
     office_id: Annotated[UUID | None, Query(alias="officeId")] = None,
     employee_id: Annotated[UUID | None, Query(alias="employeeId")] = None,
@@ -166,7 +172,7 @@ async def report_view(
 async def report_export(
     payload: AssetReportExportRequest,
     session: SessionDep,
-    actor: Annotated[CurrentUser, Depends(require_permission(ASSETS_VIEW))],
+    actor: Annotated[CurrentUser, Depends(require_permission("Assets.Export"))],
 ) -> Response:
     _require_history_permission(actor, payload.report)
     report = await asset_report(
@@ -328,7 +334,7 @@ async def assets_condition(
     asset_id: UUID,
     payload: AssetConditionCorrectionRequest,
     session: SessionDep,
-    actor: Annotated[CurrentUser, Depends(require_permission(ASSETS_MANAGE_STOCK))],
+    actor: Annotated[CurrentUser, Depends(require_permission(ASSETS_MANAGE_MASTER))],
 ) -> dict[str, object]:
     return await correct_condition(session, actor, asset_id, payload)
 
@@ -350,6 +356,9 @@ async def assets_return(
     session: SessionDep,
     actor: Annotated[CurrentUser, Depends(require_permission(ASSETS_RETURN))],
 ) -> dict[str, object]:
+    asset = await get_asset(session, actor, asset_id)
+    if asset["status"] == AssetStatus.UNDER_REPAIR and not has_permission(actor, "Assets.Repair"):
+        raise AppError(status_code=403, code="FORBIDDEN", message="Repair permission is required to receive an asset from repair.")
     return await return_asset(session, actor, asset_id, payload)
 
 
@@ -378,8 +387,12 @@ async def assets_status(
     asset_id: UUID,
     payload: AssetStatusRequest,
     session: SessionDep,
-    actor: Annotated[CurrentUser, Depends(require_permission(ASSETS_MANAGE_STATUS))],
+    actor: CurrentUser,
 ) -> dict[str, object]:
+    asset = await get_asset(session, actor, asset_id)
+    permission = "Assets.Retire" if payload.status is AssetStatus.RETIRED else "Assets.Repair" if payload.status is AssetStatus.UNDER_REPAIR or (payload.status is AssetStatus.IN_STOCK and asset["status"] == AssetStatus.UNDER_REPAIR) else ASSETS_MANAGE_STATUS
+    if not has_permission(actor, permission):
+        raise AppError(status_code=403, code="FORBIDDEN", message="You do not have permission to perform this action", details=[{"permission": permission}])
     return await set_asset_status(session, actor, asset_id, payload)
 
 
@@ -400,11 +413,16 @@ async def assets_lifecycle_export(
     actor: Annotated[CurrentUser, Depends(require_permission(ASSETS_VIEW_AUDIT))],
 ) -> Response:
     from nexa_bos_api.identity.access import visibility_scope
+    if not has_permission(actor, "Assets.Export"):
+        raise AppError(status_code=403, code="FORBIDDEN", message="Asset report export permission is required.")
     history = await asset_history(session, actor, asset_id)  # Existing asset scope enforcement.
     report = lifecycle_export_payload(history, visibility_scope(actor).value)
     if payload.format == "xlsx":
         content = build_excel(report, actor)
         media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    elif payload.format == "csv":
+        content = build_lifecycle_csv(report)
+        media_type = "text/csv; charset=utf-8"
     elif payload.format == "pdf":
         content = build_pdf(report, actor)
         media_type = "application/pdf"

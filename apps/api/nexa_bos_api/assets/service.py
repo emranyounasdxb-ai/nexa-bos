@@ -1037,7 +1037,7 @@ async def return_asset(
     payload: AssetReturnRequest,
 ) -> dict[str, object]:
     asset = await _get_asset(session, actor, asset_id, lock=True)
-    if asset.status == AssetStatus.UNDER_REPAIR and has_permission(actor, ASSETS_MANAGE_STATUS):
+    if asset.status == AssetStatus.UNDER_REPAIR and has_permission(actor, "Assets.Repair"):
         pass  # Explicit repair receipt below closes custody and records the normal return audit.
     else:
         _require_allocated_custody_operation(asset, operation="Return")
@@ -1551,7 +1551,7 @@ async def asset_options(session: AsyncSession, actor: User) -> dict[str, object]
     employees = list((await session.execute(employee_stmt)).scalars())
     return {
         "categories": categories["items"],
-        "categoryManagementAllowed": has_permission(actor, ASSETS_MANAGE_MASTER) and scope is VisibilityScope.COMPANY,
+        "categoryManagementAllowed": has_permission(actor, "Assets.ManageCategories") and scope is VisibilityScope.COMPANY,
         "offices": [{"id": str(row.id), "code": row.code, "name": row.name} for row in offices],
         "employees": [
             {

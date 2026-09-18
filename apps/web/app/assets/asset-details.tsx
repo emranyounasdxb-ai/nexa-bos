@@ -76,7 +76,8 @@ function Detail({ label, children }: { label: string; children: React.ReactNode 
 
 export function AssetDetails({ assetId, onMutation, initialTab }: { assetId: string; onMutation?: () => void; initialTab?: AssetTab }) {
   const { can } = useAuth();
-  const tabs = TABS.filter(tab => tab.id !== "audit" || can("Assets.ViewAudit"));
+  const canManageAsset = ["Assets.ManageMaster", "Assets.Allocate", "Assets.Return", "Assets.Transfer", "Assets.ManageStatus", "Assets.Repair", "Assets.Retire"].some(code => can(code));
+  const tabs = TABS.filter(tab => (tab.id !== "audit" || can("Assets.ViewAudit")) && (tab.id !== "custody" || canManageAsset));
   const api = getBrowserApiUrl();
   const [asset, setAsset] = useState<AssetRecord | null>(null);
   const [options, setOptions] = useState<AssetOptions | null>(null);
@@ -156,7 +157,7 @@ export function AssetDetails({ assetId, onMutation, initialTab }: { assetId: str
   useEffect(() => {
     function restoreTab() {
       const tab = validTab(initialTab ?? new URLSearchParams(window.location.search).get("tab"));
-      setActiveTab(tab === "audit" && !can("Assets.ViewAudit") ? "master" : tab);
+      setActiveTab((tab === "audit" && !can("Assets.ViewAudit")) || (tab === "custody" && !canManageAsset) ? "master" : tab);
     }
     restoreTab();
     window.addEventListener("popstate", restoreTab);
@@ -292,7 +293,7 @@ export function AssetDetails({ assetId, onMutation, initialTab }: { assetId: str
   }
 
   return (
-    <section className={styles.detailsRoot}>
+    <section className={styles.detailsRoot} data-asset-lifecycle-active={activeTab === "audit" ? "true" : undefined}>
       <div className={styles.stickyHeader}><div className={styles.headerIdentity}><div className="min-w-0"><h3 className="text-lg font-semibold text-text-primary">{asset.assetCode}</h3><p className="mt-0.5 break-words text-sm text-text-secondary">{asset.category.name} · {asset.brand ?? asset.model ?? asset.serialNumber ?? "Asset details"}</p></div><div className="flex flex-wrap gap-2"><AssetStatusBadge asset={asset} /><Badge>{asset.condition}</Badge></div></div>      <div className={styles.tabs} style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }} role="tablist" aria-label="Asset workspace">
         {tabs.map((tab, index) => (
           <button
@@ -330,7 +331,7 @@ export function AssetDetails({ assetId, onMutation, initialTab }: { assetId: str
           <div className={styles.overview}>
             <Card className={styles.section}>
               <div className={styles.sectionHeading}><SectionHeader title="Current custody" />            <div className={styles.actionRow}>      <IssueAssetAction asset={asset} onIssued={updated => { setAsset(updated); setMessage(`${updated.assetCode} assigned to ${updated.currentAllocation?.employeeName ?? "the selected employee"}`); onMutation?.(); void refresh(); }} />
-{asset.currentAllocation && can("Assets.Return") && (asset.status === "Allocated" || (asset.status === "Under Repair" && can("Assets.ManageStatus"))) ? <Button onClick={() => selectTab("custody")}>{asset.status === "Under Repair" ? "Receive from repair" : "Receive return"}</Button> : asset.status === "Under Repair" && !asset.currentAllocation && can("Assets.ManageStatus") ? <Button onClick={() => selectTab("custody")}>Receive from repair</Button> : can("Assets.ManageMaster") || can("Assets.ManageStock") || can("Assets.ManageStatus") || can("Assets.Transfer") ? <Button variant="secondary" onClick={() => selectTab("custody")}>Manage Asset</Button> : null}</div></div>
+{asset.currentAllocation && can("Assets.Return") && (asset.status === "Allocated" || (asset.status === "Under Repair" && can("Assets.Repair"))) ? <Button onClick={() => selectTab("custody")}>{asset.status === "Under Repair" ? "Receive from repair" : "Receive return"}</Button> : asset.status === "Under Repair" && !asset.currentAllocation && can("Assets.Repair") ? <Button onClick={() => selectTab("custody")}>Receive from repair</Button> : can("Assets.ManageMaster") || can("Assets.ManageMaster") || can("Assets.ManageStatus") || can("Assets.Repair") || can("Assets.Retire") || can("Assets.Transfer") ? <Button variant="secondary" onClick={() => selectTab("custody")}>Manage Asset</Button> : null}</div></div>
               <dl className={styles.overviewGrid}><Detail label="Custodian / location"><AssetCustodian asset={asset} /></Detail><Detail label="Current office">{asset.office?.name ?? "Not recorded"}</Detail>                {asset.currentAllocation ? <><Detail label="Employee code">{asset.currentAllocation.employeeCode ?? "Not recorded"}</Detail><Detail label="Issued on">{asset.currentAllocation.issueDate}</Detail><Detail label="Issued by">{asset.currentAllocation.issuedBy ?? "Not recorded"}</Detail><Detail label="Condition at issue">{asset.currentAllocation.conditionAtIssue}</Detail><Detail label="Issue note">{asset.currentAllocation.issueRemarks ?? "Not recorded"}</Detail></> : null}
 </dl>
             </Card>
@@ -351,8 +352,8 @@ export function AssetDetails({ assetId, onMutation, initialTab }: { assetId: str
 
         {activeTab === "custody" ? (
           <div className={styles.manage}>
-            {(can("Assets.Allocate") && asset.status === "In Stock" && !asset.currentAllocation) || (asset.currentAllocation && can("Assets.Return") && (asset.status === "Allocated" || (asset.status === "Under Repair" && can("Assets.ManageStatus")))) || (can("Assets.Transfer") && asset.status !== "Retired") ? <Card className={styles.section}><SectionHeader title="Custody actions" /><div className={styles.actionRow}>      <IssueAssetAction asset={asset} onIssued={updated => { setAsset(updated); setMessage(`${updated.assetCode} assigned to ${updated.currentAllocation?.employeeName ?? "the selected employee"}`); onMutation?.(); void refresh(); }} />
-               {asset.currentAllocation && can("Assets.Return") && (asset.status === "Allocated" || (asset.status === "Under Repair" && can("Assets.ManageStatus"))) ? (
+            {(can("Assets.Allocate") && asset.status === "In Stock" && !asset.currentAllocation) || (asset.currentAllocation && can("Assets.Return") && (asset.status === "Allocated" || (asset.status === "Under Repair" && can("Assets.Repair")))) || (can("Assets.Transfer") && asset.status !== "Retired") ? <Card className={styles.section}><SectionHeader title="Custody actions" /><div className={styles.actionRow}>      <IssueAssetAction asset={asset} onIssued={updated => { setAsset(updated); setMessage(`${updated.assetCode} assigned to ${updated.currentAllocation?.employeeName ?? "the selected employee"}`); onMutation?.(); void refresh(); }} />
+               {asset.currentAllocation && can("Assets.Return") && (asset.status === "Allocated" || (asset.status === "Under Repair" && can("Assets.Repair"))) ? (
                 <PanelPopup feedback={<><ErrorText>{error}</ErrorText>{message ? <p role="status" className="text-sm text-text-secondary">{message}</p> : null}</>} label={asset.status === "Under Repair" ? "Receive from repair" : "Receive return"}><Card>
                   <SectionHeader title="Return Asset" description={`Closes ${asset.currentAllocation.employeeName}'s active custody and returns the Asset to Office stock.`} />
                   {returnCondition === "Damaged" ? <p className="mt-2 text-xs text-text-secondary">A damaged return also changes Asset status and requires Assets.ManageStatus plus a reason.</p> : null}
@@ -409,9 +410,9 @@ export function AssetDetails({ assetId, onMutation, initialTab }: { assetId: str
                 </Card></PanelPopup>
               ) : null}
 </div></Card> : null}
-            {can("Assets.ManageStock") || (can("Assets.ManageStatus") && (["In Stock", "Allocated"].includes(asset.status) || (asset.status === "Under Repair" && !asset.currentAllocation))) ? <Card className={styles.section}><SectionHeader title="Asset maintenance" /><div className={styles.actionRow}>              {["In Stock", "Allocated"].includes(asset.status) && can("Assets.ManageStatus") ? <PanelPopup label="Send for repair"><Card><SectionHeader title="Send for repair" description="Mark the asset Under Repair. Existing custody and its complete history remain recorded." /><Field label="Repair reason"><Textarea aria-label="Asset repair reason" required value={reason} onChange={event => setReason(event.target.value)} /></Field><Button disabled={busy || !reason.trim()} onClick={event => requestConfirmation(event.currentTarget, { title: "Send asset for repair?", description: "The asset will be unavailable for allocation while Under Repair. Active custody is retained until an explicit receipt closes it.", confirmLabel: "Send for repair", path: `/api/v1/assets/${asset.id}/status`, body: { status: "Under Repair", reason }, success: "Asset sent for repair; custody history preserved" })}>Send for repair</Button></Card></PanelPopup> : null}
-              {asset.status === "Under Repair" && !asset.currentAllocation && can("Assets.ManageStatus") ? <PanelPopup label="Receive from repair"><Card><SectionHeader title="Receive from repair" description="Return repaired office stock to available inventory. A reason remains in audit history." /><Field label="Repair completion reason"><Textarea value={reason} onChange={event => setReason(event.target.value)} required /></Field><Button disabled={busy || !reason.trim()} onClick={event => requestConfirmation(event.currentTarget, { title: "Receive repaired asset?", description: "The asset will return to In Stock and become available for allocation. Repair history is retained.", confirmLabel: "Receive from repair", path: `/api/v1/assets/${asset.id}/status`, body: { status: "In Stock", reason }, success: "Repaired asset returned to available inventory" })}>Receive from repair</Button></Card></PanelPopup> : null}
-             {can("Assets.ManageStock") ? <PanelPopup label="Correct condition"><Card><SectionHeader title="Condition management" description="The previous condition and your reason remain in immutable audit history." /><div className="mt-3 space-y-3"><Field label="Condition"><Select value={condition} onChange={event => setCondition(event.target.value)}>{options?.conditions.map(item => <option key={item}>{item}</option>)}</Select></Field><Field label="Mandatory reason"><Textarea required value={reason} onChange={event => setReason(event.target.value)} /></Field><Button disabled={busy || !reason.trim() || condition === asset.condition} onClick={event => requestConfirmation(event.currentTarget, { title: "Correct asset condition?", description: "This updates condition without changing custody or operational status. The previous value and reason remain recorded.", confirmLabel: "Confirm correction", path: `/api/v1/assets/${asset.id}/condition`, body: { condition, reason }, success: "Asset condition corrected with audit history" })}>Correct condition</Button></div></Card></PanelPopup> : null}
+            {can("Assets.ManageMaster") || (can("Assets.Repair") && (["In Stock", "Allocated"].includes(asset.status) || (asset.status === "Under Repair" && !asset.currentAllocation))) ? <Card className={styles.section}><SectionHeader title="Asset maintenance" /><div className={styles.actionRow}>              {["In Stock", "Allocated"].includes(asset.status) && can("Assets.Repair") ? <PanelPopup label="Send for repair"><Card><SectionHeader title="Send for repair" description="Mark the asset Under Repair. Existing custody and its complete history remain recorded." /><Field label="Repair reason"><Textarea aria-label="Asset repair reason" required value={reason} onChange={event => setReason(event.target.value)} /></Field><Button disabled={busy || !reason.trim()} onClick={event => requestConfirmation(event.currentTarget, { title: "Send asset for repair?", description: "The asset will be unavailable for allocation while Under Repair. Active custody is retained until an explicit receipt closes it.", confirmLabel: "Send for repair", path: `/api/v1/assets/${asset.id}/status`, body: { status: "Under Repair", reason }, success: "Asset sent for repair; custody history preserved" })}>Send for repair</Button></Card></PanelPopup> : null}
+              {asset.status === "Under Repair" && !asset.currentAllocation && can("Assets.Repair") ? <PanelPopup label="Receive from repair"><Card><SectionHeader title="Receive from repair" description="Return repaired office stock to available inventory. A reason remains in audit history." /><Field label="Repair completion reason"><Textarea value={reason} onChange={event => setReason(event.target.value)} required /></Field><Button disabled={busy || !reason.trim()} onClick={event => requestConfirmation(event.currentTarget, { title: "Receive repaired asset?", description: "The asset will return to In Stock and become available for allocation. Repair history is retained.", confirmLabel: "Receive from repair", path: `/api/v1/assets/${asset.id}/status`, body: { status: "In Stock", reason }, success: "Repaired asset returned to available inventory" })}>Receive from repair</Button></Card></PanelPopup> : null}
+             {can("Assets.ManageMaster") ? <PanelPopup label="Correct condition"><Card><SectionHeader title="Condition management" description="The previous condition and your reason remain in recorded history." /><div className="mt-3 space-y-3"><Field label="Condition"><Select value={condition} onChange={event => setCondition(event.target.value)}>{options?.conditions.map(item => <option key={item}>{item}</option>)}</Select></Field><Field label="Mandatory reason"><Textarea required value={reason} onChange={event => setReason(event.target.value)} /></Field><Button disabled={busy || !reason.trim() || condition === asset.condition} onClick={event => requestConfirmation(event.currentTarget, { title: "Correct asset condition?", description: "This updates condition without changing custody or operational status. The previous value and reason remain recorded.", confirmLabel: "Confirm correction", path: `/api/v1/assets/${asset.id}/condition`, body: { condition, reason }, success: "Asset condition corrected with recorded history" })}>Correct condition</Button></div></Card></PanelPopup> : null}
 </div></Card> : null}
                         {can("Assets.ManageMaster") ? (
               <Card className={styles.section}><SectionHeader title="Record management" /><div className={styles.actionRow}>
@@ -427,7 +428,7 @@ export function AssetDetails({ assetId, onMutation, initialTab }: { assetId: str
                   </form>
                 </Card></PanelPopup>
                 <PanelPopup feedback={<><ErrorText>{error}</ErrorText>{message ? <p role="status" className="text-sm text-text-secondary">{message}</p> : null}</>} label="Correct identifiers"><Card>
-                  <SectionHeader title="Correct identifiers" description="A mandatory reason and immutable audit entry are recorded." />
+                  <SectionHeader title="Correct identifiers" description="A mandatory reason and change record are recorded." />
                   <div className="mt-3 grid gap-3 sm:grid-cols-2">
                     <Field label="Serial / Service Tag"><TextInput aria-label="Correct Serial Number" value={identifiers.serial_number} onChange={(event) => setIdentifiers((current) => ({ ...current, serial_number: event.target.value }))} /></Field>
                     <Field label="IMEI"><TextInput aria-label="Correct IMEI" value={identifiers.imei} onChange={(event) => setIdentifiers((current) => ({ ...current, imei: event.target.value }))} /></Field>
@@ -438,11 +439,11 @@ export function AssetDetails({ assetId, onMutation, initialTab }: { assetId: str
                       disabled={busy || !identifiers.reason.trim()}
                       onClick={(event) => requestConfirmation(event.currentTarget, {
                         title: "Correct Asset identifiers?",
-                        description: "The new identifiers must remain unique. The previous values and your reason will remain in immutable audit history.",
+                        description: "The new identifiers must remain unique. The previous values and your reason will remain in recorded history.",
                         confirmLabel: "Confirm correction",
                         path: `/api/v1/assets/${asset.id}/identifiers`,
                         body: identifiers,
-                        success: "Identifiers corrected with audit history",
+                        success: "Identifiers corrected with recorded history",
                       })}
                     >
                       Review correction
@@ -451,17 +452,17 @@ export function AssetDetails({ assetId, onMutation, initialTab }: { assetId: str
                 </Card></PanelPopup>
               </div></Card>
             ) : null}
-                        {can("Assets.ManageStatus") ? (
+                        {can("Assets.ManageStatus") || can("Assets.Retire") ? (
               <Card className={styles.section}>
-                <SectionHeader title="Status management" description="Every status change requires a reason and creates an immutable audit event." />
+                <SectionHeader title="Status management" description="Every status change requires a reason and creates an change record." />
                 <div className={styles.statusForm}>
-                  <Field label="New status"><Select aria-label="New Asset Status" value={status} onChange={(event) => setStatus(event.target.value)}>{options?.statuses.filter(item => item !== asset.status && !(item === "In Stock" && asset.currentAllocation) && !(item === "Allocated" && !asset.currentAllocation) && !(item === "Retired" && asset.currentAllocation)).map((item) => <option key={item}>{item}</option>)}</Select></Field>
+                  <Field label="New status"><Select aria-label="New Asset Status" value={status} onChange={(event) => setStatus(event.target.value)}>{options?.statuses.filter(item => (item === "Retired" ? can("Assets.Retire") : item === "Under Repair" || (item === "In Stock" && asset.status === "Under Repair") ? can("Assets.Repair") : can("Assets.ManageStatus")) && item !== asset.status && !(item === "In Stock" && asset.currentAllocation) && !(item === "Allocated" && !asset.currentAllocation) && !(item === "Retired" && asset.currentAllocation)).map((item) => <option key={item}>{item}</option>)}</Select></Field>
                   <Field label="Mandatory reason"><Textarea aria-label="Asset status reason" required value={reason} onChange={(event) => setReason(event.target.value)} /></Field>
                   <Button variant={status === "Retired" ? "danger" : "primary"} type="button" disabled={busy || !status || !reason.trim()} onClick={(event) => requestConfirmation(event.currentTarget, {
                     title: status === "Retired" ? "Retire this Asset?" : `Change status to ${status}?`,
                     description: status === "Retired"
                       ? "Retirement removes the Asset from active custody operations. An allocated Asset cannot be retired, and the reason remains in audit history."
-                      : `The Asset will be marked ${status}. The reason remains in immutable audit history.`,
+                      : `The Asset will be marked ${status}. The reason remains in recorded history.`,
                     confirmLabel: status === "Retired" ? "Confirm retirement" : "Confirm status change",
                     danger: status === "Retired",
                     path: `/api/v1/assets/${asset.id}/status`,

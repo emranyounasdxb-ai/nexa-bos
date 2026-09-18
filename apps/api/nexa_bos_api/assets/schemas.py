@@ -139,4 +139,4 @@ class AssetReportExportRequest(StrictRequest):
 
 
 class AssetLifecycleExportRequest(StrictRequest):
-    format: str = Field(pattern=r"^(xlsx|pdf|print)$")
+    format: str = Field(pattern=r"^(xlsx|pdf|print|csv)$")

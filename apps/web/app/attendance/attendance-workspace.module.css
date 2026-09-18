@@ -1,0 +1,54 @@
+/* Admin Officer workspace only; use the existing desktop navigation magenta. */
+.tabs {
+  display: flex;
+  flex-wrap: nowrap;
+  min-width: 0;
+  gap: 8px;
+  align-items: stretch;
+  padding: 0 0 8px;
+  border-bottom: 1px solid var(--amafh-border);
+}
+.tab {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  height: 36px;
+  min-height: 36px;
+  margin: 0;
+  align-self: stretch;
+  box-shadow: none;
+  outline: none;
+  padding: 0 12px;
+  border: 1px solid var(--amafh-border);
+  border-radius: 8px;
+  background: var(--amafh-subtle);
+  color: var(--amafh-text);
+  font-size: var(--amafh-text-body);
+  font-weight: 600;
+  line-height: 1.375;
+  white-space: nowrap;
+  transition: background-color 150ms ease, border-color 150ms ease;
+}
+.tab > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.tab:hover { border-color: var(--amafh-primary); background: var(--amafh-surface); }
+.tab[aria-current="page"], .tab[aria-current="page"]:hover {
+  background: #9b398f;
+  border-color: #9b398f;
+  color: var(--amafh-nav-text);
+}
+.tab:focus-visible { outline: 2px solid var(--amafh-primary); outline-offset: 2px; }
+.shortLabel { display: none; }
+@media (max-width: 767px) {
+  .tabs { gap: 4px; }
+  .tab { flex: 1 1 0; padding: 0 4px; font-size: var(--amafh-text-support); }
+  .tab[data-view="corrections"] { flex-grow: 1.35; }
+  .fullLabel { display: none; }
+  .shortLabel { display: block; }
+}
+
+.mobileView { display: none; }
+@media (max-width: 767px) { .tabs { display: none; } .mobileView { display: block; } }
+
+.tab:not(:focus-visible) { outline:none !important; box-shadow:none !important; }
+.tab:focus-visible { outline:2px solid var(--amafh-primary) !important; outline-offset:2px; box-shadow:none !important; }

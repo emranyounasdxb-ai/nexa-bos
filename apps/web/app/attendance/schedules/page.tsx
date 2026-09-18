@@ -49,7 +49,7 @@ const WEEKDAYS = [
 ];
 
 export default function SchedulesPage() {
-  const { can } = useAuth();
+  const { can, user } = useAuth();
   const api = getBrowserApiUrl();
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [offices, setOffices] = useState<Org[]>([]);
@@ -66,6 +66,7 @@ export default function SchedulesPage() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const canManage = can("Attendance.Manage");
+  const canManageCompany = canManage && (user?.userType?.code === "OWNER" || user?.userType?.visibilityScope === "company");
   const schedulesPagination = useClientPagination(schedules);
   const officeDepartments = useMemo(
     () => departments.filter((item) => !officeId || item.officeId === officeId),
@@ -158,7 +159,7 @@ export default function SchedulesPage() {
                 type="checkbox"
                 className="mr-2"
                 checked={weekdays.includes(day.value)}
-                disabled={!canManage}
+                disabled={!canManageCompany}
                 onChange={(event) => {
                   setWeekdays((current) =>
                     event.target.checked
@@ -171,7 +172,7 @@ export default function SchedulesPage() {
             </label>
           ))}
         </div>
-        {canManage ? (
+        {canManageCompany ? (
           <Button type="button" onClick={() => void saveWorkingDays()}>
             Save working days
           </Button>
@@ -289,9 +290,9 @@ export default function SchedulesPage() {
             schedulesPagination.pagedItems.map((item) => (
               <tr key={item.id}>
                 <Td>
-                  {offices.find((office) => office.id === item.officeId)?.name ?? item.officeId}
+                  {offices.find((office) => office.id === item.officeId)?.name ?? "Not recorded"}
                   {item.departmentId
-                    ? ` / ${departments.find((dept) => dept.id === item.departmentId)?.name ?? item.departmentId}`
+                    ? ` / ${departments.find((dept) => dept.id === item.departmentId)?.name ?? "Not recorded"}`
                     : " / Office-wide"}
                 </Td>
                 <Td>{item.kind}</Td>
@@ -315,7 +316,7 @@ export default function SchedulesPage() {
         onPageChange={schedulesPagination.setPage}
         onPageSizeChange={schedulesPagination.setPageSize}
       />
-      <ImpactRules canManage={canManage} />
+      <ImpactRules canManage={canManageCompany} />
       </RegisterWorkspace>
     </section>
   );

@@ -1,4 +1,5 @@
 "use client";
+import { includeModuleDependencies, removeModuleDependencies, modulePermissionDependencies } from "@/lib/module-permissions";
 
 
 import { PanelPopup } from "@/components/panel-popup";
@@ -161,6 +162,7 @@ const PERMISSION_MODULES = [
 ] as const;
 
 const SENSITIVE_PERMISSION_CODES = new Set([
+  "Assets.ManageCategories", "Attendance.ManageHolidays", "Attendance.ManageLeaveTypes", "Attendance.ReopenMonth", "Attendance.CloseMonth",
   "Users.Deactivate",
   "Users.Unlock",
   "Users.AssignUserType",
@@ -612,8 +614,8 @@ export default function UserTypeDetailPage() {
 
   function togglePermission(code: string, checked: boolean) {
     setSelected((current) => {
-      if (checked) return current.includes(code) ? current : [...current, code];
-      return current.filter((permission) => permission !== code);
+      if (checked) return includeModuleDependencies([...current, code]);
+      return removeModuleDependencies(current, new Set([code]));
     });
     setFeedback(null);
   }
@@ -621,8 +623,8 @@ export default function UserTypeDetailPage() {
   function setModulePermissions(permissions: Permission[], checked: boolean) {
     const codes = new Set(permissions.map((permission) => permission.code));
     setSelected((current) => {
-      if (checked) return Array.from(new Set([...current, ...codes]));
-      return current.filter((code) => !codes.has(code));
+      if (checked) return includeModuleDependencies([...current, ...codes]);
+      return removeModuleDependencies(current, codes);
     });
     setFeedback(null);
   }
@@ -698,6 +700,7 @@ export default function UserTypeDetailPage() {
               <span className="flex flex-wrap items-center gap-2">
                 <span className="text-sm font-medium leading-5 text-slate-900">
                   {permission.description}
+                  {modulePermissionDependencies[permission.code]?.length ? <span className="block text-xs text-text-secondary">Requires: {modulePermissionDependencies[permission.code].join(", ")}</span> : null}
                 </span>
                 {SENSITIVE_PERMISSION_CODES.has(permission.code) ? (
                   <Badge tone="amber">Sensitive</Badge>
@@ -918,7 +921,7 @@ export default function UserTypeDetailPage() {
 
             <div className="hidden min-w-0 p-4 lg:block">
               {activeGroup ? (
-                <section aria-labelledby="active-permission-module">
+                <details open aria-labelledby="active-permission-module"><summary className="cursor-pointer font-semibold">{activeGroup.label} permissions</summary>
                   <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
@@ -966,7 +969,7 @@ export default function UserTypeDetailPage() {
                     </div>
                   </div>
                   {permissionGrid(activeGroup, `permission-panel-${activeGroup.key}`)}
-                </section>
+                </details>
               ) : (
                 <EmptyState kind="search" title="No records match the selected filters" />
               )}

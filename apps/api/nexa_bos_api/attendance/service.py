@@ -66,11 +66,13 @@ def _decimal_value(value: Decimal | float | int) -> float:
 
 
 async def visible_employee_ids(session: AsyncSession, actor: User) -> set[UUID] | None:
-    return await visible_user_ids(session, actor)
+    from nexa_bos_api.attendance.management_guards import scoped_ids
+    return await scoped_ids(session, actor)
 
 
 async def _assert_employee_visible(session: AsyncSession, actor: User, employee: User) -> None:
-    if not await can_view_user(session, actor, employee):
+    allowed = await visible_employee_ids(session, actor)
+    if (allowed is not None and employee.id not in allowed) or not await can_view_user(session, actor, employee):
         raise AppError(status_code=404, code="NOT_FOUND", message="Employee was not found")
 
 
@@ -290,7 +292,7 @@ async def apply_calculation(
         time_in=record.time_in,
         time_out=record.time_out,
         schedule=schedule,
-        is_official_holiday=record.attendance_date in holiday_map,
+        is_official_holiday=record.attendance_date in holiday_map or await _office_holiday(session, employee.office_id, record.attendance_date),
     )
     record.is_late = result.is_late
     record.late_minutes = result.late_minutes
@@ -387,7 +389,7 @@ async def create_leave_type(
         new_values={"code": row.code, "name": row.name},
     )
     await session.commit()
-    await session.refresh(row)
+    await session.refresh(row, attribute_names=["status", "time_in", "time_out", "notes", "leave_type_id", "updated_at"])
     return serialize_leave_type(row)
 
 
@@ -879,16 +881,24 @@ async def save_attendance(
     actor: User,
     attendance_date: date,
     entries: list[AttendanceEntry],
+    *, commit: bool = True, source: str = "Manual entry", batch_id: UUID | None = None,
 ) -> dict[str, object]:
     holidays = await load_holiday_dates(session)
     schedules = await load_schedules(session)
     working_days = await load_working_weekdays(session)
     saved: list[AttendanceRecord] = []
-    for entry in entries:
+    from nexa_bos_api.attendance.management_guards import assert_month_open
+    from nexa_bos_api.attendance.management_service import save_provenance
+    for entry in sorted(entries, key=lambda value: str(value.employee_id)):
+        if attendance_date > business_today():
+            raise AppError(status_code=422, code="ATTENDANCE_FUTURE_ENTRY", message="Attendance cannot be recorded for a future date. Record already approved leave through Leave & Holidays instead.")
         _apply_entry_status(entry)
         _validate_times(entry.time_in, entry.time_out)
         employee = await _load_employee(session, entry.employee_id)
         await _assert_employee_visible(session, actor, employee)
+        await assert_month_open(session, employee.office_id, attendance_date)
+        from nexa_bos_api.attendance.management_service import validate_manual_context
+        await validate_manual_context(session, actor, employee, attendance_date, entry)
         if entry.leave_type_id:
             await _leave_type(session, entry.leave_type_id)
         existing = (
@@ -901,27 +911,9 @@ async def save_attendance(
         ).scalar_one_or_none()
         now = utcnow()
         if existing:
-            old = _record_snapshot(existing)
-            existing.status = entry.status
-            existing.time_in = entry.time_in
-            existing.time_out = entry.time_out
-            existing.notes = entry.notes.strip() if entry.notes else None
-            existing.leave_type_id = entry.leave_type_id
-            existing.updated_at = now
-            existing.updated_by_id = actor.id
-            await apply_calculation(
-                session, existing, employee, schedules=schedules, holidays=holidays
-            )
-            await record_audit(
-                session,
-                action="attendance.update",
-                entity_type="attendance",
-                entity_id=str(existing.id),
-                actor_id=actor.id,
-                target_user_id=employee.id,
-                old_values=old,
-                new_values=_record_snapshot(existing),
-            )
+            same = existing.status == entry.status and existing.time_in == entry.time_in and existing.time_out == entry.time_out and (existing.notes or "") == (entry.notes or "").strip() and existing.leave_type_id == entry.leave_type_id
+            if not same:
+                raise AppError(status_code=409, code="ATTENDANCE_CORRECTION_REQUIRED", message="Attendance already exists. Use Correct with a mandatory reason; existing attendance cannot be overwritten.")
             saved.append(existing)
         else:
             record = AttendanceRecord(
@@ -943,6 +935,8 @@ async def save_attendance(
                 session, record, employee, schedules=schedules, holidays=holidays
             )
             session.add(record)
+            await session.flush()
+            await save_provenance(session, actor, employee, record, source, batch_id)
             await record_audit(
                 session,
                 action="attendance.create",
@@ -953,7 +947,10 @@ async def save_attendance(
                 new_values=_record_snapshot(record),
             )
             saved.append(record)
-    await session.commit()
+    if commit:
+        await session.commit()
+    else:
+        await session.flush()
     ids = [row.id for row in saved]
     loaded = (
         (
@@ -1031,7 +1028,17 @@ async def correct_attendance(
     if row is None:
         raise AppError(status_code=404, code="NOT_FOUND", message="Attendance record was not found")
     await _assert_employee_visible(session, actor, row.employee)
+    from nexa_bos_api.attendance.management_guards import assert_month_open, storage_ready
+    from nexa_bos_api.attendance.management_models import AttendanceProvenance
+    origin = await session.get(AttendanceProvenance, row.id) if await storage_ready(session) else None
+    offices = {row.employee.office_id, origin.office_id if origin else row.employee.office_id}
+    for office_id in sorted(offices, key=str):
+        await assert_month_open(session, office_id, row.attendance_date)
+    await session.refresh(row, attribute_names=["status", "time_in", "time_out", "notes", "leave_type_id", "updated_at"])
+    if payload.expected_updated_at is not None and row.updated_at != payload.expected_updated_at:
+        raise AppError(status_code=409, code="ATTENDANCE_CHANGED", message="Attendance changed since this view was opened. Refresh before correcting it.")
     old = _record_snapshot(row)
+    old["source"] = "Correction" if row.corrections else origin.source if origin else "Not recorded"
     status = payload.status or AttendanceStatus(row.status)
     time_in = (
         None
@@ -1070,6 +1077,9 @@ async def correct_attendance(
     row.updated_by_id = actor.id
     await apply_calculation(session, row, row.employee)
     new = _record_snapshot(row)
+    from nexa_bos_api.attendance.management_service import actor_snapshot
+    new["source"] = "Correction"
+    new["performedBy"] = actor_snapshot(actor)
     correction = AttendanceCorrection(
         id=new_uuid(),
         attendance_id=row.id,
@@ -1727,3 +1737,11 @@ async def filter_options(session: AsyncSession, actor: User) -> dict[str, object
         "statuses": [item.value for item in AttendanceStatus],
         "timezone": "Asia/Dubai",
     }
+
+
+async def _office_holiday(session: AsyncSession, office_id: UUID | None, on_date: date) -> bool:
+    from nexa_bos_api.attendance.management_guards import storage_ready
+    from nexa_bos_api.attendance.management_models import AttendanceOfficeHoliday
+    if office_id is None or not await storage_ready(session):
+        return False
+    return bool(await session.scalar(select(AttendanceOfficeHoliday.id).where(AttendanceOfficeHoliday.office_id == office_id, AttendanceOfficeHoliday.holiday_date == on_date).limit(1)))
