@@ -7,7 +7,7 @@
 
 .label {
   color: var(--amafh-text);
-  font-size: 14px;
+  font-size: var(--amafh-text-body);
   font-weight: 600;
 }
 
@@ -52,9 +52,9 @@
 }
 
 .details { min-width: 0; flex: 1; }
-.filename { overflow: hidden; color: var(--amafh-text); font-size: 13px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.filename { overflow: hidden; color: var(--amafh-text); font-size: var(--amafh-text-body); font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
 .empty { color: var(--amafh-text-secondary); font-weight: 500; }
-.guidance { margin-top: 2px; color: var(--amafh-text-secondary); font-size: 12px; line-height: 1.4; }
+.guidance { margin-top: 2px; color: var(--amafh-text-secondary); font-size: var(--amafh-text-support); line-height: 1.4; }
 .actions { display: flex; flex: 0 0 auto; align-items: center; gap: 6px; }
 .choose { border-radius: 8px; }
 .clear { border-radius: 8px; }

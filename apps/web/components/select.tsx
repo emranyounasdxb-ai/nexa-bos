@@ -287,6 +287,7 @@ export function BrandedSelect({
             <div
               id={listboxId}
               role="listbox"
+              data-amafh-page-typography={triggerRef.current?.closest("[data-amafh-page-typography]") ? "" : undefined}
               aria-label={ariaLabel}
               aria-labelledby={ariaLabelledBy}
               className="fixed z-[70] overflow-y-auto rounded-lg border border-brand-border bg-surface p-1 shadow-[0_16px_40px_rgba(30,30,30,0.16)]"
@@ -297,7 +298,7 @@ export function BrandedSelect({
                 return (
                   <div key={`${option.value}-${index}`}>
                     {groupChanged ? (
-                      <div className="px-2 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-text-disabled">
+                      <div data-amafh-option-group="" className="px-2 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-text-disabled">
                         {option.group}
                       </div>
                     ) : null}

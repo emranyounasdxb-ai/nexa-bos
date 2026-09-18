@@ -37,7 +37,7 @@ function Initials({ name }: { name: string }) { const parts = name.split(/\s+/).
 function RangeControls({ label, from, to, onApply, onClear }: { label: string; from: string; to: string; onApply: (range: { from: string; to: string }) => void; onClear: () => void }) {
   const [draft, setDraft] = useState({ from, to });
   useEffect(() => setDraft({ from, to }), [from, to]);
-  return <div className={styles.rangeControls}><span className={styles.calendarIcon}><IconCalendarCheck aria-hidden="true" /></span><DateRangePicker aria-label={label} from={draft.from} to={draft.to} onChange={setDraft} /><Button variant="secondary" disabled={Boolean(draft.from) !== Boolean(draft.to)} onClick={() => onApply(draft)}>Apply</Button><Button variant="ghost" onClick={() => { setDraft({ from: "", to: "" }); onClear(); }}>Clear</Button></div>;
+  return <div className={styles.rangeControls}><DateRangePicker aria-label={label} from={draft.from} to={draft.to} onChange={setDraft} /><Button variant="secondary" disabled={Boolean(draft.from) !== Boolean(draft.to)} onClick={() => onApply(draft)}>Apply</Button><Button variant="ghost" onClick={() => { setDraft({ from: "", to: "" }); onClear(); }}>Clear</Button></div>;
 }
 function Pipeline({ counts, view }: { counts: CurrentWork; view: string }) {
   return <nav aria-label={`${view === "own" ? "My" : "Team"} current workflow`} className={styles.pipeline}>{PIPELINE.map(({ key, label, icon: Icon }) => <Link key={key} href={`/reports?workspace=cases&view=${view}&queue=stage_${key}`} className={focusRing} data-has-work={counts.stages[key] > 0}><Icon aria-hidden="true" /><strong>{counts.stages[key]}</strong><span>{label}</span></Link>)}</nav>;

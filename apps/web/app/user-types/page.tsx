@@ -59,7 +59,7 @@ export default function UserTypesPage() {
       <div className={styles.metrics} aria-label="Designation summary">
         {[{ label: "Designations", count: items.length, tone: "brand" }, { label: "Active roles", count: items.filter(item => item.status === "active").length, tone: "success" }, { label: "Manager roles", count: items.filter(item => item.canBeReportingManager).length, tone: "info" }, { label: "Custom designations", count: items.filter(item => !item.isSystem).length, tone: "warning" }].map(metric => <Card key={metric.label} className={styles.metric} data-tone={metric.tone}><span>{metric.label}</span><strong>{hasLoaded ? metric.count.toLocaleString() : error ? "Unavailable" : "Loading…"}</strong></Card>)}
       </div>
-      <RegisterWorkspace editor={can("UserTypes.Create") ? (
+      <RegisterWorkspace feedback={<ErrorText>{error}</ErrorText>} panelLabel="Create designation" editor={can("UserTypes.Create") ? (
         <form onSubmit={(event) => void createType(event)} className="grid min-w-0 gap-4 rounded-lg border border-brand-border bg-surface p-4 md:grid-cols-3 sm:p-5">
           <h2 className={styles.formTitle}>Create designation</h2>
           <label className="min-w-0 text-sm">Name <span aria-hidden="true">*</span><TextInput

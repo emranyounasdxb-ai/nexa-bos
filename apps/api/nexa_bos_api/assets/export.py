@@ -14,6 +14,46 @@ from nexa_bos_api.core.spreadsheets import spreadsheet_safe
 from nexa_bos_api.identity.models import User
 
 
+def lifecycle_export_payload(history: dict[str, Any], scope: str) -> dict[str, Any]:
+    """Export the same authorized, chronological projection displayed by the drawer."""
+    asset = history["asset"]
+    lifecycle = history["lifecycle"]
+    def value(item: object) -> object:
+        return "Not recorded" if item is None or item == "" else str(item) if isinstance(item, (int, float)) else item
+    def actor_fields(label: str, actor: dict[str, Any] | None) -> dict[str, object]:
+        actor = actor or {}
+        return {f"{label} {key}": value(actor.get(field)) for key, field in
+                (("ID", "id"), ("Name", "name"), ("Code", "code"), ("Designation", "designation"),
+                 ("Office", "office"), ("Action time", "actionAt"), ("Record source", "source"))}
+    items = []
+    for entry in lifecycle["timeline"]:
+        items.append({
+            "Asset code": asset["assetCode"], "Brand": value(asset.get("brand")),
+            "Model": value(asset.get("model")), "Serial number": value(asset.get("serialNumber")),
+            "Category": asset["category"]["name"], "Current status": asset["status"],
+            "Registered": lifecycle["registeredAt"], "As of": lifecycle["asOf"],
+            "Event type": entry["title"], "From": value(entry.get("from")),
+            "To": lifecycle["asOf"] if entry.get("active") else value(entry.get("to") or (entry.get("from") if entry["kind"] == "event" else None)),
+            "Current": "Yes" if entry.get("active") else "No",
+            "Duration days": value(entry.get("durationDays")),
+            "Precision": "Date-only record" if entry["precision"] == "date" else "Recorded timestamp",
+            "Effective business date": value(entry.get("effectiveDate")),
+            "Custodian": value(entry.get("employee")), "Custodian code": value(entry.get("employeeCode")),
+            "Location": value(entry.get("location")), "Office": value(entry.get("office")),
+            "Status": value(entry.get("status")), "Start condition": value(entry.get("condition")),
+            "End condition": value(entry.get("endCondition")), "Reason": value(entry.get("reason")),
+            "Note": value(entry.get("note")), "Closing reason": value(entry.get("endReason")),
+            "Closing note": value(entry.get("endNote")),
+            "Excluded overlapping legacy duration": "Yes" if entry.get("excludedFromTotals") else "No",
+            **actor_fields("Performed by", entry.get("actor")),
+            **actor_fields("Received / transferred / updated by", entry.get("endActor")),
+        })
+    return {"title": "Asset Lifecycle History", "reportingScope": scope,
+            "filters": {"assetCode": asset["assetCode"], "currentStatus": asset["status"],
+                        "registeredAt": lifecycle["registeredAt"], "asOf": lifecycle["asOf"]},
+            "items": items, "total": len(items)}
+
+
 def _safe_cell(value: object) -> object:
     return spreadsheet_safe(value)
 

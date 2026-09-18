@@ -68,7 +68,7 @@ export default function AccountPage() {
         description="You can change only your mobile number and profile photo. Other fields require Users.Edit."
         actions={<ButtonLink href={`/users/${user.id}`}>View employee profile</ButtonLink>}
       />
-      <RecordFrame summary={
+      <RecordFrame panelLabel="Account details" summary={
       <Card className="flex items-center gap-3 text-sm">
         <ProfilePhoto userId={user.id} fullName={user.fullName} hasPhoto={user.hasPhoto} version={user.updatedAt} size="identity" labelled />
         <div className="min-w-0 space-y-1">

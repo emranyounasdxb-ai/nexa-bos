@@ -45,7 +45,8 @@ for (const width of [1440, 390]) {
     await page.getByRole("button", { name: "Close Create User" }).click();
     await expect(page).toHaveURL(/\/users$/);
     await expect(trigger).toBeFocused();
-    for (const close of ["escape", "backdrop", "cancel"]) {
+    // The approved mobile editor fills the viewport, so it has no exposed backdrop.
+    for (const close of width < 640 ? ["escape", "cancel"] : ["escape", "backdrop", "cancel"]) {
       await trigger.click();
       await expect(dialog).toBeVisible();
       if (close === "escape") await page.keyboard.press("Escape");
@@ -91,8 +92,8 @@ for (const width of [1440, 390]) {
     await page.getByLabel(/^Personal Mobile/).fill("+971500004444");
     const nameBox = await name.boundingBox();
     const emailBox = await email.boundingBox();
-    expect(nameBox?.height).toBe(width < 640 ? 48 : 32);
-    expect(emailBox?.height).toBe(width < 640 ? 48 : 32);
+    expect(nameBox?.height).toBe(width < 640 ? 48 : 36);
+    expect(emailBox?.height).toBe(width < 640 ? 48 : 36);
     if (width === 1440) {
       expect(Math.abs(nameBox!.y - emailBox!.y)).toBeLessThan(2);
       expect(emailBox!.x).toBeGreaterThan(nameBox!.x);

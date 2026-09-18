@@ -7,7 +7,7 @@ import {
   IconBuildingBank,
   IconBuildingCommunity,
   IconCalendarCheck,
-  IconCategory,
+
   IconChartBar,
   IconDevices2,
   IconFileDescription,
@@ -86,9 +86,7 @@ const routeContext = (pathname: string): RouteContext => {
     { prefix: "/targets/kpi", group: "Performance", title: "KPI scorecards", parent: { href: "/targets", label: "Targets" } },
     { prefix: "/targets", group: "Performance", title: "Targets" },
     { prefix: "/finance", group: "Finance", title: "Finance" },
-    { prefix: "/assets/categories", group: "Operations", title: "Asset Categories", parent: { href: "/assets", label: "Assets" } },
-    { prefix: "/assets/reports", group: "Reports", title: "Asset Reports", parent: { href: "/assets", label: "Assets" } },
-    { prefix: "/assets", group: "Operations", title: "Asset Register" },
+    { prefix: "/assets", group: "Operations", title: "Asset Management" },
     { prefix: "/notifications/manage", group: "Administration", title: "Notification administration", parent: { href: "/notifications", label: "Notifications" } },
     { prefix: "/notifications", group: "Notifications", title: "Notifications" },
     { prefix: "/catalog", group: "Administration", title: "Banks and products" },
@@ -187,8 +185,7 @@ function Shell({ children }: { children: ReactNode }) {
       items: [
         { href: "/workflows", label: "Workflows", icon: IconGitBranch, show: canReadWorkflows(user) },
         { href: "/case-operations", label: "Case Operations", icon: IconHierarchy3, show: user?.userType?.code !== "TL" && (can("CaseOperations.ViewRules") || can("CaseOperations.ViewRouting") || can("CaseOperations.StageCsv") || can("CaseOperations.ViewReports")) },
-        { href: "/assets", label: "Asset Register", icon: IconDevices2, show: can("Assets.View") },
-        { href: "/assets/categories", label: "Asset Categories", icon: IconCategory, show: can("Assets.ManageMaster") },
+        { href: "/assets", label: "Asset Management", icon: IconDevices2, show: can("Assets.View") },
       ],
     },
     {
@@ -240,7 +237,6 @@ function Shell({ children }: { children: ReactNode }) {
         { href: "/reports/compare", label: "Comparison Reports", icon: IconReportAnalytics, show: can("Reports.View") },
         { href: "/reports/drill-down", label: "Drill-down Reports", icon: IconReportAnalytics, show: can("Reports.View") },
         { href: "/attendance/reports", label: "Attendance Reports", icon: IconReportAnalytics, show: can("Attendance.Reports") },
-        { href: "/assets/reports", label: "Asset reports", icon: IconReportAnalytics, show: can("Assets.View") },
       ],
     },
     {
@@ -339,3 +335,4 @@ export function AppShell({ children }: { children: ReactNode }) {
     </AuthProvider>
   );
 }
+

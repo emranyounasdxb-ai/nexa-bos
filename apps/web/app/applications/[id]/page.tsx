@@ -1,5 +1,7 @@
 "use client";
 
+
+import { PanelPopup } from "@/components/panel-popup";
 import { RecordFrame } from "@/components/page-patterns";
 
 import Link from "next/link";
@@ -515,7 +517,7 @@ export default function ApplicationDetailPage() {
         }
       />
 
-      <RecordFrame summary={
+      <RecordFrame panelLabel="Application summary" summary={
       <Card>
         <div className="flex min-w-0 flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0">
@@ -673,12 +675,12 @@ export default function ApplicationDetailPage() {
         ) : null}
 
         {activeTab === "actions" ? (
-          <div className="grid min-w-0 gap-4 xl:grid-cols-2">
+          <div className="flex min-w-0 flex-wrap items-start gap-3">
             {!hasActions ? <Card className="xl:col-span-2"><EmptyState>No application actions are available for your permissions.</EmptyState></Card> : null}
-            {user?.id === item.routedSalesManagerId && item.routingStatus === "booked" ? <Card><h3 className="text-lg font-semibold">Sales Manager Review</h3><p className="mt-1 text-sm text-text-secondary">Approve the booked case for Coordinator processing, or return it with a reason.</p><Field className="mt-3" label="Return reason"><Textarea value={salesManagerReason} onChange={(event) => setSalesManagerReason(event.target.value)} placeholder="Required only when returning" /></Field><div className="mt-3 flex gap-2"><Button disabled={busy} onClick={() => void post(`/api/v1/case-operations/applications/${item.id}/sales-manager-decision`, { decision: "approve" }, "Case approved for processing.")}>Approve</Button><Button variant="secondary" disabled={busy || !salesManagerReason.trim()} onClick={() => void post(`/api/v1/case-operations/applications/${item.id}/sales-manager-decision`, { decision: "return", reason: salesManagerReason }, "Case returned to the Case Owner.")}>Return</Button></div></Card> : null}
-            {user?.id === item.routedCoordinatorId && item.routingStatus === "sm_approved" ? <Card><h3 className="text-lg font-semibold">Bank Submission</h3><p className="mt-1 text-sm text-text-secondary">Add the unique Bank File Number. Credit Card cases close automatically after submission.</p><Field className="mt-3" label="Bank File Number"><TextInput value={caseNumber} onChange={(event) => setCaseNumber(event.target.value)} /></Field><Button className="mt-3" disabled={busy || !caseNumber.trim()} onClick={() => void post(`/api/v1/case-operations/applications/${item.id}/bank-submission`, { bank_file_number: caseNumber }, "Bank submission recorded.")}>Submit to Bank</Button></Card> : null}
+            {user?.id === item.routedSalesManagerId && item.routingStatus === "booked" ? <PanelPopup feedback={<><ErrorText>{error}</ErrorText>{message ? <p role="status" className="text-sm text-text-secondary">{message}</p> : null}</>} label="Sales Manager Review"><Card><h3 className="text-lg font-semibold">Sales Manager Review</h3><p className="mt-1 text-sm text-text-secondary">Approve the booked case for Coordinator processing, or return it with a reason.</p><Field className="mt-3" label="Return reason"><Textarea value={salesManagerReason} onChange={(event) => setSalesManagerReason(event.target.value)} placeholder="Required only when returning" /></Field><div className="mt-3 flex gap-2"><Button disabled={busy} onClick={() => void post(`/api/v1/case-operations/applications/${item.id}/sales-manager-decision`, { decision: "approve" }, "Case approved for processing.")}>Approve</Button><Button variant="secondary" disabled={busy || !salesManagerReason.trim()} onClick={() => void post(`/api/v1/case-operations/applications/${item.id}/sales-manager-decision`, { decision: "return", reason: salesManagerReason }, "Case returned to the Case Owner.")}>Return</Button></div></Card></PanelPopup> : null}
+            {user?.id === item.routedCoordinatorId && item.routingStatus === "sm_approved" ? <PanelPopup feedback={<><ErrorText>{error}</ErrorText>{message ? <p role="status" className="text-sm text-text-secondary">{message}</p> : null}</>} label="Bank Submission"><Card><h3 className="text-lg font-semibold">Bank Submission</h3><p className="mt-1 text-sm text-text-secondary">Add the unique Bank File Number. Credit Card cases close automatically after submission.</p><Field className="mt-3" label="Bank File Number"><TextInput value={caseNumber} onChange={(event) => setCaseNumber(event.target.value)} /></Field><Button className="mt-3" disabled={busy || !caseNumber.trim()} onClick={() => void post(`/api/v1/case-operations/applications/${item.id}/bank-submission`, { bank_file_number: caseNumber }, "Bank submission recorded.")}>Submit to Bank</Button></Card></PanelPopup> : null}
             {item.activeDelay && !item.terminal && can("Applications.CorrectDelay") ? (
-              <Card>
+              <PanelPopup feedback={<><ErrorText>{error}</ErrorText>{message ? <p role="status" className="text-sm text-text-secondary">{message}</p> : null}</>} label="Correct active delay"><Card>
                 <h3 className="text-lg font-semibold">Correct active delay</h3>
                 <p className="mt-1 text-xs text-text-secondary">Original delay history remains immutable.</p>
                 <form
@@ -705,11 +707,11 @@ export default function ApplicationDetailPage() {
                   </Field>
                   <Button variant="secondary" type="submit" disabled={busy}>Correct Delay</Button>
                 </form>
-              </Card>
+              </Card></PanelPopup>
             ) : null}
 
             {!item.terminal && !item.activeDelay && can("Applications.MarkDelay") ? (
-              <Card>
+              <PanelPopup feedback={<><ErrorText>{error}</ErrorText>{message ? <p role="status" className="text-sm text-text-secondary">{message}</p> : null}</>} label="Mark delay"><Card>
                 <h3 className="text-lg font-semibold">Mark delay</h3>
                 <p className="mt-1 text-xs text-text-secondary">Record a reason against the current workflow stage.</p>
                 <form
@@ -741,11 +743,11 @@ export default function ApplicationDetailPage() {
                   {delayType === "Other" ? <Field label="Other explanation"><Textarea aria-label="Other explanation" placeholder="Explain the delay type" value={delayOther} onChange={(event) => setDelayOther(event.target.value)} required /></Field> : null}
                   <Button type="submit" disabled={busy}>Mark Delay</Button>
                 </form>
-              </Card>
+              </Card></PanelPopup>
             ) : null}
 
             {!item.terminal && can("Applications.Submit") ? (
-              <Card>
+              <PanelPopup feedback={<><ErrorText>{error}</ErrorText>{message ? <p role="status" className="text-sm text-text-secondary">{message}</p> : null}</>} label="Bank File / Case Number"><Card>
                 <h3 className="text-lg font-semibold">Bank File / Case Number</h3>
                 <p className="mt-1 text-xs text-text-secondary">
                   {item.submitted ? "Changing a submitted case number appends an audited correction." : "Saving the first case number submits the application."}
@@ -776,11 +778,11 @@ export default function ApplicationDetailPage() {
                   {item.submitted ? <Field label="Correction reason"><TextInput aria-label="Case number correction reason" placeholder="Why is the submitted value changing?" value={caseReason} onChange={(event) => setCaseReason(event.target.value)} required /></Field> : null}
                   <Button type="submit" disabled={busy}>{item.submitted ? "Correct case number" : "Save and submit"}</Button>
                 </form>
-              </Card>
+              </Card></PanelPopup>
             ) : null}
 
             {!item.terminal && can("Applications.UpdateStage") ? (
-              <Card>
+              <PanelPopup feedback={<><ErrorText>{error}</ErrorText>{message ? <p role="status" className="text-sm text-text-secondary">{message}</p> : null}</>} label="Update stage"><Card>
                 <h3 className="text-lg font-semibold">Update stage</h3>
                 <p className="mt-1 text-xs text-text-secondary">Only configured next stages are available.</p>
                 <form
@@ -818,11 +820,11 @@ export default function ApplicationDetailPage() {
                   {selectedNext?.systemKey === "fund_released" ? <Field label="Funded amount"><TextInput aria-label="Funded amount" value={fundedAmount} onChange={(event) => setFundedAmount(event.target.value)} /></Field> : null}
                   <Button type="submit" disabled={busy}>Save stage</Button>
                 </form>
-              </Card>
+              </Card></PanelPopup>
             ) : null}
 
             {!item.terminal && can("Applications.CorrectStage") ? (
-              <Card>
+              <PanelPopup feedback={<><ErrorText>{error}</ErrorText>{message ? <p role="status" className="text-sm text-text-secondary">{message}</p> : null}</>} label="Correct stage"><Card>
                 <h3 className="text-lg font-semibold">Correct stage</h3>
                 <p className="mt-1 text-xs text-text-secondary">Original events remain immutable; a correction reason is mandatory.</p>
                 <form
@@ -853,11 +855,11 @@ export default function ApplicationDetailPage() {
                   <Field label="Stage correction reason"><TextInput aria-label="Stage correction reason" placeholder="Why is this correction required?" value={stageCorrectionReason} onChange={(event) => setStageCorrectionReason(event.target.value)} required /></Field>
                   <Button variant="secondary" type="submit" disabled={busy}>Append correction</Button>
                 </form>
-              </Card>
+              </Card></PanelPopup>
             ) : null}
 
             {!item.terminal && can("Applications.CorrectSubmittedData") && item.submitted ? (
-              <Card>
+              <PanelPopup feedback={<><ErrorText>{error}</ErrorText>{message ? <p role="status" className="text-sm text-text-secondary">{message}</p> : null}</>} label="Correct submitted data"><Card>
                 <h3 className="text-lg font-semibold">Correct submitted data</h3>
                 <p className="mt-1 text-xs text-text-secondary">Only explicitly supplied values change; previous values remain in immutable history.</p>
                 <form
@@ -889,11 +891,11 @@ export default function ApplicationDetailPage() {
                   <Field label="Submitted data correction reason"><TextInput aria-label="Submitted data correction reason" placeholder="Why is this correction required?" value={submittedCorrectionReason} onChange={(event) => setSubmittedCorrectionReason(event.target.value)} required /></Field>
                   <Button variant="secondary" type="submit" disabled={busy}>Correct submitted data</Button>
                 </form>
-              </Card>
+              </Card></PanelPopup>
             ) : null}
 
             {!item.terminal && can("Applications.ReassignCaseOwner") ? (
-              <Card>
+              <PanelPopup feedback={<><ErrorText>{error}</ErrorText>{message ? <p role="status" className="text-sm text-text-secondary">{message}</p> : null}</>} label="Reassign Case Owner"><Card>
                 <h3 className="text-lg font-semibold">Reassign Case Owner</h3>
                 <p className="mt-1 text-xs text-text-secondary">Ownership history is preserved and scope may change for the selected owner.</p>
                 <form
@@ -920,11 +922,11 @@ export default function ApplicationDetailPage() {
                   <Field label="Reassignment reason"><TextInput aria-label="Reassignment reason" placeholder="Optional reason" value={ownerReason} onChange={(event) => setOwnerReason(event.target.value)} /></Field>
                   <Button variant="secondary" type="submit" disabled={busy}>Reassign</Button>
                 </form>
-              </Card>
+              </Card></PanelPopup>
             ) : null}
 
             {!item.terminal && can("Workflows.MigrateApplication") ? (
-              <Card>
+              <PanelPopup feedback={<><ErrorText>{error}</ErrorText>{message ? <p role="status" className="text-sm text-text-secondary">{message}</p> : null}</>} label="Migrate workflow version"><Card>
                 <h3 className="text-lg font-semibold">Migrate workflow version</h3>
                 <p className="mt-1 text-xs text-text-secondary">Migration changes the governing workflow and target stage; history is preserved.</p>
                 <form
@@ -962,11 +964,11 @@ export default function ApplicationDetailPage() {
                   <Field label="Migration reason"><TextInput aria-label="Migration reason" placeholder="Why is migration required?" value={migrateReason} onChange={(event) => setMigrateReason(event.target.value)} required /></Field>
                   <Button variant="secondary" type="submit" disabled={busy}>Migrate this application</Button>
                 </form>
-              </Card>
+              </Card></PanelPopup>
             ) : null}
 
             {!item.terminal && can("Applications.SetOutcome") ? (
-              <Card className="border-danger-soft">
+              <PanelPopup feedback={<><ErrorText>{error}</ErrorText>{message ? <p role="status" className="text-sm text-text-secondary">{message}</p> : null}</>} label="Terminal outcome"><Card className="border-danger-soft">
                 <h3 className="text-lg font-semibold">Terminal outcome</h3>
                 <p className="mt-1 text-xs text-text-secondary">Closing is irreversible in this workspace and stops active application processing.</p>
                 <form
@@ -988,7 +990,7 @@ export default function ApplicationDetailPage() {
                   <Field label="Outcome reason"><Textarea aria-label="Outcome reason" placeholder="Reason for closing this application" value={outcomeReason} onChange={(event) => setOutcomeReason(event.target.value)} required /></Field>
                   <Button variant="danger" type="submit" disabled={busy}>Close application</Button>
                 </form>
-              </Card>
+              </Card></PanelPopup>
             ) : null}
 
             {item.terminal ? <Card className="xl:col-span-2"><EmptyState>This application is closed. Lifecycle-changing actions are no longer available.</EmptyState></Card> : null}

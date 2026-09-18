@@ -347,8 +347,9 @@ test("catalog uses task tabs, modal editing, explicit rule saves, and mapping va
     `/api/v1/banks/${mappedBank!.id}/image`,
     `/api/v1/products/${mappedProduct!.id}/image`,
   ];
-  expect(coldImages.filter((record) => currentImageUrls.some((url) => record.url.includes(url)))).toHaveLength(2);
-  expect(coldImages.every((record) => record.status === 200 && !record.cached)).toBeTruthy();
+  const currentColdImages = coldImages.filter((record) => currentImageUrls.some((url) => record.url.includes(url)));
+  expect(currentColdImages).toHaveLength(2);
+  expect(currentColdImages.every((record) => record.status === 200 && !record.cached)).toBeTruthy();
 
   imageTraffic.clear();
   await page.reload();
@@ -357,8 +358,9 @@ test("catalog uses task tabs, modal editing, explicit rule saves, and mapping va
   await expectUnframedCatalogueImage(warmMappingRow.getByRole("img", { name: `${renamedBank} image` }), 2);
   await expectUnframedCatalogueImage(warmMappingRow.getByRole("img", { name: `${productName} image` }), 2);
   const warmImages = imageTraffic.records();
-  expect(warmImages.filter((record) => currentImageUrls.some((url) => record.url.includes(url)))).toHaveLength(2);
-  expect(warmImages.every((record) => record.cached)).toBeTruthy();
+  const currentWarmImages = warmImages.filter((record) => currentImageUrls.some((url) => record.url.includes(url)));
+  expect(currentWarmImages).toHaveLength(2);
+  expect(currentWarmImages.every((record) => record.cached)).toBeTruthy();
 
   await page.goto("/catalog?tab=banks");
   await page.getByLabel("Search banks").fill(bankCode);

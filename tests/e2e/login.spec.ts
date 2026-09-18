@@ -79,10 +79,10 @@ test("owner lands on the dashboard and can open the user directory", async ({ pa
   await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible({
     timeout: 30_000,
   });
-  const peopleMenu = page.getByRole("button", { name: "People menu" });
+  const peopleMenu = page.getByRole("button", { name: "People & HR menu" });
   await peopleMenu.click();
   await expect(peopleMenu).toHaveAttribute("aria-expanded", "true");
-  await page.getByRole("dialog", { name: "People", exact: true }).getByRole("link", { name: "Users", exact: true }).click();
+  await page.getByRole("dialog", { name: "People & HR", exact: true }).getByRole("link", { name: "Users", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Users", exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "Platform Owner" })).toBeVisible();
   await expect(page.getByTestId("authenticated-content")).not.toContainText("USR-000001");

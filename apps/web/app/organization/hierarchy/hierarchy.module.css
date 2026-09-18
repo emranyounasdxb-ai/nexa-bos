@@ -9,20 +9,56 @@
 @media (max-width: 1279px) {
   .toolbar { padding: 0 !important; background: transparent !important; border: 0; border-radius: 0; }
   .toolbar :global([data-testid="search-actions"]) { display: flex; flex-wrap: nowrap; }
-  .toolbar :global([data-testid="search-actions"]) button { width: auto !important; flex: 1; font-size: 12px !important; }
+  .toolbar :global([data-testid="search-actions"]) button { width: auto !important; flex: 1;   font-size: var(--amafh-text-body); line-height: 1.45;}
 }
-@media (min-width: 960px) { .treeLayout { grid-template-columns: minmax(0,1fr) 376px; } }
-.hierarchy :global([data-testid="hierarchy-canvas"]) > div { border-radius: 16px !important; padding: 14px !important; }
-.hierarchy :global([data-hierarchy-branch]) > div { border-radius: 14px; box-shadow: none; }
+@media (min-width: 960px) { .treeLayout { grid-template-columns: minmax(0,1fr); } }
+@media (min-width: 1280px) { .treeLayout { grid-template-columns: minmax(0,1fr); gap: 16px; } }
+
+.hierarchy .canvasSurface:global([data-amafh-card]) { min-width: 0; max-height: 70dvh; overflow: auto; padding: 14px; border-radius: 16px; scrollbar-width: thin; }
+.forest { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 24px; min-width: 0; padding-block: 4px; }
+.rootNote { margin-bottom: 12px; font-size: var(--amafh-text-support); line-height: 1.45; color: var(--amafh-text-secondary); }
+.rootLabel { max-width: 240px; margin-bottom: 6px; font-size: var(--amafh-text-support); line-height: 1.45; color: var(--amafh-text-secondary); text-align: center; }
+.canvasSurface:focus-visible { outline: 2px solid var(--amafh-primary); outline-offset: -2px; }
+.branch { position: relative; display: flex; flex-direction: column; align-items: center; flex: 0 0 auto; padding-inline: 12px; }
+.childBranch { padding-top: 28px; }
+.nodeRow { position: relative; flex: 0 0 auto; margin-inline: 16px; }
+.employeeCard { display: flex; align-items: center; flex: 0 0 auto; width: 208px; min-height: 56px; gap: 8px; padding: 6px 8px; text-align: left; border: 1px solid var(--amafh-border); border-radius: 14px; background: var(--amafh-surface); color: var(--amafh-text-primary); box-shadow: 0 6px 16px rgb(21 30 75 / 8%); }
+.employeeCard[data-depth="1"] { width: 196px; }
+.employeeCard[data-depth="2"] { width: 180px; }
+.employeeCard[data-root="true"][data-has-reports="true"] { background: var(--amafh-nav); color: var(--amafh-nav-text); box-shadow: 0 8px 18px rgb(21 30 75 / 22%); }
+.employeeCard[data-highlighted="true"] { border-color: var(--amafh-primary); background: var(--amafh-brand-soft); color: var(--amafh-text-primary); box-shadow: 0 8px 20px rgb(155 57 143 / 18%); }
+.employeeCard > span:first-child { flex: 0 0 auto; }
+.avatar { width: 32px; height: 32px; border: 1px solid var(--amafh-border); background: var(--amafh-brand-soft); }
+.employeeCopy { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.employeeName { display: block; overflow-wrap: anywhere; font-size: var(--amafh-list-primary); line-height: var(--amafh-list-primary-line); font-weight: 600; }
+.employeeDesignation { display: block; overflow-wrap: anywhere; font-size: var(--amafh-list-secondary); line-height: 1.45; color: var(--amafh-text-secondary); }
+.employeeCard[data-root="true"][data-has-reports="true"]:not([data-highlighted="true"]) .employeeDesignation { color: var(--amafh-nav-text); opacity: .85; }
+.branchToggle { position: absolute; right: -28px; top: 50%; transform: translateY(-50%); display: flex; align-items: center; justify-content: center; width: 24px; height: 28px; padding: 2px; border: 1px solid var(--amafh-border); border-radius: 8px; background: var(--amafh-brand-soft); color: var(--amafh-primary); }
+.childrenGroup { position: relative; display: flex; flex-direction: column; align-items: center; margin-top: 28px; }
+.childrenGroup::before { content: ""; position: absolute; left: 50%; top: -28px; height: 28px; border-left: 1px solid var(--amafh-primary); }
+.siblingList { display: flex; align-items: flex-start; justify-content: center; }
+.parentConnector { position: absolute; left: 50%; top: 0; height: 28px; border-left: 1px solid var(--amafh-primary); }
+.parentConnector::after { content: ""; position: absolute; bottom: 0; left: -4px; border-left: 3px solid transparent; border-right: 3px solid transparent; border-top: 5px solid var(--amafh-primary); }
+.siblingConnector { position: absolute; top: 0; border-top: 1px solid var(--amafh-primary); }
+.firstConnector { left: 50%; right: 0; }
+.lastConnector { left: 0; right: 50%; }
+.middleConnector { left: 0; right: 0; }
+
+/* The approved app-style references use vertical reporting paths on tablet/mobile. */
 @media (max-width: 1279px) {
-  .hierarchy :global([data-testid="hierarchy-canvas"]) > div { border-radius: 20px !important; }
-}
-@media (min-width: 1280px) { .treeLayout { grid-template-columns: minmax(0,1fr) 368px; gap: 16px; } }
-@media (max-width: 1279px) {
-  .hierarchy :global([aria-label="Reporting tree"]), .hierarchy :global([data-hierarchy-branch]) ul { flex-direction: column; width: 100%; gap: 18px; }
-  .hierarchy :global([data-hierarchy-branch]) { width: 100%; padding-inline: 0; }
-  .hierarchy :global([data-hierarchy-branch]) > div { width: 100%; min-height: 72px; padding: 16px; border-radius: 20px; }
-  .hierarchy :global([data-hierarchy-branch]) > div:has(>ul) { margin-top: 0; padding: 0; }
-  .hierarchy :global([data-hierarchy-branch]) [title] { font-size: var(--amafh-list-primary); line-height: var(--amafh-list-primary-line); }
-  .hierarchy :global([data-hierarchy-branch]) [title] + [title] { font-size: var(--amafh-list-secondary); line-height: 20px; }
+  .hierarchy .canvasSurface:global([data-amafh-card]) { border-radius: 20px; }
+  .branch { flex: 1; width: 100%; min-width: 0; padding-inline: 0; align-items: flex-start; }
+  .nodeRow { width: min(100%, 240px); min-width: 0; margin-inline: 0; padding-right: 32px; }
+  .branchToggle { right: 4px; }
+  .employeeCard, .employeeCard[data-depth] { width: 100%; min-width: 0; min-height: 56px; padding: 6px 8px; border-radius: 20px; }
+  .employeeCard { box-shadow: none; }
+  .employeeCard[data-root="true"][data-has-reports="true"]:not([data-highlighted="true"]) { background: var(--amafh-surface); color: var(--amafh-text-primary); box-shadow: none; }
+  .employeeCard[data-root="true"][data-has-reports="true"]:not([data-highlighted="true"]) .employeeDesignation { color: var(--amafh-text-secondary); opacity: 1; }
+  .childrenGroup { width: 100%; padding-left: 16px; margin-top: 18px; }
+  .siblingList { flex-direction: column; width: 100%; gap: 18px; }
+  .childrenGroup::before, .siblingConnector { display: none; }
+  .childBranch { padding-top: 0; }
+  .siblingList::before { content: ""; position: absolute; left: 7px; top: -18px; bottom: 28px; border-left: 1px solid var(--amafh-primary); }
+  .parentConnector { left: -9px; top: 28px; width: 9px; height: 0; border-left: 0; border-top: 1px solid var(--amafh-primary); }
+  .parentConnector::after { top: -4px; bottom: auto; left: auto; right: 0; border-left: 5px solid var(--amafh-primary); border-right: 0; border-top: 3px solid transparent; border-bottom: 3px solid transparent; }
 }

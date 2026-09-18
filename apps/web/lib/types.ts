@@ -386,6 +386,9 @@ export type AssetRecord = {
 
 export type AssetEmployeeOption = {
   id: string;
+  employeeCode?: string | null;
+  designationName?: string | null;
+  officeName?: string | null;
   userCode: string;
   fullName: string;
   employmentStatus: string;

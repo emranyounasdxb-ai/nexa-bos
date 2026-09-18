@@ -99,8 +99,8 @@ function DrillDownInner() {
       />
       <ErrorText>{error}</ErrorText>
       {!data && !error ? <LoadingState>Loading report results…</LoadingState> : null}
-      <RecordFrame summary={data ? <Card className="space-y-4">
-        <h2 className="text-[17px] font-medium">Report context</h2>
+      <RecordFrame panelLabel="Reporting context" summary={data ? <Card className="space-y-4">
+        <h2 className="text-[length:var(--amafh-text-section)] font-medium">Report context</h2>
         <dl className="grid gap-4 text-sm">
           <div><dt className="text-text-secondary">Metric</dt><dd className="mt-1 font-medium">{data.metric}</dd></div>
           <div><dt className="text-text-secondary">Period</dt><dd className="mt-1">{data.period.label}</dd></div>

@@ -47,9 +47,10 @@ from nexa_bos_api.identity.access import (
     visible_user_ids,
 )
 from nexa_bos_api.identity.audit import record_audit
+from nexa_bos_api.assets.lifecycle import build_lifecycle
 from nexa_bos_api.identity.enums import EmploymentStatus, MasterStatus, VisibilityScope
 from nexa_bos_api.identity.models import AuditEvent, Office, User, new_uuid
-from nexa_bos_api.identity.permissions import ASSETS_MANAGE_STATUS, ASSETS_VIEW_AUDIT
+from nexa_bos_api.identity.permissions import ASSETS_MANAGE_MASTER, ASSETS_MANAGE_STATUS, ASSETS_VIEW_AUDIT
 
 BUILTIN_FIELDS = {
     "brand",
@@ -469,7 +470,7 @@ def _allocation_payload(row: AssetAllocation) -> dict[str, object]:
     return {
         "id": str(row.id),
         "employeeId": str(row.employee_id),
-        "employeeCode": row.employee.user_code if row.employee else None,
+        "employeeCode": (row.employee.employee_code or row.employee.user_code) if row.employee else None,
         "employeeName": row.employee.full_name if row.employee else None,
         "employmentStatus": row.employee.employment_status if row.employee else None,
         "issueDate": row.issue_date.isoformat(),
@@ -540,6 +541,45 @@ def serialize_asset(asset: Asset) -> dict[str, object]:
         "createdAt": asset.created_at.isoformat(),
         "updatedAt": asset.updated_at.isoformat(),
     }
+
+
+async def _record_asset_event(session: AsyncSession, asset: Asset, actor: User, **values: Any) -> None:
+    """Append context to the existing immutable audit, inside the action transaction."""
+    with session.no_autoflush:
+        office = await session.get(Office, asset.office_id) if asset.office_id else None
+        actor = (await session.execute(select(User).options(*user_load_options()).where(User.id == actor.id))).scalar_one()
+        values["actor_id"] = actor.id  # Authenticated action actor; never supplied by a form.
+        employee = await session.get(User, values.get("target_user_id")) if values.get("target_user_id") else None
+        allocation = next((row for row in asset.__dict__.get("allocations", []) if row.return_date is None), None)
+        custodian = await session.get(User, allocation.employee_id) if allocation else None
+    new = dict(values.get("new_values") or {})
+    reason_action = values["action"] in ("asset.status.change", "asset.condition.correct", "asset.identifier.correct")
+    new["lifecycle"] = {
+        "version": 2, "officeId": str(asset.office_id) if asset.office_id else None,
+        "officeName": office.name if office else None, "status": asset.status, "condition": asset.condition,
+        "custodianId": str(custodian.id) if custodian else None,
+        "custodianName": custodian.full_name if custodian else None,
+        "custodianCode": (custodian.employee_code or custodian.user_code) if custodian else None,
+        "allocationId": str(allocation.id) if allocation else None,
+        "employeeId": str(employee.id) if employee else None,
+        "employeeName": employee.full_name if employee else None,
+        "employeeCode": (employee.employee_code or employee.user_code) if employee else None,
+        "performedBy": actor.full_name,
+        "actor": {"id": str(actor.id), "name": actor.full_name,
+                  "code": actor.employee_code or actor.user_code, "employeeCode": actor.employee_code, "userCode": actor.user_code,
+                  "designationId": str(actor.designation.id) if actor.designation else None,
+                  "designation": actor.designation.name if actor.designation else None,
+                  "officeId": str(actor.office.id) if actor.office else None,
+                  "office": actor.office.name if actor.office else None},
+        "effectiveDate": new.get("issueDate") or new.get("returnDate") or new.get("transferDate"),
+        "repairLocation": None,
+        "reason": values.get("note") if reason_action else None,
+        "note": values.get("note") if not reason_action else None,
+    }
+    values["new_values"] = new
+    await record_audit(session, **values)
+    event = next(row for row in session.new if isinstance(row, AuditEvent) and row.new_values is new)
+    new["lifecycle"]["actor"]["actionAt"] = event.created_at.isoformat()
 
 
 def _asset_audit_values(asset: Asset) -> dict[str, object]:
@@ -651,8 +691,8 @@ async def create_asset(
             closed_at=None,
         )
     )
-    await record_audit(
-        session,
+    await _record_asset_event(
+        session, asset, actor,
         action="asset.create",
         entity_type="asset",
         entity_id=str(asset.id),
@@ -667,7 +707,7 @@ async def create_asset(
     return serialize_asset(await _get_asset(session, actor, asset.id))
 
 
-async def list_assets(
+async def _filtered_assets_stmt(
     session: AsyncSession,
     actor: User,
     *,
@@ -678,9 +718,8 @@ async def list_assets(
     employee_id: UUID | None = None,
     outstanding: bool | None = None,
     allocated: bool | None = None,
-    page: int | None = None,
-    page_size: int | None = None,
-) -> dict[str, object]:
+    returns_or_repairs: bool = False,
+) -> Any:
     stmt = await _visible_assets_stmt(session, actor)
     if q and (cleaned := _clean(q)):
         like = f"%{cleaned}%"
@@ -713,7 +752,7 @@ async def list_assets(
     if allocated is not None:
         active_allocation = Asset.allocations.any(AssetAllocation.return_date.is_(None))
         stmt = stmt.where(active_allocation if allocated else ~active_allocation)
-    if outstanding is not None:
+    if outstanding is not None or returns_or_repairs:
         outstanding_assets = (
             select(AssetAllocation.asset_id)
             .join(User, AssetAllocation.employee_id == User.id)
@@ -722,9 +761,29 @@ async def list_assets(
                 User.employment_status.in_(OUTSTANDING_EMPLOYMENT),
             )
         )
-        stmt = stmt.where(
-            Asset.id.in_(outstanding_assets) if outstanding else Asset.id.not_in(outstanding_assets)
-        )
+        if outstanding is not None:
+            stmt = stmt.where(Asset.id.in_(outstanding_assets) if outstanding else Asset.id.not_in(outstanding_assets))
+        if returns_or_repairs:
+            stmt = stmt.where(or_(Asset.status == AssetStatus.UNDER_REPAIR.value, Asset.id.in_(outstanding_assets)))
+    return stmt
+
+
+async def list_assets(
+    session: AsyncSession,
+    actor: User,
+    *,
+    q: str | None = None,
+    status: AssetStatus | None = None,
+    category_id: UUID | None = None,
+    office_id: UUID | None = None,
+    employee_id: UUID | None = None,
+    outstanding: bool | None = None,
+    allocated: bool | None = None,
+    returns_or_repairs: bool = False,
+    page: int | None = None,
+    page_size: int | None = None,
+) -> dict[str, object]:
+    stmt = await _filtered_assets_stmt(session, actor, q=q, status=status, category_id=category_id, office_id=office_id, employee_id=employee_id, outstanding=outstanding, allocated=allocated, returns_or_repairs=returns_or_repairs)
     count_stmt = select(func.count()).select_from(
         stmt.with_only_columns(Asset.id).order_by(None).subquery()
     )
@@ -789,8 +848,8 @@ async def update_asset_master(
     asset.attributes = _validate_category_values(category, values, asset.attributes)
     asset.updated_by_id = actor.id
     asset.updated_at = utcnow()
-    await record_audit(
-        session,
+    await _record_asset_event(
+        session, asset, actor,
         action="asset.master.update",
         entity_type="asset",
         entity_id=str(asset.id),
@@ -829,8 +888,8 @@ async def correct_identifiers(
     asset.updated_by_id = actor.id
     asset.updated_at = utcnow()
     new = {key: getattr(asset, key) for key in changed}
-    await record_audit(
-        session,
+    await _record_asset_event(
+        session, asset, actor,
         action="asset.identifier.correct",
         entity_type="asset",
         entity_id=str(asset.id),
@@ -858,8 +917,8 @@ async def correct_condition(
     asset.condition = payload.condition.value
     asset.updated_by_id = actor.id
     asset.updated_at = utcnow()
-    await record_audit(
-        session,
+    await _record_asset_event(
+        session, asset, actor,
         action="asset.condition.correct",
         entity_type="asset",
         entity_id=str(asset.id),
@@ -947,8 +1006,8 @@ async def allocate_asset(
     asset.condition = payload.condition_at_issue.value
     asset.updated_by_id = actor.id
     asset.updated_at = now
-    await record_audit(
-        session,
+    await _record_asset_event(
+        session, asset, actor,
         action="asset.allocate",
         entity_type="asset",
         entity_id=str(asset.id),
@@ -978,7 +1037,10 @@ async def return_asset(
     payload: AssetReturnRequest,
 ) -> dict[str, object]:
     asset = await _get_asset(session, actor, asset_id, lock=True)
-    _require_allocated_custody_operation(asset, operation="Return")
+    if asset.status == AssetStatus.UNDER_REPAIR and has_permission(actor, ASSETS_MANAGE_STATUS):
+        pass  # Explicit repair receipt below closes custody and records the normal return audit.
+    else:
+        _require_allocated_custody_operation(asset, operation="Return")
     allocation = _active_allocation(asset)
     if allocation is None:
         raise AppError(
@@ -993,6 +1055,12 @@ async def return_asset(
             message="Return Date cannot precede the Allocation Date",
         )
     return_reason = _clean(payload.remarks)
+    if asset.status == AssetStatus.UNDER_REPAIR and return_reason is None:
+        raise AppError(
+            status_code=422,
+            code="ASSET_STATUS_REASON_REQUIRED",
+            message="A repair completion reason is required when receiving an asset from repair",
+        )
     if payload.return_condition is AssetCondition.DAMAGED:
         if not has_permission(actor, ASSETS_MANAGE_STATUS):
             raise AppError(
@@ -1024,8 +1092,8 @@ async def return_asset(
     asset.condition = payload.return_condition.value
     asset.updated_by_id = actor.id
     asset.updated_at = now
-    await record_audit(
-        session,
+    await _record_asset_event(
+        session, asset, actor,
         action="asset.return",
         entity_type="asset",
         entity_id=str(asset.id),
@@ -1185,8 +1253,8 @@ async def transfer_employee(
     asset.condition = payload.condition.value
     asset.updated_by_id = actor.id
     asset.updated_at = now
-    await record_audit(
-        session,
+    await _record_asset_event(
+        session, asset, actor,
         action="asset.employee.transfer",
         entity_type="asset",
         entity_id=str(asset.id),
@@ -1255,8 +1323,8 @@ async def transfer_office(
     )
     asset.updated_by_id = actor.id
     asset.updated_at = utcnow()
-    await record_audit(
-        session,
+    await _record_asset_event(
+        session, asset, actor,
         action="asset.office.transfer",
         entity_type="asset",
         entity_id=str(asset.id),
@@ -1303,8 +1371,8 @@ async def set_asset_status(
     asset.status = target.value
     asset.updated_by_id = actor.id
     asset.updated_at = utcnow()
-    await record_audit(
-        session,
+    await _record_asset_event(
+        session, asset, actor,
         action="asset.status.change",
         entity_type="asset",
         entity_id=str(asset.id),
@@ -1349,10 +1417,44 @@ async def asset_history(
             )
         ).scalars()
     )
+    user_ids: set[UUID] = set()
+    office_ids: set[UUID] = set()
+    if asset.created_by_id:
+        user_ids.add(asset.created_by_id)
+    for allocation in asset.allocations:
+        user_ids.add(allocation.issued_by_id)
+        if allocation.received_by_id:
+            user_ids.add(allocation.received_by_id)
+    for custody in asset.office_history:
+        user_ids.add(custody.transferred_by_id)
+    for event in events:
+        for value in (event.actor_id, event.target_user_id):
+            if value:
+                user_ids.add(value)
+        for context in (event.old_values, event.new_values):
+            if not isinstance(context, dict):
+                continue
+            for key, collection in (("officeId", office_ids), ("activeEmployeeId", user_ids), ("employeeId", user_ids)):
+                if context.get(key):
+                    try:
+                        collection.add(UUID(str(context[key])))
+                    except ValueError:
+                        pass  # Retain incomplete legacy context without inventing an identity.
+    users = (await session.execute(select(User).options(*user_load_options()).where(User.id.in_(user_ids)))).scalars().all() if user_ids else []
+    offices = (await session.execute(select(Office).where(Office.id.in_(office_ids)))).scalars().all() if office_ids else []
+    actors = {str(row.id): {"id": str(row.id), "name": row.full_name,
+              "code": row.employee_code or row.user_code, "employeeCode": row.employee_code, "userCode": row.user_code,
+              "designation": row.designation.name if row.designation else None,
+              "office": row.office.name if row.office else None,
+              "source": "Legacy: current saved user details; historical designation/office not recorded"} for row in users}
+    names = {"employees": {str(row.id): row.full_name for row in users},
+             "codes": {str(row.id): row.employee_code or row.user_code for row in users},
+             "offices": {str(row.id): row.name for row in offices}}
     return {
         "asset": serialize_asset(asset),
         "allocations": [_allocation_payload(row) for row in asset.allocations],
         "officeCustody": [_custody_payload(row) for row in asset.office_history],
+        "lifecycle": build_lifecycle(asset, events, names, actors),
         "events": [_event_payload(row) for row in events],
     }
 
@@ -1362,6 +1464,14 @@ async def asset_audit(
     actor: User,
     *,
     asset_id: UUID | None = None,
+    q: str | None = None,
+    status: AssetStatus | None = None,
+    office_id: UUID | None = None,
+    category_id: UUID | None = None,
+    employee_id: UUID | None = None,
+    outstanding: bool | None = None,
+    allocated: bool | None = None,
+    returns_or_repairs: bool = False,
     page: int | None = None,
     page_size: int | None = None,
 ) -> dict[str, object]:
@@ -1369,9 +1479,11 @@ async def asset_audit(
         asset = await _get_asset(session, actor, asset_id)
         visible_entity_ids = select(cast(Asset.id, String)).where(Asset.id == asset.id)
     else:
-        stmt = await _visible_assets_stmt(session, actor)
+        stmt = await _filtered_assets_stmt(session, actor, q=q, status=status, office_id=office_id, category_id=category_id, employee_id=employee_id, outstanding=outstanding, allocated=allocated, returns_or_repairs=returns_or_repairs)
         visible_entity_ids = stmt.with_only_columns(cast(Asset.id, String)).order_by(None)
-    event_stmt = select(AuditEvent).where(
+    event_stmt = select(AuditEvent, Asset.asset_code).join(
+        Asset, AuditEvent.entity_id == cast(Asset.id, String)
+    ).where(
         AuditEvent.entity_type == "asset",
         AuditEvent.entity_id.in_(visible_entity_ids),
     )
@@ -1381,9 +1493,9 @@ async def asset_audit(
     event_stmt = event_stmt.order_by(AuditEvent.created_at.desc(), AuditEvent.id.desc())
     if page is not None and page_size is not None:
         event_stmt = event_stmt.offset((page - 1) * page_size).limit(page_size)
-    events = list((await session.execute(event_stmt)).scalars())
+    events = list((await session.execute(event_stmt)).all())
     payload: dict[str, object] = {
-        "items": [_event_payload(row) for row in events],
+        "items": [{**_event_payload(row), "assetCode": code} for row, code in events],
         "total": total,
     }
     if page is not None and page_size is not None:
@@ -1439,11 +1551,15 @@ async def asset_options(session: AsyncSession, actor: User) -> dict[str, object]
     employees = list((await session.execute(employee_stmt)).scalars())
     return {
         "categories": categories["items"],
+        "categoryManagementAllowed": has_permission(actor, ASSETS_MANAGE_MASTER) and scope is VisibilityScope.COMPANY,
         "offices": [{"id": str(row.id), "code": row.code, "name": row.name} for row in offices],
         "employees": [
             {
                 "id": str(row.id),
                 "userCode": row.user_code,
+                "employeeCode": row.employee_code,
+                "designationName": row.designation.name if row.designation else None,
+                "officeName": row.office.name if row.office else None,
                 "fullName": row.full_name,
                 "employmentStatus": row.employment_status,
                 "officeId": str(row.office_id) if row.office_id else None,
@@ -1487,15 +1603,18 @@ async def asset_report(
     actor: User,
     report: AssetReport,
     *,
+    q: str | None = None,
+    status: AssetStatus | None = None,
+    outstanding: bool | None = None,
+    allocated: bool | None = None,
+    returns_or_repairs: bool = False,
     office_id: UUID | None = None,
     employee_id: UUID | None = None,
     category_id: UUID | None = None,
     page: int | None = None,
     page_size: int | None = None,
 ) -> dict[str, object]:
-    status: AssetStatus | None = None
-    outstanding: bool | None = None
-    allocated: bool | None = None
+    requested_status = status
     if report is AssetReport.AVAILABLE_STOCK:
         status = AssetStatus.IN_STOCK
     elif report in (AssetReport.ALLOCATED_ASSETS, AssetReport.EMPLOYEE_ASSETS):
@@ -1509,7 +1628,7 @@ async def asset_report(
     elif report is AssetReport.OUTSTANDING_ASSETS:
         outstanding = True
     if report is AssetReport.RETURNED_ASSETS:
-        visible_stmt = await _visible_assets_stmt(session, actor)
+        visible_stmt = await _filtered_assets_stmt(session, actor, q=q, status=requested_status, office_id=office_id, category_id=category_id, outstanding=outstanding, allocated=allocated, returns_or_repairs=returns_or_repairs)
         visible_ids = visible_stmt.with_only_columns(Asset.id).order_by(None)
         stmt = (
             select(Asset, AssetAllocation)
@@ -1557,14 +1676,12 @@ async def asset_report(
                 }
             )
     elif report is AssetReport.ASSET_HISTORY:
-        audit = await asset_audit(session, actor, page=page, page_size=page_size)
+        audit = await asset_audit(session, actor, q=q, status=status, office_id=office_id, category_id=category_id, employee_id=employee_id, outstanding=outstanding, allocated=allocated, returns_or_repairs=returns_or_repairs, page=page, page_size=page_size)
         total = int(audit["total"])
         items = [
             {
                 "Action": row["action"],
-                "Asset ID": row["newValues"].get("assetCode")
-                if isinstance(row.get("newValues"), dict)
-                else None,
+                "Asset": row["assetCode"],
                 "Actor ID": row["actorId"],
                 "Reason": row["reason"],
                 "Timestamp": row["createdAt"],
@@ -1575,7 +1692,9 @@ async def asset_report(
         listed = await list_assets(
             session,
             actor,
+            q=q,
             status=status,
+            returns_or_repairs=returns_or_repairs,
             office_id=office_id,
             employee_id=employee_id,
             category_id=category_id,
@@ -1584,6 +1703,8 @@ async def asset_report(
             page=page,
             page_size=page_size,
         )
+        if requested_status is not None and status != requested_status:
+            listed = {"items": [], "total": 0}
         assets = list(listed["items"])
         total = int(listed["total"])
         items = [_report_asset_row(row) for row in assets]
@@ -1592,6 +1713,11 @@ async def asset_report(
         "title": REPORT_TITLES[report],
         "reportingScope": visibility_scope(actor).value,
         "filters": {
+            "q": q,
+            "status": requested_status.value if requested_status else None,
+            "outstanding": outstanding,
+            "allocated": allocated,
+            "returnsOrRepairs": returns_or_repairs,
             "officeId": str(office_id) if office_id else None,
             "employeeId": str(employee_id) if employee_id else None,
             "categoryId": str(category_id) if category_id else None,

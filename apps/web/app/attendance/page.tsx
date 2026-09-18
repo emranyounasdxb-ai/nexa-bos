@@ -274,7 +274,7 @@ export default function AttendancePage() {
           </>
         }
       />
-      <ListWorkspace title="Daily register" filters={
+      <ListWorkspace feedback={<ErrorText>{error}</ErrorText>} title="Daily register" filters={
       <ResponsiveFilterPanel activeFilters={[
         { label: "Date", value: date },
         officeId ? { label: "Office", value: offices.find((item) => item.id === officeId)?.name ?? officeId } : null,

@@ -118,7 +118,7 @@ export default function HolidaysPage() {
       />
       <ErrorText>{error}</ErrorText>
       {message ? <p className="text-sm text-slate-600">{message}</p> : null}
-      <RegisterWorkspace editor={
+      <RegisterWorkspace feedback={<><ErrorText>{error}</ErrorText>{message ? <p role="status" className="text-sm text-text-secondary">{message}</p> : null}</>} panelLabel="New holiday" editor={
       canManage ? (
         <form
           className="grid gap-3 rounded-xl border border-slate-200 bg-surface p-4 md:grid-cols-4"

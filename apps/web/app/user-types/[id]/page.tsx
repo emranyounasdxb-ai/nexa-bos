@@ -1,5 +1,7 @@
 "use client";
 
+
+import { PanelPopup } from "@/components/panel-popup";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
@@ -710,7 +712,7 @@ export default function UserTypeDetailPage() {
 
   return (
     <section className="w-full space-y-4 pb-28">
-      <RecordFrame variant="permissions" summary={<div className="space-y-4"><Card className="overflow-hidden p-0">
+      <RecordFrame feedback={feedback ? <p role={feedback.tone === "error" ? "alert" : "status"} className="text-sm text-text-primary">{feedback.text}</p> : null} panelLabel="Designation details" variant="permissions" summary={<div className="space-y-4"><Card className="overflow-hidden p-0">
         <div className="flex flex-col gap-4 px-4 py-4 sm:px-5 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0 flex-1">
             <ButtonLink href="/user-types" variant="ghost" size="compact" className="-ml-2 mb-2">
@@ -856,8 +858,8 @@ export default function UserTypeDetailPage() {
             </div>
           ) : null}
 
-          <div className="grid min-w-0 lg:grid-cols-[minmax(230px,1fr)_minmax(0,3fr)]">
-            <aside className="min-w-0 border-b border-slate-200 bg-slate-50/70 p-3 sm:p-4 lg:border-b-0 lg:border-r" aria-label="Permission modules">
+          <div className="grid min-w-0">
+            <PanelPopup label="Permission modules and filters"><aside className="min-w-0 bg-slate-50/70 p-3 sm:p-4" aria-label="Permission modules">
               <label className="block text-sm font-medium text-slate-700">
                 Search permissions
                 <TextInput
@@ -912,7 +914,7 @@ export default function UserTypeDetailPage() {
                   );
                 })}
               </nav>
-            </aside>
+            </aside></PanelPopup>
 
             <div className="hidden min-w-0 p-4 lg:block">
               {activeGroup ? (

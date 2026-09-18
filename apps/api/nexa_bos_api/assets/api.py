@@ -9,9 +9,10 @@ from fastapi.responses import Response
 from nexa_bos_api.api.v1.deps import CurrentUser, require_permission
 from nexa_bos_api.api.v1.pagination import PaginationDep
 from nexa_bos_api.assets.enums import AssetReport, AssetStatus
-from nexa_bos_api.assets.export import build_excel, build_pdf, build_print_html
+from nexa_bos_api.assets.export import build_excel, build_pdf, build_print_html, lifecycle_export_payload
 from nexa_bos_api.assets.schemas import (
     AssetAllocationRequest,
+    AssetLifecycleExportRequest,
     AssetCategoryCreateRequest,
     AssetCategoryUpdateRequest,
     AssetConditionCorrectionRequest,
@@ -137,6 +138,11 @@ async def report_view(
     office_id: Annotated[UUID | None, Query(alias="officeId")] = None,
     employee_id: Annotated[UUID | None, Query(alias="employeeId")] = None,
     category_id: Annotated[UUID | None, Query(alias="categoryId")] = None,
+    allocated: bool | None = None,
+    returns_or_repairs: Annotated[bool, Query(alias="returnsOrRepairs")] = False,
+    q: str | None = None,
+    status: AssetStatus | None = None,
+    outstanding: bool | None = None,
 ) -> dict[str, object]:
     _require_history_permission(actor, report)
     return await asset_report(
@@ -146,6 +152,11 @@ async def report_view(
         office_id=office_id,
         employee_id=employee_id,
         category_id=category_id,
+        allocated=allocated,
+        returns_or_repairs=returns_or_repairs,
+        q=q,
+        status=status,
+        outstanding=outstanding,
         page=pagination.page,
         page_size=pagination.page_size,
     )
@@ -162,6 +173,11 @@ async def report_export(
         session,
         actor,
         payload.report,
+        q=payload.q,
+        status=payload.status,
+        outstanding=payload.outstanding,
+        allocated=payload.allocated,
+        returns_or_repairs=payload.returns_or_repairs,
         office_id=payload.office_id,
         employee_id=payload.employee_id,
         category_id=payload.category_id,
@@ -204,11 +220,27 @@ async def audit_list(
     actor: Annotated[CurrentUser, Depends(require_permission(ASSETS_VIEW_AUDIT))],
     pagination: PaginationDep,
     asset_id: Annotated[UUID | None, Query(alias="assetId")] = None,
+    allocated: bool | None = None,
+    returns_or_repairs: Annotated[bool, Query(alias="returnsOrRepairs")] = False,
+    q: str | None = None,
+    status: AssetStatus | None = None,
+    outstanding: bool | None = None,
+    office_id: Annotated[UUID | None, Query(alias="officeId")] = None,
+    category_id: Annotated[UUID | None, Query(alias="categoryId")] = None,
+    employee_id: Annotated[UUID | None, Query(alias="employeeId")] = None,
 ) -> dict[str, object]:
     return await asset_audit(
         session,
         actor,
         asset_id=asset_id,
+        allocated=allocated,
+        returns_or_repairs=returns_or_repairs,
+        q=q,
+        status=status,
+        outstanding=outstanding,
+        office_id=office_id,
+        category_id=category_id,
+        employee_id=employee_id,
         page=pagination.page,
         page_size=pagination.page_size,
     )
@@ -234,6 +266,8 @@ async def assets_list(
     office_id: Annotated[UUID | None, Query(alias="officeId")] = None,
     employee_id: Annotated[UUID | None, Query(alias="employeeId")] = None,
     outstanding: bool | None = None,
+    allocated: bool | None = None,
+    returns_or_repairs: Annotated[bool, Query(alias="returnsOrRepairs")] = False,
 ) -> dict[str, object]:
     return await list_assets(
         session,
@@ -244,6 +278,8 @@ async def assets_list(
         office_id=office_id,
         employee_id=employee_id,
         outstanding=outstanding,
+        allocated=allocated,
+        returns_or_repairs=returns_or_repairs,
         page=pagination.page,
         page_size=pagination.page_size,
     )
@@ -354,3 +390,30 @@ async def assets_history(
     actor: Annotated[CurrentUser, Depends(require_permission(ASSETS_VIEW_AUDIT))],
 ) -> dict[str, object]:
     return await asset_history(session, actor, asset_id)
+
+
+@router.post("/{asset_id}/history/export")
+async def assets_lifecycle_export(
+    asset_id: UUID,
+    payload: AssetLifecycleExportRequest,
+    session: SessionDep,
+    actor: Annotated[CurrentUser, Depends(require_permission(ASSETS_VIEW_AUDIT))],
+) -> Response:
+    from nexa_bos_api.identity.access import visibility_scope
+    history = await asset_history(session, actor, asset_id)  # Existing asset scope enforcement.
+    report = lifecycle_export_payload(history, visibility_scope(actor).value)
+    if payload.format == "xlsx":
+        content = build_excel(report, actor)
+        media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    elif payload.format == "pdf":
+        content = build_pdf(report, actor)
+        media_type = "application/pdf"
+    else:
+        content = build_print_html(report, actor)
+        media_type = "text/html"
+    await record_audit(session, action="asset.lifecycle.export", entity_type="asset_report",
+                       entity_id=str(asset_id), actor_id=actor.id,
+                       new_values={"format": payload.format, "scope": report["reportingScope"], "rows": report["total"]})
+    await session.commit()
+    headers = {"Content-Disposition": f'attachment; filename="asset-lifecycle-{asset_id}.{payload.format}"'} if payload.format != "print" else None
+    return Response(content=content, media_type=media_type, headers=headers)

@@ -1,0 +1,39 @@
+.workspace { display:flex; flex-direction:column; gap:16px; min-width:0; }
+:global([data-testid="authenticated-content"]):has(.workspace) > :global([data-testid="page-header"]) { height:auto; min-height:0; padding:12px 16px; margin-block:12px 8px; align-items:center; flex-wrap:wrap; gap:8px 16px; }
+:global([data-testid="authenticated-content"]):has(.workspace) > :global([data-testid="page-header"]) > div:first-child { height:auto; gap:4px; }
+.summary { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:12px; }
+.summaryCard { display:flex; flex-direction:column; align-items:flex-start; gap:6px; padding:14px 16px; border:1px solid var(--amafh-border); border-radius:12px; background:var(--amafh-surface); text-align:left; color:var(--amafh-text); }
+.summaryCard > span { color:var(--amafh-text-secondary); font-size:var(--amafh-text-body); }
+.summaryCard > strong { font-size:24px; line-height:1.15; font-weight:700; }
+.summaryCard[aria-pressed="true"] { border-color:var(--amafh-primary); background:var(--amafh-brand-soft); }
+.summaryCard:focus-visible { outline:2px solid var(--amafh-primary); outline-offset:2px; }
+.surface { min-width:0; border:1px solid var(--amafh-border); border-radius:12px; background:var(--amafh-surface); overflow:hidden; }
+.toolbar { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; padding:12px 16px; border-bottom:1px solid var(--amafh-border); }
+.tabs { display:flex; flex-wrap:wrap; gap:4px; }
+.tab { padding:8px 12px; border-radius:8px; color:var(--amafh-text-secondary); font-weight:600; font-size:var(--amafh-text-body); }
+.tab[aria-current="page"] { background:var(--amafh-brand-soft); color:var(--amafh-primary); }
+.tab:focus-visible { outline:2px solid var(--amafh-primary); }
+.filters { padding:12px 16px; border-bottom:1px solid var(--amafh-border); }
+.filters form { display:grid; grid-template-columns:minmax(240px,2fr) repeat(3,minmax(140px,1fr)) auto; gap:12px; align-items:end; }
+.filters :is(label,input,button,[role="combobox"]) { min-width:0; }
+.filters :is(input,[role="combobox"],button) { min-height:36px; }
+.filters summary { display:none; }
+.scope { color:var(--amafh-text-secondary); font-size:var(--amafh-text-support); }
+.assetLink { color:var(--amafh-primary); font-weight:600; text-align:left; text-decoration:underline; text-underline-offset:3px; }
+.secondary { display:block; margin-top:3px; color:var(--amafh-text-secondary); font-size:var(--amafh-text-support); font-weight:400; overflow-wrap:anywhere; }
+.table :global(table) { min-width:960px; }
+.table :global(td) { vertical-align:middle; }
+.row { cursor:pointer; }
+.row:hover { background:var(--amafh-subtle); }
+.backdrop { position:fixed; inset:0; z-index:35; display:flex; justify-content:flex-end; padding:12px; background:#17101f73; backdrop-filter:blur(3px); }
+.drawer { display:flex; flex-direction:column; width:min(820px,100%); height:100%; min-width:0; border:1px solid var(--amafh-border); border-radius:16px; background:var(--amafh-surface); color:var(--amafh-text); box-shadow:0 16px 60px #0003; }
+.drawerHeading { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 16px; border-bottom:1px solid var(--amafh-border); }
+.drawerHeading h2 { font-size:var(--amafh-text-section,16px); font-weight:600; }
+.drawerBody { overflow-y:auto; min-height:0; padding:16px; }
+.drawerBody :global([data-amafh-page-header]) { padding:12px; }
+.exportControls { display:grid; gap:14px; }
+.exportControls > div { display:flex; flex-wrap:wrap; gap:8px; }
+@media(max-width:1100px) { .filters form { grid-template-columns:repeat(2,minmax(0,1fr)); } .filters form > :first-child { grid-column:1/-1; } .summary { gap:8px; } .summaryCard { padding:12px; } }
+@media(max-width:640px) { .workspace { gap:12px; } .summary { grid-template-columns:repeat(2,minmax(0,1fr)); } .summaryCard:first-child { grid-column:1/-1; } .summaryCard > strong { font-size:22px; } .toolbar { padding:10px 12px; } .tab { padding:8px; } .filters { padding:10px 12px; } .filters summary { display:flex; justify-content:space-between; cursor:pointer; padding:4px 0; color:var(--amafh-text-secondary); } .filters form { margin-top:10px; } .filters :is(input,[role="combobox"],button) { min-height:44px; } .backdrop { padding:6px; } .drawerBody { padding:12px; } }
+
+

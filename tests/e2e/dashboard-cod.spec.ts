@@ -151,7 +151,7 @@ async function signIn(page: Page, email: string) {
 }
 
 async function signOut(page: Page) {
-  const navigationTrigger = page.getByRole("button", { name: "Open navigation" });
+  const navigationTrigger = page.getByRole("button", { name: "More navigation" });
   if (await navigationTrigger.isVisible() && await navigationTrigger.getAttribute("aria-expanded") === "true") {
     await page.getByRole("button", { name: "Close navigation", exact: true }).click();
   }
@@ -164,8 +164,8 @@ test("COD Operations Dashboard is office-scoped, actionable, keyboard accessible
   test.setTimeout(240_000);
   let headers = await ownerLogin(request);
   const codType = await configureType(request, headers, "COD", ["Dashboard.View", "Applications.View", "Applications.Submit", "Applications.UpdateStage", "Applications.MarkDelay"], "office", "office");
-  const smType = await configureType(request, headers, "SM", [], null, null);
-  const tlType = await configureType(request, headers, "TL", ["Applications.View", "Applications.Edit"], "team", null);
+  const smType = await configureType(request, headers, "SM", ["Applications.View", "CaseOperations.ViewRouting"], "office", null);
+  const tlType = await configureType(request, headers, "TL", ["Applications.View", "Applications.Edit", "CaseOperations.ViewRouting"], "team", null);
   const seType = await configureType(request, headers, "SE", ["Dashboard.View", "Applications.View", "Applications.Create"], "own", "own");
   const offices = (await (await request.get(`${apiOrigin}/api/v1/offices`)).json()) as { items: Array<{ id: string; code: string; name: string }> };
   const dxb = offices.items.find((item) => item.code === "DXB")!;
@@ -193,6 +193,10 @@ test("COD Operations Dashboard is office-scoped, actionable, keyboard accessible
   const auhTl = await createUser(request, headers, tlType.id, auh.id, "TL", `7${stamp.slice(1)}`, auhCod.id, auhTeam);
   const auhSe = await createUser(request, headers, seType.id, auh.id, "SE", `8${stamp.slice(1)}`, auhTl.id, auhTeam);
   const catalog = await ensureVariant(request, headers);
+  for (const [office, manager, coordinator] of [[dxb, dxbSm, dxbCod], [auh, auhSm, auhCod]] as const) {
+    const routing = await request.put(`${apiOrigin}/api/v1/case-operations/routing`, { headers, data: { office_id: office.id, product_id: catalog.product.id, sales_manager_id: manager.id, coordinator_id: coordinator.id } });
+    expect(routing.ok(), await routing.text()).toBeTruthy();
+  }
   const dxbWaiting = await createApplication(request, await loginApi(request, dxbSe.email), "DXB waiting", catalog);
   const dxbProcessing = await createApplication(request, await loginApi(request, dxbSe.email), "DXB processing", catalog);
   const auhWaiting = await createApplication(request, await loginApi(request, auhSe.email), "AUH waiting", catalog);
@@ -201,7 +205,15 @@ test("COD Operations Dashboard is office-scoped, actionable, keyboard accessible
     for (const application of applications) {
       const path = `${apiOrigin}/api/v1/applications/${application.id}/internal-review`;
       const state = await (await request.get(path)).json() as { eventId: string };
-      expect((await request.post(path, { headers: reviewHeaders, data: { action: "forward", expected_event_id: state.eventId } })).status()).toBe(200);
+      const booked = await request.post(`${apiOrigin}/api/v1/case-operations/applications/${application.id}/book`, { headers: reviewHeaders, data: { expected_review_event_id: state.eventId } });
+      expect(booked.status(), await booked.text()).toBe(200);
+    }
+  }
+  for (const [manager, applications] of [[dxbSm, [dxbWaiting, dxbProcessing]], [auhSm, [auhWaiting]]] as const) {
+    const managerHeaders = await loginApi(request, manager.email);
+    for (const application of applications) {
+      const approved = await request.post(`${apiOrigin}/api/v1/case-operations/applications/${application.id}/sales-manager-decision`, { headers: managerHeaders, data: { decision: "approve" } });
+      expect(approved.status(), await approved.text()).toBe(200);
     }
   }
   const dxbHeaders = await loginApi(request, dxbCod.email);
@@ -228,7 +240,7 @@ test("COD Operations Dashboard is office-scoped, actionable, keyboard accessible
   for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
     await page.setViewportSize(viewport);
     if (viewport.width === 390) {
-      await expect(page.getByRole("button", { name: "Open navigation" })).toHaveAttribute("aria-expanded", "false");
+      await expect(page.getByRole("button", { name: "More navigation" })).toHaveAttribute("aria-expanded", "false");
       await expect.poll(() => page.getByLabel("Application sidebar").evaluate(element => element.getBoundingClientRect().right)).toBeLessThanOrEqual(0);
     }
     await page.evaluate(() => window.scrollTo(0, 0));

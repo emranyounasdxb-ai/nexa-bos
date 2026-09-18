@@ -6,7 +6,7 @@
   .requests tbody td { display: block; min-width: 0; padding: 0; }
   .requests tbody td:first-child, .requests tbody td:nth-child(2), .requests tbody td:last-child { grid-column: 1 / -1; }
   .requests tbody td:nth-child(3)::before { content: "Working days"; display: block; font-size: var(--amafh-list-secondary); color: var(--amafh-text-secondary);  line-height: 20px; }
-  .requests tbody td:nth-child(5) { grid-column: 1 / -1; font-size: 12px; color: var(--amafh-text-secondary); }
+  .requests tbody td:nth-child(5) { grid-column: 1 / -1;  color: var(--amafh-text-secondary);  font-size: var(--amafh-text-body); line-height: 1.45;}
   .requests tbody td:nth-child(5)::before { content: "Updated ";  line-height: 20px; }
   .requests tbody td:last-child { padding-top: 8px; border-top: 1px solid var(--amafh-border); }
 }
@@ -16,19 +16,19 @@
 .balance:first-child { background: var(--amafh-brand-soft); color: var(--amafh-primary); }
 .balanceValue { margin-block: 12px; font-size: 32px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .balanceIcon { display: none; }
-.balanceName, .balanceFooter { font-size: 12px; line-height: 17px; }
+.balanceName, .balanceFooter {    font-size: var(--amafh-text-support); line-height: 20px;}
 @media (min-width: 1280px) {
   .leavePage :global([aria-label="Leave balances"]) { padding: 20px; border-radius: 16px; }
-  .leavePage :global([aria-label="Leave balances"]) > h2 { padding: 0; font-size: 16px; line-height: 23px; font-weight: 600; }
+  .leavePage :global([aria-label="Leave balances"]) > h2 { padding: 0;   font-weight: 600; }
   .balanceGrid { gap: 12px; }
-  .balance { position: relative; display: grid; grid-template-columns: minmax(0,1fr) auto; height: 72px; padding: 12px; border-radius: 12px; background: var(--amafh-subtle); color: var(--amafh-text); box-shadow: 0 7px 21px rgb(21 30 75 / 5%); overflow: hidden; }
+  .balance { position: relative; display: grid; grid-template-columns: minmax(0,1fr) auto; min-height: 88px; padding: 12px 12px 28px; border-radius: 12px; background: var(--amafh-subtle); color: var(--amafh-text); box-shadow: 0 7px 21px rgb(21 30 75 / 5%); overflow: hidden; }
   .balance:first-child { color: var(--amafh-text); background: #faf4f9; }
   :global(:root[data-theme="dark"]) .balance:first-child { background: var(--amafh-subtle); }
-  .balanceName { display: flex; align-items: start; gap: 10px; padding-top: 3px; font-size: 11px; line-height: 16px; font-weight: 600; }
+  .balanceName { display: flex; align-items: start; gap: 10px; padding-top: 3px;   font-weight: 600;  font-size: var(--amafh-text-body); line-height: 1.45;}
   .balanceIcon { display: grid; place-items: center; width: 24px; height: 24px; margin-top: -3px; border-radius: 6px; background: var(--amafh-brand-soft); color: var(--amafh-primary); flex-shrink: 0; }
   .balanceValue { margin: 0; font-size: 20px; line-height: 29px; font-weight: 700; }
   .balanceUnit { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
-  .balanceFooter { position: absolute; left: 0; right: 0; bottom: 0; height: 18px; padding: 4px 12px; font-size: 7px; line-height: 10px; background: var(--amafh-action); color: var(--amafh-action-text); }
+  .balanceFooter { position: absolute; left: 0; right: 0; bottom: 0; height: 24px; padding: 2px 12px;   background: var(--amafh-action); color: var(--amafh-action-text);  font-size: var(--amafh-text-support); line-height: 20px;}
   .balance[data-leave-type="BEREAVEMENT"] .balanceFooter, .balance[data-leave-type="STUDY"] .balanceFooter { background: #6654b3; color: white; }
   :global(:root[data-theme="dark"]) .balance:is([data-leave-type="BEREAVEMENT"],[data-leave-type="STUDY"]) .balanceFooter { background: #c2abff; color: var(--amafh-text-on-bright); }
   .balance[data-leave-type="MATERNITY"] .balanceFooter { background: var(--amafh-danger); }
@@ -44,7 +44,7 @@
 @media (max-width: 1279px) {
   .compactLeaveOverview { display: grid; gap: 18px; }
   .annualHero { padding: 16px; border-radius: 20px; background: var(--amafh-brand-soft); }
-  .annualHero p { font-size: 13px; line-height: 19px; }
+  .annualHero p {    font-size: var(--amafh-text-body); line-height: 1.45;}
   .annualHero p:first-child { color: var(--amafh-primary); }
   .annualHero strong { display: block; margin-block: 12px; font-size: 40px; line-height: 58px; font-weight: 700; color: var(--amafh-primary); }
   .compactLeaveOverview > button { width: 100%; }
@@ -52,7 +52,7 @@
   .requestCounts > div { padding: 12px; border-radius: 20px; background: var(--amafh-warning-soft); }
   .requestCounts > div + div { background: var(--amafh-success-soft); }
   .requestCounts dd { font-size: 24px; line-height: 35px; font-weight: 700; }
-  .requestCounts dt { margin-top: 3px; font-size: 11px; line-height: 16px; }
+  .requestCounts dt { margin-top: 3px;    font-size: var(--amafh-text-support); line-height: 20px;}
   .leavePage :global([aria-label="My leave requests"]), .leavePage :global([aria-label="Leave balances"]) { padding: 0; background: transparent; }
   .leavePage :global([data-amafh-empty-state]) { min-height: 173px; padding: 24px; border-radius: 20px; background: var(--amafh-surface); }
 }

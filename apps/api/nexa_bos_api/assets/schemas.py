@@ -126,8 +126,17 @@ class AssetStatusRequest(StrictRequest):
 
 
 class AssetReportExportRequest(StrictRequest):
+    q: str | None = Field(default=None, max_length=500)
+    status: AssetStatus | None = None
+    outstanding: bool | None = None
+    allocated: bool | None = None
+    returns_or_repairs: bool = False
     format: str = Field(pattern=r"^(xlsx|pdf|print)$")
     report: AssetReport
     office_id: UUID | None = None
     employee_id: UUID | None = None
     category_id: UUID | None = None
+
+
+class AssetLifecycleExportRequest(StrictRequest):
+    format: str = Field(pattern=r"^(xlsx|pdf|print)$")

@@ -3,12 +3,12 @@
 .conversions > div { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 10px 12px; border-radius: 10px; background: var(--amafh-subtle); font-size: var(--amafh-list-primary); }
 .conversions dd { font-weight: 500; font-variant-numeric: tabular-nums; }
 .results > li { min-width: 0; padding: 14px; border-radius: 14px; background: var(--amafh-subtle); }
-.results h4 { font-size: 14px; font-weight: 500; }
+.results h4 {  font-weight: 500; }
 .results dl { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; margin-top: 12px; }
 .results dt { color: var(--amafh-text-secondary); font-size: var(--amafh-list-secondary); }
 .results dd { margin-top: 4px; font-size: 15px; font-weight: 500; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .stages { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
-.stages li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px; border-radius: 12px; background: var(--amafh-subtle); font-size: 14px; }
+.stages li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px; border-radius: 12px; background: var(--amafh-subtle);   font-size: var(--amafh-text-body); line-height: 1.45;}
 @media (max-width: 767px) {
   .results dl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .stages { grid-template-columns: minmax(0, 1fr); }

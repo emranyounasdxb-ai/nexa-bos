@@ -435,25 +435,28 @@ export function DialogPanel({
   children,
   onClose,
   className = "",
+  embedded = false,
+  titleId = "bos-dialog-title",
 }: {
   title: string;
   description?: string;
   children: ReactNode;
   onClose: () => void;
   className?: string;
+  embedded?: boolean;
+  titleId?: string;
 }) {
-  return (
-    <div data-amafh-dialog-backdrop="" className="fixed inset-0 z-50 flex items-center justify-center bg-[#17101f]/45 p-4 backdrop-blur-sm" role="presentation">
+  const panel = (
       <section
         data-amafh-dialog-panel=""
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="bos-dialog-title"
+        role={embedded ? undefined : "dialog"}
+        aria-modal={embedded ? undefined : true}
+        aria-labelledby={titleId}
         className={`max-h-[calc(100dvh-2rem)] min-w-0 w-full overflow-y-auto rounded-[24px] border border-brand-border bg-surface p-5 shadow-[var(--amafh-shadow-elevated)] sm:max-w-lg sm:p-6 ${className}`}
       >
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h2 id="bos-dialog-title" className="text-lg font-semibold text-slate-900">
+            <h2 id={titleId} className="text-lg font-semibold text-slate-900">
               {title}
             </h2>
             {description ? <p className="mt-1 text-sm text-slate-500">{description}</p> : null}
@@ -464,8 +467,8 @@ export function DialogPanel({
         </div>
         <div className="mt-4 min-w-0">{children}</div>
       </section>
-    </div>
   );
+  return embedded ? panel : <div data-amafh-dialog-backdrop="" className="fixed inset-0 z-50 flex items-center justify-center bg-[#17101f]/45 p-4 backdrop-blur-sm" role="presentation">{panel}</div>;
 }
 
 export function BrandLogo({ className = "", mark = false }: { className?: string; mark?: boolean }) {
@@ -497,7 +500,7 @@ export function PublicScreen({
         </div>
         <p>Secure AMAFH CORE workspace</p>
         </div>
-        <section data-amafh-public-surface="" className={patterns.publicForm}>
+        <section data-amafh-public-surface="" data-amafh-page-typography="" className={patterns.publicForm}>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">{title}</h1>
           {description ? <p data-testid="page-purpose" className="mt-2 text-sm leading-6 text-slate-600">{description}</p> : null}
           {children}

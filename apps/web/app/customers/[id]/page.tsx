@@ -1,5 +1,7 @@
 "use client";
 
+
+import { PanelPopup } from "@/components/panel-popup";
 import { RecordFrame } from "@/components/page-patterns";
 
 import Link from "next/link";
@@ -361,7 +363,7 @@ export default function CustomerDetailPage() {
         actions={<Link className="text-sm font-medium text-brand-link underline" href="/customers">Back to Customers</Link>}
       />
 
-      <RecordFrame summary={
+      <RecordFrame panelLabel="Customer summary" summary={
       <Card>
         <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
@@ -439,7 +441,7 @@ export default function CustomerDetailPage() {
       </div>
 
       {activeTab === "overview" ? (
-        <div id="customer-panel-overview" role="tabpanel" aria-labelledby="customer-tab-overview" className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(16rem,1fr)]">
+        <div id="customer-panel-overview" role="tabpanel" aria-labelledby="customer-tab-overview" className="grid min-w-0 gap-4">
           <Card>
             <SectionHeader title="Customer details" description={merged ? "Merged records remain available as preserved read-only history." : "Correct contact and identifier data using the existing customer update workflow."} />
             <form className="mt-4 grid min-w-0 gap-3 sm:grid-cols-2" onSubmit={(event) => void save(event)}>
@@ -469,7 +471,7 @@ export default function CustomerDetailPage() {
             </form>
           </Card>
 
-          <Card>
+          <PanelPopup label="Record summary"><Card>
             <SectionHeader title="Record summary" description="Current canonical values for this customer." />
             <dl className="mt-3 grid gap-3 text-sm">
               <Detail label="Customer code">{customer.customerCode}</Detail>
@@ -478,7 +480,7 @@ export default function CustomerDetailPage() {
               <Detail label={individual ? "Emirates ID" : "Trade license"}>{displayField(individual ? customer.emiratesId : customer.tradeLicense)}</Detail>
               {individual ? <Detail label="Passport">{displayField(customer.passport)}</Detail> : null}
             </dl>
-          </Card>
+          </Card></PanelPopup>
         </div>
       ) : null}
 

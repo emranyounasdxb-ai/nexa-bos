@@ -125,8 +125,8 @@ export default function NotificationsPage() {
         }
       />
       <ErrorText>{error}</ErrorText>
-      <RecordFrame summary={<Card className="space-y-4 border-0">
-        <h2 className="text-[17px] font-medium">Your inbox</h2>
+      <RecordFrame panelLabel="Inbox summary" summary={<Card className="space-y-4 border-0">
+        <h2 className="text-[length:var(--amafh-text-section)] font-medium">Your inbox</h2>
         <div className="rounded-2xl p-4 text-white" style={{ background: "linear-gradient(#36033e66, #36033e66), var(--amafh-gradient)" }}><p className="text-sm">Unread</p><p className="mt-2 text-3xl font-medium">{unreadCount}</p></div>
         <p className="text-sm text-text-secondary">{total} notifications · Actions and acknowledgements stay attached to each message.</p>
       </Card>}>

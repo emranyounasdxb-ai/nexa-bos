@@ -324,7 +324,7 @@ export function WorkspaceFrame({ children, user, groups, context, pathname, home
         </div>
         <div ref={setActionsTarget} data-page-header-actions="" className={styles.pageActions} />
       </div>
-      <main ref={workspace} data-amafh-workspace="" data-testid="page-main" className={styles.workspace}>{children}</main>
+      <main ref={workspace} data-amafh-workspace="" data-amafh-page-typography={["/reports", "/hr", "/pro"].includes(pathname) ? undefined : ""} data-testid="page-main" className={styles.workspace}>{children}</main>
     </div>
     <nav className={styles.bottomNav} aria-label="Mobile navigation" inert={!desktop && mobileOpen}>{compactNavigation}</nav>
     {selectedPopup && <NavigationPopup key={selectedPopup.label} group={selectedPopup} onClose={closeGroup} onNavigate={() => { setGroupName(null); setMobileOpen(false); }} isActive={isActive} fallbackFocus={menuTrigger} />}

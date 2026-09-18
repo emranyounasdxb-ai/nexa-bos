@@ -63,12 +63,29 @@ test("Finance exposes only the approved Task 11 workflows and calculation modes"
   await expect(page.getByRole("heading", { name: "Finance", exact: true })).toBeVisible();
   await expect(page.getByRole("tab", { name: "Payouts" })).toHaveAttribute("aria-selected", "true");
   await expect(page.getByLabel("Finance payout month")).toBeVisible();
+  // Persistent disposable previews may already contain generated periods. Preserve
+  // their components and verify the duplicate-generation guard instead of resetting data.
+  const periodsResponse = await page.request.get(`${apiOrigin}/api/v1/finance/periods`);
+  expect(periodsResponse.ok()).toBeTruthy();
+  const existingDraft = ((await periodsResponse.json()) as { items: Array<{ periodMonth: string; status: string }> }).items.find(period => period.status === "draft");
+  const payoutMonth = existingDraft?.periodMonth ?? new Date().toISOString().slice(0, 7) + "-01";
+  if (existingDraft) {
+    await page.getByLabel("Finance payout month").fill(payoutMonth);
+    await page.getByLabel("Finance payout month").press("Tab");
+  }
   const generate = page.getByRole("button", { name: "Generate payout" });
-  await generate.click();
-  const generateDialog = page.getByRole("dialog", { name: "Generate payout period?" });
-  await expect(generateDialog).toContainText(new Date().toISOString().slice(0, 7));
-  await generateDialog.getByRole("button", { name: "Generate payout" }).click();
-  await expect(page.getByText("Payout period generated in Draft.")).toBeVisible();
+  if (existingDraft) {
+    await expect(generate).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Submit for review", exact: true })).toBeVisible();
+  } else {
+    await generate.click();
+    const generateDialog = page.getByRole("dialog", { name: "Generate payout period?" });
+    await expect(generateDialog).toContainText(payoutMonth.slice(0, 7));
+    const generationResponse = page.waitForResponse(response => response.url().endsWith(`/api/v1/finance/periods/${payoutMonth}/generate`) && response.request().method() === "POST");
+    await generateDialog.getByRole("button", { name: "Generate payout" }).click();
+    expect((await generationResponse).status()).toBe(200);
+    await expect(page.getByText("Payout period generated in Draft.")).toBeVisible();
+  }
   await captureViewportPair(page, testInfo, "finance-draft-period");
   await captureViewportPair(page, testInfo, "finance-adjustment", page.getByRole("heading", { name: "Adjustment", exact: true }));
   await captureViewportPair(page, testInfo, "finance-clawback", page.getByRole("heading", { name: "Clawback", exact: true }));

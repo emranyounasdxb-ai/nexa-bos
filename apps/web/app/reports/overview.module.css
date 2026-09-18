@@ -325,19 +325,20 @@
 
 /* Sidebar metric tiles: 90:83–90:97. Footer bands carry only the existing
    value/empty text; no Figma sample comparisons or additional metrics are added. */
-.ownerDashboard .pipelineItems > a { position: relative; min-height: 58px; padding: 8px 10px 24px; border: 0; border-radius: 10px; background: var(--amafh-info-soft); --pipeline-fill: var(--amafh-info); }
+.ownerDashboard .pipelineItems > a { position: relative; min-height: 58px; padding: 8px 10px 24px; border: 0; border-radius: 10px; --pipeline-original: var(--amafh-info); --pipeline-soft: var(--amafh-info-soft); --pipeline-fill: color-mix(in srgb, var(--pipeline-original) var(--pipeline-strength, 55%), var(--amafh-surface)); background: color-mix(in srgb, var(--pipeline-soft) 50%, var(--amafh-surface)); }
 .ownerDashboard .pipelineItems > a::after { content: ""; position: absolute; inset: auto 0 0; height: 20px; border-radius: 0 0 10px 10px; background: var(--pipeline-fill); }
-.ownerDashboard .pipelineItems > a[data-pipeline-tone="green"] { background: var(--amafh-success-soft); --pipeline-fill: var(--amafh-success); }
-.ownerDashboard .pipelineItems > a[data-pipeline-tone="amber"] { background: var(--amafh-warning-soft); --pipeline-fill: var(--amafh-warning); }
-.ownerDashboard .pipelineItems > a[data-pipeline-tone="red"] { background: var(--amafh-danger-soft); --pipeline-fill: var(--amafh-danger); }
+.ownerDashboard .pipelineItems > a[data-pipeline-tone="green"] { --pipeline-soft: var(--amafh-success-soft); --pipeline-original: var(--amafh-success); }
+.ownerDashboard .pipelineItems > a[data-pipeline-tone="amber"] { --pipeline-soft: var(--amafh-warning-soft); --pipeline-original: var(--amafh-warning); }
+.ownerDashboard .pipelineItems > a[data-pipeline-tone="red"] { --pipeline-soft: var(--amafh-danger-soft); --pipeline-original: var(--amafh-danger); }
 .ownerDashboard .pipelineItems > a > span:first-child { width: 22px; height: 22px; border-radius: 6px; }
-.ownerDashboard .pipelineItems > a > span:nth-child(2) > span:nth-child(2) { position: absolute; z-index: 1; bottom: 2px; left: 10px; max-width: calc(100% - 20px); font-size: var(--amafh-list-secondary); line-height: 16px; color: #fff; }
+.ownerDashboard .pipelineItems > a > span:nth-child(2) > span:nth-child(2) { position: absolute; z-index: 1; bottom: 2px; left: 10px; max-width: calc(100% - 20px); font-size: var(--amafh-list-secondary); line-height: 16px; color: var(--amafh-text); }
 :global(:root[data-theme="dark"]) .ownerDashboard .pipelineItems > a > span:nth-child(2) > span:nth-child(2) { color: var(--amafh-action-text); }
 .ownerDashboard .pipelineItems > a:hover { box-shadow: inset 0 0 0 1px var(--amafh-control-border); }
 .ownerDashboard .pipeline:global([data-amafh-card]) { border: 0; background: var(--amafh-subtle); box-shadow: none; }
-.ownerDashboard .pipelineItems > a[aria-label="PF Count / Value KPI"] { background: var(--amafh-subtle); --pipeline-fill: #6654b3; }
-.ownerDashboard .pipelineItems > a[aria-label="CC Count KPI"] { background: var(--amafh-brand-soft); --pipeline-fill: var(--amafh-primary); }
-:global(:root[data-theme="dark"]) .ownerDashboard .pipelineItems > a[aria-label="PF Count / Value KPI"] { --pipeline-fill: #c6aeff; }
+.ownerDashboard .pipelineItems > a[aria-label="PF Count / Value KPI"] { --pipeline-soft: var(--amafh-subtle); --pipeline-original: #6654b3; }
+.ownerDashboard .pipelineItems > a[aria-label="CC Count KPI"] { --pipeline-soft: var(--amafh-brand-soft); --pipeline-original: var(--amafh-primary); }
+:global(:root[data-theme="dark"]) .ownerDashboard .pipelineItems > a[aria-label="PF Count / Value KPI"] { --pipeline-original: #c6aeff; }
+:global(:root[data-theme="dark"]) .ownerDashboard .pipelineItems > a { --pipeline-strength: 70%; }
 @media (max-width: 1279px) {
   .ownerDashboard .ownerColumns :global([data-amafh-card]),
   .ownerDashboard :global([data-owner-overview]) > :global([data-amafh-card]) { padding: 20px !important; border-radius: 20px !important; }

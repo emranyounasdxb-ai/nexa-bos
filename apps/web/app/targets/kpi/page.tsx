@@ -23,6 +23,7 @@ import {
 import { apiGet, apiRequest, ApiClientError } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { getBrowserApiUrl } from "@/lib/env";
+import styles from "./kpi.module.css";
 
 type MetricDef = { code: string; label: string; defaultDirection: string };
 type MetricRow = {
@@ -328,10 +329,10 @@ export default function KpiScorecardsPage() {
   }
 
   return (
-    <section className="space-y-4">
+    <section className={styles.scorecardsPage}>
       <PageHeader
         title="KPI scorecards"
-        description="Build weighted scorecards that translate existing operational results into one KPI score."
+        description="Configure how existing employee results combine into an overall KPI score."
         actions={
           <>
             <ButtonLink href="/targets" variant="secondary">
@@ -348,18 +349,21 @@ export default function KpiScorecardsPage() {
         }
       />
 
-      <Card className="overflow-hidden p-0">
-        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-200 px-4 py-3">
+      <Card className={cx("overflow-hidden p-0", styles.scorecardsCard)}>
+        <div className={styles.listHeader}>
           <div>
             <h2 className="text-[length:var(--amafh-text-section)] font-semibold text-slate-900">Scorecards</h2>
-            <p className="mt-1 text-sm text-slate-600">
-              Review configured metrics, weight completeness, and the scorecard currently used for KPI results.
-            </p>
+            <p className="mt-1 text-sm text-slate-600">Configuration only: the weights below are not employee performance scores.</p>
           </div>
           <Badge tone="neutral">{items.length} configured</Badge>
         </div>
 
-        <div className="p-4">
+        <div className={styles.listBody}>
+          <div className={styles.explanation}>
+            <p><strong>How scoring works:</strong> A scorecard combines metric achievements into one KPI score. Each achievement is multiplied by its weight, with its contribution capped at that weight. For example, 80% achievement at a 25% weight contributes 20 points. Missing actuals or comparison values contribute zero.</p>
+            <p><strong>Where it applies:</strong> Only one scorecard can be Active. The service uses it for employee KPI calculations in the selected reporting period and permitted reporting scope; there are no separate employee assignments here. Active does not guarantee that all metric data or matching targets are available.</p>
+            <p><strong>Where results appear:</strong> My Performance on the role dashboard and Targets / KPI in employee reports, where available to the user. This page configures the calculation; it does not show those results.</p>
+          </div>
           <ErrorText>{error}</ErrorText>
           {message ? (
             <p role="status" className="mb-4 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
@@ -382,44 +386,43 @@ export default function KpiScorecardsPage() {
             </EmptyState>
           ) : (
             <>
-              <div className="grid gap-3 lg:grid-cols-2" aria-label="Configured scorecards">
+              <div className={styles.scorecardList} aria-label="Configured scorecards">
                   {pagination.pagedItems.map((item) => (
-                    <article data-amafh-list-record="" key={item.id} className="flex min-w-0 flex-col gap-4 rounded-[18px] bg-surface-subtle p-4">
-                      <header className="flex flex-wrap items-start justify-between gap-2"><h3 data-amafh-record-primary="" className="font-medium text-text-primary">{item.name}</h3>
+                    <article data-amafh-list-record="" key={item.id} className={styles.scorecard}>
+                      <header className={styles.scorecardHeader}><h3 data-amafh-record-primary="" className="font-medium text-text-primary">{item.name}</h3>
                       <StatusBadge value={item.status} /></header>
-                      <div className="rounded-xl bg-surface p-3">
-                        <p className="mb-2 text-xs text-text-secondary">Metric weight</p>
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium text-slate-900">{item.weightTotal}%</span>
-                          <Badge tone={item.weightValid ? "green" : "amber"}>{item.weightValid ? "Complete" : "Incomplete"}</Badge>
-                        </div>
-                        <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-surface-subtle" aria-hidden="true"><div className="h-full rounded-full bg-[image:var(--amafh-gradient)]" style={{ width: `${Math.min(100, Math.max(0, Number(item.weightTotal)))}%` }} /></div>
+                      <p className={styles.usage}>{item.status === "active" ? "Used for KPI calculations" : "Not used for KPI calculations"}</p>
+                      <div className={styles.weightSummary}>
+                        <span className="text-text-secondary">Total assigned weight</span>
+                        <strong className="font-medium text-text-primary">{item.weightTotal}%</strong>
+                        <Badge tone={item.weightValid ? "green" : "amber"}>{item.weightValid && Number(item.weightTotal) === 100 ? "Weights total 100%" : "Weights must total 100%"}</Badge>
                       </div>
-                      <div>
-                        <p className="mb-2 text-xs text-text-secondary">Configured metrics</p>
-                        <div className="flex max-w-2xl flex-wrap gap-1.5">
+                      <div className={styles.configuredMetrics}>
+                        <p className="text-text-secondary">Configured metrics</p>
+                        <dl className={styles.metricRows}>
                           {item.metrics.map((metric) => (
-                            <Badge key={metric.id ?? metric.metricCode} tone="neutral">
-                              {catalogByCode.get(metric.metricCode)?.label ?? "Unavailable metric"} · {metric.weightPercent}%
-                            </Badge>
+                            <div key={metric.id ?? metric.metricCode}>
+                              <dt>{catalogByCode.get(metric.metricCode)?.label ?? "Unavailable metric"}</dt>
+                              <dd>{metric.weightPercent}%</dd>
+                            </div>
                           ))}
-                        </div>
+                        </dl>
                       </div>
-                      <footer className="mt-auto border-t border-brand-border pt-3">
+                      <footer className={styles.scorecardActions}>
                         <div className="flex flex-wrap gap-1.5">
                           {can("Targets.Edit") ? (
-                            <Button type="button" variant="secondary" size="compact" onClick={() => openEdit(item)}>
+                            <Button type="button" variant="secondary" size="compact" aria-label={`Edit ${item.name}`} onClick={() => openEdit(item)}>
                               <IconEdit className="size-3.5" />
                               Edit
                             </Button>
                           ) : null}
                           {can("Targets.Activate") && item.status !== "active" ? (
-                            <Button type="button" size="compact" onClick={() => setStatusAction({ id: item.id, name: item.name, activate: true })}>
+                            <Button type="button" size="compact" aria-label={`Activate ${item.name}`} onClick={() => setStatusAction({ id: item.id, name: item.name, activate: true })}>
                               Activate
                             </Button>
                           ) : null}
                           {can("Targets.Deactivate") && item.status === "active" ? (
-                            <Button type="button" variant="secondary" size="compact" onClick={() => setStatusAction({ id: item.id, name: item.name, activate: false })}>
+                            <Button type="button" variant="secondary" size="compact" aria-label={`Deactivate ${item.name}`} onClick={() => setStatusAction({ id: item.id, name: item.name, activate: false })}>
                               Deactivate
                             </Button>
                           ) : null}
@@ -445,56 +448,56 @@ export default function KpiScorecardsPage() {
       {editorOpen ? (
         <div className="fixed inset-0 z-50" role="presentation">
           <button type="button" className="absolute inset-0 bg-black/40 backdrop-blur-sm" aria-label="Close scorecard drawer" onClick={requestCloseEditor} />
-          <aside role="dialog" aria-modal="true" aria-labelledby="scorecard-editor-title" className="absolute inset-y-3 right-3 flex w-[calc(100%-24px)] flex-col overflow-hidden rounded-[24px] border border-brand-border bg-surface shadow-2xl sm:max-w-4xl">
+          <aside role="dialog" aria-modal="true" aria-labelledby="scorecard-editor-title" className={cx("absolute inset-y-3 right-3 flex w-[calc(100%-24px)] flex-col overflow-hidden rounded-[24px] border border-brand-border bg-surface shadow-2xl sm:max-w-4xl", styles.editor)}>
             <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-4 py-4 sm:px-6">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">{editorMode === "edit" ? "Edit configuration" : "New configuration"}</p>
                 <h2 id="scorecard-editor-title" className="mt-1 text-[length:var(--amafh-text-section)] font-semibold text-slate-900">
                   {editorMode === "edit" ? "Edit KPI scorecard" : "Create KPI scorecard"}
                 </h2>
-                <p className="mt-1 text-sm text-slate-600">Combine weighted operational metrics into one scorecard.</p>
+                <p className="mt-1 text-sm text-slate-600">{editorMode === "create" ? "New scorecards are saved as Draft. Activate from the list to use one for KPI calculations." : "Saving updates this configuration without changing its status."}</p>
               </div>
               <Button type="button" variant="ghost" size="icon" aria-label="Close drawer" disabled={saving} onClick={requestCloseEditor}>
                 <IconX className="size-4" />
               </Button>
             </div>
 
-            <div className="flex-1 space-y-5 overflow-y-auto px-4 py-5 sm:px-6">
-              <fieldset className="rounded-lg border border-slate-200 p-4">
+            <div className={cx("flex-1 overflow-y-auto", styles.editorBody)}>
+              <fieldset className={styles.editorGroup}>
                 <legend className="px-1 text-sm font-semibold text-slate-900">Scorecard details</legend>
                 <div className="max-w-xl">
-                  <Field label="Name">
+                  <Field label="Scorecard name">
                     <TextInput autoFocus maxLength={160} aria-label="Scorecard name" value={name} onChange={(event) => setName(event.target.value)} />
-                    <span className="mt-1 block text-xs font-normal leading-5 text-slate-500">Use a concise name that identifies the intended performance model.</span>
+                    <span className="mt-1 block text-xs font-normal leading-5 text-slate-500">A name to identify this configuration in the list and KPI results.</span>
                   </Field>
                 </div>
               </fieldset>
 
-              <fieldset className="rounded-lg border border-slate-200 p-4">
+              <fieldset className={styles.editorGroup}>
                 <legend className="px-1 text-sm font-semibold text-slate-900">Metrics</legend>
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <p className="max-w-3xl text-sm leading-6 text-slate-600">
-                    Milestone count and value metrics use matching configured Targets when scored. Other comparison metrics require the saved Baseline / target value.
+                    Choose each metric once and assign its share of the overall score. Submitted, approved, booked and funded metrics use matching active employee Targets without a bank-specific scope. Other metrics use the saved Baseline / target value.
                   </p>
                   <Button type="button" variant="secondary" disabled={rows.length >= catalog.length} onClick={addRow}>
                     Add metric
                   </Button>
                 </div>
 
-                <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3" aria-label="Total metric weight">
+                <div className={styles.editorWeight} aria-label="Total assigned weight">
                   <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-                    <span className="font-medium text-slate-700">Total weight</span>
+                    <span className="font-medium text-slate-700">Total assigned weight</span>
                     <span className={cx("font-semibold", Math.abs(total - 100) < 0.001 ? "text-emerald-700" : "text-amber-800")}>
                       {total.toFixed(2)}% / 100%
                     </span>
                   </div>
-                  <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-200" role="progressbar" aria-label="Metric weight total" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.min(100, Math.max(0, total))}>
+                  <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-200" role="progressbar" aria-label="Assigned weight total, not performance" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.min(100, Math.max(0, total))}>
                     <div className={cx("h-full rounded-full transition-[width]", Math.abs(total - 100) < 0.001 ? "bg-emerald-600" : "bg-amber-500")} style={{ width: `${Math.min(100, Math.max(0, total))}%` }} />
                   </div>
-                  <p className="mt-2 text-xs text-slate-600">Weights must total exactly 100% before the scorecard can be saved.</p>
+                  <p className="mt-2 text-xs text-slate-600">Weights must total exactly 100% before saving. This checks the configuration, not employee achievement.</p>
                 </div>
 
-                <div className="mt-4 space-y-3">
+                <div className="mt-3 space-y-2">
                   {rows.length === 0 ? (
                     <EmptyState>Add at least one metric to configure this scorecard.</EmptyState>
                   ) : rows.map((row, index) => {
@@ -514,7 +517,7 @@ export default function KpiScorecardsPage() {
                           </Button>
                         </div>
                         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                          <Field label="Metric">
+                          <Field label="Metric" help="The existing operational measure to include. Each metric can appear only once.">
                             <Select
                               aria-label={`Metric ${index + 1}`}
                               value={row.metricCode}
@@ -534,14 +537,14 @@ export default function KpiScorecardsPage() {
                               ))}
                             </Select>
                           </Field>
-                          <Field label="Weight %">
+                          <Field label="Weight (%)" help="This metric's share of the overall score. All weights must total 100%. For example, a 25% weight contributes up to 25 points.">
                             <TextInput type="number" min="0.01" max="100" step="0.01" inputMode="decimal" aria-label={`Weight ${index + 1}`} value={row.weightPercent} onChange={(event) => updateRow(index, { weightPercent: event.target.value })} />
                           </Field>
                           <Field label="Baseline / target">
                             <TextInput type="number" min="0" step="0.01" inputMode="decimal" aria-label={`Baseline ${index + 1}`} value={row.baseline ?? ""} onChange={(event) => updateRow(index, { baseline: event.target.value })} />
-                            <span className="mt-1 block text-xs font-normal leading-5 text-slate-500">{milestoneMetric ? "Scoring uses matching configured Targets." : "Required comparison value for activation."}</span>
+                            <span className="mt-1 block text-xs font-normal leading-5 text-slate-500">{milestoneMetric ? "The saved value is not used for this metric; scoring uses matching configured Targets." : "Required comparison value: achievement compares the actual result with this value."}</span>
                           </Field>
-                          <Field label="Direction">
+                          <Field label="Direction" help="Higher is better compares actual to baseline; lower is better compares baseline to actual. Each metric's weighted contribution is capped at its assigned weight.">
                             <Select aria-label={`Direction ${index + 1}`} value={row.direction} onChange={(event) => updateRow(index, { direction: event.target.value })}>
                               <option value="higher_is_better">Higher is better</option>
                               <option value="lower_is_better">Lower is better</option>

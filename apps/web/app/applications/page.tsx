@@ -3,8 +3,11 @@
 import Link from "next/link";
 import styles from "./applications.module.css";
 import { IconFileDescription, IconPlus } from "@/components/icons";
-import { RecordCard, RecordFrame, RecordIdentity } from "@/components/page-patterns";
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { RecordCard, RecordIdentity } from "@/components/page-patterns";
+import { PanelPopup } from "@/components/panel-popup";
+import { PageHeaderSlots } from "@/components/page-header";
+import { Suspense, useCallback, useContext, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { ApplicationCreateDialog } from "@/components/application-create-dialog";
@@ -68,14 +71,8 @@ const DASHBOARD_FILTER_LABELS: Record<string, string> = {
 };
 
 function ApplicationsPageInner() {
-  const [desktop, setDesktop] = useState(false);
-  useEffect(() => {
-    const query = window.matchMedia("(min-width: 1280px)");
-    const update = () => setDesktop(query.matches);
-    update();
-    query.addEventListener("change", update);
-    return () => query.removeEventListener("change", update);
-  }, []);
+  const headerSlots = useContext(PageHeaderSlots);
+  const headingTarget = headerSlots?.description?.parentElement;
   const { can } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -176,13 +173,13 @@ function ApplicationsPageInner() {
   ><IconPlus className="size-4" />Create application</button> : null;
 
   return (
-    <section className={`${styles.applications} space-y-4`}>
+    <section className={styles.applications}>
       <PageHeader
         title="Applications"
         description="Search and filter applications in your current scope, then open permitted workflow records."
-        actions={desktop ? createAction : undefined}
+        actions={<div className={styles.headerActions}>{createAction}<PanelPopup label="Case inbox"><Card><h2 className="text-lg font-semibold">Case inbox</h2><p className="mt-4 text-sm text-text-secondary">Authorized applications</p><p className="mt-2 text-2xl font-bold tabular-nums">{loading ? "Loading…" : error ? "Unavailable" : total.toLocaleString()}</p></Card></PanelPopup></div>}
       />
-      <div className={styles.compactTotal}><strong>{loading ? "Loading…" : error ? "Unavailable" : total.toLocaleString()}</strong><span>Authorized applications</span></div>
+      {headingTarget ? createPortal(<span className={styles.compactTotal}><strong>{loading ? "Loading…" : error ? "Unavailable" : total.toLocaleString()}</strong><span>Authorized applications</span></span>, headingTarget) : <span className={styles.compactTotal}><strong>{loading ? "Loading…" : error ? "Unavailable" : total.toLocaleString()}</strong><span>Authorized applications</span></span>}
       {dashboardFilter.metric ? (
         <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-[10px] border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-900">
           <p className="min-w-0">
@@ -202,7 +199,6 @@ function ApplicationsPageInner() {
           </Button>
         </div>
       ) : null}
-      <RecordFrame variant="responsive" summary={<Card><h2 className="text-lg font-semibold">Case inbox</h2><p className="mt-4 text-sm text-text-secondary">Authorized applications</p><p className="mt-2 text-2xl font-bold tabular-nums">{loading ? "Loading…" : error ? "Unavailable" : total.toLocaleString()}</p></Card>}>
       <div data-amafh-list-surface="">
       <SearchActionBar
         className={`p-4 ${styles.searchActions}`}
@@ -218,7 +214,6 @@ function ApplicationsPageInner() {
             aria-label="Search applications"
           />
         }
-        actions={!desktop ? createAction : undefined}
       />
       {message ? (
         <p role="status" className="rounded-[10px] border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-800">
@@ -439,7 +434,6 @@ function ApplicationsPageInner() {
         }}
       />
       </div>
-      </RecordFrame>
       <ApplicationCreateDialog
         open={createOpen}
         onClose={closeCreate}

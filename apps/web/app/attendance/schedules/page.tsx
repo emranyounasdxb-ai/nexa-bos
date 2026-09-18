@@ -5,7 +5,7 @@ import styles from "./schedules.module.css";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { DatePicker } from "@/components/date-picker";
+import { DateRangePicker } from "@/components/date-picker";
 import { Pagination, useClientPagination } from "@/components/pagination";
 import {
   Button,
@@ -177,7 +177,7 @@ export default function SchedulesPage() {
           </Button>
         ) : null}
       </section>
-      <RegisterWorkspace editor={
+      <RegisterWorkspace feedback={<><ErrorText>{error}</ErrorText>{message ? <p role="status" className="text-sm text-text-secondary">{message}</p> : null}</>} panelLabel="New schedule" editor={
       canManage ? (
         <form
           className="grid gap-3 rounded-xl border border-slate-200 bg-surface p-4 md:grid-cols-3"
@@ -255,13 +255,9 @@ export default function SchedulesPage() {
           </label>
           {kind === "ramadan" ? (
             <>
-              <label className="text-sm">
-                Ramadan from
-                <DatePicker aria-label="Ramadan from" value={ramadanFrom} onChange={setRamadanFrom} required />
-              </label>
-              <label className="text-sm">
-                Ramadan to
-                <DatePicker aria-label="Ramadan to" value={ramadanTo} onChange={setRamadanTo} required />
+              <label className="text-sm md:col-span-2">
+                Ramadan date range
+                <DateRangePicker aria-label="Ramadan date range" from={ramadanFrom} to={ramadanTo} onChange={({ from, to }) => { setRamadanFrom(from); setRamadanTo(to); }} required />
               </label>
             </>
           ) : null}

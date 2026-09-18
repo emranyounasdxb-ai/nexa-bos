@@ -1,5 +1,5 @@
 .workingDays { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; padding: 20px; border-radius: 20px; background: var(--amafh-surface); }
-.workingDays h3 { width: 100%; font-size: 17px; }
+.workingDays h3 { width: 100%;  }
 .dayChoices { display: flex; flex-wrap: wrap; gap: 8px; flex: 1; }
 .dayChoices label { display: flex; align-items: center; padding: 8px 12px; border-radius: 12px; background: var(--amafh-subtle); }
 .dayChoices label:has(input:checked) { background: var(--amafh-brand-soft); }

@@ -1,5 +1,7 @@
 "use client";
 
+
+import { PanelPopup } from "@/components/panel-popup";
 import { RecordFrame } from "@/components/page-patterns";
 
 import { useParams } from "next/navigation";
@@ -350,7 +352,7 @@ export default function UserProfilePage() {
         }
       />
 
-      <RecordFrame summary={
+      <RecordFrame panelLabel="Employee summary" summary={
       <Card className="overflow-hidden !p-0">
         <div className="flex min-w-0 flex-col gap-4 bg-surface px-4 py-4 sm:flex-row sm:items-center sm:px-5">
           <ProfilePhoto userId={user.id} fullName={user.fullName} hasPhoto={user.hasPhoto} version={user.updatedAt} size="identity" labelled />
@@ -404,7 +406,7 @@ export default function UserProfilePage() {
         {activeTab === "hr" ? <EmployeeLifecycleProfile userId={user.id} section="hr" /> : null}
         {activeTab === "pro" ? <EmployeeLifecycleProfile userId={user.id} section="pro" /> : null}
         {activeTab === "organization" ? (
-          <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)]">
+          <div className="grid min-w-0 gap-4">
             <Card>
               <SectionHeader title="Organization assignment" description="Current placement and reporting context." />
               <dl className="mt-4 grid min-w-0 gap-4 sm:grid-cols-2 xl:grid-cols-1">
@@ -417,7 +419,7 @@ export default function UserProfilePage() {
               </dl>
             </Card>
             {canUseSecurityActions ? (
-              <Card>
+              <PanelPopup feedback={<ErrorText>{actionError}</ErrorText>} label="Account & Security"><Card>
                 <SectionHeader title="Account & Security" description="Permission-gated identity and account lifecycle controls." actions={refreshing ? <span role="status" className="text-xs text-text-secondary">Refreshing…</span> : null} />
                 <div className="mt-4 space-y-4">
                   <dl className="grid min-w-0 gap-4 sm:grid-cols-3">
@@ -517,7 +519,7 @@ export default function UserProfilePage() {
                     })}>Generate reset link</Button> : null}
                   </div>
                 </div>
-              </Card>
+              </Card></PanelPopup>
             ) : <Card><EmptyState>No account or security actions are available with your current permissions.</EmptyState></Card>}
           </div>
         ) : null}

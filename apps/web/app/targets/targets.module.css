@@ -1,0 +1,26 @@
+.targetsPage { min-width: 0; }
+
+/* Scoped to the Targets header rendered by the existing workspace frame. */
+:global([data-testid="authenticated-content"]):has(.targetsPage.targetsPage) > :global([data-testid="page-header"]) { height: auto; min-height: 0; padding-block: 12px; margin-bottom: 8px; align-items: center; flex-wrap: wrap; gap: 8px 16px; }
+:global([data-testid="authenticated-content"]):has(.targetsPage.targetsPage) > :global([data-testid="page-header"]) > div:first-child { height: auto; gap: 4px; }
+:global([data-testid="authenticated-content"]):has(.targetsPage.targetsPage) > :global([data-testid="page-header"]) :global([data-page-header-actions]) { align-items: center; flex-wrap: wrap; gap: 8px; }
+
+.workspaceCard:global([data-amafh-card]) { padding: 0; min-width: 0; }
+.workspaceToolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; padding: 6px 12px; }
+.workspaceToolbar > :global([role="tablist"]) { flex: 0 1 auto; width: auto; margin-block: 0; }
+.workspaceToolbar > div:last-child:not(:global([role="tablist"])) { flex: 0 0 auto; margin-left: auto; }
+.workspacePanel { display: flex; flex-direction: column; gap: 8px; min-width: 0; padding: 8px 12px 12px; }
+.periodControls { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px 16px; margin-top: 8px; min-width: 0; }
+.periodControls > label { flex: 0 1 20rem; width: 20rem; max-width: 100%; }
+.periodControls > label > div > button { height: 36px; }
+.periodControls > div { flex: 0 0 auto; max-width: 100%; }
+.periodControls > div:first-of-type > div { height: 36px; }
+.periodControls > div:last-child { min-height: 36px; }
+
+@media (min-width: 1280px) {
+  :global([data-testid="authenticated-content"]):has(.targetsPage.targetsPage) > :global([data-testid="page-header"]) { padding: 12px 16px; margin-top: 20px; }
+}
+@media (max-width: 639px) {
+  .workspaceToolbar { padding-inline: 8px; }
+  .workspacePanel { padding-inline: 8px; }
+}

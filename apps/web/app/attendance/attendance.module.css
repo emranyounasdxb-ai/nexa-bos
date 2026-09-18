@@ -4,8 +4,8 @@
 @media (max-width: 1279px) {
   .reportPage :global([data-amafh-list-workspace]) > header { display: none; }
   .reportPage :global([data-amafh-list-filters]) { display: flex; flex-direction: column; gap: 12px; padding: 16px !important; border-radius: 20px; }
-  .reportAnalysisHeading { display: block; min-height: 28px; margin: 0; font-size: 17px; font-weight: 700; line-height: 25px; }
-  .reportPage :global([data-amafh-list-filters]) label { font-size: 12px; line-height: 17px; }
+  .reportAnalysisHeading { display: block; min-height: 28px; margin: 0;  font-weight: 700;  }
+  .reportPage :global([data-amafh-list-filters]) label {    font-size: var(--amafh-text-body); line-height: 1.45;}
   .reportPage :global([data-amafh-list-filters]) > div:last-child { margin-top: 0; }
   .reportPage :global([data-amafh-list-filters]) > div:last-child button { width: 100%; }
   .reportPage :global([data-amafh-filter-bar]) { gap: 12px; }

@@ -1,6 +1,6 @@
 .detail > * { min-width: 0; }
 .detail section { padding: 16px; border-radius: 18px; background: var(--amafh-subtle); }
-.detail section h3 { font-size: 17px; }
+.detail section h3 {  }
 .detail section ul { display: grid; gap: 12px; }
 .detail section li { margin: 0; border-color: var(--amafh-border); border-radius: 14px; background: var(--amafh-surface); }
 @media (min-width: 1024px) {

@@ -131,7 +131,7 @@ export default function AttendanceReportsPage() {
           </ButtonLink>
         }
       />
-      <ListWorkspace variant="report" title="Attendance analysis" filters={<>
+      <ListWorkspace feedback={<ErrorText>{error}</ErrorText>} variant="report" title="Attendance analysis" filters={<>
       <h2 className={styles.reportAnalysisHeading}>Attendance analysis</h2>
       <FilterBar>
         <label className="col-span-2 text-sm sm:col-span-1">

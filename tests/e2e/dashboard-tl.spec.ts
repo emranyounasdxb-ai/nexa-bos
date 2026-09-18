@@ -232,7 +232,9 @@ test("TL case owner allowlist, own/team workspace and calendar remain isolated a
         await page.screenshot({ path: testInfo.outputPath(`tl-${label.toLowerCase().replaceAll(" ", "-")}-${width}-${theme}-viewport.png`) });
         await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
         expect(await page.locator("header").evaluate(element => element.getBoundingClientRect().top)).toBe(0);
-        for (const tab of await nav.getByRole("link").all()) await expect(tab).toBeInViewport();
+        // Workspace tabs belong to the page; the approved responsive header/navigation stay fixed.
+        const persistentNavigation = page.getByRole("navigation", { name: width < 640 ? "Mobile navigation" : width < 1280 ? "Tablet navigation" : "Primary", exact: true });
+        await expect(persistentNavigation).toBeInViewport();
         await page.evaluate(() => window.scrollTo(0, 0));
       }
     }
@@ -488,6 +490,8 @@ test("TL portal surfaces share approved spacing, compact tabs, flat cards and re
   await openWorkspace(page, "My Team");
   await expect(page.getByText("No direct SE members assigned.", { exact: true })).toBeVisible();
   await openWorkspace(page, "Performance & Attendance");
-  await expect(page.getByTestId("my-performance")).toContainText("No performance data for this period");
+  await expect(page.getByTestId("my-performance")).toContainText("No card earnings recorded for this period.");
+  await expect(page.getByTestId("my-performance")).toContainText("No loan earnings recorded for this period.");
+  await expect(page.getByTestId("my-performance").getByText("Current Workload", { exact: true }).locator("..").getByRole("definition")).toHaveText("0");
   await expect(page.getByText("Appraisal module not configured", { exact: true })).toBeVisible();
 });
