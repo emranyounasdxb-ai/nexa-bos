@@ -36,6 +36,7 @@ import {
 import { apiGet, apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { formatDuration } from "@/lib/duration";
+import { orderCaseProgress } from "@/lib/tl-case-presentation";
 import { getBrowserApiUrl } from "@/lib/env";
 import { canManageCustomers } from "@/lib/role-access";
 import type {
@@ -125,6 +126,7 @@ function Value({ label, children }: { label: string; children: React.ReactNode }
 export default function ApplicationDetailPage() {
   const params = useParams<{ id: string }>();
   const { user } = useAuth();
+  const isTl = user?.userType?.code === "TL";
   const can = useCallback((permission: string) => Boolean(user?.permissions.includes(permission)) && (
     user?.userType?.code !== "TL" || ![
       "Applications.Submit", "Applications.UpdateStage", "Applications.CorrectStage",
@@ -481,7 +483,8 @@ export default function ApplicationDetailPage() {
 
   const selectedNext = nextStages.find((stage) => stage.id === stageId);
   const status = item.terminalOutcome || item.currentStage || "In progress";
-  const currentStageIndex = progress.findIndex((stage) => stage.current);
+  const displayedProgress = isTl ? orderCaseProgress(progress) : progress;
+  const currentStageIndex = displayedProgress.findIndex((stage) => stage.current);
   const canEditOwn = can("Applications.Edit") && !item.submitted && !item.terminal &&
     (!["TL", "SE", "BDM", "SM", "OM"].includes(user?.userType?.code ?? "") || item.caseOwnerId === user?.id) &&
     Boolean(review && (review.status === "legacy" || ["OWNER", "GM"].includes(user?.userType?.code ?? "") ||
@@ -505,7 +508,8 @@ export default function ApplicationDetailPage() {
     <section className="min-w-0 space-y-4" aria-busy={loading}>
       <PageHeader
         title={item.applicationCode}
-        description="Application classification, workflow progress, controlled corrections, and immutable lifecycle history."
+        frameTitle={isTl ? item.applicationCode : undefined}
+        description={isTl ? "Case information, review progress and activity history." : "Application classification, workflow progress, controlled corrections, and immutable lifecycle history."}
         actions={
           <>
             <Link className="text-sm font-medium text-brand-link underline" href="/applications">
@@ -533,7 +537,7 @@ export default function ApplicationDetailPage() {
               {item.customerCode} · {item.customerName} · {item.bankName} / {item.productName}
             </p>
             <p className="mt-1 text-xs text-text-secondary">
-              Case Owner {item.caseOwnerName || "Not assigned"} · Workflow version {item.workflowVersion}
+              Case Owner {item.caseOwnerName || "Not assigned"}{!isTl && <> · Workflow version {item.workflowVersion}</>}
             </p>
           </div>
           <dl className="grid grid-cols-2 gap-x-5 gap-y-2 sm:grid-cols-3 lg:text-right">
@@ -555,13 +559,13 @@ export default function ApplicationDetailPage() {
               Completed stages retain their timestamps; the current stage is highlighted and upcoming stages remain visible.
             </p>
           </div>
-          <Badge>Version {version ?? item.workflowVersion ?? "—"}</Badge>
+          {!isTl && <Badge>Version {version ?? item.workflowVersion ?? "—"}</Badge>}
         </div>
         {progress.length ? (
           <ol className="mt-4 grid min-w-0 gap-2 sm:grid-cols-2 xl:grid-cols-4">
-            {progress.map((stage, index) => {
+            {displayedProgress.map((stage, index) => {
               const completed = Boolean(stage.exitedAt) || (
-                !stage.current && currentStageIndex >= 0 && index < currentStageIndex && Boolean(stage.enteredAt)
+                !isTl && !stage.current && currentStageIndex >= 0 && index < currentStageIndex && Boolean(stage.enteredAt)
               );
               const state = stage.current ? "Current" : completed ? "Completed" : "Upcoming";
               const timestamp = stage.current
@@ -632,7 +636,7 @@ export default function ApplicationDetailPage() {
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
                   <h3 className="text-lg font-semibold text-text-primary">Product classification</h3>
-                  <p className="mt-1 text-xs text-text-secondary">Bank and Product Category are immutable. Product Variant follows the saved mapping.</p>
+                  <p className="mt-1 text-xs text-text-secondary">{isTl ? "Bank and product category are fixed for this case. The selected product variant is shown below." : "Bank and Product Category are immutable. Product Variant follows the saved mapping."}</p>
                 </div>
                 {item.productVariantStatus ? <StatusBadge value={item.productVariantStatus} /> : null}
               </div>
@@ -664,7 +668,7 @@ export default function ApplicationDetailPage() {
         {activeTab === "workflow" ? (
           <>
             <Card>
-              <div className="flex flex-wrap items-start justify-between gap-2"><div><h3 className="text-lg font-semibold">Current workflow state</h3><p className="mt-1 text-xs text-text-secondary">Version {version} · {item.currentStageElapsedSeconds != null ? formatDuration(item.currentStageElapsedSeconds) : "Duration unavailable"}</p></div><StatusBadge value={status} /></div>
+              <div className="flex flex-wrap items-start justify-between gap-2"><div><h3 className="text-lg font-semibold">Current workflow state</h3><p className="mt-1 text-xs text-text-secondary">{!isTl && <>Version {version} · </>}{item.currentStageElapsedSeconds != null ? formatDuration(item.currentStageElapsedSeconds) : "Duration unavailable"}</p></div><StatusBadge value={status} /></div>
             </Card>
             <div className="grid min-w-0 gap-4 lg:grid-cols-2">
               <Card><h3 className="text-lg font-semibold">Turnaround time</h3><dl className="mt-3 grid gap-3 sm:grid-cols-2"><Value label={item.terminal ? "Total duration" : "Elapsed TAT"}>{item.terminal ? formatDuration(item.totalDurationSeconds) : formatDuration(item.currentElapsedSeconds)}</Value><Value label="Current stage elapsed">{formatDuration(item.currentStageElapsedSeconds)}</Value><Value label="Started">{displayDate(item.tatStartedAt)}</Value><Value label="Stopped">{displayDate(item.tatStoppedAt)}</Value></dl></Card>
@@ -685,7 +689,7 @@ export default function ApplicationDetailPage() {
             {item.activeDelay && !item.terminal && can("Applications.CorrectDelay") ? (
               <PanelPopup feedback={<><ErrorText>{error}</ErrorText>{message ? <p role="status" className="text-sm text-text-secondary">{message}</p> : null}</>} label="Correct active delay"><Card>
                 <h3 className="text-lg font-semibold">Correct active delay</h3>
-                <p className="mt-1 text-xs text-text-secondary">Original delay history remains immutable.</p>
+                <p className="mt-1 text-xs text-text-secondary">{isTl ? "Previous delay entries remain in the case history." : "Original delay history remains immutable."}</p>
                 <form
                   className="mt-3 space-y-3"
                   onSubmit={(event) => {
@@ -1002,7 +1006,7 @@ export default function ApplicationDetailPage() {
 
         {activeTab === "timeline" ? (
           <Card>
-            <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-end lg:justify-between"><div className="min-w-0"><h3 className="text-lg font-semibold">Immutable timeline</h3><p className="mt-1 text-xs text-text-secondary">Filter existing lifecycle events without changing audit history.</p></div><div className="grid min-w-0 gap-3 sm:grid-cols-2 lg:w-[38rem]"><Field label="Search timeline"><TextInput aria-label="Search timeline" placeholder="Stage, reason, action, or person" value={timelineQuery} onChange={(event) => setTimelineQuery(event.target.value)} /></Field><Field label="Event type"><Select aria-label="Filter timeline by event type" value={timelineType} onChange={(event) => setTimelineType(event.target.value)}><option value="">All event types</option>{timelineTypes.map((type) => <option key={type} value={type}>{eventLabel(type)}</option>)}</Select></Field></div></div>
+            <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-end lg:justify-between"><div className="min-w-0"><h3 className="text-lg font-semibold">{isTl ? "Case activity" : "Immutable timeline"}</h3><p className="mt-1 text-xs text-text-secondary">Filter existing lifecycle events without changing audit history.</p></div><div className="grid min-w-0 gap-3 sm:grid-cols-2 lg:w-[38rem]"><Field label="Search timeline"><TextInput aria-label="Search timeline" placeholder="Stage, reason, action, or person" value={timelineQuery} onChange={(event) => setTimelineQuery(event.target.value)} /></Field><Field label="Event type"><Select aria-label="Filter timeline by event type" value={timelineType} onChange={(event) => setTimelineType(event.target.value)}><option value="">All event types</option>{timelineTypes.map((type) => <option key={type} value={type}>{eventLabel(type)}</option>)}</Select></Field></div></div>
             <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-y border-brand-border py-2 text-xs text-text-secondary"><span>{filteredTimeline.length} of {timeline.length} events</span>{timelineQuery || timelineType ? <Button type="button" size="compact" variant="ghost" onClick={() => { setTimelineQuery(""); setTimelineType(""); }}>Clear timeline filters</Button> : null}</div>
             {visibleTimeline.length ? <ol className="mt-3 grid min-w-0 gap-2 lg:grid-cols-2">{visibleTimeline.map((event) => { const oldVariant = correctionVariant(event.payload, "old"); const newVariant = correctionVariant(event.payload, "new"); return <li key={event.id} className="min-w-0 rounded-md border border-brand-border p-3 text-sm"><div className="flex min-w-0 flex-wrap items-center justify-between gap-2"><p className="break-words font-medium">{eventLabel(event.eventType)}</p><time className="text-xs text-text-secondary">{displayDate(event.bosUpdatedAt)}</time></div>{event.previousStage || event.newStage ? <p className="mt-1 break-words text-text-secondary">{event.previousStage ? `${event.previousStage} → ` : ""}{event.newStage ?? ""}</p> : null}{event.bankStageDate ? <p className="mt-1">Bank Stage Date {event.bankStageDate}</p> : null}{event.stageNote ? <p className="mt-1 break-words">Note {event.stageNote}</p> : null}{event.reason ? <p className="mt-1 break-words">Reason {event.reason}</p> : null}{event.payload && typeof event.payload.delayType === "string" ? <p className="mt-1 break-words">Delay {event.payload.delayType}</p> : null}{oldVariant && newVariant && oldVariant.id !== newVariant.id ? <p className="mt-1 break-words">Product Variant: {oldVariant.label} → {newVariant.label}</p> : null}<p className="mt-2 break-words text-xs text-text-secondary">Updated by {event.updatedBy || "System"}</p></li>; })}</ol> : <EmptyState kind="search" title="No records match the selected filters" />}
             {timelinePages > 1 ? <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-brand-border pt-3 text-sm"><span className="text-text-secondary">Page {currentTimelinePage} of {timelinePages}</span><div className="flex gap-2"><Button type="button" size="compact" variant="secondary" disabled={currentTimelinePage <= 1} onClick={() => setTimelinePage((page) => Math.max(1, page - 1))}>Previous</Button><Button type="button" size="compact" variant="secondary" disabled={currentTimelinePage >= timelinePages} onClick={() => setTimelinePage((page) => Math.min(timelinePages, page + 1))}>Next</Button></div></div> : null}

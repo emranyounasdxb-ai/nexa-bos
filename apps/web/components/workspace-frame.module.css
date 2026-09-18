@@ -212,3 +212,11 @@
   .frame:has([data-testid="dashboard-overview"]) .pageIdentity:focus-within { position: fixed; z-index: 70; top: 64px; left: 28px; width: auto; height: auto; padding: 12px 20px; overflow: visible; clip-path: none; border-radius: 16px; background: var(--amafh-surface); }
 }
 @media (min-width: 1280px) { :global(:root[data-theme="dark"]) .canvas:has([data-testid="dashboard-overview"]) { background: #161f30; } }
+
+/* Keep TL case identity readable beside its existing mobile actions. */
+@media (max-width: 639px) {
+  .frame[data-tl-case="true"] .topbar { height: auto; display: grid; grid-template-columns: 44px minmax(0,1fr); gap: 8px 12px; }
+  .frame[data-tl-case="true"] .compactIdentity strong { font-size: 16px; line-height: 22px; white-space: normal; overflow-wrap: anywhere; }
+  .frame[data-tl-case="true"] .headerActions { grid-column: 1 / -1; width: 100%; margin-left: 0; }
+  .frame[data-tl-case="true"] .createCase { margin-right: auto; white-space: nowrap; }
+}

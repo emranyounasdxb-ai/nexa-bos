@@ -1,5 +1,6 @@
 "use client";
 
+import { tlActiveNavigationGroup, tlNavigationActive } from "@/lib/tl-case-presentation";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode, type RefObject } from "react";
@@ -91,8 +92,10 @@ export function WorkspaceFrame({ children, user, groups, context, pathname, home
   const isTl = user?.userType?.code === "TL";
   const isAdminOfficer = user?.userType?.code === "ADMIN_OFFICER";
   const directGroup = (label: string) => label === "Workspace" || (isAdminOfficer && label !== "Reports");
-  const activeLink = (href: string) => !isAdminOfficer ? isActive(href) : href.includes("?") ? pathname === href.split("?")[0] && search.get("view") === new URLSearchParams(href.split("?")[1]).get("view") : ["/attendance", "/assets"].includes(href) ? pathname === href || pathname.startsWith(`${href}/`) : isActive(href);
+  const activeLink = (href: string) => isTl ? tlNavigationActive(pathname, search.get("workspace"), href, isActive(href)) : !isAdminOfficer ? isActive(href) : href.includes("?") ? pathname === href.split("?")[0] && search.get("view") === new URLSearchParams(href.split("?")[1]).get("view") : ["/attendance", "/assets"].includes(href) ? pathname === href || pathname.startsWith(`${href}/`) : isActive(href);
   const tlSection = pathname.startsWith("/applications") ? "cases" : search.get("workspace") ?? "dashboard";
+  const navigationGroup = isTl ? tlActiveNavigationGroup(pathname, search.get("workspace"), context.group) : context.group;
+  const tlCaseDetail = isTl && /^\/applications\/[^/]+$/.test(pathname) && pathname !== "/applications/new";
   const [mobileOpen, setMobileOpen] = useState(false);
   const [groupName, setGroupName] = useState<string | null>(null);
   const [accountOpen, setAccountOpen] = useState(false);
@@ -274,12 +277,12 @@ export function WorkspaceFrame({ children, user, groups, context, pathname, home
     return () => { document.removeEventListener("pointerdown", outside); document.removeEventListener("focusin", outside); };
   }, [accountOpen, closeAccount]);
 
-  return <PageHeaderSlots.Provider value={{ description: descriptionTarget, actions: actionsTarget, setTitle }}><div className={styles.canvas}><div onFocusCapture={event => { responsiveFocus.current = event.target; }} ref={frameRef} className={styles.frame} data-admin-officer={isAdminOfficer || undefined} data-tl={isTl || undefined}>
+  return <PageHeaderSlots.Provider value={{ description: descriptionTarget, actions: actionsTarget, setTitle }}><div className={styles.canvas}><div onFocusCapture={event => { responsiveFocus.current = event.target; }} ref={frameRef} className={styles.frame} data-admin-officer={isAdminOfficer || undefined} data-tl={isTl || undefined} data-tl-case={tlCaseDetail || undefined}>
     <header className={styles.topbar} inert={!desktop && mobileOpen}>
       <Link href={home} aria-label="AMAFH CORE home" className={styles.brand}><BrandLogo /></Link>
       <Link href={ancestors.at(-1)?.href ?? home} aria-label="Back to workspace" className={styles.compactBack}><IconChevronLeft className="size-[22px]" /></Link>
-      <div className={styles.compactIdentity} aria-hidden="true"><strong>{compactTitle}</strong><small>{context.parent?.label ?? (context.group === "Workspace" ? "Your workspace" : context.group)}</small></div>
-      <nav className={styles.desktopNav} aria-label="Primary">{groups.map(group => directGroup(group.label) ? <Link key={group.label} href={group.items[0].href} aria-label={group.items[0].label} aria-current={(isAdminOfficer ? activeLink(group.items[0].href) : context.group === group.label) ? "page" : undefined}>{group.label === "Workspace" ? "Dashboard" : group.label}</Link> : <button key={group.label} type="button" aria-label={`${group.label} menu`} aria-haspopup="dialog" aria-expanded={groupName === group.label} data-active={isAdminOfficer ? group.items.some(item => activeLink(item.href)) : context.group === group.label} onClick={() => setGroupName(group.label)}>{group.label}<IconChevronDown className="size-3" /></button>)}</nav>
+      <div className={styles.compactIdentity} aria-hidden="true"><strong>{tlCaseDetail ? renderedTitle : compactTitle}</strong><small>{context.parent?.label ?? (context.group === "Workspace" ? "Your workspace" : context.group)}</small></div>
+      <nav className={styles.desktopNav} aria-label="Primary">{groups.map(group => directGroup(group.label) ? <Link key={group.label} href={group.items[0].href} aria-label={group.items[0].label} aria-current={(isAdminOfficer ? activeLink(group.items[0].href) : navigationGroup === group.label) ? "page" : undefined}>{group.label === "Workspace" ? "Dashboard" : group.label}</Link> : <button key={group.label} type="button" aria-label={`${group.label} menu`} aria-haspopup="dialog" aria-expanded={groupName === group.label} data-active={isAdminOfficer ? group.items.some(item => activeLink(item.href)) : navigationGroup === group.label} onClick={() => setGroupName(group.label)}>{group.label}<IconChevronDown className="size-3" /></button>)}</nav>
       <div className={styles.headerActions}>
         {isTl && user.permissions.includes("Applications.Create") && <Button className={styles.createCase} onClick={() => { if (pathname === "/reports") window.dispatchEvent(new Event("nexa-create-case")); else router.push("/reports?workspace=cases&create=1"); }}>Create Case</Button>}
         {notifications && <NotificationBell pathname={pathname} />}
