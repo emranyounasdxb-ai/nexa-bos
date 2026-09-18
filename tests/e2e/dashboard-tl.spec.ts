@@ -190,6 +190,7 @@ test("TL case owner allowlist, own/team workspace and calendar remain isolated a
     for (const theme of ["light", "dark"] as const) {
       await setVisualTheme(page, theme);
       const nav = page.getByRole("navigation", { name: "Workspace pages" });
+      if (width >= 1280) expect((await page.getByTestId("page-header").boundingBox())!.height, "Compact TL header must not reserve empty desktop chrome").toBeLessThanOrEqual(1);
       expect(await nav.getByRole("link").allTextContents()).toEqual(topLabels);
       await expect(page.getByLabel("Application sidebar", { exact: true })).toHaveCount(0);
       await expect(page.getByRole("button", { name: "Open navigation", exact: true })).toHaveCount(0);
