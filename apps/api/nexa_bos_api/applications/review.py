@@ -11,12 +11,12 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from nexa_bos_api.applications.models import Application, ApplicationEvent
+from nexa_bos_api.applications.visibility import tl_case_owner_ids
 from nexa_bos_api.core.exceptions import AppError
 from nexa_bos_api.identity.access import (
     has_permission,
     has_user_type,
     load_user_with_type,
-    tl_team_owner_ids,
 )
 from nexa_bos_api.identity.audit import record_audit
 from nexa_bos_api.identity.models import User, new_uuid
@@ -168,13 +168,13 @@ async def append_processing_review(
 
 
 async def start_review(session: AsyncSession, application: Application, actor: User) -> None:
-    if not has_user_type(actor, "SE", "TL"):
+    if not has_user_type(actor, "SE", "TL", "ADMIN_OFFICER"):
         return
     tl_id = str(actor.id) if has_user_type(actor, "TL") else None
-    if has_user_type(actor, "SE") and actor.reporting_manager_id:
+    if has_user_type(actor, "SE", "ADMIN_OFFICER") and actor.reporting_manager_id:
         manager = await load_user_with_type(session, actor.reporting_manager_id)
         if manager and has_user_type(manager, "TL"):
-            if actor.id in await tl_team_owner_ids(session, manager):
+            if actor.id in await tl_case_owner_ids(session, manager):
                 tl_id = str(manager.id)
     # Unassigned SEs fail closed in the review queue; never fall through to COD.
     await _append_review(
@@ -200,17 +200,23 @@ async def review_payload(
             if (
                 has_user_type(actor, "TL")
                 and state["tlId"] == str(actor.id)
-                and application.case_owner_id in await tl_team_owner_ids(session, actor)
+                and application.case_owner_id in await tl_case_owner_ids(session, actor)
                 and state["status"] in {"pending_review", "resubmitted"}
             ):
                 actions = ["forward", "return"]
             elif (
-                has_user_type(actor, "SE", "TL")
+                has_user_type(actor, "SE", "TL", "ADMIN_OFFICER")
                 and application.case_owner_id == actor.id
                 and state["status"] == "returned"
             ):
                 actions = ["resubmit"]
-    return {**state, "actions": actions}
+    tl = await load_user_with_type(session, UUID(str(state["tlId"]))) if state["tlId"] else None
+    label = (
+        "Returned for correction"
+        if has_user_type(actor, "ADMIN_OFFICER") and state["status"] == "returned"
+        else state["label"]
+    )
+    return {**state, "label": label, "tlName": tl.full_name if tl else None, "actions": actions}
 
 
 async def transition_review(
@@ -250,7 +256,7 @@ async def transition_review(
         if (
             not assigned
             or not has_user_type(assigned, "TL")
-            or actor.id not in await tl_team_owner_ids(session, assigned)
+            or actor.id not in await tl_case_owner_ids(session, assigned)
         ):
             raise AppError(
                 status_code=409,
@@ -289,7 +295,7 @@ async def require_review_mutation(
     await session.refresh(application, with_for_update=True)
     state = await get_review(session, application)
     if (
-        has_user_type(actor, "BDM", "SM", "TL", "SE", "OM")
+        has_user_type(actor, "BDM", "SM", "TL", "SE", "OM", "ADMIN_OFFICER")
         and application.case_owner_id != actor.id
     ):
         raise AppError(
@@ -303,7 +309,7 @@ async def require_review_mutation(
         )
     if state["status"] == "legacy":
         return
-    if has_user_type(actor, "SE", "TL"):
+    if has_user_type(actor, "SE", "TL", "ADMIN_OFFICER"):
         if editing and application.case_owner_id == actor.id and state["status"] == "returned":
             return
         raise AppError(

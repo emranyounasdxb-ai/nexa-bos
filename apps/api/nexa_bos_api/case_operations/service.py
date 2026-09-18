@@ -463,7 +463,7 @@ async def book_case(
 ) -> Application:
     """Lock a reviewed case to its owner snapshot and resolve its processing lane."""
     from nexa_bos_api.applications.review import append_processing_review, get_review
-    from nexa_bos_api.identity.access import tl_team_owner_ids
+    from nexa_bos_api.applications.visibility import tl_case_owner_ids
 
     await session.refresh(application, with_for_update=True)
     if application.terminal_outcome:
@@ -490,7 +490,7 @@ async def book_case(
     if (
         not has_user_type(actor, "TL")
         or state["tlId"] != str(actor.id)
-        or application.case_owner_id not in await tl_team_owner_ids(session, actor)
+        or application.case_owner_id not in await tl_case_owner_ids(session, actor)
         or state["status"] not in {"pending_review", "resubmitted"}
     ):
         raise AppError(
