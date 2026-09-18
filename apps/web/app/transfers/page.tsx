@@ -41,6 +41,7 @@ export default function TransfersPage() {
   const [comment, setComment] = useState("");
   const [busy, setBusy] = useState(false);
   const returnFocus = useRef<HTMLElement | null>(null);
+  const headerActions = useRef<HTMLSpanElement | null>(null);
   const workspace = useRef<HTMLDivElement | null>(null);
   const allowed = can("Transfers.View") || can("Transfers.ViewOwn") || can("Transfers.Recommend");
   const canPrepare = can("Transfers.Create") || can("Transfers.Recommend");
@@ -60,7 +61,7 @@ export default function TransfersPage() {
     setMode(null); setSelected(null); setDecision(null); setComment("");
     requestAnimationFrame(() => {
       if (returnFocus.current?.isConnected) returnFocus.current.focus();
-      else workspace.current?.querySelector<HTMLElement>("button:not(:disabled)")?.focus();
+      else (headerActions.current?.querySelector<HTMLElement>("button:not(:disabled)") ?? workspace.current?.querySelector<HTMLElement>("button:not(:disabled)"))?.focus();
     });
   }, [busy]);
   useEffect(() => {
@@ -131,7 +132,7 @@ export default function TransfersPage() {
   }
   if (!allowed) return <EmptyState>You do not have permission to view transfers.</EmptyState>;
   return <div ref={workspace} className="space-y-4">
-    <PageHeader title="Employee transfers" description="Reviewed organization changes and their effective dates." actions={<>{canPrepare && <Button onClick={event => open(event.currentTarget)}>{can("Transfers.Create") ? "Prepare transfer" : "Recommend transfer"}</Button>}<Button variant="secondary" disabled={loading} onClick={() => void load()}>Refresh</Button></>} />
+    <PageHeader title="Employee transfers" description="Reviewed organization changes and their effective dates." actions={<span ref={headerActions} className="contents">{canPrepare && <Button onClick={event => open(event.currentTarget)}>{can("Transfers.Create") ? "Prepare transfer" : "Recommend transfer"}</Button>}<Button variant="secondary" disabled={loading} onClick={() => void load()}>Refresh</Button></span>} />
     {!mode && error && <ErrorText>{error}</ErrorText>}{notice && <p role="status" className="text-sm text-text-secondary">{notice}</p>}
     <ListWorkspace title="Transfer register" filters={
     <div className="max-w-xs"><Field label="Status"><Select aria-label="Status" value={status} onChange={event => { const next = new URLSearchParams(params.toString()); if (event.target.value) next.set("status", event.target.value); else next.delete("status"); router.push(`${pathname}?${next}`, { scroll: false }); }}><option value="">All statuses</option>{statuses.map(s => <option key={s}>{s}</option>)}</Select></Field></div>

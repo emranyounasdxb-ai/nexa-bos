@@ -8,6 +8,8 @@ import {
   IconMinus,
   IconTrendingDown,
   IconTrendingUp,
+  IconFileDescription,
+  IconBuildingBank,
   type IconComponent,
 } from "@/components/icons";
 import { Badge, EmptyState, SectionHeader } from "@/components/ui";
@@ -141,6 +143,7 @@ export function PipelineMetric({
       href={href}
       aria-label={`${label} KPI`}
       className="group flex min-w-0 items-center gap-2 rounded-lg border border-slate-200 bg-slate-50/60 px-2.5 py-2 hover:border-slate-300 hover:bg-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary"
+      data-pipeline-tone={tone}
     >
       <span aria-hidden="true" data-amafh-icon-tile="" className={`inline-flex size-7 shrink-0 items-center justify-center rounded-md ${metricToneClasses[tone].icon}`}>
         <MetricIcon className="size-4" />
@@ -175,12 +178,19 @@ export function StageDistribution({
 
   return (
     <div className="mt-3" data-testid="stage-breakdown-panel">
-      <RankedBarChart
+      {compact ? <div data-testid="stage-distribution-chart" role="img" aria-label={`Top workflow stages by pending application count. ${total} pending applications across ${rows.length} stages.`} className={overview.stageVolumes}>
+        {ranked.slice(0, 6).map(row => <div key={`${row.stageId ?? "none"}:${row.name}`} className={overview.stageVolume} data-stage-tone={/created/i.test(row.name) ? "created" : /submitted/i.test(row.name) ? "submitted" : "neutral"}>
+          <span className={overview.stageCount}>{/submitted/i.test(row.name) ? <IconBuildingBank className="size-4" /> : <IconFileDescription className="size-4" />}<strong>{row.count.toLocaleString()}</strong></span>
+          <span className={overview.stageName}>{row.name}</span>
+          <span className={overview.stageTrack}><span style={{ width: `${row.count / Math.max(1, ...ranked.map(stage => stage.count)) * 100}%` }} /></span>
+        </div>)}
+      </div> : <RankedBarChart
         rows={ranked.map((row) => ({ id: row.stageId ?? row.name, label: row.name, value: row.count }))}
         accessibleDescription={`Top workflow stages by pending application count. ${total} pending applications across ${rows.length} stages.`}
         testId="stage-distribution-chart"
         compact={compact}
-      />
+      />}
+      {compact ? <ol className="sr-only">{ranked.slice(0, 6).map((row, index) => <li key={`${row.stageId ?? "none"}:${row.name}:accessible`}>{index + 1}. {row.name}: {row.count}</li>)}</ol> : null}
       <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-2.5 text-xs text-slate-500"><span>{total.toLocaleString()} pending applications</span><span>{rows.length} workflow stages</span></div>
       <details className="group mt-2 rounded-lg border border-slate-200 bg-slate-50/60">
         <summary className="cursor-pointer list-none px-3 py-2 text-sm font-semibold text-brand-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary"><span className="inline-flex w-full items-center justify-between gap-3">All stage details<IconChevronDown className="size-4 transition-transform group-open:rotate-180" /></span></summary>

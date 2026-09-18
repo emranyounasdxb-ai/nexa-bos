@@ -29,6 +29,7 @@ export default function ExitsPage() {
   const [item, setItem] = useState<Item | null>(null); const [assign, setAssign] = useState(false); const [assignee, setAssignee] = useState(""); const [itemStatus, setItemStatus] = useState("Cleared");
   const [settlement, setSettlement] = useState(false); const [settlementStatus, setSettlementStatus] = useState("Pending"); const [reference, setReference] = useState("");
   const trigger = useRef<HTMLElement | null>(null); const workspace = useRef<HTMLDivElement | null>(null);
+  const headerActions = useRef<HTMLSpanElement | null>(null);
   const allowed = can("Exits.View") || can("Exits.ViewOwn") || can("Exits.Clearance"); const operational = can("Exits.View");
   const load = useCallback(async () => {
     if (!user || !allowed) { setLoading(false); return; }
@@ -37,7 +38,7 @@ export default function ExitsPage() {
     catch (caught) { setError(caught instanceof ApiClientError ? caught.message : "Unable to load exits"); } finally { setLoading(false); }
   }, [api, user, allowed, status, can]);
   useEffect(() => { void load(); }, [load]);
-  const close = useCallback(() => { if (busy) return; setMode(null); setSelected(null); setDecision(null); setItem(null); setSettlement(false); requestAnimationFrame(() => { if (trigger.current?.isConnected) trigger.current.focus(); else workspace.current?.querySelector<HTMLElement>("button")?.focus(); }); }, [busy]);
+  const close = useCallback(() => { if (busy) return; setMode(null); setSelected(null); setDecision(null); setItem(null); setSettlement(false); requestAnimationFrame(() => { if (trigger.current?.isConnected) trigger.current.focus(); else (headerActions.current?.querySelector<HTMLElement>("button:not(:disabled)") ?? workspace.current?.querySelector<HTMLElement>("button:not(:disabled)"))?.focus(); }); }, [busy]);
   useEffect(() => {
     if (!mode) return;
     const dialog = document.querySelector<HTMLElement>('[role="dialog"]'); dialog?.querySelector<HTMLElement>("button")?.focus();
@@ -71,7 +72,7 @@ export default function ExitsPage() {
   }
   if (!allowed) return <EmptyState>You do not have permission to view exits.</EmptyState>;
   return <div ref={workspace} className="space-y-4">
-    <PageHeader title="Exit and offboarding" description="Reviewed exits, assigned clearance and preserved employee history." actions={<>{(can("Exits.Create") || can("Exits.Request")) && <Button onClick={e => open(e.currentTarget)}>{can("Exits.Create") ? "Prepare exit" : "Request resignation"}</Button>}<Button variant="secondary" disabled={loading} onClick={() => void load()}>Refresh</Button></>} />
+    <PageHeader title="Exit and offboarding" description="Reviewed exits, assigned clearance and preserved employee history." actions={<span ref={headerActions} className="contents">{(can("Exits.Create") || can("Exits.Request")) && <Button onClick={e => open(e.currentTarget)}>{can("Exits.Create") ? "Prepare exit" : "Request resignation"}</Button>}<Button variant="secondary" disabled={loading} onClick={() => void load()}>Refresh</Button></span>} />
     {!mode && error && <ErrorText>{error}</ErrorText>}{notice && <p role="status" className="text-sm text-text-secondary">{notice}</p>}
     <ListWorkspace title="Offboarding register" filters={
     <div className="max-w-xs"><Field label="Status"><Select aria-label="Status" value={status} onChange={e => { const next = new URLSearchParams(params.toString()); if (e.target.value) next.set("status", e.target.value); else next.delete("status"); router.push(`${pathname}?${next}`, { scroll: false }); }}><option value="">All statuses</option>{statuses.map(s => <option key={s}>{s}</option>)}</Select></Field></div>
