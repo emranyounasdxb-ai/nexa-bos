@@ -119,6 +119,7 @@ const isActiveRoute = (pathname: string, href: string) => {
 };
 
 const landingFor = (user: UserRecord) => {
+  if (user.userType?.code === "ADMIN_OFFICER") return user.permissions.includes("Assets.View") ? "/assets" : "/account";
   if (user.permissions.includes("Dashboard.View")) return "/reports";
   if (user.permissions.includes("UserProfiles.HR.View")) return "/hr";
   if (user.permissions.includes("UserProfiles.PRO.View")) return "/pro";
@@ -252,16 +253,22 @@ function Shell({ children }: { children: ReactNode }) {
   ];
 
   const headerOrder = ["Workspace", "Cases", "Operations", "Performance", "People & HR", "Finance", "Reports", "Administration"];
+  const adminOfficer = user?.userType?.code === "ADMIN_OFFICER";
+  const adminGroups: NavGroup[] = [
+    { label: "Assets", icon: IconDevices2, items: [{ href: "/assets", label: "Assets", icon: IconDevices2, show: can("Assets.View") }] },
+    { label: "Attendance", icon: IconCalendarCheck, items: [{ href: "/attendance", label: "Attendance", icon: IconCalendarCheck, show: can("Attendance.View") }] },
+    { label: "Cases", icon: IconFileDescription, items: [{ href: "/applications", label: "Cases", icon: IconFileDescription, show: can("Applications.View") }] },
+  ];
   const moduleGroups = [
     { label: "Assets", icon: IconDevices2, items: [{ href: "/assets", label: "Assets", icon: IconDevices2, show: can("Assets.View") }] },
     { label: "Attendance", icon: IconCalendarCheck, items: [{ href: "/attendance", label: "Attendance", icon: IconCalendarCheck, show: can("Attendance.View") }] },
   ];
   const permissionGroups = [...groups.map(group => ({ ...group, items: group.items.filter(item => !item.href.startsWith("/assets") && !item.href.startsWith("/attendance")) })), ...moduleGroups];
-  const visibleGroups = permissionGroups
+  const visibleGroups = (adminOfficer ? adminGroups : permissionGroups)
     .map((group) => ({ ...group, items: group.items.filter((item) => item.show && (user?.userType?.code !== "TL" || ["/reports", "/applications", "/customers"].includes(item.href) || (item.href.startsWith("/assets") && can("Assets.View")) || (item.href.startsWith("/attendance") && can("Attendance.View")))) }))
     .filter((group) => group.items.length > 0);
-  visibleGroups.sort((left, right) => headerOrder.indexOf(left.label) - headerOrder.indexOf(right.label));
-  return <WorkspaceFrame user={user} groups={visibleGroups} context={context} pathname={pathname}
+  if (!adminOfficer) visibleGroups.sort((left, right) => ["Workspace", "Assets", "Attendance", ...headerOrder.filter(label => label !== "Workspace")].indexOf(left.label) - ["Workspace", "Assets", "Attendance", ...headerOrder.filter(label => label !== "Workspace")].indexOf(right.label));
+  return <WorkspaceFrame user={user} groups={visibleGroups} context={{ ...context, ...(adminOfficer && pathname.startsWith("/applications") ? { title: pathname === "/applications" ? "My Cases" : pathname === "/applications/new" ? "New Case" : "Case", parent: pathname === "/applications" ? undefined : { href: "/applications", label: "My Cases" } } : {}), group: pathname.startsWith("/assets") ? "Assets" : pathname.startsWith("/attendance") ? "Attendance" : context.group }} pathname={pathname}
     home={user ? landingFor(user) : "/login"} notifications={can("Notifications.View")}
     isActive={href => isActiveRoute(pathname, href)} onLogout={logout}>{tlLegacyCases ? <p role="status">Opening Cases…</p> : tlForbidden ? <p role="status">Returning to TL Dashboard…</p> : children}</WorkspaceFrame>;
 }

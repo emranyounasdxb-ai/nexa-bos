@@ -78,6 +78,9 @@ function NotificationBell({ pathname }: { pathname: string }) {
 export function WorkspaceFrame({ children, user, groups, context, pathname, home, notifications, isActive, onLogout }: {
   children: ReactNode; user: UserRecord | null; groups: WorkspaceNavGroup[]; context: Context; pathname: string; home: string; notifications: boolean; isActive: (href: string) => boolean; onLogout: () => Promise<void>;
 }) {
+  const [pageTitle, setPageTitle] = useState<{ path: string; title: string } | null>(null);
+  const setTitle = useCallback((title: string | null) => setPageTitle(title ? { path: pathname, title } : null), [pathname]);
+  const renderedTitle = pageTitle?.path === pathname ? pageTitle.title : context.title;
   const desktop = useSyncExternalStore(subscribeDesktop, desktopSnapshot, serverDesktop);
   const frameRef = useRef<HTMLDivElement>(null);
   const responsiveFocus = useRef<HTMLElement | null>(null);
@@ -86,6 +89,9 @@ export function WorkspaceFrame({ children, user, groups, context, pathname, home
   const compactTitle = pathname === "/organization" ? (organizationTitles[search.get("tab") ?? "offices"] ?? context.title) : pathname === "/organization/hierarchy" ? "Organization map" : context.title;
   const router = useRouter();
   const isTl = user?.userType?.code === "TL";
+  const isAdminOfficer = user?.userType?.code === "ADMIN_OFFICER";
+  const directGroup = (label: string) => label === "Workspace" || (isAdminOfficer && label !== "Reports");
+  const activeLink = (href: string) => !isAdminOfficer ? isActive(href) : href.includes("?") ? pathname === href.split("?")[0] && search.get("view") === new URLSearchParams(href.split("?")[1]).get("view") : ["/attendance", "/assets"].includes(href) ? pathname === href || pathname.startsWith(`${href}/`) : isActive(href);
   const tlSection = pathname.startsWith("/applications") ? "cases" : search.get("workspace") ?? "dashboard";
   const [mobileOpen, setMobileOpen] = useState(false);
   const [groupName, setGroupName] = useState<string | null>(null);
@@ -119,7 +125,7 @@ export function WorkspaceFrame({ children, user, groups, context, pathname, home
   const permitted = new Set(allItems.map(item => item.href));
   const moreGroup: WorkspaceNavGroup = { label: "Workspace", icon: IconMenu2, items: isTl ? topItems.map(item => ({ ...item, icon: IconChartBar, show: true })) : allItems };
   const selectedPopup = groupName === "Workspace" ? moreGroup : popupGroup;
-  const compactItems: { label: string; href?: string; group?: string; icon: IconComponent; active: boolean }[] = isTl ? [
+  const compactItems: { label: string; href?: string; group?: string; icon: IconComponent; active: boolean }[] = isAdminOfficer ? groups.map(group => ({ label: group.label, ...(group.label === "Reports" ? { group: group.label } : { href: group.items[0].href }), icon: group.icon, active: group.items.some(item => activeLink(item.href)) })) : isTl ? [
     { label: "Home", href: "/reports?workspace=dashboard", icon: IconHome, active: tlSection === "dashboard" },
     { label: "Cases", href: "/reports?workspace=cases&queue=all", icon: IconNavCases, active: tlSection === "cases" },
     { label: "People", href: "/reports?workspace=team&view=team&queue=all", icon: IconNavPeople, active: tlSection === "team" },
@@ -134,7 +140,7 @@ export function WorkspaceFrame({ children, user, groups, context, pathname, home
     const ItemIcon = item.icon;
     return item.href ? <Link key={item.label} href={item.href} aria-current={item.active ? "page" : undefined}><ItemIcon className="size-5" /><span>{item.label}</span></Link>
       : <button key={item.label} type="button" aria-label={`${item.group} menu`} aria-haspopup="dialog" aria-expanded={groupName === item.group} aria-controls={groupName === item.group ? "workspace-submenu" : undefined} data-active={item.active} onClick={() => setGroupName(item.group!)}><ItemIcon className="size-5" /><span>{item.label}</span></button>;
-  })}<button type="button" aria-label="More navigation" aria-haspopup="dialog" aria-expanded={isTl || desktop ? groupName === "Workspace" : mobileOpen} aria-controls={isTl || desktop ? groupName === "Workspace" ? "workspace-submenu" : undefined : "application-sidebar"} onClick={event => { if (isTl || desktop) setGroupName("Workspace"); else { drawerReturnFocus.current = event.currentTarget; setMobileOpen(true); } }}><IconDots className="size-5" /><span>More</span></button></>;
+  })}{!isAdminOfficer && <button type="button" aria-label="More navigation" aria-haspopup="dialog" aria-expanded={isTl || desktop ? groupName === "Workspace" : mobileOpen} aria-controls={isTl || desktop ? groupName === "Workspace" ? "workspace-submenu" : undefined : "application-sidebar"} onClick={event => { if (isTl || desktop) setGroupName("Workspace"); else { drawerReturnFocus.current = event.currentTarget; setMobileOpen(true); } }}><IconDots className="size-5" /><span>More</span></button>}</>;
   if (notifications) permitted.add("/notifications");
   const ancestors = [...(dashboard && pathname !== dashboard.href ? [dashboard] : []), ...(context.parent && permitted.has(context.parent.href) ? [context.parent] : [])].filter((item, index, rows) => rows.findIndex(row => row.href === item.href) === index).map(item => isTl && item.href === "/applications" ? { ...item, href: "/reports?workspace=cases&queue=all", label: "Cases" } : item);
   const tlDashboard = pathname === "/reports" && user?.userType?.code === "TL";
@@ -268,12 +274,12 @@ export function WorkspaceFrame({ children, user, groups, context, pathname, home
     return () => { document.removeEventListener("pointerdown", outside); document.removeEventListener("focusin", outside); };
   }, [accountOpen, closeAccount]);
 
-  return <PageHeaderSlots.Provider value={{ description: descriptionTarget, actions: actionsTarget }}><div className={styles.canvas}><div onFocusCapture={event => { responsiveFocus.current = event.target; }} ref={frameRef} className={styles.frame} data-tl={isTl || undefined}>
+  return <PageHeaderSlots.Provider value={{ description: descriptionTarget, actions: actionsTarget, setTitle }}><div className={styles.canvas}><div onFocusCapture={event => { responsiveFocus.current = event.target; }} ref={frameRef} className={styles.frame} data-admin-officer={isAdminOfficer || undefined} data-tl={isTl || undefined}>
     <header className={styles.topbar} inert={!desktop && mobileOpen}>
       <Link href={home} aria-label="AMAFH CORE home" className={styles.brand}><BrandLogo /></Link>
       <Link href={ancestors.at(-1)?.href ?? home} aria-label="Back to workspace" className={styles.compactBack}><IconChevronLeft className="size-[22px]" /></Link>
       <div className={styles.compactIdentity} aria-hidden="true"><strong>{compactTitle}</strong><small>{context.parent?.label ?? (context.group === "Workspace" ? "Your workspace" : context.group)}</small></div>
-      <nav className={styles.desktopNav} aria-label="Primary">{groups.map(group => group.label === "Workspace" ? <Link key={group.label} href={group.items[0].href} aria-label={group.items[0].label} aria-current={context.group === group.label ? "page" : undefined}>{group.label === "Workspace" ? "Dashboard" : group.label}</Link> : <button key={group.label} type="button" aria-label={`${group.label} menu`} aria-haspopup="dialog" aria-expanded={groupName === group.label} data-active={context.group === group.label} onClick={() => setGroupName(group.label)}>{group.label}<IconChevronDown className="size-3" /></button>)}</nav>
+      <nav className={styles.desktopNav} aria-label="Primary">{groups.map(group => directGroup(group.label) ? <Link key={group.label} href={group.items[0].href} aria-label={group.items[0].label} aria-current={(isAdminOfficer ? activeLink(group.items[0].href) : context.group === group.label) ? "page" : undefined}>{group.label === "Workspace" ? "Dashboard" : group.label}</Link> : <button key={group.label} type="button" aria-label={`${group.label} menu`} aria-haspopup="dialog" aria-expanded={groupName === group.label} data-active={isAdminOfficer ? group.items.some(item => activeLink(item.href)) : context.group === group.label} onClick={() => setGroupName(group.label)}>{group.label}<IconChevronDown className="size-3" /></button>)}</nav>
       <div className={styles.headerActions}>
         {isTl && user.permissions.includes("Applications.Create") && <Button className={styles.createCase} onClick={() => { if (pathname === "/reports") window.dispatchEvent(new Event("nexa-create-case")); else router.push("/reports?workspace=cases&create=1"); }}>Create Case</Button>}
         {notifications && <NotificationBell pathname={pathname} />}
@@ -306,10 +312,10 @@ export function WorkspaceFrame({ children, user, groups, context, pathname, home
       <button ref={menuClose} type="button" aria-label="Close navigation" className={`${styles.iconButton} ${styles.mobileClose}`} onClick={() => setMobileOpen(false)}><IconX className="size-4" /></button>
       <nav className={styles.compactRail} aria-label="Tablet navigation"><Link href={home} aria-label="AMAFH CORE home" className={styles.railBrand}><BrandLogo mark /></Link>{compactNavigation}</nav>
       <nav className={styles.mainCapsule} aria-label="All modules">{groups.map(group => {
-        const direct = ["Workspace", "Finance"].includes(group.label);
+        const direct = ["Workspace", "Finance"].includes(group.label) || (isAdminOfficer && group.label !== "Reports");
         const MainIcon = group.icon;
-        const active = context.group === group.label;
-        return direct ? <Link key={group.label} href={group.items[0].href} onNavigate={() => setMobileOpen(false)} aria-label={group.items[0].label} aria-current={isActive(group.items[0].href) ? "page" : undefined} className={styles.railButton}><MainIcon className="size-5" /><span>{group.label}</span></Link> : <button key={group.label} type="button" aria-label={`${group.label} menu`} aria-haspopup="dialog" aria-expanded={groupName === group.label} aria-controls={groupName === group.label ? "workspace-submenu" : undefined} data-active={active} className={styles.railButton} onClick={() => setGroupName(group.label)}><MainIcon className="size-5" /><span>{group.label}</span></button>;
+        const active = isAdminOfficer ? group.items.some(item => activeLink(item.href)) : context.group === group.label;
+        return direct ? <Link key={group.label} href={group.items[0].href} onNavigate={() => setMobileOpen(false)} aria-label={group.items[0].label} aria-current={(isAdminOfficer ? activeLink(group.items[0].href) : isActive(group.items[0].href)) ? "page" : undefined} className={styles.railButton}><MainIcon className="size-5" /><span>{group.label}</span></Link> : <button key={group.label} type="button" aria-label={`${group.label} menu`} aria-haspopup="dialog" aria-expanded={groupName === group.label} aria-controls={groupName === group.label ? "workspace-submenu" : undefined} data-active={active} className={styles.railButton} onClick={() => setGroupName(group.label)}><MainIcon className="size-5" /><span>{group.label}</span></button>;
       })}</nav>
       <div className={styles.utilityCapsule}><button type="button" aria-label="Sign out" className={styles.railButton} onClick={() => void onLogout()}><IconLogout className="size-5" /></button></div>
     </aside>}
@@ -318,8 +324,8 @@ export function WorkspaceFrame({ children, user, groups, context, pathname, home
       <nav className={styles.topNav} aria-label="Workspace pages">{topItems.map(item => <Link key={item.href} href={item.href} aria-current={(isTl ? pathname === "/reports" || pathname.startsWith("/applications") ? new URLSearchParams(item.href.split("?")[1]).get("workspace") === tlSection : false : isActive(item.href)) ? "page" : undefined}>{item.label}</Link>)}</nav>
       <div data-testid="page-header" className={styles.pageHeader} data-compact={tlDashboard}>
         <div className={styles.pageIdentity}>
-        <nav ref={breadcrumb} aria-label="Breadcrumb" className={tlDashboard ? "sr-only" : styles.breadcrumb}>{ancestors.map(item => <span key={item.href} className="contents"><Link href={item.href}>{item.label}</Link><IconChevronRight className="size-3" /></span>)}<span aria-current="page">{context.title}</span></nav>
-          <h1 className={tlDashboard ? "sr-only" : undefined}>{context.title}</h1>
+        <nav ref={breadcrumb} aria-label="Breadcrumb" className={tlDashboard ? "sr-only" : styles.breadcrumb}>{ancestors.map(item => <span key={item.href} className="contents"><Link href={item.href}>{item.label}</Link><IconChevronRight className="size-3" /></span>)}<span aria-current="page">{renderedTitle}</span></nav>
+          <h1 className={tlDashboard ? "sr-only" : undefined}>{renderedTitle}</h1>
           <div ref={setDescriptionTarget} className={styles.pageDescription} />
         </div>
         <div ref={setActionsTarget} data-page-header-actions="" className={styles.pageActions} />
@@ -327,7 +333,7 @@ export function WorkspaceFrame({ children, user, groups, context, pathname, home
       <main ref={workspace} data-amafh-workspace="" data-amafh-page-typography={["/reports", "/hr", "/pro"].includes(pathname) ? undefined : ""} data-testid="page-main" className={styles.workspace}>{children}</main>
     </div>
     <nav className={styles.bottomNav} aria-label="Mobile navigation" inert={!desktop && mobileOpen}>{compactNavigation}</nav>
-    {selectedPopup && <NavigationPopup key={selectedPopup.label} group={selectedPopup} onClose={closeGroup} onNavigate={() => { setGroupName(null); setMobileOpen(false); }} isActive={isActive} fallbackFocus={menuTrigger} />}
+    {selectedPopup && <NavigationPopup key={selectedPopup.label} group={selectedPopup} onClose={closeGroup} onNavigate={() => { setGroupName(null); setMobileOpen(false); }} isActive={activeLink} fallbackFocus={menuTrigger} />}
     {railTooltip && createPortal(<span id="application-sidebar-tooltip" role="tooltip" className={styles.railTooltip} style={{ left: railTooltip.left, top: railTooltip.top }}>{railTooltip.label}</span>, document.body)}
   </div></div></PageHeaderSlots.Provider>;
 }

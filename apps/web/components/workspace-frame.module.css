@@ -100,6 +100,11 @@
 @media (max-width: 639px) { .headerActions .headerTheme { display: none; } .accountMenu .accountTheme { display: flex; margin-bottom: 10px; } .accountMenu .accountTheme button { width: 44px; height: 44px; } }
 .desktopNav :is([aria-current="page"],[data-active="true"]) { background: var(--amafh-action); color: var(--amafh-action-text); }
 .frame:not([data-tl]) .topNav { display: none; }
+/* Keep Admin Officer Attendance selected throughout its child routes/views. */
+.frame[data-admin-officer] .desktopNav a[href="/attendance"][aria-current="page"] {
+  background: #9b398f;
+  color: var(--amafh-nav-text);
+}
 /* Global Header: Figma 90:3 and 296:159. Compact app navigation has its
    own references and does not inherit these desktop dimensions. */
 @media (min-width: 1280px) {

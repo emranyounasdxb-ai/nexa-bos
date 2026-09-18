@@ -5,6 +5,7 @@ import { PanelPopup } from "@/components/panel-popup";
 import { RecordFrame } from "@/components/page-patterns";
 
 import Link from "next/link";
+import { AdminCaseDetails } from "../admin-case-details";
 import { useParams } from "next/navigation";
 import {
   type FormEvent,
@@ -104,7 +105,7 @@ function correctionVariant(
     typeof record.productVariantName === "string" ? record.productVariantName : null;
   return {
     id,
-    label: name || "No Product Variant (legacy)",
+    label: name || "No Product Variant assigned",
   };
 }
 
@@ -462,9 +463,9 @@ export default function ApplicationDetailPage() {
   }
 
   if (!can("Applications.View")) {
-    return <EmptyState>You do not have permission to view Applications.</EmptyState>;
+    return <EmptyState>You do not have permission to view {user?.userType?.code === "ADMIN_OFFICER" ? "Cases" : "Applications"}.</EmptyState>;
   }
-  if (loading && !item) return <LoadingState>Loading Application…</LoadingState>;
+  if (loading && !item) return <LoadingState>Loading {user?.userType?.code === "ADMIN_OFFICER" ? "Case" : "Application"}…</LoadingState>;
   if (!item) {
     return (
       <Card>
@@ -475,6 +476,8 @@ export default function ApplicationDetailPage() {
       </Card>
     );
   }
+
+  if (user?.userType?.code === "ADMIN_OFFICER") return <AdminCaseDetails item={item} review={review} events={timeline} error={error} onSaved={async (text) => { setMessage(text); await refresh(); }} />;
 
   const selectedNext = nextStages.find((stage) => stage.id === stageId);
   const status = item.terminalOutcome || item.currentStage || "In progress";
@@ -643,7 +646,7 @@ export default function ApplicationDetailPage() {
                       {item.productVariantId && !variants.some((variant) => variant.id === item.productVariantId) ? <option value={item.productVariantId} disabled>{item.productVariantName} — unavailable for new selection</option> : null}
                       {variants.map((variant) => <option key={variant.id} value={variant.id}>{variant.name}</option>)}
                     </Select>
-                  ) : <p className="mt-1.5 flex min-h-8 items-center rounded-md border border-brand-border bg-surface-subtle px-3 text-sm">{item.productVariantName ?? "No Product Variant assigned (legacy application)"}</p>}
+                  ) : <p className="mt-1.5 flex min-h-8 items-center rounded-md border border-brand-border bg-surface-subtle px-3 text-sm">{item.productVariantName ?? "No Product Variant assigned"}</p>}
                 </Field>
               </div>
               {variantFeedback?.tone === "error" ? <div className="mt-3"><ErrorText>{variantFeedback.text}</ErrorText></div> : null}
@@ -883,7 +886,7 @@ export default function ApplicationDetailPage() {
                 >
                   <Field label="Corrected Product Variant">
                     <Select aria-label="Corrected Product Variant" value={correctionVariantId} onChange={(event) => setCorrectionVariantId(event.target.value)}>
-                      <option value="">Keep current — {item.productVariantName ?? "No Product Variant (legacy)"}</option>
+                      <option value="">Keep current — {item.productVariantName ?? "No Product Variant assigned"}</option>
                       {variants.map((variant) => <option key={variant.id} value={variant.id}>{variant.name}</option>)}
                     </Select>
                   </Field>
