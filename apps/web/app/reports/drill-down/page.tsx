@@ -137,7 +137,7 @@ function DrillDownInner() {
                   <p className="text-xs text-slate-500">
                     {item.productName} · {item.productVariantName
                       ? item.productVariantName
-                      : "Legacy: no Product Variant"}
+                      : "No Product Variant assigned"}
                   </p>
                 </Td>
                 <Td>{item.terminalOutcome ?? item.currentStage}</Td>

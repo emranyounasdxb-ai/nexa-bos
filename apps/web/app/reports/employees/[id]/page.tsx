@@ -406,7 +406,7 @@ function ProfileInner() {
                     </Link>
                   </Td>
                   <Td>
-                    {item.bankName} / {item.productName} / {item.productVariantName ?? "Legacy"}
+                    {item.bankName} / {item.productName} / {item.productVariantName ?? "Not assigned"}
                   </Td>
                   <Td>{item.currentStage}</Td>
                 </tr>
