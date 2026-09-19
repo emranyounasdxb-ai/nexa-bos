@@ -393,10 +393,7 @@ async def create_leave_type(
         new_values={"code": row.code, "name": row.name},
     )
     await session.commit()
-    await session.refresh(
-        row,
-        attribute_names=["status", "time_in", "time_out", "notes", "leave_type_id", "updated_at"],
-    )
+    await session.refresh(row)
     return serialize_leave_type(row)
 
 

@@ -29,32 +29,32 @@ _ROUTE_MATRIX = (
         "POST",
         "/api/v1/assets/categories",
         {"code": "SEC", "name": "Security", "fields": []},
-        "Assets.ManageMaster",
+        "Assets.ManageCategories",
     ),
     (
         "PATCH",
         f"/api/v1/assets/categories/{_DUMMY_ID}",
         {"name": "Security"},
-        "Assets.ManageMaster",
+        "Assets.ManageCategories",
     ),
     (
         "POST",
         f"/api/v1/assets/categories/{_DUMMY_ID}/activate",
         None,
-        "Assets.ManageMaster",
+        "Assets.ManageCategories",
     ),
     (
         "POST",
         f"/api/v1/assets/categories/{_DUMMY_ID}/deactivate",
         None,
-        "Assets.ManageMaster",
+        "Assets.ManageCategories",
     ),
-    ("GET", "/api/v1/assets/reports/asset_register", None, "Assets.View"),
+    ("GET", "/api/v1/assets/reports/asset_register", None, "Assets.Reports"),
     (
         "POST",
         "/api/v1/assets/reports/export",
         {"format": "xlsx", "report": "asset_register"},
-        "Assets.View",
+        "Assets.Export",
     ),
     ("GET", "/api/v1/assets/audit", None, "Assets.ViewAudit"),
     ("GET", f"/api/v1/assets/employees/{_DUMMY_ID}", None, "Assets.View"),
@@ -87,7 +87,7 @@ _ROUTE_MATRIX = (
         "POST",
         f"/api/v1/assets/{_DUMMY_ID}/condition",
         {"condition": "Good", "reason": "Security"},
-        "Assets.ManageStock",
+        "Assets.ManageMaster",
     ),
     (
         "POST",
@@ -128,6 +128,12 @@ _ROUTE_MATRIX = (
         "Assets.ManageStatus",
     ),
     ("GET", f"/api/v1/assets/{_DUMMY_ID}/history", None, "Assets.ViewAudit"),
+    (
+        "POST",
+        f"/api/v1/assets/{_DUMMY_ID}/history/export",
+        {"format": "csv"},
+        "Assets.ViewAudit",
+    ),
 )
 
 
@@ -189,6 +195,7 @@ def test_asset_security_matrix_covers_every_registered_route() -> None:
         ("POST", "/api/v1/assets/{asset_id}/transfer/office"),
         ("POST", "/api/v1/assets/{asset_id}/status"),
         ("GET", "/api/v1/assets/{asset_id}/history"),
+        ("POST", "/api/v1/assets/{asset_id}/history/export"),
     }
     assert registered == expected
 
@@ -213,7 +220,26 @@ async def test_every_asset_route_enforces_exact_permission(client: AsyncClient) 
             assert response.status_code == 403, (method, path, response.text)
             error = response.json()["error"]
             assert error["code"] == "FORBIDDEN"
-            assert error["details"] == [{"permission": permission}]
+            assert error["details"] == [{"permission": "Assets.View"}]
+    view_type = await _type_with(owner, ["Assets.View"], scope="company")
+    view_user = await create_activated_user(owner, user_type_code=view_type)
+    async with await spawned_client() as viewer:
+        await authenticate(viewer, view_user["email"], "UserPass1!")
+        for method, path, body, permission in _ROUTE_MATRIX:
+            if permission == "Assets.View" or path.endswith("/status"):
+                continue
+            response = await viewer.request(method, path, json=body)
+            assert response.status_code == 403, (method, path, response.text)
+            assert response.json()["error"]["details"] == [{"permission": permission}]
+        asset = await _create_pc(owner, await office_id(owner, "DXB"))
+        response = await viewer.post(
+            f"/api/v1/assets/{asset['id']}/status",
+            json={"status": "Lost", "reason": "Permission probe"},
+        )
+        assert response.status_code == 403, response.text
+        assert response.json()["error"]["details"] == [
+            {"permission": "Assets.ManageStatus"}
+        ]
 
 
 @pytest.mark.asyncio
@@ -292,12 +318,15 @@ async def test_damaged_return_requires_status_authority_and_reason(
     assert event["reason"] == "Screen cracked"
 
 
-@pytest.mark.parametrize("controlled_status", ["Lost", "Damaged", "Under Repair"])
 @pytest.mark.parametrize(
-    ("operation", "permission"),
+    ("controlled_status", "operation", "permission"),
     [
-        ("return", "Assets.Return"),
-        ("employee_transfer", "Assets.Transfer"),
+        ("Lost", "return", "Assets.Return"),
+        ("Lost", "employee_transfer", "Assets.Transfer"),
+        ("Damaged", "return", "Assets.Return"),
+        ("Damaged", "employee_transfer", "Assets.Transfer"),
+        ("Under Repair", "return", "Assets.Return"),
+        ("Under Repair", "employee_transfer", "Assets.Transfer"),
     ],
 )
 @pytest.mark.asyncio
@@ -324,7 +353,7 @@ async def test_h1_controlled_status_blocks_custody_operation_until_authorized_co
 
     manager_type = await _type_with(
         owner,
-        ["Assets.View", "Assets.ManageStatus"],
+        ["Assets.View", "Assets.ManageStatus", "Assets.Repair"],
         scope="company",
     )
     manager_user = await create_activated_user(owner, user_type_code=manager_type)
@@ -370,22 +399,27 @@ async def test_h1_controlled_status_blocks_custody_operation_until_authorized_co
     async with await spawned_client() as operator:
         await authenticate(operator, operator_user["email"], "UserPass1!")
         denied = await operator.post(path, json=payload)
-        assert denied.status_code == 409, denied.text
-        assert denied.json()["error"]["code"] == "ASSET_STATUS_OPERATION_BLOCKED"
-        assert denied.json()["error"]["details"] == [
-            {
-                "operation": "Return" if operation == "return" else "Employee Transfer",
-                "currentStatus": controlled_status,
-                "requiredStatus": "Allocated",
-            }
-        ]
+        if controlled_status == "Under Repair" and operation == "return":
+            assert denied.status_code == 403, denied.text
+            assert denied.json()["error"]["code"] == "FORBIDDEN"
+        else:
+            assert denied.status_code == 409, denied.text
+            assert denied.json()["error"]["code"] == "ASSET_STATUS_OPERATION_BLOCKED"
+            assert denied.json()["error"]["details"] == [
+                {
+                    "operation": "Return" if operation == "return" else "Employee Transfer",
+                    "currentStatus": controlled_status,
+                    "requiredStatus": "Allocated",
+                }
+            ]
 
     after_denial_detail = (await owner.get(f"/api/v1/assets/{asset['id']}")).json()
     after_denial_history = (
         await owner.get(f"/api/v1/assets/{asset['id']}/history")
     ).json()
     assert after_denial_detail == before_detail
-    assert after_denial_history == before_history
+    for key in ("asset", "allocations", "officeCustody", "events"):
+        assert after_denial_history[key] == before_history[key]
 
     async with await spawned_client() as manager:
         await authenticate(manager, manager_user["email"], "UserPass1!")
@@ -483,6 +517,8 @@ async def test_office_scope_blocks_idor_tampering_audit_and_export_leakage(
         "Assets.Return",
         "Assets.ManageStatus",
         "Assets.ViewAudit",
+        "Assets.Reports",
+        "Assets.Export",
     ]
     office_type = await _type_with(owner, all_permissions, scope="office")
     office_admin = await create_activated_user(

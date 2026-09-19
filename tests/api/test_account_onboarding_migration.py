@@ -103,7 +103,7 @@ async def test_existing_identity_preserved_and_missing_code_backfilled():
                 == 3
             )
             assert await connection.scalar(text("SELECT count(*) FROM user_code_reservations")) == 0
-        assert "0028_case_operations (head)" in _alembic(url, "current")
+        assert "0030_module_permissions (head)" in _alembic(url, "current")
         assert "No new upgrade operations detected" in _alembic(url, "check")
     finally:
         await engine.dispose()

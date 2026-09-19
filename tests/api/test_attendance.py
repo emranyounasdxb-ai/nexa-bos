@@ -135,7 +135,10 @@ async def test_attendance_permissions_and_scope_isolation(client: AsyncClient) -
     auh = await office_id(authed, "AUH")
     denied = await _attendance_user(authed, permissions=["Users.View"], office_id=dxb)
     viewer = await _attendance_user(
-        authed, permissions=["Attendance.View"], directory_scope="office", office_id=dxb
+        authed,
+        permissions=["Attendance.View", "Attendance.Daily"],
+        directory_scope="office",
+        office_id=dxb,
     )
     other = await create_activated_user(authed, office_id=auh)
     async with await spawned_client() as other_client:
@@ -202,20 +205,39 @@ async def test_daily_attendance_calculations_and_duplicate_prevention(client: As
     grace_ok = await _save(
         authed, workday, employee["id"], status="Present", time_in="08:40", time_out="17:00"
     )
+    assert grace_ok.status_code == 200, grace_ok.text
     assert grace_ok.json()["items"][0]["isLate"] is False
-    late = await _save(
+    record_id = grace_ok.json()["items"][0]["id"]
+    repeated = await _save(
+        authed, workday, employee["id"], status="Present", time_in="08:40", time_out="17:00"
+    )
+    assert repeated.status_code == 200, repeated.text
+    assert repeated.json()["items"][0]["id"] == record_id
+    changed_without_reason = await _save(
         authed, workday, employee["id"], status="Present", time_in="08:41", time_out="16:50"
     )
-    late_row = late.json()["items"][0]
+    assert changed_without_reason.status_code == 409
+    assert changed_without_reason.json()["error"]["code"] == "ATTENDANCE_CORRECTION_REQUIRED"
+    late = await authed.post(
+        f"/api/v1/attendance/records/{record_id}/corrections",
+        json={"reason": "Correct recorded punches", "time_in": "08:41", "time_out": "16:50"},
+    )
+    assert late.status_code == 200, late.text
+    late_row = late.json()
     assert late_row["isLate"] is True
     assert late_row["lateMinutes"] == 1
     assert late_row["isEarlyExit"] is True
     assert late_row["earlyExitMinutes"] == 10
-    incomplete = await _save(authed, workday, employee["id"], status="Present", time_in="08:30")
-    assert incomplete.json()["items"][0]["isIncomplete"] is True
-    assert incomplete.json()["items"][0]["timeOut"] is None
-    invalid = await _save(
-        authed, workday, employee["id"], status="Present", time_in="18:00", time_out="09:00"
+    incomplete = await authed.post(
+        f"/api/v1/attendance/records/{record_id}/corrections",
+        json={"reason": "Correct missing out punch", "time_in": "08:30", "clear_time_out": True},
+    )
+    assert incomplete.status_code == 200, incomplete.text
+    assert incomplete.json()["isIncomplete"] is True
+    assert incomplete.json()["timeOut"] is None
+    invalid = await authed.post(
+        f"/api/v1/attendance/records/{record_id}/corrections",
+        json={"reason": "Invalid time probe", "time_in": "18:00", "time_out": "09:00"},
     )
     assert invalid.status_code == 422
     cleared = await authed.put("/api/v1/attendance/working-days", json={"weekdays": []})
