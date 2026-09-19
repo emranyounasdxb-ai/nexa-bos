@@ -86,7 +86,7 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
     const reviewed = await request.post(`${api}/api/v1/transfers/${saved.id}/action`, { headers, data: { action: "review", lock_version: current.lockVersion, comment: "Independent HR review" } }); expect(reviewed.ok(), await reviewed.text()).toBeTruthy();
     await page.keyboard.press("Escape");
     await expect(trigger).toBeFocused();
-    if (viewport.width < 1024) await expect(page.getByRole("button", { name: "Open navigation" })).toHaveAttribute("aria-expanded", "false");
+    if (viewport.width < 640) await expect(page.getByRole("button", { name: "More navigation" })).toHaveAttribute("aria-expanded", "false");
     // Account actions are in the header and remain reachable with the rail closed.
     await page.getByRole("button", { name: "Open user menu" }).focus();
     await expect(page.getByRole("button", { name: "Open user menu" })).toBeFocused();

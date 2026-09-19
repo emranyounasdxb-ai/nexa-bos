@@ -110,8 +110,8 @@ test("owner can create a customer and view bank product catalog", async ({ page,
     await expect(name).toBeVisible();
     const a = (await name.boundingBox())!;
     const b = (await mobile.boundingBox())!;
-    expect(a.height).toBe(32);
-    expect(b.height).toBe(32);
+    expect(a.height).toBe(viewport.width < 640 ? 48 : 36);
+    expect(b.height).toBe(viewport.width < 640 ? 48 : 36);
     expect(Math.abs(a.x - b.x)).toBeLessThanOrEqual(1);
     expect(b.y).toBeGreaterThan(a.y + a.height);
     expect(a.width).toBeGreaterThan(b.width);
@@ -120,7 +120,7 @@ test("owner can create a customer and view bank product catalog", async ({ page,
   }
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.getByLabel("Full name").fill(`Playwright Customer ${suffix}`);
-  await page.getByLabel("Mobile").fill(`+97150${suffix}`);
+  await page.getByLabel("Mobile", { exact: true }).fill(`+97150${suffix}`);
   await page.getByRole("button", { name: "Create customer" }).click();
   await expect(page).toHaveURL(/\/customers\/[0-9a-f-]+$/, { timeout: 30_000 });
   await expect(page.getByRole("heading", { name: `Playwright Customer ${suffix}` })).toBeVisible();
@@ -202,8 +202,8 @@ test("GM retains Customer directory and management access on desktop and mobile"
 
   await page.setViewportSize({ width: 1440, height: 900 });
   await signIn(page, gm.email, "UserPass1!");
-  await page.getByRole("button", { name: "Operations menu" }).click();
-  await expect(page.getByRole("dialog", { name: "Operations", exact: true }).getByRole("link", { name: "Customers", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Cases menu" }).click();
+  await expect(page.getByRole("dialog", { name: "Cases", exact: true }).getByRole("link", { name: "Customers", exact: true })).toBeVisible();
   const me = await page.request.get(`${apiOrigin}/api/v1/auth/me`);
   const csrf = ((await me.json()) as { csrfToken: string }).csrfToken;
   const createdCustomer = await page.request.post(`${apiOrigin}/api/v1/customers`, {
@@ -221,9 +221,9 @@ test("GM retains Customer directory and management access on desktop and mobile"
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.reload();
-  await page.getByRole("button", { name: "Open navigation" }).click();
-  await page.getByLabel("Application sidebar").getByRole("button", { name: "Operations menu" }).click();
-  await expect(page.getByRole("dialog", { name: "Operations", exact: true }).getByRole("link", { name: "Customers", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "More navigation", exact: true }).click();
+  await page.getByLabel("Application sidebar").getByRole("button", { name: "Cases menu" }).click();
+  await expect(page.getByRole("dialog", { name: "Cases", exact: true }).getByRole("link", { name: "Customers", exact: true })).toBeVisible();
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
@@ -434,6 +434,7 @@ test("customer detail preserves history and confirms status and irreversible mer
 
   await page.getByRole("tab", { name: "Merge" }).click();
   await expect(page).toHaveURL(/\?tab=merge$/);
+  await page.getByLabel("Search primary customers", { exact: true }).fill(primary.customerCode);
   await selectBrandedOption(page.getByRole("combobox", { name: "Primary customer" }), primary.id);
   const reviewMerge = page.getByRole("button", { name: "Review permanent merge" });
   await captureViewportPair(page, testInfo, "customer-merge-form", page.getByRole("tabpanel", { name: "Merge", exact: true }));
@@ -497,11 +498,11 @@ test("Customers.View alone cannot bypass the OWNER and GM directory gate", async
 
   await page.setViewportSize({ width: 390, height: 844 });
   await signIn(page, viewer.email, "UserPass1!");
-  await page.getByRole("button", { name: "Open navigation" }).click();
-  const operations = page.getByLabel("Application sidebar").getByRole("button", { name: "Operations menu", exact: true });
-  if (await operations.count()) {
-    await operations.click();
-    await expect(page.getByRole("dialog", { name: "Operations", exact: true }).getByRole("link", { name: "Customers", exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: "More navigation" }).click();
+  const cases = page.getByLabel("Application sidebar").getByRole("button", { name: "Cases menu", exact: true });
+  if (await cases.count()) {
+    await cases.click();
+    await expect(page.getByRole("dialog", { name: "Cases", exact: true }).getByRole("link", { name: "Customers", exact: true })).toHaveCount(0);
     await page.keyboard.press("Escape");
   }
   await expect(page.getByRole("navigation", { name: "Workspace pages" }).getByRole("link", { name: "Customers", exact: true })).toHaveCount(0);

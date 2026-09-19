@@ -88,7 +88,7 @@ export default function LoginPage() {
           <h1>Welcome Back</h1>
           {mfaToken ? <p className={styles.mfaDescription}>Enter the authenticator code for this account.</p> : null}
 
-          <form onSubmit={(event) => void onSubmit(event)} className={styles.form}>
+          <form data-amafh-page-typography="" onSubmit={(event) => void onSubmit(event)} className={styles.form}>
             {mfaToken ? (
               <label className={styles.field}>
                 Authenticator code

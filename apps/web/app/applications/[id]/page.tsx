@@ -1,8 +1,11 @@
 "use client";
 
+
+import { PanelPopup } from "@/components/panel-popup";
 import { RecordFrame } from "@/components/page-patterns";
 
 import Link from "next/link";
+import { AdminCaseDetails } from "../admin-case-details";
 import { useParams } from "next/navigation";
 import {
   type FormEvent,
@@ -33,6 +36,10 @@ import {
 import { apiGet, apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { formatDuration } from "@/lib/duration";
+import { formatAed } from "@/lib/reports";
+import { orderCaseProgress } from "@/lib/tl-case-presentation";
+import { caseStageLabel } from "@/lib/tl-case-journey";
+import { TlCaseJourney, caseJourneyDate } from "@/components/tl-case-journey";
 import { getBrowserApiUrl } from "@/lib/env";
 import { canManageCustomers } from "@/lib/role-access";
 import type {
@@ -43,6 +50,7 @@ import type {
   WorkflowRecord,
   WorkflowStageRecord,
 } from "@/lib/types";
+import tlStyles from "./tl-case-detail.module.css";
 
 type DetailTab = "overview" | "workflow" | "actions" | "timeline";
 
@@ -102,7 +110,7 @@ function correctionVariant(
     typeof record.productVariantName === "string" ? record.productVariantName : null;
   return {
     id,
-    label: name || "No Product Variant (legacy)",
+    label: name || "No Product Variant assigned",
   };
 }
 
@@ -122,6 +130,7 @@ function Value({ label, children }: { label: string; children: React.ReactNode }
 export default function ApplicationDetailPage() {
   const params = useParams<{ id: string }>();
   const { user } = useAuth();
+  const isTl = user?.userType?.code === "TL";
   const can = useCallback((permission: string) => Boolean(user?.permissions.includes(permission)) && (
     user?.userType?.code !== "TL" || ![
       "Applications.Submit", "Applications.UpdateStage", "Applications.CorrectStage",
@@ -460,9 +469,9 @@ export default function ApplicationDetailPage() {
   }
 
   if (!can("Applications.View")) {
-    return <EmptyState>You do not have permission to view Applications.</EmptyState>;
+    return <EmptyState>You do not have permission to view {user?.userType?.code === "ADMIN_OFFICER" ? "Cases" : "Applications"}.</EmptyState>;
   }
-  if (loading && !item) return <LoadingState>Loading Application…</LoadingState>;
+  if (loading && !item) return <LoadingState>Loading {user?.userType?.code === "ADMIN_OFFICER" ? "Case" : "Application"}…</LoadingState>;
   if (!item) {
     return (
       <Card>
@@ -474,9 +483,12 @@ export default function ApplicationDetailPage() {
     );
   }
 
+  if (user?.userType?.code === "ADMIN_OFFICER") return <AdminCaseDetails item={item} review={review} events={timeline} error={error} onSaved={async (text) => { setMessage(text); await refresh(); }} />;
+
   const selectedNext = nextStages.find((stage) => stage.id === stageId);
-  const status = item.terminalOutcome || item.currentStage || "In progress";
-  const currentStageIndex = progress.findIndex((stage) => stage.current);
+  const status = isTl ? caseStageLabel(item, review ?? {}) : item.terminalOutcome || item.currentStage || "In progress";
+  const displayedProgress = isTl ? orderCaseProgress(progress) : progress;
+  const currentStageIndex = displayedProgress.findIndex((stage) => stage.current);
   const canEditOwn = can("Applications.Edit") && !item.submitted && !item.terminal &&
     (!["TL", "SE", "BDM", "SM", "OM"].includes(user?.userType?.code ?? "") || item.caseOwnerId === user?.id) &&
     Boolean(review && (review.status === "legacy" || ["OWNER", "GM"].includes(user?.userType?.code ?? "") ||
@@ -497,14 +509,15 @@ export default function ApplicationDetailPage() {
     (user?.id === item.routedCoordinatorId && ["booked", "sm_approved"].includes(item.routingStatus ?? ""));
 
   return (
-    <section className="min-w-0 space-y-4" aria-busy={loading}>
+    <section className={cx("min-w-0 space-y-4", isTl && tlStyles.detail)} aria-busy={loading}>
       <PageHeader
         title={item.applicationCode}
-        description="Application classification, workflow progress, controlled corrections, and immutable lifecycle history."
+        frameTitle={isTl ? item.applicationCode : undefined}
+        description={isTl ? "Case information, review progress and activity history." : "Application classification, workflow progress, controlled corrections, and immutable lifecycle history."}
         actions={
           <>
-            <Link className="text-sm font-medium text-brand-link underline" href="/applications">
-              Back to Applications
+            <Link className="text-sm font-medium text-brand-link underline" href={isTl ? "/reports?workspace=cases&queue=all" : "/applications"}>
+              {isTl ? "Back to Cases" : "Back to Applications"}
             </Link>
             {canManageCustomers(user) ? (
               <Link className="text-sm font-medium text-brand-link underline" href={`/customers/${item.customerId}`}>
@@ -515,7 +528,8 @@ export default function ApplicationDetailPage() {
         }
       />
 
-      <RecordFrame summary={
+      {isTl ? <Card className={tlStyles.identitySurface}><div className={tlStyles.identityHeader}><div><span className={tlStyles.eyebrow}>Case record</span><h2>{item.applicationCode}</h2><p>{item.customerCode} · {item.customerName}</p></div><StatusBadge value={status} /></div><dl className={tlStyles.identityFacts}><Value label="Bank / product">{item.bankName} · {item.productName}</Value><Value label="Requested">{formatAed(item.requestedAmount)}</Value><Value label="Case Owner">{item.caseOwnerName || "—"}</Value><Value label="Team Leader">{review?.tlName || "—"}</Value><Value label="Sales Manager">{item.routedSalesManagerName || "—"}</Value><Value label="Coordinator">{item.routedCoordinatorName || "—"}</Value><Value label="Created">{caseJourneyDate(item.createdAt)}</Value><Value label="Current Stage">{status}</Value></dl></Card> : null}
+      <RecordFrame panelLabel="Application summary" summary={isTl ? null :
       <Card>
         <div className="flex min-w-0 flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0">
@@ -528,7 +542,7 @@ export default function ApplicationDetailPage() {
               {item.customerCode} · {item.customerName} · {item.bankName} / {item.productName}
             </p>
             <p className="mt-1 text-xs text-text-secondary">
-              Case Owner {item.caseOwnerName || "Not assigned"} · Workflow version {item.workflowVersion}
+              Case Owner {item.caseOwnerName || "Not assigned"}{!isTl && <> · Workflow version {item.workflowVersion}</>}
             </p>
           </div>
           <dl className="grid grid-cols-2 gap-x-5 gap-y-2 sm:grid-cols-3 lg:text-right">
@@ -540,23 +554,24 @@ export default function ApplicationDetailPage() {
       </Card>
       }>
 
-      {review && <ApplicationInternalReview applicationId={item.id} state={review} requestedAmount={item.requestedAmount} onSaved={async text => { setMessage(text); await refresh(); }} />}
+      {review && (!isTl || review.actions.length > 0 || Boolean(review.reason)) && <ApplicationInternalReview compact={isTl} applicationId={item.id} state={review} requestedAmount={item.requestedAmount} onSaved={async text => { setMessage(text); await refresh(); }} />}
 
-      <Card>
+      {isTl && <Card className={tlStyles.progressSurface}><TlCaseJourney item={item} events={timeline} /></Card>}
+      {!isTl && <Card>
         <div className="flex min-w-0 flex-wrap items-start justify-between gap-2">
           <div className="min-w-0">
-            <h3 className="text-lg font-semibold text-text-primary">Workflow timeline</h3>
+            <h3 className="text-lg font-semibold text-text-primary">{isTl ? "Case progress" : "Workflow timeline"}</h3>
             <p className="mt-1 text-xs text-text-secondary">
               Completed stages retain their timestamps; the current stage is highlighted and upcoming stages remain visible.
             </p>
           </div>
-          <Badge>Version {version ?? item.workflowVersion ?? "—"}</Badge>
+          {!isTl && <Badge>Version {version ?? item.workflowVersion ?? "—"}</Badge>}
         </div>
         {progress.length ? (
-          <ol className="mt-4 grid min-w-0 gap-2 sm:grid-cols-2 xl:grid-cols-4">
-            {progress.map((stage, index) => {
+          <ol className={cx("mt-4 grid min-w-0 gap-2 sm:grid-cols-2 xl:grid-cols-4", isTl && tlStyles.progressSteps)}>
+            {displayedProgress.map((stage, index) => {
               const completed = Boolean(stage.exitedAt) || (
-                !stage.current && currentStageIndex >= 0 && index < currentStageIndex && Boolean(stage.enteredAt)
+                !isTl && !stage.current && currentStageIndex >= 0 && index < currentStageIndex && Boolean(stage.enteredAt)
               );
               const state = stage.current ? "Current" : completed ? "Completed" : "Upcoming";
               const timestamp = stage.current
@@ -570,6 +585,7 @@ export default function ApplicationDetailPage() {
                   data-stage-state={state.toLowerCase()}
                   className={cx(
                     "min-w-0 rounded-[10px] border p-3",
+                    isTl && tlStyles.progressStep,
                     stage.current
                       ? "border-brand-primary bg-brand-fill text-white shadow-sm"
                       : completed
@@ -591,12 +607,12 @@ export default function ApplicationDetailPage() {
         ) : (
           <EmptyState>No workflow stages are available for this Application.</EmptyState>
         )}
-      </Card>
+      </Card>}
 
       {error ? <ErrorText>{error}</ErrorText> : null}
       {message ? <p role="status" className="text-sm font-medium text-success">{message}</p> : null}
 
-      <div className="grid min-w-0 grid-cols-2 gap-1 rounded-[10px] border border-brand-border bg-surface p-1 lg:grid-cols-4" role="tablist" aria-label="Application workspace">
+      <div className={cx("grid min-w-0 grid-cols-2 gap-1 rounded-[10px] border border-brand-border bg-surface p-1 lg:grid-cols-4", isTl && tlStyles.detailTabs)} role="tablist" aria-label="Application workspace">
         {TABS.map((tab, index) => (
           <button
             key={tab.id}
@@ -615,25 +631,24 @@ export default function ApplicationDetailPage() {
             onClick={() => selectTab(tab.id)}
             onKeyDown={(event) => handleTabKey(event, index)}
           >
-            {tab.label}
+            {isTl ? ({ overview: "Overview", workflow: "Progress", actions: "Actions", timeline: "Activity" } as const)[tab.id] : tab.label}
           </button>
         ))}
       </div>
 
-      <section id={`application-panel-${activeTab}`} role="tabpanel" aria-labelledby={`application-tab-${activeTab}`} className="min-w-0 space-y-4">
+      <section id={`application-panel-${activeTab}`} role="tabpanel" aria-labelledby={`application-tab-${activeTab}`} className={cx("min-w-0 space-y-4", isTl && tlStyles.detailPanel)}>
         {activeTab === "overview" ? (
           <>
             <Card>
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
                   <h3 className="text-lg font-semibold text-text-primary">Product classification</h3>
-                  <p className="mt-1 text-xs text-text-secondary">Bank and Product Category are immutable. Product Variant follows the saved mapping.</p>
+                  <p className="mt-1 text-xs text-text-secondary">{isTl ? "Bank and product category are fixed for this case. The selected product variant is shown below." : "Bank and Product Category are immutable. Product Variant follows the saved mapping."}</p>
                 </div>
                 {item.productVariantStatus ? <StatusBadge value={item.productVariantStatus} /> : null}
               </div>
-              <div className="mt-3 grid gap-3 md:grid-cols-3">
-                <Field label="Bank"><Select aria-label="Bank" value={item.bankId} disabled><option value={item.bankId}>{item.bankName}</option></Select></Field>
-                <Field label="Product Category"><Select aria-label="Product Category" value={item.productId} disabled><option value={item.productId}>{item.productName}</option></Select></Field>
+              <div className={cx("mt-3 grid gap-3 md:grid-cols-3", isTl && tlStyles.classificationFacts)}>
+                {isTl ? <><Value label="Bank">{item.bankName}</Value><Value label="Product Category">{item.productName}</Value></> : <><Field label="Bank"><Select aria-label="Bank" value={item.bankId} disabled><option value={item.bankId}>{item.bankName}</option></Select></Field><Field label="Product Category"><Select aria-label="Product Category" value={item.productId} disabled><option value={item.productId}>{item.productName}</option></Select></Field></>}
                 <Field label="Product Variant">
                   {canEditOwn ? (
                     <Select aria-label="Product Variant" value={variantId} disabled={variantSaving} onChange={(event) => setVariantId(event.target.value)}>
@@ -641,14 +656,14 @@ export default function ApplicationDetailPage() {
                       {item.productVariantId && !variants.some((variant) => variant.id === item.productVariantId) ? <option value={item.productVariantId} disabled>{item.productVariantName} — unavailable for new selection</option> : null}
                       {variants.map((variant) => <option key={variant.id} value={variant.id}>{variant.name}</option>)}
                     </Select>
-                  ) : <p className="mt-1.5 flex min-h-8 items-center rounded-md border border-brand-border bg-surface-subtle px-3 text-sm">{item.productVariantName ?? "No Product Variant assigned (legacy application)"}</p>}
+                  ) : <p className="mt-1.5 flex min-h-8 items-center rounded-md border border-brand-border bg-surface-subtle px-3 text-sm">{item.productVariantName ?? "No Product Variant assigned"}</p>}
                 </Field>
               </div>
               {variantFeedback?.tone === "error" ? <div className="mt-3"><ErrorText>{variantFeedback.text}</ErrorText></div> : null}
               {variantFeedback?.tone === "success" ? <p role="status" className="mt-3 text-sm font-medium text-success">{variantFeedback.text}</p> : null}
               {canEditOwn ? <div className="mt-3 flex justify-end"><Button type="button" disabled={variantSaving || !variantId || variantId === item.productVariantId} onClick={() => void saveVariant()}>{variantSaving ? "Saving…" : "Save Product Variant"}</Button></div> : null}
             </Card>
-            <div className="grid min-w-0 gap-4 lg:grid-cols-3">
+            <div className={cx("grid min-w-0 gap-4 lg:grid-cols-3", isTl && tlStyles.overviewSections)}>
               <Card><h3 className="text-lg font-semibold">Customer</h3><dl className="mt-3 grid gap-3"><Value label="Customer">{item.customerCode} · {item.customerName}</Value><Value label="Mobile">{item.customerMobile ?? "Not recorded"}</Value></dl></Card>
               <Card><h3 className="text-lg font-semibold">Application values</h3><dl className="mt-3 grid gap-3 sm:grid-cols-2"><Value label="Requested amount">{item.requestedAmount ?? "—"}</Value><Value label="Approved amount">{item.approvedAmount ?? "—"}</Value><Value label="Booked amount">{item.bookedAmount ?? "—"}</Value><Value label="Funded amount">{item.fundedAmount ?? "—"}</Value></dl></Card>
               <Card><h3 className="text-lg font-semibold">Submission</h3><dl className="mt-3 grid gap-3 sm:grid-cols-2"><Value label="Bank File / Case Number">{item.bankCaseNumber ?? "Not submitted"}</Value><Value label="Submitted">{displayDate(item.submittedAt)}</Value><Value label="Created">{displayDate(item.createdAt)}</Value><Value label="Last updated">{displayDate(item.updatedAt)}</Value></dl></Card>
@@ -659,7 +674,7 @@ export default function ApplicationDetailPage() {
         {activeTab === "workflow" ? (
           <>
             <Card>
-              <div className="flex flex-wrap items-start justify-between gap-2"><div><h3 className="text-lg font-semibold">Current workflow state</h3><p className="mt-1 text-xs text-text-secondary">Version {version} · {item.currentStageElapsedSeconds != null ? formatDuration(item.currentStageElapsedSeconds) : "Duration unavailable"}</p></div><StatusBadge value={status} /></div>
+              <div className="flex flex-wrap items-start justify-between gap-2"><div><h3 className="text-lg font-semibold">Current workflow state</h3><p className="mt-1 text-xs text-text-secondary">{!isTl && <>Version {version} · </>}{item.currentStageElapsedSeconds != null ? formatDuration(item.currentStageElapsedSeconds) : "Duration unavailable"}</p></div><StatusBadge value={status} /></div>
             </Card>
             <div className="grid min-w-0 gap-4 lg:grid-cols-2">
               <Card><h3 className="text-lg font-semibold">Turnaround time</h3><dl className="mt-3 grid gap-3 sm:grid-cols-2"><Value label={item.terminal ? "Total duration" : "Elapsed TAT"}>{item.terminal ? formatDuration(item.totalDurationSeconds) : formatDuration(item.currentElapsedSeconds)}</Value><Value label="Current stage elapsed">{formatDuration(item.currentStageElapsedSeconds)}</Value><Value label="Started">{displayDate(item.tatStartedAt)}</Value><Value label="Stopped">{displayDate(item.tatStoppedAt)}</Value></dl></Card>
@@ -673,14 +688,14 @@ export default function ApplicationDetailPage() {
         ) : null}
 
         {activeTab === "actions" ? (
-          <div className="grid min-w-0 gap-4 xl:grid-cols-2">
+          <div className="flex min-w-0 flex-wrap items-start gap-3">
             {!hasActions ? <Card className="xl:col-span-2"><EmptyState>No application actions are available for your permissions.</EmptyState></Card> : null}
-            {user?.id === item.routedSalesManagerId && item.routingStatus === "booked" ? <Card><h3 className="text-lg font-semibold">Sales Manager Review</h3><p className="mt-1 text-sm text-text-secondary">Approve the booked case for Coordinator processing, or return it with a reason.</p><Field className="mt-3" label="Return reason"><Textarea value={salesManagerReason} onChange={(event) => setSalesManagerReason(event.target.value)} placeholder="Required only when returning" /></Field><div className="mt-3 flex gap-2"><Button disabled={busy} onClick={() => void post(`/api/v1/case-operations/applications/${item.id}/sales-manager-decision`, { decision: "approve" }, "Case approved for processing.")}>Approve</Button><Button variant="secondary" disabled={busy || !salesManagerReason.trim()} onClick={() => void post(`/api/v1/case-operations/applications/${item.id}/sales-manager-decision`, { decision: "return", reason: salesManagerReason }, "Case returned to the Case Owner.")}>Return</Button></div></Card> : null}
-            {user?.id === item.routedCoordinatorId && item.routingStatus === "sm_approved" ? <Card><h3 className="text-lg font-semibold">Bank Submission</h3><p className="mt-1 text-sm text-text-secondary">Add the unique Bank File Number. Credit Card cases close automatically after submission.</p><Field className="mt-3" label="Bank File Number"><TextInput value={caseNumber} onChange={(event) => setCaseNumber(event.target.value)} /></Field><Button className="mt-3" disabled={busy || !caseNumber.trim()} onClick={() => void post(`/api/v1/case-operations/applications/${item.id}/bank-submission`, { bank_file_number: caseNumber }, "Bank submission recorded.")}>Submit to Bank</Button></Card> : null}
+            {user?.id === item.routedSalesManagerId && item.routingStatus === "booked" ? <PanelPopup feedback={<><ErrorText>{error}</ErrorText>{message ? <p role="status" className="text-sm text-text-secondary">{message}</p> : null}</>} label="Sales Manager Review"><Card><h3 className="text-lg font-semibold">Sales Manager Review</h3><p className="mt-1 text-sm text-text-secondary">Approve the booked case for Coordinator processing, or return it with a reason.</p><Field className="mt-3" label="Return reason"><Textarea value={salesManagerReason} onChange={(event) => setSalesManagerReason(event.target.value)} placeholder="Required only when returning" /></Field><div className="mt-3 flex gap-2"><Button disabled={busy} onClick={() => void post(`/api/v1/case-operations/applications/${item.id}/sales-manager-decision`, { decision: "approve" }, "Case approved for processing.")}>Approve</Button><Button variant="secondary" disabled={busy || !salesManagerReason.trim()} onClick={() => void post(`/api/v1/case-operations/applications/${item.id}/sales-manager-decision`, { decision: "return", reason: salesManagerReason }, "Case returned to the Case Owner.")}>Return</Button></div></Card></PanelPopup> : null}
+            {user?.id === item.routedCoordinatorId && item.routingStatus === "sm_approved" ? <PanelPopup feedback={<><ErrorText>{error}</ErrorText>{message ? <p role="status" className="text-sm text-text-secondary">{message}</p> : null}</>} label="Bank Submission"><Card><h3 className="text-lg font-semibold">Bank Submission</h3><p className="mt-1 text-sm text-text-secondary">Add the unique Bank File Number. Credit Card cases close automatically after submission.</p><Field className="mt-3" label="Bank File Number"><TextInput value={caseNumber} onChange={(event) => setCaseNumber(event.target.value)} /></Field><Button className="mt-3" disabled={busy || !caseNumber.trim()} onClick={() => void post(`/api/v1/case-operations/applications/${item.id}/bank-submission`, { bank_file_number: caseNumber }, "Bank submission recorded.")}>Submit to Bank</Button></Card></PanelPopup> : null}
             {item.activeDelay && !item.terminal && can("Applications.CorrectDelay") ? (
-              <Card>
+              <PanelPopup feedback={<><ErrorText>{error}</ErrorText>{message ? <p role="status" className="text-sm text-text-secondary">{message}</p> : null}</>} label="Correct active delay"><Card>
                 <h3 className="text-lg font-semibold">Correct active delay</h3>
-                <p className="mt-1 text-xs text-text-secondary">Original delay history remains immutable.</p>
+                <p className="mt-1 text-xs text-text-secondary">{isTl ? "Previous delay entries remain in the case history." : "Original delay history remains immutable."}</p>
                 <form
                   className="mt-3 space-y-3"
                   onSubmit={(event) => {
@@ -705,11 +720,11 @@ export default function ApplicationDetailPage() {
                   </Field>
                   <Button variant="secondary" type="submit" disabled={busy}>Correct Delay</Button>
                 </form>
-              </Card>
+              </Card></PanelPopup>
             ) : null}
 
             {!item.terminal && !item.activeDelay && can("Applications.MarkDelay") ? (
-              <Card>
+              <PanelPopup feedback={<><ErrorText>{error}</ErrorText>{message ? <p role="status" className="text-sm text-text-secondary">{message}</p> : null}</>} label="Mark delay"><Card>
                 <h3 className="text-lg font-semibold">Mark delay</h3>
                 <p className="mt-1 text-xs text-text-secondary">Record a reason against the current workflow stage.</p>
                 <form
@@ -741,11 +756,11 @@ export default function ApplicationDetailPage() {
                   {delayType === "Other" ? <Field label="Other explanation"><Textarea aria-label="Other explanation" placeholder="Explain the delay type" value={delayOther} onChange={(event) => setDelayOther(event.target.value)} required /></Field> : null}
                   <Button type="submit" disabled={busy}>Mark Delay</Button>
                 </form>
-              </Card>
+              </Card></PanelPopup>
             ) : null}
 
             {!item.terminal && can("Applications.Submit") ? (
-              <Card>
+              <PanelPopup feedback={<><ErrorText>{error}</ErrorText>{message ? <p role="status" className="text-sm text-text-secondary">{message}</p> : null}</>} label="Bank File / Case Number"><Card>
                 <h3 className="text-lg font-semibold">Bank File / Case Number</h3>
                 <p className="mt-1 text-xs text-text-secondary">
                   {item.submitted ? "Changing a submitted case number appends an audited correction." : "Saving the first case number submits the application."}
@@ -776,11 +791,11 @@ export default function ApplicationDetailPage() {
                   {item.submitted ? <Field label="Correction reason"><TextInput aria-label="Case number correction reason" placeholder="Why is the submitted value changing?" value={caseReason} onChange={(event) => setCaseReason(event.target.value)} required /></Field> : null}
                   <Button type="submit" disabled={busy}>{item.submitted ? "Correct case number" : "Save and submit"}</Button>
                 </form>
-              </Card>
+              </Card></PanelPopup>
             ) : null}
 
             {!item.terminal && can("Applications.UpdateStage") ? (
-              <Card>
+              <PanelPopup feedback={<><ErrorText>{error}</ErrorText>{message ? <p role="status" className="text-sm text-text-secondary">{message}</p> : null}</>} label="Update stage"><Card>
                 <h3 className="text-lg font-semibold">Update stage</h3>
                 <p className="mt-1 text-xs text-text-secondary">Only configured next stages are available.</p>
                 <form
@@ -818,11 +833,11 @@ export default function ApplicationDetailPage() {
                   {selectedNext?.systemKey === "fund_released" ? <Field label="Funded amount"><TextInput aria-label="Funded amount" value={fundedAmount} onChange={(event) => setFundedAmount(event.target.value)} /></Field> : null}
                   <Button type="submit" disabled={busy}>Save stage</Button>
                 </form>
-              </Card>
+              </Card></PanelPopup>
             ) : null}
 
             {!item.terminal && can("Applications.CorrectStage") ? (
-              <Card>
+              <PanelPopup feedback={<><ErrorText>{error}</ErrorText>{message ? <p role="status" className="text-sm text-text-secondary">{message}</p> : null}</>} label="Correct stage"><Card>
                 <h3 className="text-lg font-semibold">Correct stage</h3>
                 <p className="mt-1 text-xs text-text-secondary">Original events remain immutable; a correction reason is mandatory.</p>
                 <form
@@ -853,11 +868,11 @@ export default function ApplicationDetailPage() {
                   <Field label="Stage correction reason"><TextInput aria-label="Stage correction reason" placeholder="Why is this correction required?" value={stageCorrectionReason} onChange={(event) => setStageCorrectionReason(event.target.value)} required /></Field>
                   <Button variant="secondary" type="submit" disabled={busy}>Append correction</Button>
                 </form>
-              </Card>
+              </Card></PanelPopup>
             ) : null}
 
             {!item.terminal && can("Applications.CorrectSubmittedData") && item.submitted ? (
-              <Card>
+              <PanelPopup feedback={<><ErrorText>{error}</ErrorText>{message ? <p role="status" className="text-sm text-text-secondary">{message}</p> : null}</>} label="Correct submitted data"><Card>
                 <h3 className="text-lg font-semibold">Correct submitted data</h3>
                 <p className="mt-1 text-xs text-text-secondary">Only explicitly supplied values change; previous values remain in immutable history.</p>
                 <form
@@ -881,7 +896,7 @@ export default function ApplicationDetailPage() {
                 >
                   <Field label="Corrected Product Variant">
                     <Select aria-label="Corrected Product Variant" value={correctionVariantId} onChange={(event) => setCorrectionVariantId(event.target.value)}>
-                      <option value="">Keep current — {item.productVariantName ?? "No Product Variant (legacy)"}</option>
+                      <option value="">Keep current — {item.productVariantName ?? "No Product Variant assigned"}</option>
                       {variants.map((variant) => <option key={variant.id} value={variant.id}>{variant.name}</option>)}
                     </Select>
                   </Field>
@@ -889,11 +904,11 @@ export default function ApplicationDetailPage() {
                   <Field label="Submitted data correction reason"><TextInput aria-label="Submitted data correction reason" placeholder="Why is this correction required?" value={submittedCorrectionReason} onChange={(event) => setSubmittedCorrectionReason(event.target.value)} required /></Field>
                   <Button variant="secondary" type="submit" disabled={busy}>Correct submitted data</Button>
                 </form>
-              </Card>
+              </Card></PanelPopup>
             ) : null}
 
             {!item.terminal && can("Applications.ReassignCaseOwner") ? (
-              <Card>
+              <PanelPopup feedback={<><ErrorText>{error}</ErrorText>{message ? <p role="status" className="text-sm text-text-secondary">{message}</p> : null}</>} label="Reassign Case Owner"><Card>
                 <h3 className="text-lg font-semibold">Reassign Case Owner</h3>
                 <p className="mt-1 text-xs text-text-secondary">Ownership history is preserved and scope may change for the selected owner.</p>
                 <form
@@ -920,11 +935,11 @@ export default function ApplicationDetailPage() {
                   <Field label="Reassignment reason"><TextInput aria-label="Reassignment reason" placeholder="Optional reason" value={ownerReason} onChange={(event) => setOwnerReason(event.target.value)} /></Field>
                   <Button variant="secondary" type="submit" disabled={busy}>Reassign</Button>
                 </form>
-              </Card>
+              </Card></PanelPopup>
             ) : null}
 
             {!item.terminal && can("Workflows.MigrateApplication") ? (
-              <Card>
+              <PanelPopup feedback={<><ErrorText>{error}</ErrorText>{message ? <p role="status" className="text-sm text-text-secondary">{message}</p> : null}</>} label="Migrate workflow version"><Card>
                 <h3 className="text-lg font-semibold">Migrate workflow version</h3>
                 <p className="mt-1 text-xs text-text-secondary">Migration changes the governing workflow and target stage; history is preserved.</p>
                 <form
@@ -962,11 +977,11 @@ export default function ApplicationDetailPage() {
                   <Field label="Migration reason"><TextInput aria-label="Migration reason" placeholder="Why is migration required?" value={migrateReason} onChange={(event) => setMigrateReason(event.target.value)} required /></Field>
                   <Button variant="secondary" type="submit" disabled={busy}>Migrate this application</Button>
                 </form>
-              </Card>
+              </Card></PanelPopup>
             ) : null}
 
             {!item.terminal && can("Applications.SetOutcome") ? (
-              <Card className="border-danger-soft">
+              <PanelPopup feedback={<><ErrorText>{error}</ErrorText>{message ? <p role="status" className="text-sm text-text-secondary">{message}</p> : null}</>} label="Terminal outcome"><Card className="border-danger-soft">
                 <h3 className="text-lg font-semibold">Terminal outcome</h3>
                 <p className="mt-1 text-xs text-text-secondary">Closing is irreversible in this workspace and stops active application processing.</p>
                 <form
@@ -988,7 +1003,7 @@ export default function ApplicationDetailPage() {
                   <Field label="Outcome reason"><Textarea aria-label="Outcome reason" placeholder="Reason for closing this application" value={outcomeReason} onChange={(event) => setOutcomeReason(event.target.value)} required /></Field>
                   <Button variant="danger" type="submit" disabled={busy}>Close application</Button>
                 </form>
-              </Card>
+              </Card></PanelPopup>
             ) : null}
 
             {item.terminal ? <Card className="xl:col-span-2"><EmptyState>This application is closed. Lifecycle-changing actions are no longer available.</EmptyState></Card> : null}
@@ -997,7 +1012,7 @@ export default function ApplicationDetailPage() {
 
         {activeTab === "timeline" ? (
           <Card>
-            <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-end lg:justify-between"><div className="min-w-0"><h3 className="text-lg font-semibold">Immutable timeline</h3><p className="mt-1 text-xs text-text-secondary">Filter existing lifecycle events without changing audit history.</p></div><div className="grid min-w-0 gap-3 sm:grid-cols-2 lg:w-[38rem]"><Field label="Search timeline"><TextInput aria-label="Search timeline" placeholder="Stage, reason, action, or person" value={timelineQuery} onChange={(event) => setTimelineQuery(event.target.value)} /></Field><Field label="Event type"><Select aria-label="Filter timeline by event type" value={timelineType} onChange={(event) => setTimelineType(event.target.value)}><option value="">All event types</option>{timelineTypes.map((type) => <option key={type} value={type}>{eventLabel(type)}</option>)}</Select></Field></div></div>
+            <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-end lg:justify-between"><div className="min-w-0"><h3 className="text-lg font-semibold">{isTl ? "Case activity" : "Immutable timeline"}</h3><p className="mt-1 text-xs text-text-secondary">Filter existing lifecycle events without changing audit history.</p></div><div className="grid min-w-0 gap-3 sm:grid-cols-2 lg:w-[38rem]"><Field label="Search timeline"><TextInput aria-label="Search timeline" placeholder="Stage, reason, action, or person" value={timelineQuery} onChange={(event) => setTimelineQuery(event.target.value)} /></Field><Field label="Event type"><Select aria-label="Filter timeline by event type" value={timelineType} onChange={(event) => setTimelineType(event.target.value)}><option value="">All event types</option>{timelineTypes.map((type) => <option key={type} value={type}>{eventLabel(type)}</option>)}</Select></Field></div></div>
             <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-y border-brand-border py-2 text-xs text-text-secondary"><span>{filteredTimeline.length} of {timeline.length} events</span>{timelineQuery || timelineType ? <Button type="button" size="compact" variant="ghost" onClick={() => { setTimelineQuery(""); setTimelineType(""); }}>Clear timeline filters</Button> : null}</div>
             {visibleTimeline.length ? <ol className="mt-3 grid min-w-0 gap-2 lg:grid-cols-2">{visibleTimeline.map((event) => { const oldVariant = correctionVariant(event.payload, "old"); const newVariant = correctionVariant(event.payload, "new"); return <li key={event.id} className="min-w-0 rounded-md border border-brand-border p-3 text-sm"><div className="flex min-w-0 flex-wrap items-center justify-between gap-2"><p className="break-words font-medium">{eventLabel(event.eventType)}</p><time className="text-xs text-text-secondary">{displayDate(event.bosUpdatedAt)}</time></div>{event.previousStage || event.newStage ? <p className="mt-1 break-words text-text-secondary">{event.previousStage ? `${event.previousStage} → ` : ""}{event.newStage ?? ""}</p> : null}{event.bankStageDate ? <p className="mt-1">Bank Stage Date {event.bankStageDate}</p> : null}{event.stageNote ? <p className="mt-1 break-words">Note {event.stageNote}</p> : null}{event.reason ? <p className="mt-1 break-words">Reason {event.reason}</p> : null}{event.payload && typeof event.payload.delayType === "string" ? <p className="mt-1 break-words">Delay {event.payload.delayType}</p> : null}{oldVariant && newVariant && oldVariant.id !== newVariant.id ? <p className="mt-1 break-words">Product Variant: {oldVariant.label} → {newVariant.label}</p> : null}<p className="mt-2 break-words text-xs text-text-secondary">Updated by {event.updatedBy || "System"}</p></li>; })}</ol> : <EmptyState kind="search" title="No records match the selected filters" />}
             {timelinePages > 1 ? <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-brand-border pt-3 text-sm"><span className="text-text-secondary">Page {currentTimelinePage} of {timelinePages}</span><div className="flex gap-2"><Button type="button" size="compact" variant="secondary" disabled={currentTimelinePage <= 1} onClick={() => setTimelinePage((page) => Math.max(1, page - 1))}>Previous</Button><Button type="button" size="compact" variant="secondary" disabled={currentTimelinePage >= timelinePages} onClick={() => setTimelinePage((page) => Math.min(timelinePages, page + 1))}>Next</Button></div></div> : null}

@@ -141,30 +141,23 @@ test("owner attendance bulk entry, calculations, correction, holiday, schedule, 
     day: "2-digit",
   }).format(new Date());
   const [year, month, day] = reminderParts.split("-").map(Number);
-  const reminderDate = new Date(Date.UTC(year, month - 1, day + 7)).toISOString().slice(0, 10);
+  const existingHolidays = await request.get(`${apiOrigin}/api/v1/attendance/holidays`);
+  expect(existingHolidays.ok()).toBeTruthy();
+  const usedDates = new Set(((await existingHolidays.json()) as { items: { holidayDate: string }[] }).items.map(item => item.holidayDate));
+  // Urgent reminders are deduplicated snapshots. Use a new date rather than renaming
+  // an existing holiday and expecting its historical notification text to change.
+  let reminderOffset = 7;
+  let reminderDate = new Date(Date.UTC(year, month - 1, day + reminderOffset)).toISOString().slice(0, 10);
+  while (usedDates.has(reminderDate)) {
+    reminderOffset += 1;
+    reminderDate = new Date(Date.UTC(year, month - 1, day + reminderOffset)).toISOString().slice(0, 10);
+  }
   const reminderHoliday = await request.post(`${apiOrigin}/api/v1/attendance/holidays`, {
     headers,
     data: { holiday_date: reminderDate, name: `Reminder Holiday ${tag}` },
   });
-  expect(reminderHoliday.ok() || reminderHoliday.status() === 409).toBeTruthy();
-  let reminderHolidayId = reminderHoliday.ok()
-    ? ((await reminderHoliday.json()) as { id: string }).id
-    : "";
-  if (reminderHoliday.status() === 409) {
-    const holidays = (
-      (await (await request.get(`${apiOrigin}/api/v1/attendance/holidays`)).json()) as {
-        items: { id: string; holidayDate: string }[];
-      }
-    ).items;
-    const existing = holidays.find((item) => item.holidayDate === reminderDate);
-    expect(existing).toBeTruthy();
-    reminderHolidayId = existing!.id;
-    const renamed = await request.patch(`${apiOrigin}/api/v1/attendance/holidays/${existing!.id}`, {
-      headers,
-      data: { name: `Reminder Holiday ${tag}` },
-    });
-    expect(renamed.ok()).toBeTruthy();
-  }
+  expect(reminderHoliday.ok(), await reminderHoliday.text()).toBeTruthy();
+  const reminderHolidayId = ((await reminderHoliday.json()) as { id: string }).id;
   const urgent = await request.post(
     `${apiOrigin}/api/v1/attendance/holidays/${reminderHolidayId}/urgent-reminder`,
     { headers },
@@ -180,8 +173,8 @@ test("owner attendance bulk entry, calculations, correction, holiday, schedule, 
   ).toBeVisible({
     timeout: 20_000,
   });
-  await page.getByRole("button", { name: "People menu" }).click();
-  await page.getByRole("dialog", { name: "People", exact: true }).getByRole("link", { name: "Attendance", exact: true }).click();
+  await page.getByRole("button", { name: "People & HR menu" }).click();
+  await page.getByRole("dialog", { name: "People & HR", exact: true }).getByRole("link", { name: "Attendance", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Attendance" })).toBeVisible();
   await page.getByLabel("Attendance date").fill("2026-08-03");
   await selectBrandedOption(page.getByLabel("Office"), { label: "Dubai" });
@@ -239,6 +232,7 @@ test("owner attendance bulk entry, calculations, correction, holiday, schedule, 
     timeout: 20_000,
   });
   await expect(page.getByRole("columnheader", { name: "Ramadan dates" })).toBeVisible();
+  await selectBrandedOption(page.getByRole("combobox", { name: "Rows per page", exact: true }), "all");
   const ramadanSchedule = page.getByRole("row").filter({ hasText: `Att ${tag}` }).filter({ hasText: "ramadan" });
   await expect(ramadanSchedule).toContainText("2026-03-01 – 2026-03-30");
   await captureViewportPair(page, testInfo, "attendance-ramadan-schedule", ramadanSchedule);
@@ -345,8 +339,8 @@ test("scoped user cannot access unauthorized attendance or send urgent reminders
   });
 
   await signIn(page, scopedUser.email, "UserPass1!");
-  await page.getByRole("button", { name: "People menu" }).click();
-  await page.getByRole("dialog", { name: "People", exact: true }).getByRole("link", { name: "Attendance", exact: true }).click();
+  await page.getByRole("button", { name: "People & HR menu" }).click();
+  await page.getByRole("dialog", { name: "People & HR", exact: true }).getByRole("link", { name: "Attendance", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Attendance" })).toBeVisible();
   await expect(page.getByText(hiddenUser.fullName)).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Attendance reports" })).toHaveCount(0);

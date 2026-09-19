@@ -1,0 +1,144 @@
+"""Add module grants, preserving equivalent access from existing User Types.
+Prepared only; never execute from preview startup. No user or business records changed.
+"""
+
+import sqlalchemy as sa
+from alembic import op
+
+revision = "0030_module_permissions"
+down_revision = "0029_attendance_management"
+branch_labels = None
+depends_on = None
+NEW_PERMISSIONS = {
+    "Assets.ManageCategories": "Manage Asset Categories — Sensitive",
+    "Assets.Repair": "Send to Repair / Update Repair",
+    "Assets.Retire": "Retire Assets",
+    "Assets.Reports": "View Asset Reports",
+    "Assets.Export": "Export Asset Reports",
+    "Attendance.Daily": "View Daily Register",
+    "Attendance.Calendar": "View Employee Calendar",
+    "Attendance.Upload": "Upload and Validate Attendance CSV",
+    "Attendance.ConfirmImport": "Confirm Attendance Import",
+    "Attendance.RecordApprovedLeave": "Record External Approved Leave",
+    "Attendance.Export": "Export Attendance Reports",
+    "Attendance.ManageHolidays": "Manage Holidays — Sensitive",
+    "Attendance.ManageLeaveTypes": "Manage Leave Types — Sensitive",
+}
+LABELS = {
+    "Assets.View": "View Assets",
+    "Assets.ManageStock": "Register Assets",
+    "Assets.ManageMaster": "Edit Assets and correct condition / identifiers",
+    "Assets.Allocate": "Issue Assets",
+    "Assets.Return": "Return Assets",
+    "Assets.Transfer": "Transfer Assets",
+    "Assets.ManageStatus": "Update lost or damaged asset status",
+    "Assets.ViewAudit": "View Asset Lifecycle",
+    "Attendance.View": "View Attendance",
+    "Attendance.Manage": "Manage Shifts and Attendance Policies — Sensitive",
+    "Attendance.ManageOffice": "Add Manual Attendance",
+    "Attendance.Correct": "Correct Attendance — reason and immutable audit required",
+    "Attendance.Reports": "View Attendance Reports",
+    "Attendance.CloseMonth": "Close Attendance Month",
+    "Attendance.ReopenMonth": "Reopen Attendance Month — Sensitive and mandatory reason",
+    "Assets.ManageCategories": "Manage Asset Categories — Sensitive",
+    "Assets.Repair": "Send to Repair / Update Repair",
+    "Assets.Retire": "Retire Assets",
+    "Assets.Reports": "View Asset Reports",
+    "Assets.Export": "Export Asset Reports",
+    "Attendance.Daily": "View Daily Register",
+    "Attendance.Calendar": "View Employee Calendar",
+    "Attendance.Upload": "Upload and Validate Attendance CSV",
+    "Attendance.ConfirmImport": "Confirm Attendance Import",
+    "Attendance.RecordApprovedLeave": "Record External Approved Leave",
+    "Attendance.Export": "Export Attendance Reports",
+    "Attendance.ManageHolidays": "Manage Holidays — Sensitive",
+    "Attendance.ManageLeaveTypes": "Manage Leave Types — Sensitive",
+}
+SPLITS = {
+    "Assets.View": ["Assets.Reports", "Assets.Export"],
+    "Assets.ManageMaster": ["Assets.ManageCategories"],
+    "Assets.ManageStatus": ["Assets.Repair", "Assets.Retire"],
+    "Attendance.View": ["Attendance.Daily", "Attendance.Calendar"],
+    "Attendance.ManageOffice": [
+        "Attendance.Upload",
+        "Attendance.ConfirmImport",
+        "Attendance.RecordApprovedLeave",
+    ],
+    "Attendance.Manage": [
+        "Attendance.ManageOffice",
+        "Attendance.Upload",
+        "Attendance.ConfirmImport",
+        "Attendance.RecordApprovedLeave",
+        "Attendance.ManageHolidays",
+        "Attendance.ManageLeaveTypes",
+    ],
+    "Attendance.Reports": ["Attendance.Export"],
+}
+DEPENDENCIES = {
+    "Assets.ManageStock": ("Assets.View",),
+    "Assets.ManageMaster": ("Assets.View",),
+    "Assets.Allocate": ("Assets.View",),
+    "Assets.Return": ("Assets.View",),
+    "Assets.Transfer": ("Assets.View",),
+    "Assets.ManageStatus": ("Assets.View",),
+    "Assets.ViewAudit": ("Assets.View",),
+    "Attendance.Manage": ("Attendance.View",),
+    "Attendance.ManageOffice": ("Attendance.View",),
+    "Attendance.Correct": ("Attendance.View",),
+    "Attendance.Reports": ("Attendance.View",),
+    "Attendance.CloseMonth": ("Attendance.View",),
+    "Attendance.ReopenMonth": ("Attendance.View",),
+    "Assets.ManageCategories": ("Assets.View",),
+    "Assets.Repair": ("Assets.View",),
+    "Assets.Retire": ("Assets.View",),
+    "Assets.Reports": ("Assets.View",),
+    "Assets.Export": ("Assets.View", "Assets.Reports"),
+    "Attendance.Daily": ("Attendance.View",),
+    "Attendance.Calendar": ("Attendance.View",),
+    "Attendance.Upload": ("Attendance.View",),
+    "Attendance.ConfirmImport": ("Attendance.View",),
+    "Attendance.RecordApprovedLeave": ("Attendance.View",),
+    "Attendance.Export": ("Attendance.View", "Attendance.Reports"),
+    "Attendance.ManageHolidays": ("Attendance.View",),
+    "Attendance.ManageLeaveTypes": ("Attendance.View",),
+}
+
+
+def upgrade():
+    for code, description in NEW_PERMISSIONS.items():
+        op.execute(
+            sa.text(
+                "INSERT INTO permissions (code, description) VALUES (:code, :description) "
+                "ON CONFLICT (code) DO NOTHING"
+            ).bindparams(code=code, description=description)
+        )
+    for code, description in LABELS.items():
+        op.execute(
+            sa.text(
+                "UPDATE permissions SET description = :description WHERE code = :code"
+            ).bindparams(code=code, description=description)
+        )
+    for original, additions in SPLITS.items():
+        for code in additions:
+            op.execute(
+                sa.text(
+                    "INSERT INTO user_type_permissions (id, user_type_id, permission_code) "
+                    "SELECT gen_random_uuid(), user_type_id, :code FROM user_type_permissions "
+                    "WHERE permission_code = :original "
+                    "ON CONFLICT (user_type_id, permission_code) DO NOTHING"
+                ).bindparams(code=code, original=original)
+            )
+    for original, required in DEPENDENCIES.items():
+        for code in required:
+            op.execute(
+                sa.text(
+                    "INSERT INTO user_type_permissions (id, user_type_id, permission_code) "
+                    "SELECT gen_random_uuid(), user_type_id, :code FROM user_type_permissions "
+                    "WHERE permission_code = :original "
+                    "ON CONFLICT (user_type_id, permission_code) DO NOTHING"
+                ).bindparams(code=code, original=original)
+            )
+
+
+def downgrade():
+    raise RuntimeError("Forward-only permission migration; preserve User Type access.")

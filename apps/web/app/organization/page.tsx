@@ -116,7 +116,7 @@ function InlineError({ id, children }: { id: string; children?: string }) {
 
 function OrganizationLoadingState() {
   return (
-    <div role="status" aria-label="Loading organization masters" className="grid min-w-0 gap-4 lg:grid-cols-[260px_minmax(0,1fr)]">
+    <div role="status" aria-label="Loading organization masters" className="grid min-w-0 gap-4">
       <span className="sr-only">Loading organization masters…</span>
       <Card className="space-y-3" aria-hidden="true">
         <div className="h-5 w-28 animate-pulse rounded bg-surface-subtle" />
@@ -479,8 +479,8 @@ export default function OrganizationPage() {
       {loading ? (
         <OrganizationLoadingState />
       ) : (
-        <RecordFrame variant="organization" summary={<section className="space-y-3 rounded-[20px] bg-surface p-3">
-          <h2 className="px-2 py-1 text-[17px] font-medium">Organization</h2>
+        <RecordFrame panelLabel="Organization context" variant="organization" summary={<section className="space-y-3 rounded-[20px] bg-surface p-3">
+          <h2 className="px-2 py-1 text-[length:var(--amafh-text-section)] font-medium">Organization</h2>
           <div className="grid min-w-0 grid-flow-col auto-cols-[130px] gap-2 overflow-x-auto xl:grid-flow-row xl:auto-cols-auto xl:grid-cols-1" aria-label="Organization master summary" tabIndex={0}>
             {MASTER_TABS.map((kind) => {
               const items = itemsByTab[kind];

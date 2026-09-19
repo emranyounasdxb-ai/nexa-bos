@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from nexa_bos_api.applications.models import Workflow
 from nexa_bos_api.applications.review import REVIEW_EVENTS, REVIEW_LABELS, review_state
+from nexa_bos_api.applications.visibility import tl_case_owner_ids
 from nexa_bos_api.attendance.service import personal_attendance_snapshot
 from nexa_bos_api.case_operations.models import CaseEarning, CaseEarningReversal
 from nexa_bos_api.case_operations.reporting import employee_metrics
@@ -19,7 +20,6 @@ from nexa_bos_api.identity.access import (
     has_permission,
     has_user_type,
     reporting_visibility_scope,
-    tl_team_owner_ids,
 )
 from nexa_bos_api.identity.models import User
 from nexa_bos_api.identity.permissions import APPLICATIONS_VIEW, DASHBOARD_VIEW
@@ -233,7 +233,7 @@ async def tl_dashboard(
     if bool(date_from) != bool(date_to):
         raise AppError(status_code=422, code="INVALID_FILTER", message="Choose both range dates")
     # All collections and calculations originate from this exact current-owner allowlist.
-    allowed = await tl_team_owner_ids(session, actor)
+    allowed = await tl_case_owner_ids(session, actor)
     if member_id is not None and member_id not in allowed - {actor.id}:
         raise AppError(status_code=404, code="USER_NOT_FOUND", message="Team member not found")
     if owner_id is not None and owner_id not in allowed:

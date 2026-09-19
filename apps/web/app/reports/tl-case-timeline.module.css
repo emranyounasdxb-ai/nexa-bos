@@ -1,0 +1,37 @@
+.workspace { display:grid; gap:12px; min-width:0; }
+.controls,.list { min-width:0; padding:0; overflow:hidden; border:1px solid var(--amafh-border); border-radius:12px; background:var(--amafh-surface); box-shadow:var(--amafh-shadow-surface); }
+.controlTop { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 16px; border-bottom:1px solid var(--amafh-border); }
+.ownership { display:flex; gap:5px; }
+.ownership button { min-height:40px; }
+.mobileFilter { display:none; }
+.fields { display:grid; grid-template-columns:repeat(4,minmax(140px,1fr)) auto; align-items:end; gap:10px; padding:12px 16px; }
+.fields[data-view="team"] { grid-template-columns:1fr 1.35fr 1fr 1fr 1fr auto; }
+.fields > * { min-width:0; }
+.dateField { display:grid; gap:6px; }
+.dateField > span { color:var(--amafh-text-secondary); font-size:12px; }
+.fields :is(input,button,[role="combobox"]) { min-height:40px; }
+.actions { display:flex; align-items:center; gap:6px; }
+.chips { display:flex; flex-wrap:wrap; gap:7px; padding:0 16px 12px; }
+.chip { min-height:32px; max-width:100%; padding:5px 9px; border-radius:7px; background:var(--amafh-brand-soft); color:var(--amafh-primary); font-size:12px; overflow-wrap:anywhere; }
+.listHeader { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:14px 16px; border-bottom:1px solid var(--amafh-border); }
+.listHeader h2 { font-size:16px; font-weight:700; }
+.listHeader p { color:var(--amafh-text-secondary); font-size:13px; }
+.caseList { display:grid; margin:0; padding:0; list-style:none; }
+.caseItem + .caseItem { border-top:1px solid var(--amafh-border); }
+.caseItem[data-expanded="true"] { background:var(--amafh-subtle); }
+.caseRow { display:grid; grid-template-columns:minmax(145px,180px) minmax(0,1fr); align-items:stretch; gap:8px; min-width:0; padding:10px 16px; }
+.caseLink { display:flex; align-items:center; min-height:44px; color:var(--amafh-primary); font-size:14px; font-weight:700; overflow-wrap:anywhere; }
+.caseLink:hover { text-decoration:underline; }
+.rowToggle { display:grid; grid-template-columns:minmax(110px,1.1fr) repeat(6,minmax(85px,1fr)) 18px; align-items:center; gap:8px; width:100%; min-width:0; min-height:44px; text-align:left; }
+.rowToggle > span { display:grid; min-width:0; gap:3px; font-size:13px; line-height:1.3; overflow-wrap:anywhere; }
+.rowToggle small { color:var(--amafh-text-secondary); font-size:11px; }
+.rowStage { overflow:hidden; }
+.rowStage > * { max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.chevron { width:18px; height:18px; transition:transform .2s; }
+.caseItem[data-expanded="true"] .chevron { transform:rotate(180deg); }
+.expanded { padding:0 16px 16px; }
+.empty { padding:20px 16px; color:var(--amafh-text-secondary); }
+.loadMore { display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:12px; padding:12px; border-top:1px solid var(--amafh-border); color:var(--amafh-text-secondary); font-size:13px; }
+@media(max-width:1250px) { .fields,.fields[data-view="team"] { grid-template-columns:repeat(3,minmax(0,1fr)); } .actions { grid-column:1/-1; } .caseRow { grid-template-columns:minmax(0,1fr); gap:2px; } .rowToggle { grid-template-columns:minmax(110px,1fr) repeat(6,minmax(0,1fr)) 18px; } }
+@media(max-width:850px) { .fields,.fields[data-view="team"] { grid-template-columns:repeat(2,minmax(0,1fr)); } .rowToggle { grid-template-columns:repeat(4,minmax(0,1fr)); } .chevron { grid-column:4; grid-row:1; justify-self:end; } }
+@media(max-width:639px) { .controlTop { display:grid; justify-content:stretch; padding:10px 12px; } .workspace .controlTop .ownership { display:grid !important; grid-template-columns:repeat(2,minmax(0,1fr)); width:100%; } .ownership button,.mobileFilter { min-width:0; min-height:44px; width:100%; } .mobileFilter { display:inline-flex; justify-content:center; gap:6px; } .fields,.fields[data-view="team"] { display:none; grid-template-columns:minmax(0,1fr); padding:12px; } .fields[data-open="true"] { display:grid; } .fields :is(input,button,[role="combobox"]) { min-height:44px; } .actions { grid-column:auto; } .actions button { flex:1; } .chips { padding:0 12px 10px; } .chip { min-height:44px; } .caseRow { padding:10px 12px; } .caseLink { padding-right:30px; } .rowToggle { position:relative; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px 12px; } .rowToggle > span { font-size:13px; } .rowStage { grid-column:1/-1; padding-right:22px; } .chevron { position:absolute; right:2px; top:0; } .expanded { padding:0 12px 12px; } .loadMore button { min-height:44px; } }

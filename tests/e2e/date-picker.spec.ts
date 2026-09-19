@@ -64,7 +64,7 @@ test("employee edit form uses the NEXA BOS date picker", async ({ page, request 
   const joining = page.getByLabel("Joining date");
   await joining.fill("2026-03-15");
   await expect(joining).toHaveValue("2026-03-15");
-  expect((await joining.boundingBox())?.height).toBe(32);
+  expect((await joining.boundingBox())?.height).toBe(36);
   await expect(page.getByRole("button", { name: "Open calendar" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Calendar", exact: true })).toHaveCount(0);
 
@@ -145,7 +145,7 @@ test("application Created Date range uses two months and preserves the focused q
   await expect(page.getByLabel("Filter requested min", { exact: true })).toHaveCount(0);
   for (const control of [created, bankSelect, apply]) {
     await expect(control).toBeVisible();
-    expect((await control.boundingBox())?.height).toBe(32);
+    expect((await control.boundingBox())?.height).toBe(36);
   }
 
   await created.click();
@@ -247,7 +247,7 @@ test("application filters use the compact responsive grid without resizing contr
     });
 
     expect(metrics.cardHeight).toBeLessThan(layout.maxCardHeight);
-    expect(metrics.controlHeights.every((height) => height === (layout.width < 640 ? 48 : 32))).toBeTruthy();
+    expect(metrics.controlHeights.every((height) => height === (layout.width < 640 ? 48 : 36))).toBeTruthy();
     expect(metrics.childrenFit).toBeTruthy();
     expect(metrics.pageOverflows).toBeFalsy();
   }

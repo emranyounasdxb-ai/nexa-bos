@@ -1,26 +1,26 @@
 /* Exact presentation values from 90:358 / 296:715 and
    326:365 / 330:1064 / 326:535 / 330:1228. Existing fields remain available. */
-.applications { min-width: 0; }
+.applications { display: flex; flex-direction: column; min-width: 0; gap: 8px; }
 .appRecords { display: none; }
-.compactTotal { display: none; }
+
 .applications :global([data-amafh-list-surface]) { padding: 0; border: 1px solid var(--amafh-border); border-radius: 16px; overflow: hidden; }
 .applications :global([data-amafh-table-shell]) { border: 0; border-radius: 0; box-shadow: none; }
 .applications :global([data-amafh-responsive-filters]) { border: 0; border-radius: 0; }
 .applications :global([data-testid="application-filters"]) { border: 0; border-radius: 0; }
 @media (min-width: 1280px) {
-  .applications :global([data-amafh-field]) { font-size: 9px; line-height: 13px; }
-  .applications.applications :global(input), .applications.applications :global(button[role="combobox"]) { height: 40px; min-height: 40px; border-radius: 10px !important; font-size: 9px; line-height: 13px; }
-  .searchActions { padding: 16px 20px; }
-  .applications :global([data-amafh-button]), .applications :global(.amafh-static-button) { border-radius: 10px !important; font-size: 10px; font-weight: 600; }
+  .applications :global([data-amafh-field]) {    font-size: var(--amafh-text-body); line-height: 1.45;}
+  .applications.applications :global(input), .applications.applications :global(button[role="combobox"]) { height: 40px; min-height: 40px; border-radius: 10px !important;    font-size: var(--amafh-text-body); line-height: 1.45;}
+  .searchActions { padding: 8px 16px; }
+  .applications :global([data-amafh-button]), .applications :global(.amafh-static-button) { border-radius: 10px !important;  font-weight: 600;  font-size: var(--amafh-text-body); line-height: 1.45;}
   .applications :global([data-amafh-table-shell]) th { height: 42px; padding: 10px 16px; text-transform: uppercase; font-weight: 600; }
   .applications :global([data-amafh-table-shell]) td { height: 45px; padding: 8px 16px; }
   .applications :global([data-amafh-table-shell]) tbody tr:nth-child(even) { background: var(--amafh-subtle); }
 }
 @media (max-width: 1279px) {
-  .compactTotal { display: flex; flex-direction: column; gap: 3px; padding: 12px; width: max-content; min-width: 111px; min-height: 76px; border-radius: 20px; background: var(--amafh-brand-soft); }
-  .compactTotal strong { font-size: 24px; line-height: 35px; font-weight: 700; color: var(--amafh-primary); }
-  .compactTotal span { font-size: 11px; line-height: 16px; }
-  .applications :global([data-amafh-list-surface]) { display: grid; grid-template-columns: minmax(0,1fr) 48px; gap: 18px 10px; border: 0; background: transparent; overflow: visible; }
+  
+  
+  
+  .applications :global([data-amafh-list-surface]) { display: grid; grid-template-columns: minmax(0,1fr) 48px; gap: 10px; border: 0; background: transparent; overflow: visible; }
   .applications :global([data-amafh-list-surface]) > :not([data-testid="search-action-bar"]):not([data-amafh-responsive-filters]) { grid-column: 1 / -1; order: 5; }
   .applications :global([data-amafh-responsive-filters]) { display: contents; }
   .applications :global([data-amafh-filter-toggle]) { grid-column: 2; order: 2; width: 48px; height: 48px; padding: 13px; justify-content: center; border-radius: 15px; background: var(--amafh-surface); }
@@ -28,21 +28,40 @@
   .applications :global([data-amafh-filter-toggle])  :is(svg,[data-figma-glyph]):first-child { width: 22px; height: 22px; color: var(--amafh-text-secondary); }
   .applications :global([data-amafh-filter-content]), .applications :global([aria-label="Active filters"]) { grid-column: 1 / -1; order: 4; padding: 16px; border-radius: 16px; background: var(--amafh-surface); }
   .desktopRecords { display: none; }
-  .appRecords { display: grid; gap: 18px; }
+  .appRecords { display: grid; gap: 10px; }
   .stage { padding: 6px; border-radius: 9px; font-size: var(--amafh-list-status); font-weight: 600; line-height: 20px; background: var(--amafh-brand-soft); color: var(--amafh-primary); }
   .searchActions { display: contents; }
   .searchActions :global([data-testid="search-action-field"]) { grid-column: 1; order: 1; }
   .searchActions :global([data-testid="search-actions"]) { grid-column: 1 / -1; order: 3; width: 100%; }
-  .searchActions :global(.amafh-static-button) { width: 100%; height: 48px !important; border-radius: 14px !important; font-size: 14px; font-weight: 600; }
-  .searchActions input { height: 48px; border: 0; border-radius: 15px !important; background: var(--amafh-surface); font-size: 13px; }
+  .searchActions :global(.amafh-static-button) { width: 100%; height: 48px !important; border-radius: 14px !important;  font-weight: 600;  font-size: var(--amafh-text-body); line-height: 1.45;}
+  .searchActions input { height: 48px; border: 0; border-radius: 15px !important; background: var(--amafh-surface);   font-size: var(--amafh-text-body); line-height: 1.45;}
 }
 
 
-@media (min-width: 1280px) {
-}
-@media (min-width: 1280px) {
-  .compactTotal { display: flex; flex-direction: column-reverse; justify-content: center; gap: 14px; width: calc((100% - 42px) / 4); min-height: 118px; padding: 14px; border-radius: 14px; background: var(--amafh-brand-soft); }
-  .compactTotal span { font-size: 10px; line-height: 14px; }
-  .compactTotal strong { font-size: 26px; line-height: 38px; font-weight: 700; }
-}
+
+
 @media (min-width: 1280px) { .createAction { height: 40px; border-radius: 10px; } }
+
+/* Applications-only compact heading, actions and filter alignment. */
+.compactTotal { display: inline-flex; align-items: baseline; flex-wrap: wrap; gap: 4px 6px; max-width: 100%; padding: 4px 8px; border-radius: 10px; background: var(--amafh-brand-soft); color: var(--amafh-text-secondary); font-size: var(--amafh-table-body,12px); font-weight: 500; line-height: 1.45; letter-spacing: normal; }
+.compactTotal strong { font-weight: 700; font-size: inherit; line-height: inherit; }
+.headerActions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; min-width: 0; }
+.headerActions :global(button) { height: 40px; min-height: 40px; }
+:global([data-testid="authenticated-content"]):has(.applications.applications) > :global([data-testid="page-header"]) { height: auto; min-height: 0; padding-block: 12px; margin-bottom: 8px; flex-wrap: wrap; gap: 8px 16px; }
+:global([data-testid="authenticated-content"]):has(.applications.applications) > :global([data-testid="page-header"]) > div:first-child { display: grid; grid-template-columns: auto minmax(0,1fr); align-items: center; gap: 2px 12px; max-width: 100%; }
+:global([data-testid="authenticated-content"]):has(.applications.applications) > :global([data-testid="page-header"]) > div:first-child > :is(nav,div) { grid-column: 1 / -1; }
+:global([data-testid="authenticated-content"]):has(.applications.applications) > :global([data-testid="page-header"]) h1 { grid-column: 1; grid-row: 2; }
+:global([data-testid="authenticated-content"]):has(.applications.applications) .compactTotal { grid-column: 2; grid-row: 2; justify-self: start; }
+.applications :global([data-testid="application-filters"]) { align-items: end; gap: 8px 12px; }
+@media (min-width: 1280px) {
+  :global([data-testid="authenticated-content"]):has(.applications.applications) > :global([data-testid="page-header"]) { padding-inline: 16px; }
+  .applications :global([data-amafh-filter-toggle]) { display: none; }
+  .applications :global([data-amafh-filter-content]) { padding: 0; }
+  .applications :global([data-testid="application-filters"]) { padding: 8px 16px; }
+  .applications :global([data-testid="application-filters"] [data-amafh-button]) { height: 40px; min-height: 40px; }
+}
+@media (max-width: 1279px) {
+  .applications :global([data-amafh-filter-content]), .applications :global([aria-label="Active filters"]) { padding: 12px; }
+  .applications :global([data-testid="application-filters"]) { padding: 0; }
+  .applications :global([data-testid="application-filters"] input), .applications :global([data-testid="application-filters"] button[role="combobox"]), .applications :global([data-testid="application-filters"] [data-amafh-button]) { height: 48px; min-height: 48px; }
+}

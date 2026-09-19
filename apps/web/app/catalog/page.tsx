@@ -1,5 +1,7 @@
 "use client";
 
+
+import { PanelPopup } from "@/components/panel-popup";
 import { ConfigurationWorkspace, RecordCard, RecordIdentity } from "@/components/page-patterns";
 import styles from "./catalog.module.css";
 
@@ -756,8 +758,8 @@ function CatalogInner() {
             ) : products.length === 0 ? (
               <EmptyState>Create a product before configuring amount and target rules.</EmptyState>
             ) : (
-              <div className="mt-4 grid min-w-0 gap-4 xl:grid-cols-[minmax(220px,0.32fr)_minmax(0,0.68fr)]">
-                <div className="rounded-lg border border-slate-200 bg-slate-50/70 p-3">
+              <div className="mt-4 grid min-w-0 gap-4">
+                <PanelPopup label="Select rule product"><div className="rounded-lg border border-slate-200 bg-slate-50/70 p-3">
                   <label className="block text-sm font-medium text-slate-700">
                     Product
                     <Select
@@ -782,7 +784,7 @@ function CatalogInner() {
                       <StatusBadge value={formatStatusLabel(selectedRuleProduct.status)} />
                     </div>
                   ) : null}
-                </div>
+                </div></PanelPopup>
 
                 {ruleDraft ? (
                   <div className="min-w-0 rounded-lg border border-slate-200 bg-surface p-3 sm:p-4">
@@ -1335,7 +1337,7 @@ function ProductVariantsTab({
   return (
     <Card className="min-w-0 p-0">
       <div id={panelId} role="tabpanel" aria-labelledby="catalog-tab-variants">
-        <ConfigurationWorkspace controls={<div className={styles.context}>
+        <ConfigurationWorkspace panelLabel="Variant filters and context" controls={<div className={styles.context}>
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h2 className="text-[length:var(--amafh-text-section)] font-semibold text-slate-950">Product Variants</h2>

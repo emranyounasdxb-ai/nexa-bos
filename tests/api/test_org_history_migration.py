@@ -108,7 +108,7 @@ async def test_org_history_upgrade_preserves_existing_records_without_mapping():
                 )
             )
             assert destructive == 0
-        assert "0028_case_operations (head)" in _alembic(url, "current")
+        assert "0030_module_permissions (head)" in _alembic(url, "current")
         assert "No new upgrade operations detected" in _alembic(url, "check")
     finally:
         await engine.dispose()

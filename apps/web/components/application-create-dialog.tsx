@@ -107,6 +107,7 @@ export function ApplicationCreateDialog({
   onCreated: (application: ApplicationRecord) => void;
 }) {
   const { user } = useAuth();
+  const adminOfficer = user?.userType?.code === "ADMIN_OFFICER";
   const api = getBrowserApiUrl();
   const dialogRef = useRef<HTMLElement>(null);
   const matchDetailsRef = useRef<HTMLElement>(null);
@@ -164,10 +165,10 @@ export function ApplicationCreateDialog({
         setOwners(ownerData.items);
       })
       .catch((value: unknown) => {
-        setError(value instanceof Error ? value.message : "Application options could not be loaded");
+        setError(value instanceof Error ? value.message : `${adminOfficer ? "Case" : "Application"} options could not be loaded`);
       })
       .finally(() => setLoadingOptions(false));
-  }, [api, open, reset]);
+  }, [adminOfficer, api, open, reset]);
 
   useEffect(() => {
     if (!open) return;
@@ -360,7 +361,7 @@ export function ApplicationCreateDialog({
       });
       onCreated(created);
     } catch (value) {
-      setError(value instanceof ApiClientError ? value.message : "Application could not be created");
+      setError(value instanceof ApiClientError ? value.message : `${adminOfficer ? "Case" : "Application"} could not be created`);
     } finally {
       setSaving(false);
     }
@@ -389,7 +390,7 @@ export function ApplicationCreateDialog({
         <header className="flex min-w-0 items-start justify-between gap-3 border-b border-brand-border px-4 py-3 sm:px-5">
           <div className="min-w-0">
             <h2 id="create-application-title" className="text-lg font-semibold text-text-primary">
-              Create application
+              {adminOfficer ? "New Case" : "Create application"}
             </h2>
             <p id="create-application-description" className="mt-1 text-sm text-text-secondary">
               Match the customer by exact identity, then select the Bank, Product and Product Variant.
@@ -618,7 +619,7 @@ export function ApplicationCreateDialog({
             </fieldset>
 
             <fieldset className="min-w-0 rounded-[10px] border border-brand-border p-3 sm:p-4">
-              <legend className="px-1 text-sm font-semibold text-text-primary">Application</legend>
+              <legend className="px-1 text-sm font-semibold text-text-primary">{adminOfficer ? "Case" : "Application"}</legend>
               <div className="grid min-w-0 gap-3 sm:grid-cols-2">
                 <Field label="Bank">
                   <Select
@@ -717,7 +718,7 @@ export function ApplicationCreateDialog({
           <footer className="flex shrink-0 flex-wrap justify-end gap-2 border-t border-brand-border px-4 py-3 sm:px-5">
             <Button type="button" variant="secondary" disabled={saving} onClick={onClose}>Cancel</Button>
             <Button type="submit" disabled={saving || loadingOptions || matching}>
-              {saving ? "Creating…" : "Create application"}
+              {saving ? "Creating…" : adminOfficer ? "Create Case" : "Create application"}
             </Button>
           </footer>
         </form>
@@ -768,7 +769,7 @@ export function ApplicationCreateDialog({
                   Customer match details
                 </h2>
                 <p className="mt-1 text-sm text-text-secondary">
-                  Limited identity summary and application history in your authorized scope.
+                  {adminOfficer ? "Customer information and cases you can access." : "Limited identity summary and application history in your authorized scope."}
                 </p>
               </div>
               <Button type="button" variant="ghost" aria-label="Close customer match details" onClick={closeMatchDetails}>
@@ -810,7 +811,7 @@ export function ApplicationCreateDialog({
                 </ul>
               ) : (
                 <p className="mt-2 rounded-[10px] border border-brand-border bg-surface-subtle px-3 py-2 text-sm text-text-secondary">
-                  No applications are visible in your authorized scope.
+                  {adminOfficer ? "No cases are available in your scope." : "No applications are visible in your authorized scope."}
                 </p>
               )}
             </div>

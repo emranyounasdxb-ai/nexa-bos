@@ -1,7 +1,9 @@
 "use client";
 
+import { PanelPopup } from "@/components/panel-popup";
+
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 
 import {
   Button,
@@ -35,7 +37,9 @@ export default function OrganizationHierarchyPage() {
   const [searchDraft, setSearchDraft] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedId, setSelectedId] = useState("");
+  const [contextOpen, setContextOpen] = useState(false);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const seenBranches = useRef(new Set<string>());
   const [refreshKey, setRefreshKey] = useState(0);
   const [error, setError] = useState("");
 
@@ -54,8 +58,15 @@ export default function OrganizationHierarchyPage() {
       { signal },
     );
     setData(loaded);
+    const rootIds = new Set(loaded.rootIds);
+    const newBranches = loaded.nodes.filter((node) =>
+      !seenBranches.current.has(node.id) && node.directReportIds.length > 0 &&
+      (rootIds.has(node.id) || hierarchyOrder(node) <= 2),
+    ).map((node) => node.id);
+    newBranches.forEach((id) => seenBranches.current.add(id));
     setExpanded((current) => {
       const next = new Set(current);
+      newBranches.forEach((id) => next.add(id));
       loaded.upwardChainIds.forEach((id) => next.add(id));
       return next;
     });
@@ -89,6 +100,7 @@ export default function OrganizationHierarchyPage() {
     [data],
   );
   const selected = selectedId ? nodes.get(selectedId) ?? null : null;
+  const orderedRoots = orderHierarchyIds(data?.rootIds ?? [], nodes);
 
   function resetSelection() {
     setSelectedId("");
@@ -98,6 +110,7 @@ export default function OrganizationHierarchyPage() {
 
   function chooseNode(id: string) {
     setSelectedId(id);
+    setContextOpen(true);
   }
 
   function submitSearch(event: FormEvent) {
@@ -262,30 +275,33 @@ export default function OrganizationHierarchyPage() {
 
       <div className={`${styles.treeLayout} grid min-w-0 gap-6`}>
         <div data-testid="hierarchy-canvas" className="min-w-0">
-          <Card className="min-w-0 overflow-x-auto p-3">
+          <Card className={styles.canvasSurface} tabIndex={0} aria-label="Organization reporting canvas">
             {data?.rootIds.length ? (
-              <ul
-                aria-label="Reporting tree"
-                className="flex w-max min-w-full items-start justify-center py-1"
-              >
-                {data.rootIds.map((rootId) => (
-                  <HierarchyBranch
-                    key={rootId}
-                    nodeId={rootId}
-                    nodes={nodes}
-                    expanded={expanded}
-                    selectedId={selectedId}
-                    onToggle={toggle}
-                    onSelect={chooseNode}
-                  />
-                ))}
-              </ul>
+              <>
+                <p className={styles.rootNote}>
+                  {orderedRoots.length} independent reporting {orderedRoots.length === 1 ? "root" : "roots"}. Saved manager links determine every branch; no links are drawn between independent roots. A root&apos;s manager may be unassigned or outside your permitted scope.
+                </p>
+                <ul aria-label="Reporting tree" className={styles.forest}>
+                  {orderedRoots.map((rootId) => (
+                    <HierarchyBranch
+                      key={rootId}
+                      nodeId={rootId}
+                      nodes={nodes}
+                      expanded={expanded}
+                      selectedId={selectedId}
+                      onToggle={toggle}
+                      onSelect={chooseNode}
+                      rootLabel="Independent root · No visible manager"
+                    />
+                  ))}
+                </ul>
+              </>
             ) : (
               <EmptyState kind="search" title="No records match the selected filters" />
             )}
           </Card>
         </div>
-        <SelectedContext node={selected} payload={data} nodes={nodes} />
+        <PanelPopup label="Employee reporting details" open={contextOpen} onOpenChange={setContextOpen}><SelectedContext node={selected} payload={data} nodes={nodes} /></PanelPopup>
       </div>
       </ConfigurationWorkspace>
     </section>
@@ -301,6 +317,8 @@ function HierarchyBranch({
   onSelect,
   siblingIndex,
   siblingCount,
+  depth = 0,
+  rootLabel,
 }: {
   nodeId: string;
   nodes: Map<string, HierarchyNode>;
@@ -310,6 +328,8 @@ function HierarchyBranch({
   onSelect: (id: string) => void;
   siblingIndex?: number;
   siblingCount?: number;
+  depth?: number;
+  rootLabel?: string;
 }) {
   const node = nodes.get(nodeId);
   if (!node) return null;
@@ -317,66 +337,58 @@ function HierarchyBranch({
   const hasParentConnector = siblingIndex !== undefined && siblingCount !== undefined;
   const multipleSiblings = hasParentConnector && siblingCount > 1;
   return (
-    <li data-hierarchy-branch="" className={cx("relative flex flex-col items-center px-2", hasParentConnector && "pt-5")}>
+    <li data-hierarchy-branch="" className={cx(styles.branch, hasParentConnector && styles.childBranch)}>
+      {rootLabel ? <p className={styles.rootLabel}>{rootLabel}</p> : null}
       {hasParentConnector ? (
         <>
           <span
             aria-hidden="true"
-            className="absolute left-1/2 top-0 h-5 border-l border-slate-300"
+            className={styles.parentConnector}
           />
           {multipleSiblings ? (
             <span
               aria-hidden="true"
               className={cx(
-                "absolute top-0 border-t border-slate-300",
+                styles.siblingConnector,
                 siblingIndex === 0
-                  ? "left-1/2 right-0"
+                  ? styles.firstConnector
                   : siblingIndex === siblingCount - 1
-                    ? "left-0 right-1/2"
-                    : "inset-x-0",
+                    ? styles.lastConnector
+                    : styles.middleConnector,
               )}
             />
           ) : null}
         </>
       ) : null}
-      <div
-        id={`hierarchy-node-${node.id}`}
-        data-testid={`hierarchy-node-${node.id}`}
-        data-highlighted={selectedId === node.id ? "true" : "false"}
-        className={cx(
-          "flex w-52 items-center gap-1.5 rounded-md border bg-surface px-2 py-2 shadow-[0_1px_2px_rgba(15,23,42,0.05)]",
-          selectedId === node.id
-            ? "border-brand-primary bg-brand-soft ring-2 ring-brand-primary/20"
-            : "border-slate-200",
-        )}
-      >
+      <div className={styles.nodeRow}>
         <button
+          id={`hierarchy-node-${node.id}`}
+          data-testid={`hierarchy-node-${node.id}`}
+          data-highlighted={selectedId === node.id ? "true" : "false"}
+          data-root={!hasParentConnector ? "true" : "false"}
+          data-has-reports={node.directReportIds.length ? "true" : "false"}
+          data-depth={Math.min(depth, 2)}
           type="button"
           aria-label={`Select ${node.fullName}`}
-          className="flex min-w-0 flex-1 items-center gap-2 rounded-sm text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand-primary"
+          aria-haspopup="dialog"
+          className={cx(styles.employeeCard, "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand-primary")}
           onClick={() => onSelect(node.id)}
         >
           <span data-testid={`hierarchy-avatar-${node.id}`}>
-            <ProfilePhoto userId={node.id} fullName={node.fullName} hasPhoto={node.hasPhoto} version={node.photoUpdatedAt} size="list" />
+            <ProfilePhoto userId={node.id} fullName={node.fullName} hasPhoto={node.hasPhoto} version={node.photoUpdatedAt} size="list" className={styles.avatar} />
           </span>
-          <span className="min-w-0 flex-1">
+          <span className={styles.employeeCopy}>
             <span
-              className="line-clamp-2 block text-sm font-semibold leading-4 text-slate-900"
+              className={styles.employeeName}
               title={node.fullName}
             >
               {node.fullName}
             </span>
             <span
-              className="mt-0.5 block truncate text-xs leading-4 text-slate-500"
+              className={styles.employeeDesignation}
               title={staffDesignationName(node) ?? "No designation"}
             >
               {staffDesignationName(node) ?? "No designation"}
-            </span>
-            <span className="flex min-w-0 items-center gap-1.5 text-xs leading-5 text-slate-400">
-              <span className="min-w-0 truncate">{node.employeeCode}</span>
-              {node.contextOnly ? (
-                <span className="rounded bg-slate-100 px-1 text-slate-500">Context</span>
-              ) : null}
             </span>
           </span>
         </button>
@@ -385,23 +397,19 @@ function HierarchyBranch({
             type="button"
             aria-label={`${open ? "Collapse" : "Expand"} branch for ${node.fullName}`}
             aria-expanded={open}
-            className="mt-0.5 size-5 shrink-0 rounded border border-slate-300 text-xs leading-none text-slate-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand-primary"
+            className={cx(styles.branchToggle, "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand-primary")}
             onClick={() => onToggle(node.id)}
           >
-            {open ? "−" : "+"}
+            <span aria-hidden="true">{open ? "−" : "+"}</span>
           </button>
         ) : (
-          <span className="mt-0.5 inline-block size-5 shrink-0" />
+          null
         )}
       </div>
       {open && node.directReportIds.length ? (
-        <div className="relative mt-5 flex flex-col items-center">
-          <span
-            aria-hidden="true"
-            className="absolute -top-5 left-1/2 h-5 border-l border-slate-300"
-          />
-          <ul className="flex items-start justify-center">
-            {node.directReportIds.map((childId, index) => (
+        <div className={styles.childrenGroup}>
+          <ul className={styles.siblingList}>
+            {orderHierarchyIds(node.directReportIds, nodes).map((childId, index) => (
               <HierarchyBranch
                 key={childId}
                 nodeId={childId}
@@ -412,6 +420,7 @@ function HierarchyBranch({
                 onSelect={onSelect}
                 siblingIndex={index}
                 siblingCount={node.directReportIds.length}
+                depth={depth + 1}
               />
             ))}
           </ul>
@@ -419,6 +428,28 @@ function HierarchyBranch({
       ) : null}
     </li>
   );
+}
+
+function hierarchyOrder(node: HierarchyNode | undefined) {
+  switch (node?.userType?.code) {
+    case "OWNER": return 0;
+    case "MD": return 1;
+    case "SM": return 2;
+    case "TL": return 3;
+    case "COD": return 4;
+    default: return 5;
+  }
+}
+
+// Presentation order only: neither parent IDs nor direct-report membership changes.
+function orderHierarchyIds(ids: string[], nodes: Map<string, HierarchyNode>) {
+  return [...ids].sort((leftId, rightId) => {
+    const left = nodes.get(leftId);
+    const right = nodes.get(rightId);
+    return hierarchyOrder(left) - hierarchyOrder(right) ||
+      (left?.employeeCode ?? "").localeCompare(right?.employeeCode ?? "") ||
+      (left?.fullName ?? "").localeCompare(right?.fullName ?? "");
+  });
 }
 
 function SelectedContext({
@@ -449,8 +480,11 @@ function SelectedContext({
         <Detail label="Department" value={node.department?.name} />
         <Detail label="Business Unit" value={node.businessUnit?.name} />
         <Detail label="Team" value={node.team?.name} />
-        <Detail label="Reporting manager" value={manager?.fullName} />
+        <Detail label="Reporting manager" value={manager?.fullName ?? "No visible reporting manager"} />
         <Detail label="Employment status" value={node.employmentStatus} />
+        {node.contextOnly ? (
+          <Detail label="Hierarchy context" value="Included as reporting context for the current filters." />
+        ) : null}
       </dl>
       <div className="space-y-1 text-sm">
         <h4 className="font-medium text-slate-900">Upward reporting chain</h4>

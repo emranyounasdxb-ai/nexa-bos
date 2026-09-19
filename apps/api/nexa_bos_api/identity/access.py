@@ -8,7 +8,7 @@ from sqlalchemy.orm import selectinload
 
 from nexa_bos_api.identity.enums import UserTypeStatus, VisibilityScope
 from nexa_bos_api.identity.models import User, UserType
-from nexa_bos_api.identity.permissions import ALL_PERMISSION_CODES
+from nexa_bos_api.identity.permissions import ALL_PERMISSION_CODES, MODULE_PERMISSION_DEPENDENCIES
 
 
 def user_load_options():
@@ -87,10 +87,6 @@ def permission_set(user: User) -> set[str]:
             )
             and code
             not in {
-                "Attendance.Manage",
-                "Attendance.ManageOffice",
-                "Attendance.Correct",
-                "Attendance.Reports",
                 "Leave.Settings",
                 "Leave.Override",
                 "UserProfiles.HR.Update",
@@ -104,7 +100,11 @@ def permission_set(user: User) -> set[str]:
                 and not code.endswith(".View")
             )
         }
-    return permissions
+    return {
+        code
+        for code in permissions
+        if all(required in permissions for required in MODULE_PERMISSION_DEPENDENCIES.get(code, ()))
+    }
 
 
 def has_permission(user: User, code: str) -> bool:

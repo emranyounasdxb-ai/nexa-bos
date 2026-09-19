@@ -1,4 +1,6 @@
 "use client";
+
+import { DateRangePicker } from "@/components/date-picker";
 import styles from "./leave.module.css";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -406,8 +408,8 @@ export default function LeavePage() {
       </div>}
 
       {!loading && activeTab === "requests" ? (
-        <RecordFrame variant="balances" summary={<section aria-label="Leave balances" className="space-y-3 rounded-[20px] bg-surface p-3">
-          <h2 className="px-2 py-1 text-[17px] font-medium">Leave balances</h2>
+        <RecordFrame panelLabel="Leave balances" variant="balances" summary={<section aria-label="Leave balances" className="space-y-3 rounded-[20px] bg-surface p-3">
+          <h2 className="px-2 py-1 text-[length:var(--amafh-text-section)] font-medium">Leave balances</h2>
           <div aria-label="Leave balance breakdown" className={styles.balanceGrid}>
             {balances.map((item) => (
               <div key={item.leaveType.id} data-leave-type={item.leaveType.code.toUpperCase()} className={styles.balance}>
@@ -419,7 +421,7 @@ export default function LeavePage() {
           </div>
         </section>}>
           <section aria-label="My leave requests" className="space-y-3 rounded-[20px] bg-surface p-3">
-            <h2 className="px-2 py-1 text-[17px] font-medium">My requests</h2>
+            <h2 className="px-2 py-1 text-[length:var(--amafh-text-section)] font-medium">My requests</h2>
             {myRequests.length ? <RequestTable items={myRequests} own onAction={action} onUpload={upload} onCancel={openCancellation} /> : <EmptyState>No leave requests yet.</EmptyState>}
           </section>
         </RecordFrame>
@@ -448,8 +450,7 @@ export default function LeavePage() {
           <form className="grid gap-3 sm:grid-cols-2" onSubmit={createRequest}>
             {can("Leave.CreateForEmployee") ? <Field label="Employee"><Select value={draft.employeeId} onChange={(event) => setDraft({ ...draft, employeeId: event.target.value })}><option value="">Myself</option>{employees.map((employee) => <option key={employee.id} value={employee.id}>{employee.employeeCode} · {employee.fullName}</option>)}</Select></Field> : null}
             <Field label="Leave type"><Select required value={draft.leaveTypeId} onChange={(event) => setDraft({ ...draft, leaveTypeId: event.target.value })}>{types.map((type) => <option key={type.id} value={type.id}>{type.name}</option>)}</Select></Field>
-            <Field label="Start date"><TextInput required type="date" min={today} value={draft.startDate} onChange={(event) => setDraft({ ...draft, startDate: event.target.value })} /></Field>
-            <Field label="End date"><TextInput required type="date" min={draft.startDate || today} value={draft.endDate} onChange={(event) => setDraft({ ...draft, endDate: event.target.value })} /></Field>
+            <Field label="Leave date range"><DateRangePicker aria-label="Leave date range" required min={today} from={draft.startDate} to={draft.endDate} onChange={({ from, to }) => setDraft({ ...draft, startDate: from, endDate: to })} /></Field>
             <Field label="Portion"><Select value={draft.portion} onChange={(event) => setDraft({ ...draft, portion: event.target.value })}><option value="full_day">Full day</option><option value="first_half">First half</option><option value="second_half">Second half</option></Select></Field>
             <Field label="Reason" className="sm:col-span-2"><Textarea required value={draft.reason} onChange={(event) => setDraft({ ...draft, reason: event.target.value })} /></Field>
             {can("Leave.Override") ? <Field label="OWNER exception reason (only when overriding a control)" className="sm:col-span-2"><Textarea value={draft.exceptionReason} onChange={(event) => setDraft({ ...draft, exceptionReason: event.target.value })} /></Field> : null}

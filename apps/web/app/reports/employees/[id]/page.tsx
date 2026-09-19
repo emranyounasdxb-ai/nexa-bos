@@ -194,8 +194,8 @@ function ProfileInner() {
       </div>
       <ErrorText>{error}</ErrorText>
       {data ? (
-        <RecordFrame summary={<Card>
-          <h2 className="text-[18px] font-medium">{data.employee.fullName}</h2>
+        <RecordFrame panelLabel="Employee reporting profile" summary={<Card>
+          <h2 className="text-[length:var(--amafh-text-section)] font-medium">{data.employee.fullName}</h2>
           <p className="mt-1 text-xs text-text-secondary">{data.employee.employeeCode}</p>
           <dl className="mt-4 grid gap-3 text-sm">
             <div>
@@ -406,7 +406,7 @@ function ProfileInner() {
                     </Link>
                   </Td>
                   <Td>
-                    {item.bankName} / {item.productName} / {item.productVariantName ?? "Legacy"}
+                    {item.bankName} / {item.productName} / {item.productVariantName ?? "Not assigned"}
                   </Td>
                   <Td>{item.currentStage}</Td>
                 </tr>

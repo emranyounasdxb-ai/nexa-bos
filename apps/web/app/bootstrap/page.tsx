@@ -52,7 +52,7 @@ export default function BootstrapPage() {
           { title: "Designation", fields: [["designation_name", "Designation name", "text"], ["designation_code", "Designation code", "text"]] },
         ] as const).map((group) => (
           <fieldset key={group.title} className="grid min-w-0 gap-3 rounded-2xl bg-surface-subtle p-3 sm:grid-cols-2">
-          <legend className="px-1 text-[17px] font-medium">{group.title}</legend>
+          <legend className="px-1 text-[length:var(--amafh-text-section)] font-medium">{group.title}</legend>
           {group.fields.map(([name, label, type]) => (
           <label key={name} className="block min-w-0 text-sm">
             {label}
@@ -67,7 +67,7 @@ export default function BootstrapPage() {
           </fieldset>
         ))}
         <fieldset className="grid min-w-0 grid-cols-2 gap-3 rounded-2xl bg-surface-subtle p-3">
-        <legend className="px-1 text-[17px] font-medium">Employment</legend>
+        <legend className="px-1 text-[length:var(--amafh-text-section)] font-medium">Employment</legend>
         <label className="block text-sm">
           Joining date
           <DatePicker

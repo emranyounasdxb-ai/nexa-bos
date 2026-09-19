@@ -236,3 +236,6 @@ def _reject_correction_mutation(
 
 event.listen(AttendanceCorrection, "before_update", _reject_correction_mutation)
 event.listen(AttendanceCorrection, "before_delete", _reject_correction_mutation)
+
+# Register additive attendance evidence with the shared metadata.
+import nexa_bos_api.attendance.management_models  # noqa: E402, F401

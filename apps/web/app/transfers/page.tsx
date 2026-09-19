@@ -1,11 +1,13 @@
 "use client";
 
+import { DatePicker } from "@/components/date-picker";
+
 import { ListWorkspace } from "@/components/page-patterns";
 import styles from "./transfers.module.css";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Button, Card, DialogPanel, EmptyState, ErrorText, Field, LoadingState, PageHeader, Select, StatusBadge, TableHead, TableShell, Td, Textarea, TextInput, Th } from "@/components/ui";
+import { Button, Card, DialogPanel, EmptyState, ErrorText, Field, LoadingState, PageHeader, Select, StatusBadge, TableHead, TableShell, Td, Textarea, Th } from "@/components/ui";
 import { apiGet, apiRequest, ApiClientError } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { getBrowserApiUrl } from "@/lib/env";
@@ -41,6 +43,7 @@ export default function TransfersPage() {
   const [comment, setComment] = useState("");
   const [busy, setBusy] = useState(false);
   const returnFocus = useRef<HTMLElement | null>(null);
+  const headerActions = useRef<HTMLSpanElement | null>(null);
   const workspace = useRef<HTMLDivElement | null>(null);
   const allowed = can("Transfers.View") || can("Transfers.ViewOwn") || can("Transfers.Recommend");
   const canPrepare = can("Transfers.Create") || can("Transfers.Recommend");
@@ -60,7 +63,7 @@ export default function TransfersPage() {
     setMode(null); setSelected(null); setDecision(null); setComment("");
     requestAnimationFrame(() => {
       if (returnFocus.current?.isConnected) returnFocus.current.focus();
-      else workspace.current?.querySelector<HTMLElement>("button:not(:disabled)")?.focus();
+      else (headerActions.current?.querySelector<HTMLElement>("button:not(:disabled)") ?? workspace.current?.querySelector<HTMLElement>("button:not(:disabled)"))?.focus();
     });
   }, [busy]);
   useEffect(() => {
@@ -131,9 +134,9 @@ export default function TransfersPage() {
   }
   if (!allowed) return <EmptyState>You do not have permission to view transfers.</EmptyState>;
   return <div ref={workspace} className="space-y-4">
-    <PageHeader title="Employee transfers" description="Reviewed organization changes and their effective dates." actions={<>{canPrepare && <Button onClick={event => open(event.currentTarget)}>{can("Transfers.Create") ? "Prepare transfer" : "Recommend transfer"}</Button>}<Button variant="secondary" disabled={loading} onClick={() => void load()}>Refresh</Button></>} />
+    <PageHeader title="Employee transfers" description="Reviewed organization changes and their effective dates." actions={<span ref={headerActions} className="contents">{canPrepare && <Button onClick={event => open(event.currentTarget)}>{can("Transfers.Create") ? "Prepare transfer" : "Recommend transfer"}</Button>}<Button variant="secondary" disabled={loading} onClick={() => void load()}>Refresh</Button></span>} />
     {!mode && error && <ErrorText>{error}</ErrorText>}{notice && <p role="status" className="text-sm text-text-secondary">{notice}</p>}
-    <ListWorkspace title="Transfer register" filters={
+    <ListWorkspace feedback={<ErrorText>{error}</ErrorText>} title="Transfer register" filters={
     <div className="max-w-xs"><Field label="Status"><Select aria-label="Status" value={status} onChange={event => { const next = new URLSearchParams(params.toString()); if (event.target.value) next.set("status", event.target.value); else next.delete("status"); router.push(`${pathname}?${next}`, { scroll: false }); }}><option value="">All statuses</option>{statuses.map(s => <option key={s}>{s}</option>)}</Select></Field></div>
     }>
     {loading ? <LoadingState>Loading transfers…</LoadingState> : <Card>{items.length === 0 ? <EmptyState>No transfers in this scope.</EmptyState> : <TableShell className={`${styles.register} [&_table]:min-w-[600px]`}><TableHead><tr><Th>Employee</Th><Th>Requested</Th><Th>Effective</Th><Th>Status</Th><Th>Action</Th></tr></TableHead><tbody>{items.map(row => <tr key={row.id}><Td><span className="font-medium">{row.employee}</span><div className="text-xs text-text-secondary">{row.employeeCode}</div></Td><Td>{row.requestedDate}</Td><Td>{row.effectiveDate}</Td><Td><StatusBadge value={row.status} /></Td><Td><Button variant="secondary" onClick={event => open(event.currentTarget, row)}>View transfer</Button></Td></tr>)}</tbody></TableShell>}</Card>}
@@ -144,7 +147,7 @@ export default function TransfersPage() {
         <Field label="Employee *"><Select aria-label="Employee *" required disabled={mode !== "create"} value={draft.employee_id} onChange={event => setDraft({ ...draft, employee_id: event.target.value, proposed: options?.employees.find(e => e.id === event.target.value)?.assignment ?? emptyAssignment })}><option value="">Select employee</option>{options?.employees.map(e => <option key={e.id} value={e.id}>{e.name} · {e.employeeCode}</option>)}</Select></Field>
 <fieldset className="grid gap-3 sm:grid-cols-2 rounded-2xl bg-surface-subtle p-4"><legend className="px-1 text-sm font-medium">Proposed assignment</legend>{fields.map(([key, label, collection]) => <Field key={key} label={`${label}${key === "designation_id" ? " *" : ""}`}><Select aria-label={`${label}${key === "designation_id" ? " *" : ""}`} required={key === "designation_id"} value={draft.proposed[key] ?? ""} disabled={(key === "department_id" && !draft.proposed.office_id) || (key === "business_unit_id" && !draft.proposed.department_id) || (key === "team_id" && !draft.proposed.business_unit_id)} onChange={event => { const proposed = { ...draft.proposed, [key]: event.target.value || null }; if (key === "office_id") { proposed.department_id = null; proposed.business_unit_id = null; proposed.team_id = null; } if (key === "department_id") { proposed.business_unit_id = null; proposed.team_id = null; } if (key === "business_unit_id") proposed.team_id = null; setDraft({ ...draft, proposed }); }}><option value="">{key === "designation_id" ? "Select designation" : "Not assigned"}</option>{options?.[collection].filter(o => key === "department_id" ? o.officeId === draft.proposed.office_id : key === "business_unit_id" ? o.departmentId === draft.proposed.department_id && o.officeId === draft.proposed.office_id : key === "team_id" ? o.businessUnitId === draft.proposed.business_unit_id : key === "reporting_manager_id" ? o.id !== draft.employee_id : true).map(o => <option key={o.id} value={o.id}>{o.name}</option>)}</Select></Field>)}</fieldset>
         <fieldset className="grid gap-3 rounded-2xl bg-surface-subtle p-4 sm:grid-cols-2"><legend className="px-1 text-sm font-medium">Timing and justification</legend>
-        <Field label="Effective date *"><TextInput type="date" required value={draft.effective_date} onChange={event => setDraft({ ...draft, effective_date: event.target.value })} /></Field>
+        <Field label="Effective date *"><DatePicker aria-label="Effective date" required value={draft.effective_date} onChange={value => setDraft({ ...draft, effective_date: value })} /></Field>
         <Field label="Reason *"><Textarea required maxLength={2000} value={draft.reason} onChange={event => setDraft({ ...draft, reason: event.target.value })} /></Field>
         {user?.userType?.code === "OWNER" && <Field label="Past-date justification"><Textarea maxLength={2000} value={draft.backdate_reason} onChange={event => setDraft({ ...draft, backdate_reason: event.target.value })} /></Field>}
         <Field label="Notes"><Textarea maxLength={4000} value={draft.notes} onChange={event => setDraft({ ...draft, notes: event.target.value })} /></Field>

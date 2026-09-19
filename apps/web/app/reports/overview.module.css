@@ -287,12 +287,58 @@
 }
 @media (min-width: 1280px) {
   .ownerColumns { grid-template-columns: minmax(0, 1fr) 376px; gap: 24px; }
+  .ownerDashboard .hero { padding: 23px 27px 18px; }
+  .ownerDashboard .hero { border-color: #e5e6ef; }
+  :global(:root[data-theme="dark"]) .ownerDashboard .hero { border-color: var(--amafh-border); }
+  .ownerDashboard .ownerColumns :global([data-amafh-section-header]) h2 { font-size: 16px; line-height: 22px; }
+  .ownerDashboard .ownerColumns :global([data-amafh-section-header]) p { font-size: 10px !important; line-height: 14px; }
+  .ownerDashboard .attention :global([data-amafh-section-header]) h2 { font-size: 15px; line-height: 20px; }
   .ownerDashboard .hero .metricValue strong { font-size: 30px; line-height: 36px; }
   .ownerDashboard .heroHeading h2 { margin-top: 5px; }
   .ownerDashboard .heroHeading > small { margin-top: 5px; line-height: 14px; }
-  .ownerDashboard .hero .metric { gap: 4px; }
+  .ownerDashboard .hero .metric { gap: 0; }
+  .ownerDashboard .hero .metrics { margin-top: 12px; padding-top: 12px; }
+  .ownerDashboard .hero .metricContext > span { padding-block: 2px; }
+  .ownerDashboard .ownerColumns :global([data-amafh-card]) { box-shadow: 0 7px 21px rgb(21 30 75 / 5%); }
+  .ownerDashboard .stageDistribution:global([data-amafh-card]) { border-radius: 12px !important; }
   .ownerDashboard .attention:global([data-empty-delay="true"]) .delayBody { grid-template-columns: minmax(0, 1fr) minmax(280px, 420px); }
 }
+
+/* OWNER stage volumes: 90:129–266:17. Existing stage names, counts,
+   ranking and drill-down destinations are retained; unknown stages stay neutral. */
+.stageVolumes { display: flex; flex-direction: column; gap: 4px; }
+.stageVolume { display: grid; grid-template-columns: 80px 110px minmax(0, 1fr); align-items: center; gap: 14px; min-height: 26px; --stage-fill: #64748b; --stage-soft: #eff1f3; }
+.stageCount { display: flex; align-items: center; gap: 8px; }
+.stageCount svg { box-sizing: content-box; padding: 3px; border-radius: 6px; background: var(--stage-soft); color: var(--amafh-text-secondary); }
+.stageCount strong { font-size: 18px; line-height: 26px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.stageName { font-size: var(--amafh-list-primary); line-height: var(--amafh-list-primary-line); color: var(--amafh-text-secondary); overflow-wrap: anywhere; }
+.stageTrack { height: 8px; overflow: hidden; border-radius: 4px; background: var(--stage-soft); }
+.stageTrack > span { display: block; height: 100%; border-radius: 4px; background: var(--stage-fill); }
+.stageVolume[data-stage-tone="submitted"] { --stage-fill: #168b64; --stage-soft: #e7f3ef; }
+.stageVolume[data-stage-tone="submitted"] .stageCount svg { color: var(--amafh-success); }
+:global(:root[data-theme="dark"]) .stageVolume { --stage-fill: #91bfff; --stage-soft: #202b40; }
+:global(:root[data-theme="dark"]) .stageVolume[data-stage-tone="submitted"] { --stage-fill: #66dfb9; --stage-soft: #2d5b52; }
+@media (max-width: 639px) {
+  .stageVolume { grid-template-columns: 62px minmax(0, 1fr); gap: 4px 8px; }
+  .stageTrack { grid-column: 2; margin-bottom: 6px; }
+}
+
+/* Sidebar metric tiles: 90:83–90:97. Footer bands carry only the existing
+   value/empty text; no Figma sample comparisons or additional metrics are added. */
+.ownerDashboard .pipelineItems > a { position: relative; min-height: 58px; padding: 8px 10px 24px; border: 0; border-radius: 10px; --pipeline-original: var(--amafh-info); --pipeline-soft: var(--amafh-info-soft); --pipeline-fill: color-mix(in srgb, var(--pipeline-original) var(--pipeline-strength, 55%), var(--amafh-surface)); background: color-mix(in srgb, var(--pipeline-soft) 50%, var(--amafh-surface)); }
+.ownerDashboard .pipelineItems > a::after { content: ""; position: absolute; inset: auto 0 0; height: 20px; border-radius: 0 0 10px 10px; background: var(--pipeline-fill); }
+.ownerDashboard .pipelineItems > a[data-pipeline-tone="green"] { --pipeline-soft: var(--amafh-success-soft); --pipeline-original: var(--amafh-success); }
+.ownerDashboard .pipelineItems > a[data-pipeline-tone="amber"] { --pipeline-soft: var(--amafh-warning-soft); --pipeline-original: var(--amafh-warning); }
+.ownerDashboard .pipelineItems > a[data-pipeline-tone="red"] { --pipeline-soft: var(--amafh-danger-soft); --pipeline-original: var(--amafh-danger); }
+.ownerDashboard .pipelineItems > a > span:first-child { width: 22px; height: 22px; border-radius: 6px; }
+.ownerDashboard .pipelineItems > a > span:nth-child(2) > span:nth-child(2) { position: absolute; z-index: 1; bottom: 2px; left: 10px; max-width: calc(100% - 20px); font-size: var(--amafh-list-secondary); line-height: 16px; color: var(--amafh-text); }
+:global(:root[data-theme="dark"]) .ownerDashboard .pipelineItems > a > span:nth-child(2) > span:nth-child(2) { color: var(--amafh-action-text); }
+.ownerDashboard .pipelineItems > a:hover { box-shadow: inset 0 0 0 1px var(--amafh-control-border); }
+.ownerDashboard .pipeline:global([data-amafh-card]) { border: 0; background: var(--amafh-subtle); box-shadow: none; }
+.ownerDashboard .pipelineItems > a[aria-label="PF Count / Value KPI"] { --pipeline-soft: var(--amafh-subtle); --pipeline-original: #6654b3; }
+.ownerDashboard .pipelineItems > a[aria-label="CC Count KPI"] { --pipeline-soft: var(--amafh-brand-soft); --pipeline-original: var(--amafh-primary); }
+:global(:root[data-theme="dark"]) .ownerDashboard .pipelineItems > a[aria-label="PF Count / Value KPI"] { --pipeline-original: #c6aeff; }
+:global(:root[data-theme="dark"]) .ownerDashboard .pipelineItems > a { --pipeline-strength: 70%; }
 @media (max-width: 1279px) {
   .ownerDashboard .ownerColumns :global([data-amafh-card]),
   .ownerDashboard :global([data-owner-overview]) > :global([data-amafh-card]) { padding: 20px !important; border-radius: 20px !important; }

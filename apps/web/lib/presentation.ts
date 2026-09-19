@@ -128,13 +128,13 @@ export type AuditDisplayEntry = { label: string; value: string };
 
 export function auditDisplayEntries(values: Record<string, unknown> | null | undefined): AuditDisplayEntry[] {
   return Object.entries(values ?? {}).flatMap(([key, value]) => {
-    if (HIDDEN_AUDIT_FIELDS.has(key)) return [];
+    if (HIDDEN_AUDIT_FIELDS.has(key) || ((/^(?:id|.*(?:Id|_id))$/.test(key) || /uuid|record.?source|context.?source|legacy|lock.?version/i.test(key)) && !["emiratesId", "emirates_id"].includes(key))) return [];
     if (value === null || value === undefined || value === "") {
       return [{ label: auditFieldLabel(key), value: "Not assigned" }];
     }
     if (typeof value === "string") {
-      if (UUID_PATTERN.test(value) || /Id$/.test(key)) {
-        return [{ label: auditFieldLabel(key), value: "Updated" }];
+      if (UUID_PATTERN.test(value)) {
+        return [];
       }
       if (ISO_DATE_PATTERN.test(value) || ISO_DATE_TIME_PATTERN.test(value)) {
         return [{ label: auditFieldLabel(key), value: formatLocalDateTime(value) }];

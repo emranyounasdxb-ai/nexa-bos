@@ -64,7 +64,7 @@
 .cardContent h1 { margin: 0; color: var(--amafh-text); font-size: 27px; font-weight: 650; letter-spacing: -.025em; line-height: 1.2; }
 .mfaDescription { margin: 8px 0 0; color: var(--amafh-text-secondary); font-size: 14px; line-height: 1.5; }
 .form { display: flex; flex-direction: column; gap: 17px; margin-top: 22px; }
-.field { display: block; min-width: 0; color: var(--amafh-text); font-size: 14px; font-weight: 600; }
+.field { display: block; min-width: 0; color: var(--amafh-text); font-size: var(--amafh-text-body); font-weight: 600; }
 .input { height: 48px; margin-top: 7px; border: 1px solid var(--amafh-control-border); border-radius: 14px; padding-inline: 13px; background: var(--amafh-surface); }
 .input:focus { background: var(--amafh-surface); }
 .submit { height: 48px; border-radius: 14px; background: var(--amafh-action); color: var(--amafh-action-text) !important; font-weight: 700; box-shadow: none; }

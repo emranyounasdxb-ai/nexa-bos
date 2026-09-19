@@ -17,7 +17,7 @@ async function signIn(page: Page, email: string, value: string) {
 }
 async function signOut(page: Page, width: number) {
   await expect(page.getByRole("dialog")).toHaveCount(0);
-  if (width < 1024) await expect(page.getByRole("button", { name: "Open navigation" })).toHaveAttribute("aria-expanded", "false");
+  if (width < 640) await expect(page.getByRole("button", { name: "More navigation" })).toHaveAttribute("aria-expanded", "false");
   await page.getByRole("button", { name: "Open user menu" }).focus(); await expect(page.getByRole("button", { name: "Open user menu" })).toBeFocused(); await page.keyboard.press("Enter"); await expect(page.getByRole("menuitem", { name: "Sign out" })).toBeVisible(); await page.getByRole("menuitem", { name: "Sign out" }).click(); await expect(page).toHaveURL(/\/login/);
 }
 async function closeDetails(page: Page, restoredAction = "Prepare exit") {

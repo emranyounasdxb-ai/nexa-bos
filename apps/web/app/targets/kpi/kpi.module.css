@@ -1,0 +1,42 @@
+.scorecardsPage { min-width: 0; }
+
+/* This page owns its spacing; shared headers and other pages remain unchanged. */
+:global([data-testid="authenticated-content"]):has(.scorecardsPage.scorecardsPage) > :global([data-testid="page-header"]) { height: auto; min-height: 0; padding-block: 12px; margin-bottom: 8px; align-items: center; flex-wrap: wrap; gap: 8px 16px; }
+:global([data-testid="authenticated-content"]):has(.scorecardsPage.scorecardsPage) > :global([data-testid="page-header"]) > div:first-child { height: auto; gap: 4px; }
+.scorecardsCard:global([data-amafh-card]) { padding: 0; min-width: 0; }
+.listHeader { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; padding: 10px 12px; border-bottom: 1px solid var(--amafh-border); }
+.listHeader > div { min-width: 0; }
+.listBody { display: flex; flex-direction: column; gap: 10px; min-width: 0; padding: 12px; }
+.explanation { display: grid; gap: 6px; font-size: var(--amafh-text-body); line-height: 1.5; color: var(--amafh-text-secondary); }
+.explanation strong { color: var(--amafh-text-primary); font-weight: 600; }
+.scorecardList { display: grid; gap: 10px; align-items: start; min-width: 0; }
+.scorecard { display: flex; flex-direction: column; gap: 8px; min-width: 0; padding: 12px; border: 1px solid var(--amafh-border); border-radius: var(--amafh-radius-card); background: var(--amafh-subtle); }
+.scorecardHeader { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; }
+.scorecardHeader h3 { min-width: 0; overflow-wrap: anywhere; }
+.usage { color: var(--amafh-text-secondary); font-size: var(--amafh-text-support); line-height: 1.45; }
+.weightSummary { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; font-size: var(--amafh-text-body); line-height: 1.45; }
+.weightSummary strong { font-variant-numeric: tabular-nums; }
+.configuredMetrics { min-width: 0; }
+.configuredMetrics > p { font-size: var(--amafh-text-support); line-height: 1.45; }
+.metricRows { margin-top: 4px; }
+.metricRows > div { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; gap: 6px 12px; padding-block: 6px; border-bottom: 1px solid var(--amafh-border); }
+.metricRows > div:last-child { border-bottom: 0; }
+.metricRows.metricRows dt, .metricRows dd { font-size: var(--amafh-text-body); line-height: 1.45; color: var(--amafh-text-primary); }
+.metricRows dt { min-width: 0; overflow-wrap: anywhere; }
+.metricRows dd { font-weight: 500; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.scorecardActions { padding-top: 8px; border-top: 1px solid var(--amafh-border); }
+.editor > div:first-child, .editor > div:last-child { padding: 12px 16px; }
+.editorBody { display: flex; flex-direction: column; gap: 12px; min-width: 0; padding: 12px 16px; }
+.editorGroup { min-width: 0; padding: 10px 12px; border: 1px solid var(--amafh-border); border-radius: 8px; }
+.editorWeight { margin-top: 10px; padding-block: 8px; }
+
+@media (min-width: 1024px) {
+  .scorecardList { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (min-width: 1280px) {
+  :global([data-testid="authenticated-content"]):has(.scorecardsPage.scorecardsPage) > :global([data-testid="page-header"]) { padding: 12px 16px; margin-top: 20px; }
+}
+@media (max-width: 639px) {
+  .listHeader, .listBody, .scorecard { padding: 10px; }
+  .editorBody, .editor > div:first-child, .editor > div:last-child { padding: 12px; }
+}

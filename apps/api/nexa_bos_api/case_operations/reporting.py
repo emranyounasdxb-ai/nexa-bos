@@ -11,13 +11,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from nexa_bos_api.applications.models import Application, ApplicationOwnerHistory
 from nexa_bos_api.applications.service import serialize_applications
-from nexa_bos_api.applications.visibility import visible_case_owner_ids
+from nexa_bos_api.applications.visibility import tl_case_owner_ids, visible_case_owner_ids
 from nexa_bos_api.case_operations.models import CaseEarning, CaseEarningReversal
 from nexa_bos_api.catalog.models import Product
 from nexa_bos_api.core.exceptions import AppError
 from nexa_bos_api.core.spreadsheets import spreadsheet_safe
 from nexa_bos_api.customers.models import Customer
-from nexa_bos_api.identity.access import has_user_type, tl_team_owner_ids
+from nexa_bos_api.identity.access import has_user_type
 from nexa_bos_api.identity.models import User, UserType
 
 
@@ -32,7 +32,7 @@ async def scoped_case_statement(session: AsyncSession, actor: User):
     if has_user_type(actor, "SM"):
         return stmt.where(Application.routed_sales_manager_id == actor.id)
     if has_user_type(actor, "TL"):
-        return stmt.where(Application.case_owner_id.in_(await tl_team_owner_ids(session, actor)))
+        return stmt.where(Application.case_owner_id.in_(await tl_case_owner_ids(session, actor)))
     if has_user_type(actor, "SE"):
         return stmt.where(Application.case_owner_id == actor.id)
     if has_user_type(actor, "BDM", "GM", "OWNER"):

@@ -252,6 +252,7 @@ export type ApplicationEventRecord = {
   stageNote: string | null;
   bosUpdatedAt: string;
   updatedBy: string | null;
+  updatedById?: string | null;
   reason: string | null;
   payload: Record<string, unknown> | null;
 };
@@ -386,6 +387,9 @@ export type AssetRecord = {
 
 export type AssetEmployeeOption = {
   id: string;
+  employeeCode?: string | null;
+  designationName?: string | null;
+  officeName?: string | null;
   userCode: string;
   fullName: string;
   employmentStatus: string;

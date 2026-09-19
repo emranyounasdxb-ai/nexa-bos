@@ -5,7 +5,7 @@ import styles from "./schedules.module.css";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { DatePicker } from "@/components/date-picker";
+import { DateRangePicker } from "@/components/date-picker";
 import { Pagination, useClientPagination } from "@/components/pagination";
 import {
   Button,
@@ -49,7 +49,7 @@ const WEEKDAYS = [
 ];
 
 export default function SchedulesPage() {
-  const { can } = useAuth();
+  const { can, user } = useAuth();
   const api = getBrowserApiUrl();
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [offices, setOffices] = useState<Org[]>([]);
@@ -66,6 +66,7 @@ export default function SchedulesPage() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const canManage = can("Attendance.Manage");
+  const canManageCompany = canManage && (user?.userType?.code === "OWNER" || user?.userType?.visibilityScope === "company");
   const schedulesPagination = useClientPagination(schedules);
   const officeDepartments = useMemo(
     () => departments.filter((item) => !officeId || item.officeId === officeId),
@@ -158,7 +159,7 @@ export default function SchedulesPage() {
                 type="checkbox"
                 className="mr-2"
                 checked={weekdays.includes(day.value)}
-                disabled={!canManage}
+                disabled={!canManageCompany}
                 onChange={(event) => {
                   setWeekdays((current) =>
                     event.target.checked
@@ -171,13 +172,13 @@ export default function SchedulesPage() {
             </label>
           ))}
         </div>
-        {canManage ? (
+        {canManageCompany ? (
           <Button type="button" onClick={() => void saveWorkingDays()}>
             Save working days
           </Button>
         ) : null}
       </section>
-      <RegisterWorkspace editor={
+      <RegisterWorkspace feedback={<><ErrorText>{error}</ErrorText>{message ? <p role="status" className="text-sm text-text-secondary">{message}</p> : null}</>} panelLabel="New schedule" editor={
       canManage ? (
         <form
           className="grid gap-3 rounded-xl border border-slate-200 bg-surface p-4 md:grid-cols-3"
@@ -255,13 +256,9 @@ export default function SchedulesPage() {
           </label>
           {kind === "ramadan" ? (
             <>
-              <label className="text-sm">
-                Ramadan from
-                <DatePicker aria-label="Ramadan from" value={ramadanFrom} onChange={setRamadanFrom} required />
-              </label>
-              <label className="text-sm">
-                Ramadan to
-                <DatePicker aria-label="Ramadan to" value={ramadanTo} onChange={setRamadanTo} required />
+              <label className="text-sm md:col-span-2">
+                Ramadan date range
+                <DateRangePicker aria-label="Ramadan date range" from={ramadanFrom} to={ramadanTo} onChange={({ from, to }) => { setRamadanFrom(from); setRamadanTo(to); }} required />
               </label>
             </>
           ) : null}
@@ -293,9 +290,9 @@ export default function SchedulesPage() {
             schedulesPagination.pagedItems.map((item) => (
               <tr key={item.id}>
                 <Td>
-                  {offices.find((office) => office.id === item.officeId)?.name ?? item.officeId}
+                  {offices.find((office) => office.id === item.officeId)?.name ?? "Not recorded"}
                   {item.departmentId
-                    ? ` / ${departments.find((dept) => dept.id === item.departmentId)?.name ?? item.departmentId}`
+                    ? ` / ${departments.find((dept) => dept.id === item.departmentId)?.name ?? "Not recorded"}`
                     : " / Office-wide"}
                 </Td>
                 <Td>{item.kind}</Td>
@@ -319,7 +316,7 @@ export default function SchedulesPage() {
         onPageChange={schedulesPagination.setPage}
         onPageSizeChange={schedulesPagination.setPageSize}
       />
-      <ImpactRules canManage={canManage} />
+      <ImpactRules canManage={canManageCompany} />
       </RegisterWorkspace>
     </section>
   );

@@ -103,7 +103,7 @@ export default function ComparePage() {
   return (
     <section className="space-y-4">
       <PageHeader title="Comparisons" description="Compare entities or periods within reporting scope." />
-      <ConfigurationWorkspace wideControls controls={
+      <ConfigurationWorkspace panelLabel="Comparison filters" wideControls controls={
       <FilterBar>
         <label className="text-sm">
           Comparison type

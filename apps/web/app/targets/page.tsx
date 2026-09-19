@@ -40,7 +40,8 @@ import { apiGet, apiRequest, ApiClientError } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { getBrowserApiUrl } from "@/lib/env";
 import { formatLocalDateTime } from "@/lib/presentation";
-import { ConfigurationWorkspace } from "@/components/page-patterns";
+import { PanelPopup } from "@/components/panel-popup";
+import styles from "./targets.module.css";
 import { formatAed, formatPct } from "@/lib/reports";
 
 type Named = {
@@ -414,7 +415,7 @@ export default function TargetsPage() {
   }
 
   return (
-    <section className="space-y-4">
+    <section className={styles.targetsPage}>
       <PageHeader
         title="Targets"
         description="Plan measurable employee, team, and office outcomes and review authoritative results."
@@ -434,8 +435,8 @@ export default function TargetsPage() {
         }
       />
 
-      <Card className="overflow-hidden p-0">
-        <div className="border-b border-brand-border px-3 pt-2 sm:px-4">
+      <Card className={cx("overflow-hidden p-0", styles.workspaceCard)}>
+        <div className={cx("border-b border-brand-border", styles.workspaceToolbar)}>
           <div role="tablist" aria-label="Target workspaces" className="flex min-w-0 gap-1 overflow-x-auto">
             {([
               ["targets", "Targets", IconTargetArrow],
@@ -463,11 +464,8 @@ export default function TargetsPage() {
               </button>
             ))}
           </div>
-        </div>
-
-        {activeView === "targets" ? (
-          <div id="targets-panel" role="tabpanel" aria-labelledby="targets-tab" className="space-y-3 p-3 sm:p-4">
-            <ConfigurationWorkspace controls={<div
+          {activeView === "targets" ? (
+            <PanelPopup label="Target filters"><div
               data-testid="target-filter-toolbar"
               className="grid min-w-0 grid-cols-2 gap-3 rounded-[20px] bg-surface-subtle p-3 sm:p-4 xl:grid-cols-1 xl:rounded-2xl"
             >
@@ -508,7 +506,12 @@ export default function TargetsPage() {
                 <span>Filters apply automatically</span>
                 <strong className="whitespace-nowrap font-semibold text-text-primary">{total.toLocaleString()} in scope</strong>
               </div>
-            </div>}>
+            </div></PanelPopup>
+          ) : null}
+        </div>
+
+        {activeView === "targets" ? (
+          <div id="targets-panel" role="tabpanel" aria-labelledby="targets-tab" className={styles.workspacePanel}>
             <ErrorText>{error}</ErrorText>
             {message ? <p role="status" className="rounded-md border border-success-soft bg-success-soft px-3 py-2 text-sm text-text-primary">{message}</p> : null}
             <div data-testid="target-results" aria-busy={loading}>
@@ -578,15 +581,14 @@ export default function TargetsPage() {
               )}
             </div>
             <Pagination page={page} pageSize={pageSize} total={total} totalPages={totalPages} pageSizeOptions={SERVER_PAGE_SIZE_OPTIONS} onPageChange={setPage} onPageSizeChange={(value) => { if (value !== "all") setPageSize(value); }} />
-            </ConfigurationWorkspace>
           </div>
         ) : (
-          <div id="periods-panel" role="tabpanel" aria-labelledby="periods-tab" className="space-y-3 p-3 sm:p-4">
+          <div id="periods-panel" role="tabpanel" aria-labelledby="periods-tab" className={styles.workspacePanel}>
             <div data-testid="period-control-toolbar" className="rounded-[10px] border border-brand-border bg-surface-subtle p-3">
               <div className="flex min-w-0 flex-wrap items-start justify-between gap-2">
                 <div className="min-w-0"><h2 className="text-[length:var(--amafh-text-section)] font-semibold text-text-primary">Monthly period controls</h2><p className="mt-0.5 text-xs leading-5 text-text-secondary">Locking prevents target edits. Reopening requires an audited reason.</p></div>
               </div>
-              <div className="mt-3 grid min-w-0 gap-3 sm:grid-cols-[minmax(12rem,1fr)_minmax(8rem,auto)_auto] sm:items-end">
+              <div className={styles.periodControls}>
                 <Field label="Target month" className="min-w-0 [&>div]:grid [&>div]:grid-cols-[minmax(0,1fr)_auto] [&>div]:items-center [&>div]:gap-2 [&>div>button]:mt-0 [&>div>button]:h-8 [&>div>button]:rounded-md [&>div>button]:border [&>div>button]:border-brand-border [&>div>button]:px-2.5 [&>div>button]:text-xs [&>div>button]:no-underline"><DatePicker aria-label="Target month" value={periodMonth} onChange={(value) => { setPeriodMonth(monthFirst(value)); setPage(1); }} /></Field>
                 <div><span className="block text-sm font-medium text-text-primary">Current status</span><div className="mt-1.5 flex h-8 items-center"><Badge tone={!hasPeriodMonth ? "neutral" : isPeriodLocked ? "red" : "green"}>{!hasPeriodMonth ? "Select month" : isPeriodLocked ? "Locked" : "Open"}</Badge></div></div>
                 <div className="flex min-h-8 items-center sm:justify-end">

@@ -184,7 +184,7 @@ export default function EditUserPage() {
       <FormFrame title="Employee details" description="Update the employee profile and organization assignment. Office, department and team selections must remain consistent.">
       <form onSubmit={(event) => void onSubmit(event)} className="grid min-w-0 gap-4 rounded-lg border border-brand-border bg-surface p-4 sm:p-5">
         <fieldset className="grid min-w-0 gap-3 rounded-2xl bg-surface-subtle p-3 sm:grid-cols-2">
-        <legend className="px-1 text-[17px] font-medium">Identity and contact</legend>
+        <legend className="px-1 text-[length:var(--amafh-text-section)] font-medium">Identity and contact</legend>
         <label className="block text-sm">Full Name<TextInput value={form.full_name} required maxLength={200} onChange={(event) => setForm({ ...form, full_name: event.target.value })} /></label>
         {["personal_email", "personal_mobile"].map((name) => (
           <label key={name} className="block text-sm">
@@ -197,7 +197,7 @@ export default function EditUserPage() {
         ))}
         </fieldset>
         <fieldset className="grid min-w-0 grid-cols-2 gap-3 rounded-2xl bg-surface-subtle p-3">
-        <legend className="px-1 text-[17px] font-medium">Role and joining</legend>
+        <legend className="px-1 text-[length:var(--amafh-text-section)] font-medium">Role and joining</legend>
         <div className="min-w-0 text-sm">
           <p>Designation</p>
           <p className="mt-1 font-medium">{designationName ?? "Not assigned"}</p>
@@ -213,7 +213,7 @@ export default function EditUserPage() {
         </label>
         </fieldset>
         <fieldset className="grid min-w-0 grid-cols-2 gap-3 rounded-2xl bg-surface-subtle p-3">
-        <legend className="px-1 text-[17px] font-medium">Organization assignment</legend>
+        <legend className="px-1 text-[length:var(--amafh-text-section)] font-medium">Organization assignment</legend>
         <div className="min-w-0"><label className="block text-sm" htmlFor="edit-office">
           Office
         </label>
@@ -288,7 +288,7 @@ export default function EditUserPage() {
         </div>
         </fieldset>
         <fieldset className="grid min-w-0 grid-cols-2 gap-3 rounded-2xl bg-surface-subtle p-3">
-        <legend className="px-1 text-[17px] font-medium">Employment and reporting</legend>
+        <legend className="px-1 text-[length:var(--amafh-text-section)] font-medium">Employment and reporting</legend>
         <label className="block min-w-0 text-sm">
           Employment status
           <Select

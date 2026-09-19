@@ -100,6 +100,11 @@
 @media (max-width: 639px) { .headerActions .headerTheme { display: none; } .accountMenu .accountTheme { display: flex; margin-bottom: 10px; } .accountMenu .accountTheme button { width: 44px; height: 44px; } }
 .desktopNav :is([aria-current="page"],[data-active="true"]) { background: var(--amafh-action); color: var(--amafh-action-text); }
 .frame:not([data-tl]) .topNav { display: none; }
+/* Keep Admin Officer Attendance selected throughout its child routes/views. */
+.frame[data-admin-officer] .desktopNav a[href="/attendance"][aria-current="page"] {
+  background: #9b398f;
+  color: var(--amafh-nav-text);
+}
 /* Global Header: Figma 90:3 and 296:159. Compact app navigation has its
    own references and does not inherit these desktop dimensions. */
 @media (min-width: 1280px) {
@@ -114,7 +119,7 @@
   .desktopNav svg { width: 12px; height: 12px; flex-shrink: 0; }
   .desktopNav :is([aria-current="page"],[data-active="true"]) { background: #9b398f; color: #ffffff; }
   .headerActions { justify-self: end; margin-left: 0; gap: 8px; }
-  .headerActions .headerTheme { gap: 0; padding: 0; border-radius: 17px; background: #2d3764; }
+  .headerActions .headerTheme { gap: 0; padding: 0; border-radius: 17px; background: #9b398f; }
   .headerActions .headerTheme button { width: 34px; height: 34px; border-radius: 17px; color: #ffffff; }
   .headerActions .headerTheme button:hover { background: #ffffff18; color: #ffffff; }
   .headerActions > .iconButton { width: 34px; height: 34px; border-radius: 17px; background: #2d3764; }
@@ -123,8 +128,8 @@
   .accountCopy, .accountChevron { display: none; }
   :global(:root[data-theme="dark"]) .desktopNav :is(a,button) { color: var(--amafh-text-secondary); }
   :global(:root[data-theme="dark"]) .desktopNav :is([aria-current="page"],[data-active="true"]) { background: var(--amafh-action); color: var(--amafh-action-text); }
-  :global(:root[data-theme="dark"]) .headerActions .headerTheme { background: var(--amafh-subtle); }
-  :global(:root[data-theme="dark"]) .headerActions .headerTheme button { color: var(--amafh-nav-text); }
+  :global(:root[data-theme="dark"]) .headerActions .headerTheme { background: var(--amafh-action); }
+  :global(:root[data-theme="dark"]) .headerActions .headerTheme button { color: var(--amafh-action-text); }
   :global(:root[data-theme="dark"]) .headerActions > .iconButton,
   :global(:root[data-theme="dark"]) .accountTrigger { background: var(--amafh-subtle); }
 }
@@ -156,6 +161,10 @@
   .frame:has([data-testid="dashboard-overview"]) .pageHeader::before { display: none; }
   .frame:has([data-testid="dashboard-overview"]) .pageIdentity { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
   .frame:has([data-testid="dashboard-overview"]) .workspace { padding-top: 24px; }
+  /* TL workspaces render their heading in the workspace and actions in the
+     top bar. Desktop page-header chrome must not reserve an empty card. */
+  .pageHeader[data-compact="true"] { min-height: 0; margin: 0; padding: 0; border: 0; background: transparent; }
+  .pageHeader[data-compact="true"]::before { display: none; }
 }
 @media (max-width: 1279px) {
   .topbar { height: 64px; gap: 12px; border: 0; padding: 10px 20px; }
@@ -203,3 +212,43 @@
   .frame:has([data-testid="dashboard-overview"]) .pageIdentity:focus-within { position: fixed; z-index: 70; top: 64px; left: 28px; width: auto; height: auto; padding: 12px 20px; overflow: visible; clip-path: none; border-radius: 16px; background: var(--amafh-surface); }
 }
 @media (min-width: 1280px) { :global(:root[data-theme="dark"]) .canvas:has([data-testid="dashboard-overview"]) { background: #161f30; } }
+
+/* Keep TL case identity readable beside its existing mobile actions. */
+@media (max-width: 639px) {
+  .frame[data-tl-case="true"] .topbar { height: auto; display: grid; grid-template-columns: 44px minmax(0,1fr); gap: 8px 12px; }
+  .frame[data-tl-case="true"] .compactIdentity strong { font-size: 16px; line-height: 22px; white-space: normal; overflow-wrap: anywhere; }
+  .frame[data-tl-case="true"] .headerActions { grid-column: 1 / -1; width: 100%; margin-left: 0; }
+  .frame[data-tl-case="true"] .createCase { margin-right: auto; white-space: nowrap; }
+}
+
+/* Stable TL workspace navigation; Dashboard content styling remains scoped separately. */
+.frame[data-tl-workspace-navigation] { --amafh-text-body: .9375rem; --amafh-text-support: .75rem; grid-template-columns: minmax(0,1fr); }
+.frame[data-tl-workspace-navigation] .workspace {
+  --amafh-text-body: 15px;
+  --amafh-text-support: 12px;
+  --amafh-table-heading: 14px;
+  --amafh-table-body: 14px;
+  --amafh-list-primary: 14px;
+  --amafh-list-secondary: 12px;
+  --amafh-list-status: 12px;
+  font-size: var(--amafh-text-body);
+}
+.frame[data-tl-workspace-navigation] .workspace :is(input:not([type="checkbox"]):not([type="radio"]), textarea, select, button, [role="combobox"]) { font-size: 14px; }
+.frame[data-tl-workspace-navigation] .workspace [role="tab"] { font-size: 14px !important; }
+.frame[data-tl-workspace-navigation] :is(.topbar,.content,.installSlot) { grid-column: 1 / -1; }
+.frame[data-tl-workspace-navigation] .topNav[hidden] { display: none; }
+.frame[data-tl-workspace-navigation] .pageHeader { height: auto; min-height: 0; margin-block: 12px 8px; padding: 12px 16px; align-items: center; flex-wrap: wrap; gap: 8px 16px; }
+.frame[data-tl-workspace-navigation] .pageDescription p { font-size: var(--amafh-text-body); line-height: 1.5; }
+.frame[data-tl-workspace-navigation] .pageActions :is(button,[role="combobox"]) { font-size: 14px; }
+@media (min-width:640px) and (max-width:1279px) {
+  .frame[data-tl-workspace-navigation] .topbar { height: auto; flex-wrap: wrap; }
+  .frame[data-tl-workspace-navigation] .desktopNav { display: flex; order: 3; flex: 1 1 100%; min-width: 0; justify-content: flex-start; overflow-x: auto; }
+  .frame[data-tl-workspace-navigation] .desktopNav a { flex-shrink: 0; }
+}
+@media (max-width:639px) {
+  .frame[data-tl-workspace-navigation] .topbar { height: auto; display: grid; grid-template-columns: 44px minmax(0,1fr); gap: 8px 12px; }
+  .frame[data-tl-workspace-navigation] .headerActions { grid-column: 1 / -1; width: 100%; margin-left: 0; }
+  .frame[data-tl-workspace-navigation] .createCase { margin-right: auto; }
+  .frame[data-tl-workspace-navigation] .pageHeader { margin: 0; padding: 0 20px; }
+  .frame[data-tl-workspace-navigation] .bottomNav :is(a,button) { flex: 1; min-width: 0; }
+}

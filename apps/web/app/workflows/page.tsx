@@ -466,7 +466,7 @@ export default function WorkflowsPage() {
             >
               <span
                 data-testid="workflow-step-indicator"
-                className={`inline-flex size-5 shrink-0 items-center justify-center rounded-full border text-[11px] font-semibold leading-none ${index < currentStep ? "border-success bg-success text-white" : index === currentStep ? "border-brand-primary bg-brand-fill text-white" : "border-brand-border bg-surface text-text-secondary"}`}
+                className={`inline-flex size-5 shrink-0 items-center justify-center rounded-full border text-xs font-semibold leading-none ${index < currentStep ? "border-success bg-success text-white" : index === currentStep ? "border-brand-primary bg-brand-fill text-white" : "border-brand-border bg-surface text-text-secondary"}`}
               >
                 {index + 1}
               </span>
@@ -477,7 +477,7 @@ export default function WorkflowsPage() {
         ))}
       </div>
 
-      <ConfigurationWorkspace controls={
+      <ConfigurationWorkspace feedback={<><ErrorText>{error}</ErrorText>{message ? <p role="status" className="text-sm text-text-secondary">{message}</p> : null}</>} panelLabel="Select workflow" controls={
       <Card className="p-3 sm:p-3">
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
           <Field label="Bank" htmlFor="workflow-bank">

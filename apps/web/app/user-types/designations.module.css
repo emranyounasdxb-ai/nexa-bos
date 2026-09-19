@@ -5,18 +5,18 @@
 .metric[data-tone="success"] { background: var(--amafh-success-soft); }
 .metric[data-tone="info"] { background: var(--amafh-info-soft); }
 .metric[data-tone="warning"] { background: var(--amafh-warning-soft); }
-.metric span { font-size: 10px; line-height: 14px; }
+.metric span {    font-size: var(--amafh-text-support); line-height: 20px;}
 .metric strong { font-size: 24px; line-height: 35px; font-weight: 700; }
-.formTitle { grid-column: 1 / -1; font-size: 20px; line-height: 28px; font-weight: 700; }
+.formTitle { grid-column: 1 / -1;   font-weight: 700; }
 .tableHeading { padding: 16px 18px; border: 1px solid var(--amafh-border); border-bottom: 0; border-radius: 16px 16px 0 0; background: var(--amafh-surface); }
-.tableHeading h2 { font-size: 15px; line-height: 21px; font-weight: 700; }
-.tableHeading p { margin-top: 3px; font-size: 10px; line-height: 14px; color: var(--amafh-text-secondary); }
+.tableHeading h2 {   font-weight: 700; }
+.tableHeading p { margin-top: 3px;   color: var(--amafh-text-secondary);  font-size: var(--amafh-text-support); line-height: 20px;}
 @media (min-width: 1280px) {
-  .designations :global(form) label { font-size: 10px; line-height: 14px; }
-  .designations.designations :global(form) input:not([type="checkbox"]), .designations.designations :global(button[role="combobox"]) { height: 38px; min-height: 38px; border-radius: 9px !important; font-size: 10px; }
-  .designations :global([data-amafh-button]) { height: 38px !important; min-height: 38px; border-radius: 9px !important; font-size: 11px; }
+  .designations :global(form) label {    font-size: var(--amafh-text-body); line-height: 1.45;}
+  .designations.designations :global(form) input:not([type="checkbox"]), .designations.designations :global(button[role="combobox"]) { height: 38px; min-height: 38px; border-radius: 9px !important;   font-size: var(--amafh-text-body); line-height: 1.45;}
+  .designations :global([data-amafh-button]) { height: 38px !important; min-height: 38px; border-radius: 9px !important;   font-size: var(--amafh-text-body); line-height: 1.45;}
   .designations :global([data-amafh-table-shell]) td > span { border-radius: 999px; min-width: 64px; min-height: 26px; justify-content: center; }
-  .designations .formTitle { font-size: 15px; line-height: 21px; }
+  .designations .formTitle {   }
   .designations :global([data-amafh-table-shell]) { border: 1px solid var(--amafh-border); border-radius: 0 0 16px 16px; box-shadow: none; }
   .designations :global([data-amafh-table-shell]) th { height: 42px; padding: 10px 12px; font-weight: 600; }
   .designations :global([data-amafh-table-shell]) td { height: 48px; padding: 8px 12px; }
@@ -28,11 +28,11 @@
   .metrics { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }
   .metric[data-tone="success"], .metric[data-tone="warning"] { display: none; }
   .designations .metric { flex-direction: column-reverse; justify-content: center; min-height: 89px; gap: 3px; padding: 14px; border-radius: 20px; }
-  .metric span { font-size: 12px; line-height: 17px; }
+  .metric span {    font-size: var(--amafh-text-support); line-height: 20px;}
 }
 
 @media (min-width: 960px) and (max-width: 1279px) {
-  .designations .metrics { width: calc(100% - 400px); }
+  .designations .metrics { width: 100%; }
   .designations .metric { min-height: 76px; padding: 12px; }
-  .designations .metric span { font-size: 11px; line-height: 16px; }
+  .designations .metric span {    font-size: var(--amafh-text-support); line-height: 20px;}
 }

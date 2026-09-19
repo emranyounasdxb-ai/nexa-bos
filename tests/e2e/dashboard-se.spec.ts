@@ -167,7 +167,7 @@ test("SE dashboard is own-scoped, actionable, accessible and responsive", async 
   for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
     await page.setViewportSize(viewport);
     if (viewport.width === 390) {
-      await expect(page.getByRole("button", { name: "Open navigation" })).toHaveAttribute("aria-expanded", "false");
+      await expect(page.getByRole("button", { name: "More navigation" })).toHaveAttribute("aria-expanded", "false");
       await expect.poll(() => page.getByLabel("Application sidebar").evaluate(element => element.getBoundingClientRect().right)).toBeLessThanOrEqual(0);
     }
     await page.evaluate(() => window.scrollTo(0, 0));
@@ -185,7 +185,7 @@ test("SE dashboard is own-scoped, actionable, accessible and responsive", async 
   await page.getByRole("link", { name: "My Applications summary" }).click();
   await expect(page).toHaveURL(/dashboard_metric=applications/);
   await expect(page.getByText("Dashboard filter: My Applications")).toBeVisible();
-  await expect(page.getByText(own.applicationCode)).toBeVisible();
+  await expect(page.getByRole("link", { name: own.applicationCode, exact: true }).filter({ visible: true }).first()).toBeVisible();
   await expect(page.getByText(other.applicationCode)).toHaveCount(0);
   await page.goBack();
   await page.getByRole("link", { name: "Create Application" }).click();
@@ -224,7 +224,11 @@ test("non-application user receives honest personal empty states without sales f
   await page.getByLabel("Password").fill(userPassword);
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByTestId("my-performance")).toContainText("No performance data for this period");
+  // This account has no reporting scope: it uses the existing personal dashboard,
+  // not the OWNER overview's collapsible My workspace. Existing KPI configuration
+  // may be populated by other disposable scenarios; sales figures must stay absent.
+  await expect(page.getByText("Reporting scope is not assigned. Organization sales metrics are unavailable for this account.")).toBeVisible();
+  await expect(page.getByTestId("my-performance")).toBeVisible();
   await expect(page.getByTestId("my-performance")).toContainText("Sales figures are not shown");
   await expect(page.getByTestId("my-attendance")).toContainText("No attendance records are available");
   await expect(page.getByText("My application performance")).toHaveCount(0);

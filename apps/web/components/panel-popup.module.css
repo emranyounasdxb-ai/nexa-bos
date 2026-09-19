@@ -1,0 +1,7 @@
+.control { min-width: 0; }
+.backdrop { position: fixed; inset: 0; z-index: 40; display: flex; align-items: center; justify-content: center; padding: 16px; background: #17101f73; backdrop-filter: blur(4px); }
+.backdrop[hidden] { display: none; }
+.panel { width: min(880px, 100%); min-width: 0; max-height: calc(100dvh - 32px); }
+.panel > :global([data-amafh-dialog-panel]) { max-width: none; max-height: calc(100dvh - 32px); overflow-y: auto; border-radius: 20px; }
+.panel :is(form, label, input, textarea) { min-width: 0; }
+.panel :global([data-amafh-card]) { box-shadow: none; }

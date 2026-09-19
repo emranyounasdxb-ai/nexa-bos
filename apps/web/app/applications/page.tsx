@@ -1,10 +1,15 @@
 "use client";
 
 import Link from "next/link";
+import { AdminCaseList } from "./admin-case-list";
+import type { CaseReview } from "./admin-case-presentation";
 import styles from "./applications.module.css";
 import { IconFileDescription, IconPlus } from "@/components/icons";
-import { RecordCard, RecordFrame, RecordIdentity } from "@/components/page-patterns";
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { RecordCard, RecordIdentity } from "@/components/page-patterns";
+import { PanelPopup } from "@/components/panel-popup";
+import { PageHeaderSlots } from "@/components/page-header";
+import { Suspense, useCallback, useContext, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { ApplicationCreateDialog } from "@/components/application-create-dialog";
@@ -35,6 +40,7 @@ import {
 } from "@/components/ui";
 import { apiGet, ApiClientError } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
+import { formatLocalDateTime } from "@/lib/presentation";
 import { formatDuration } from "@/lib/duration";
 import { getBrowserApiUrl } from "@/lib/env";
 import type {
@@ -68,15 +74,11 @@ const DASHBOARD_FILTER_LABELS: Record<string, string> = {
 };
 
 function ApplicationsPageInner() {
-  const [desktop, setDesktop] = useState(false);
-  useEffect(() => {
-    const query = window.matchMedia("(min-width: 1280px)");
-    const update = () => setDesktop(query.matches);
-    update();
-    query.addEventListener("change", update);
-    return () => query.removeEventListener("change", update);
-  }, []);
-  const { can } = useAuth();
+  const headerSlots = useContext(PageHeaderSlots);
+  const headingTarget = headerSlots?.description?.parentElement;
+  const { can, user } = useAuth();
+  const adminOfficer = user?.userType?.code === "ADMIN_OFFICER";
+  const [caseReviews, setCaseReviews] = useState<Record<string, CaseReview>>({});
   const router = useRouter();
   const searchParams = useSearchParams();
   const api = getBrowserApiUrl();
@@ -87,6 +89,7 @@ function ApplicationsPageInner() {
     period: ["today", "mtd", "previous_month", "ytd"].includes(initialPeriod) ? initialPeriod : "mtd",
   });
   const [query, setQuery] = useState("");
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [filters, setFilters] = useState(emptyFilters);
   const [applied, setApplied] = useState(emptyFilters);
   const [items, setItems] = useState<ApplicationRecord[]>([]);
@@ -169,20 +172,30 @@ function ApplicationsPageInner() {
     };
   }, [api, applied, dashboardFilter, page, pageSize, query, requestVersion]);
 
+  useEffect(() => {
+    if (!adminOfficer) return;
+    let active = true;
+    setCaseReviews({});
+    void Promise.allSettled(items.map(async item => [item.id, await apiGet<CaseReview>(`/api/v1/applications/${item.id}/internal-review`, api)] as const)).then(results => {
+      if (active) setCaseReviews(Object.fromEntries(results.flatMap(result => result.status === "fulfilled" ? [result.value] : [])));
+    });
+    return () => { active = false; };
+  }, [adminOfficer, items, api]);
+
   const hasResultFilters = Boolean(query || dashboardFilter.metric || Object.values(applied).some(Boolean));
   const createAction = can("Applications.Create") ? <button
     id="create-application-trigger" type="button" className={`${primaryButtonClass} ${styles.createAction}`}
     onClick={() => { setMessage(""); setCreateOpen(true); }}
-  ><IconPlus className="size-4" />Create application</button> : null;
+  ><IconPlus className="size-4" />{adminOfficer ? "New Case" : "Create application"}</button> : null;
 
   return (
-    <section className={`${styles.applications} space-y-4`}>
+    <section className={styles.applications}>
       <PageHeader
-        title="Applications"
-        description="Search and filter applications in your current scope, then open permitted workflow records."
-        actions={desktop ? createAction : undefined}
+        title={adminOfficer ? "My Cases" : "Applications"}
+        description={adminOfficer ? "Create and track your own cases through the existing application workflow." : "Search and filter applications in your current scope, then open permitted workflow records."}
+        actions={adminOfficer ? undefined : <div className={styles.headerActions}>{createAction}<PanelPopup label="Case inbox"><Card><h2 className="text-lg font-semibold">Case inbox</h2><p className="mt-4 text-sm text-text-secondary">Authorized applications</p><p className="mt-2 text-2xl font-bold tabular-nums">{loading ? "Loading…" : error ? "Unavailable" : total.toLocaleString()}</p></Card></PanelPopup></div>}
       />
-      <div className={styles.compactTotal}><strong>{loading ? "Loading…" : error ? "Unavailable" : total.toLocaleString()}</strong><span>Authorized applications</span></div>
+      {headingTarget ? createPortal(<span className={styles.compactTotal}><strong>{loading ? "Loading…" : error ? "Unavailable" : total.toLocaleString()}</strong><span>{adminOfficer ? total === 1 ? "case" : "cases" : "Authorized applications"}</span></span>, headingTarget) : <span className={styles.compactTotal}><strong>{loading ? "Loading…" : error ? "Unavailable" : total.toLocaleString()}</strong><span>{adminOfficer ? total === 1 ? "case" : "cases" : "Authorized applications"}</span></span>}
       {dashboardFilter.metric ? (
         <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-[10px] border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-900">
           <p className="min-w-0">
@@ -202,30 +215,29 @@ function ApplicationsPageInner() {
           </Button>
         </div>
       ) : null}
-      <RecordFrame variant="responsive" summary={<Card><h2 className="text-lg font-semibold">Case inbox</h2><p className="mt-4 text-sm text-text-secondary">Authorized applications</p><p className="mt-2 text-2xl font-bold tabular-nums">{loading ? "Loading…" : error ? "Unavailable" : total.toLocaleString()}</p></Card>}>
       <div data-amafh-list-surface="">
       <SearchActionBar
         className={`p-4 ${styles.searchActions}`}
+        actions={adminOfficer ? <><Button type="button" variant="secondary" aria-expanded={filtersOpen} aria-controls="admin-case-filters" onClick={() => setFiltersOpen(value => !value)}>Filters {filtersOpen ? "▴" : "▾"}</Button>{createAction}</> : undefined}
         search={
           <TextInput
             className="mt-0"
-            placeholder="Search application, customer, Bank, Product Category, or Product Variant"
+            placeholder={adminOfficer ? "Search case, customer, bank or product" : "Search application, customer, Bank, Product Category, or Product Variant"}
             value={query}
             onChange={(event) => {
               setQuery(event.target.value);
               setPage(1);
             }}
-            aria-label="Search applications"
+            aria-label={adminOfficer ? "Search my cases" : "Search applications"}
           />
         }
-        actions={!desktop ? createAction : undefined}
       />
       {message ? (
         <p role="status" className="rounded-[10px] border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-800">
           {message}
         </p>
       ) : null}
-      <ResponsiveFilterPanel activeFilters={[
+      {(!adminOfficer || filtersOpen) && <div id="admin-case-filters"><ResponsiveFilterPanel activeFilters={[
         applied.bank_id ? { label: "Bank", value: banks.find((item) => item.id === applied.bank_id)?.name ?? applied.bank_id } : null,
         applied.product_id ? { label: "Product", value: products.find((item) => item.id === applied.product_id)?.name ?? applied.product_id } : null,
         applied.current_stage_id ? { label: "Stage", value: stages.find((item) => item.id === applied.current_stage_id)?.name ?? applied.current_stage_id } : null,
@@ -322,8 +334,9 @@ function ApplicationsPageInner() {
           </Button>
         </div>
       </form>
-      </ResponsiveFilterPanel>
+      </ResponsiveFilterPanel></div>}
       <ErrorText>{error}</ErrorText>
+      {adminOfficer ? <AdminCaseList items={items} reviews={caseReviews} loading={loading} /> : <>
       <div className={`applications-table-scroll-frame ${styles.desktopRecords}`}>
         <TableShell
           headerTone="bright"
@@ -344,12 +357,13 @@ function ApplicationsPageInner() {
               <Th>Outcome</Th>
               <Th>TAT</Th>
               <Th>Delay</Th>
+              {adminOfficer && <><Th>Assigned TL / Coordinator</Th><Th>Submission date</Th><Th>Last updated</Th></>}
             </tr>
           </TableHead>
           <tbody>
           {loading && items.length === 0 ? (
             <tr>
-              <td colSpan={9}>
+              <td colSpan={adminOfficer ? 12 : 9}>
                 <EmptyState>Loading applications…</EmptyState>
               </td>
             </tr>
@@ -384,12 +398,12 @@ function ApplicationsPageInner() {
                     {item.productName ?? "Unavailable product"} ·{" "}
                     {item.productVariantName
                       ? item.productVariantName
-                      : "Legacy: no Product Variant"}
+                      : "No Product Variant assigned"}
                   </p>
                 </Td>
                 <Td>{item.caseOwnerName}</Td>
                 <Td>{item.currentStage}</Td>
-                <Td>{item.terminalOutcome ?? "Open"}</Td>
+                <Td>{adminOfficer ? caseReviews[item.id]?.label ?? item.terminalOutcome ?? "Open" : item.terminalOutcome ?? "Open"}</Td>
                 <Td>
                   {item.terminal
                     ? formatDuration(item.totalDurationSeconds)
@@ -402,6 +416,7 @@ function ApplicationsPageInner() {
                     "—"
                   )}
                 </Td>
+                {adminOfficer && <><Td>{caseReviews[item.id]?.tlName ?? "Not assigned"}<span className="block text-xs text-text-secondary">{item.routedCoordinatorName ?? "Coordinator not assigned"}</span></Td><Td>{item.submittedAt ? formatLocalDateTime(item.submittedAt) : "Not submitted"}</Td><Td>{formatLocalDateTime(item.updatedAt)}</Td></>}
               </tr>
             ))
           )}
@@ -417,16 +432,18 @@ function ApplicationsPageInner() {
                 <div><dt>Application ID</dt><dd>{item.applicationCode}</dd></div>
                 <div><dt>Bank File / Case Number</dt><dd>{item.bankCaseNumber ?? "Not assigned"}</dd></div>
                 <div><dt>Customer</dt><dd>{item.customerCode} · {item.customerName}</dd></div>
-                <div><dt>Bank / Product Category / Variant</dt><dd>{item.bankName ?? "Unavailable bank"} · {item.productName ?? "Unavailable product"} · {item.productVariantName ?? "Legacy: no Product Variant"}</dd></div>
+                <div><dt>Bank / Product Category / Variant</dt><dd>{item.bankName ?? "Unavailable bank"} · {item.productName ?? "Unavailable product"} · {item.productVariantName ?? "No Product Variant assigned"}</dd></div>
                 <div><dt>Case Owner</dt><dd>{item.caseOwnerName}</dd></div>
                 <div><dt>Stage</dt><dd>{item.currentStage}</dd></div>
-                <div><dt>Outcome</dt><dd>{item.terminalOutcome ?? "Open"}</dd></div>
+                <div><dt>{adminOfficer ? "Status" : "Outcome"}</dt><dd>{adminOfficer ? caseReviews[item.id]?.label ?? item.terminalOutcome ?? "Open" : item.terminalOutcome ?? "Open"}</dd></div>
                 <div><dt>TAT</dt><dd>{formatDuration(item.terminal ? item.totalDurationSeconds : item.currentElapsedSeconds)}</dd></div>
+                {adminOfficer && <><div><dt>Assigned TL / Coordinator</dt><dd>{caseReviews[item.id]?.tlName ?? "Not assigned"} · {item.routedCoordinatorName ?? "Not assigned"}</dd></div><div><dt>Submission date</dt><dd>{item.submittedAt ? formatLocalDateTime(item.submittedAt) : "Not submitted"}</dd></div><div><dt>Last updated</dt><dd>{formatLocalDateTime(item.updatedAt)}</dd></div></>}
                 <div><dt>Delay</dt><dd>{item.hasActiveDelay && item.activeDelay ? `Delay · ${item.activeDelay.delayType}` : "—"}</dd></div>
               </dl>
           </RecordCard>
         ))}
       </div>
+      </>}
       <Pagination
         page={page}
         pageSize={pageSize}
@@ -439,7 +456,6 @@ function ApplicationsPageInner() {
         }}
       />
       </div>
-      </RecordFrame>
       <ApplicationCreateDialog
         open={createOpen}
         onClose={closeCreate}
@@ -448,7 +464,7 @@ function ApplicationsPageInner() {
           if (searchParams.get("create") === "true") router.replace("/applications");
           setPage(1);
           setRequestVersion((value) => value + 1);
-          setMessage(`Application ${created.applicationCode} created successfully.`);
+          setMessage(`${adminOfficer ? "Case" : "Application"} ${created.applicationCode} created successfully.`);
           window.setTimeout(() => document.getElementById("create-application-trigger")?.focus(), 0);
         }}
       />

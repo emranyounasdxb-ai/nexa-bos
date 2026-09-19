@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePicker } from "@/components/date-picker";
+
 import { ListWorkspace } from "@/components/page-patterns";
 import styles from "./exits.module.css";
 
@@ -29,6 +31,7 @@ export default function ExitsPage() {
   const [item, setItem] = useState<Item | null>(null); const [assign, setAssign] = useState(false); const [assignee, setAssignee] = useState(""); const [itemStatus, setItemStatus] = useState("Cleared");
   const [settlement, setSettlement] = useState(false); const [settlementStatus, setSettlementStatus] = useState("Pending"); const [reference, setReference] = useState("");
   const trigger = useRef<HTMLElement | null>(null); const workspace = useRef<HTMLDivElement | null>(null);
+  const headerActions = useRef<HTMLSpanElement | null>(null);
   const allowed = can("Exits.View") || can("Exits.ViewOwn") || can("Exits.Clearance"); const operational = can("Exits.View");
   const load = useCallback(async () => {
     if (!user || !allowed) { setLoading(false); return; }
@@ -37,7 +40,7 @@ export default function ExitsPage() {
     catch (caught) { setError(caught instanceof ApiClientError ? caught.message : "Unable to load exits"); } finally { setLoading(false); }
   }, [api, user, allowed, status, can]);
   useEffect(() => { void load(); }, [load]);
-  const close = useCallback(() => { if (busy) return; setMode(null); setSelected(null); setDecision(null); setItem(null); setSettlement(false); requestAnimationFrame(() => { if (trigger.current?.isConnected) trigger.current.focus(); else workspace.current?.querySelector<HTMLElement>("button")?.focus(); }); }, [busy]);
+  const close = useCallback(() => { if (busy) return; setMode(null); setSelected(null); setDecision(null); setItem(null); setSettlement(false); requestAnimationFrame(() => { if (trigger.current?.isConnected) trigger.current.focus(); else (headerActions.current?.querySelector<HTMLElement>("button:not(:disabled)") ?? workspace.current?.querySelector<HTMLElement>("button:not(:disabled)"))?.focus(); }); }, [busy]);
   useEffect(() => {
     if (!mode) return;
     const dialog = document.querySelector<HTMLElement>('[role="dialog"]'); dialog?.querySelector<HTMLElement>("button")?.focus();
@@ -71,9 +74,9 @@ export default function ExitsPage() {
   }
   if (!allowed) return <EmptyState>You do not have permission to view exits.</EmptyState>;
   return <div ref={workspace} className="space-y-4">
-    <PageHeader title="Exit and offboarding" description="Reviewed exits, assigned clearance and preserved employee history." actions={<>{(can("Exits.Create") || can("Exits.Request")) && <Button onClick={e => open(e.currentTarget)}>{can("Exits.Create") ? "Prepare exit" : "Request resignation"}</Button>}<Button variant="secondary" disabled={loading} onClick={() => void load()}>Refresh</Button></>} />
+    <PageHeader title="Exit and offboarding" description="Reviewed exits, assigned clearance and preserved employee history." actions={<span ref={headerActions} className="contents">{(can("Exits.Create") || can("Exits.Request")) && <Button onClick={e => open(e.currentTarget)}>{can("Exits.Create") ? "Prepare exit" : "Request resignation"}</Button>}<Button variant="secondary" disabled={loading} onClick={() => void load()}>Refresh</Button></span>} />
     {!mode && error && <ErrorText>{error}</ErrorText>}{notice && <p role="status" className="text-sm text-text-secondary">{notice}</p>}
-    <ListWorkspace title="Offboarding register" filters={
+    <ListWorkspace feedback={<ErrorText>{error}</ErrorText>} title="Offboarding register" filters={
     <div className="max-w-xs"><Field label="Status"><Select aria-label="Status" value={status} onChange={e => { const next = new URLSearchParams(params.toString()); if (e.target.value) next.set("status", e.target.value); else next.delete("status"); router.push(`${pathname}?${next}`, { scroll: false }); }}><option value="">All statuses</option>{statuses.map(s => <option key={s}>{s}</option>)}</Select></Field></div>
     }>
     {loading ? <LoadingState>Loading exits…</LoadingState> : <Card>{rows.length === 0 ? <EmptyState>No exits in this scope.</EmptyState> : <TableShell className={`${styles.register} [&_table]:min-w-[600px]`}><TableHead><tr><Th>Employee</Th><Th>Type</Th><Th>Last working date</Th><Th>Status</Th><Th>Action</Th></tr></TableHead><tbody>{rows.map(row => <tr key={row.id}><Td>{row.employee}<div className="text-xs text-text-secondary">{row.employeeCode}</div></Td><Td>{row.exitType}</Td><Td>{row.lastWorkingDate}</Td><Td><StatusBadge value={row.status} /></Td><Td><Button variant="secondary" onClick={e => open(e.currentTarget, row)}>View exit</Button></Td></tr>)}</tbody></TableShell>}</Card>}
@@ -88,7 +91,7 @@ export default function ExitsPage() {
       </form> : mode !== "detail" ? <form className="mt-4 space-y-3" onSubmit={e => { e.preventDefault(); void persist(mode === "edit" && selected ? `/api/v1/exits/${selected.id}` : "/api/v1/exits", mode === "edit" ? "PATCH" : "POST", { ...draft, ...(mode === "edit" ? { lock_version: selected?.lockVersion } : {}) }); }}>
         {can("Exits.Create") ? <Field label="Employee *"><Select aria-label="Employee *" required disabled={mode === "edit"} value={draft.employee_id} onChange={e => setDraft({ ...draft, employee_id: e.target.value })}><option value="">Select employee</option>{options?.employees.map(employee => <option key={employee.id} value={employee.id}>{employee.name}</option>)}</Select></Field> : <p className="text-sm">Resignation for {user?.fullName}</p>}
         {can("Exits.Create") && <Field label="Exit type *"><Select aria-label="Exit type *" value={draft.exit_type} onChange={e => setDraft({ ...draft, exit_type: e.target.value })}>{["Resignation", "Termination", "End of Contract", "Other"].map(type => <option key={type}>{type}</option>)}</Select></Field>}
-        <div className="grid gap-3 sm:grid-cols-2"><Field label="Notice date *"><TextInput type="date" required value={draft.notice_date} onChange={e => setDraft({ ...draft, notice_date: e.target.value })} /></Field><Field label="Last working date *"><TextInput type="date" required value={draft.last_working_date} onChange={e => setDraft({ ...draft, last_working_date: e.target.value })} /></Field></div>
+        <div className="grid gap-3 sm:grid-cols-2"><Field label="Notice date *"><DatePicker aria-label="Notice date" required value={draft.notice_date} onChange={value => setDraft({ ...draft, notice_date: value })} /></Field><Field label="Last working date *"><DatePicker aria-label="Last working date" required value={draft.last_working_date} onChange={value => setDraft({ ...draft, last_working_date: value })} /></Field></div>
         <Field label="Reason *"><Textarea required maxLength={2000} value={draft.reason} onChange={e => setDraft({ ...draft, reason: e.target.value })} /></Field><div className="flex justify-end gap-2"><Button type="button" variant="secondary" disabled={busy} onClick={close}>Cancel</Button><Button type="submit" disabled={busy}>{busy ? "Saving…" : "Save exit"}</Button></div>
       </form> : selected && <div className={`mt-4 space-y-4 ${styles.detail}`}><div><p className="font-semibold">{selected.employee} · {selected.employeeCode}</p><p className="text-sm text-text-secondary">{selected.exitType} · Requested {selected.requestDate} by {selected.requester}</p><StatusBadge value={selected.status} /></div><dl className="grid grid-cols-2 gap-3 text-sm"><div><dt className="text-text-secondary">Notice date</dt><dd>{selected.noticeDate}</dd></div><div><dt className="text-text-secondary">Last working date</dt><dd>{selected.lastWorkingDate}</dd></div></dl>{selected.reason && <p className="break-words text-sm">{selected.reason}</p>}
         <div className="flex flex-wrap gap-2">{selected.status === "Draft" && (can("Exits.Edit") || (selected.requestedById === user?.id && can("Exits.Request"))) && <Button variant="secondary" onClick={() => { setDraft({ employee_id: selected.employeeId, exit_type: selected.exitType, notice_date: selected.noticeDate, last_working_date: selected.lastWorkingDate, reason: selected.reason ?? "" }); setMode("edit"); }}>Edit draft</Button>}{actions(selected).map(action => <Button key={action} variant="secondary" onClick={() => { setDecision(action); setComment(""); }}>{labels[action]}</Button>)}</div>

@@ -588,3 +588,31 @@ html[data-theme="dark"] [data-amafh-table-shell][data-header-tone="subtle"] thea
 [data-amafh-table-shell] th :is(button, a) { font-size: inherit; line-height: inherit; }
 
 [data-amafh-workspace] [data-amafh-record-primary] { font-size: var(--amafh-list-primary); line-height: var(--amafh-list-primary-line); }
+
+/* Dashboard type hierarchy, shared by application pages and their popups.
+   Role dashboards and main navigation keep their approved presentation. */
+[data-amafh-page-typography] {
+  --amafh-text-body: 12px;
+  --amafh-text-support: 11px;
+  --amafh-text-section: 16px;
+  --amafh-table-heading: var(--amafh-text-support);
+  --amafh-table-body: var(--amafh-text-body);
+  --amafh-list-primary: var(--amafh-text-body);
+  --amafh-list-secondary: var(--amafh-text-support);
+  --amafh-list-status: var(--amafh-text-support);
+  font-size: var(--amafh-text-body);
+  line-height: 1.45;
+}
+[data-amafh-page-typography] :is(h2, h3) { font-size: var(--amafh-text-section); line-height: 1.4; }
+[data-amafh-page-typography] h4 { font-size: var(--amafh-text-body); line-height: 1.45; }
+[data-amafh-page-typography] :is(label, legend, [data-amafh-field], input:not([type="checkbox"]):not([type="radio"]), textarea, select, button, .amafh-static-button) { font-size: var(--amafh-text-body) !important; line-height: 1.45; }
+[data-amafh-page-typography] :is(.text-sm, .text-base) { font-size: var(--amafh-text-body); line-height: 1.45; }
+[data-amafh-page-typography] :is(.text-xs, small, dt, [data-amafh-record-secondary], [data-amafh-badge], [data-amafh-option-group]) { font-size: var(--amafh-text-support); line-height: 20px; }
+[data-amafh-page-typography] [data-amafh-section-header] p { font-size: var(--amafh-text-support); line-height: 20px; }
+[data-amafh-page-typography] [data-amafh-table-shell] th { font-size: var(--amafh-table-heading); line-height: 1.45; }
+[data-amafh-page-typography] [data-amafh-table-shell] th :is(a, button) { font-size: inherit !important; line-height: inherit; }
+[data-amafh-page-typography] [data-amafh-table-shell] td { font-size: var(--amafh-table-body); line-height: 1.45; }
+[data-amafh-page-typography] [data-amafh-table-shell] td :is(.text-sm, a, [data-amafh-button], .amafh-static-button) { font-size: var(--amafh-table-body); }
+@media (max-width: 1279px) {
+  [data-amafh-page-typography] { --amafh-text-body: 14px; --amafh-text-support: 12px; --amafh-text-section: 18px; }
+}

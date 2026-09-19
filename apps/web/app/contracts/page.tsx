@@ -1,5 +1,9 @@
 "use client";
 
+import { DateRangePicker } from "@/components/date-picker";
+
+
+import { PanelPopup } from "@/components/panel-popup";
 import { RecordFrame } from "@/components/page-patterns";
 import styles from "./contracts.module.css";
 
@@ -464,7 +468,7 @@ export default function ContractsPage() {
 
       {!loading && activeTab === "mine" ? (
         ownContract ? (
-          <RecordFrame summary={<Card className="space-y-4">
+          <RecordFrame panelLabel="My contract context" summary={<Card className="space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 className="text-[length:var(--amafh-text-section)] font-semibold">My active contract</h2>
               <StatusBadge value={ownContract.status} />
@@ -513,7 +517,7 @@ export default function ContractsPage() {
       ) : null}
 
       {!loading && activeTab === "settings" ? (
-        <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.7fr)]">
+        <div className="grid gap-3">
           <Card className="space-y-3">
             <h2 className="text-[length:var(--amafh-text-section)] font-semibold">Configured contract types</h2>
             {types.length ? types.map((item) => (
@@ -523,14 +527,14 @@ export default function ContractsPage() {
               </div>
             )) : <EmptyState>No contract types are configured.</EmptyState>}
           </Card>
-          <Card>
+          <PanelPopup feedback={<><ErrorText>{error}</ErrorText>{notice ? <p role="status" className="text-sm text-text-secondary">{notice}</p> : null}</>} label="Add contract type"><Card>
             <form className="space-y-3" onSubmit={createType}>
               <h2 className="text-[length:var(--amafh-text-section)] font-semibold">Add contract type</h2>
               <Field label="Name"><TextInput required value={typeDraft.name} onChange={(event) => setTypeDraft((value) => ({ ...value, name: event.target.value }))} /></Field>
               <Field label="Description"><Textarea value={typeDraft.description} onChange={(event) => setTypeDraft((value) => ({ ...value, description: event.target.value }))} /></Field>
               <Button type="submit">Create type</Button>
             </form>
-          </Card>
+          </Card></PanelPopup>
         </div>
       ) : null}
 
@@ -547,8 +551,7 @@ export default function ContractsPage() {
             </fieldset>
             <fieldset className="grid min-w-0 grid-cols-2 gap-3 rounded-xl bg-surface-subtle p-3">
               <legend className="px-1 text-sm font-semibold">Term and compensation</legend>
-              <Field label="Start date"><TextInput type="date" required value={draft.startDate} onChange={(event) => setDraft((value) => ({ ...value, startDate: event.target.value }))} /></Field>
-              <Field label="End date"><TextInput type="date" value={draft.endDate} onChange={(event) => setDraft((value) => ({ ...value, endDate: event.target.value }))} /></Field>
+              <Field label="Contract date range" help="Start date is required; the end date may be left open."><DateRangePicker aria-label="Contract date range" allowPartial fromRequired from={draft.startDate} to={draft.endDate} onChange={({ from, to }) => setDraft((value) => ({ ...value, startDate: from, endDate: to }))} /></Field>
               <Field label="Currency" className="col-span-2"><TextInput required maxLength={3} value={draft.currency} onChange={(event) => setDraft((value) => ({ ...value, currency: event.target.value.toUpperCase() }))} /></Field>
               <Field label="Basic salary"><TextInput type="number" min="0" step="0.01" required value={draft.basicSalary} onChange={(event) => setDraft((value) => ({ ...value, basicSalary: event.target.value }))} /></Field>
               <Field label="Allowances total"><TextInput type="number" min="0" step="0.01" required value={draft.allowancesTotal} onChange={(event) => setDraft((value) => ({ ...value, allowancesTotal: event.target.value }))} /></Field>

@@ -1,9 +1,81 @@
 "use client";
 
-import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { createPortal } from "react-dom";
 
-import { IconChevronLeft, IconChevronRight, IconChevronsLeft, IconChevronsRight } from "@/components/icons";
+import { IconCalendarCheck, IconChevronLeft, IconChevronRight, IconChevronsLeft, IconChevronsRight } from "@/components/icons";
 import { Button, controlClass, controlErrorClass, cx, focusRing } from "@/components/ui";
+
+function boundsError(value: string, min?: string, max?: string): string {
+  if (value && min && value < min) return `Choose a date on or after ${min}`;
+  if (value && max && value > max) return `Choose a date on or before ${max}`;
+  return "";
+}
+
+// Both calendars live outside scrollable panels, but retain their owner's typography.
+function useCalendarPopup(open: boolean, width: number, root: RefObject<HTMLDivElement | null>, input: RefObject<HTMLInputElement | null>, close: () => void) {
+  const popup = useRef<HTMLDivElement>(null);
+  const [position, setPosition] = useState({ top: 16, left: 16, width });
+  const [typography, setTypography] = useState(false);
+  useLayoutEffect(() => {
+    if (!open) return;
+    const update = () => {
+      const rect = input.current?.getBoundingClientRect();
+      if (!rect) return;
+      setTypography(Boolean(root.current?.closest("[data-amafh-page-typography]")));
+      const availableWidth = Math.max(0, window.innerWidth - 24);
+      const actualWidth = Math.min(width, availableWidth);
+      const height = Math.min(popup.current?.getBoundingClientRect().height ?? 390, window.innerHeight - 24);
+      const left = Math.max(12, Math.min(rect.left, window.innerWidth - actualWidth - 12));
+      const top = rect.bottom + height + 8 <= window.innerHeight - 12
+        ? rect.bottom + 8 : Math.max(12, rect.top - height - 8);
+      setPosition({ top, left, width: actualWidth });
+    };
+    update();
+    const observer = new ResizeObserver(update);
+    if (popup.current) observer.observe(popup.current);
+    window.addEventListener("resize", update);
+    window.addEventListener("scroll", update, true);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", update);
+      window.removeEventListener("scroll", update, true);
+    };
+  }, [input, open, root, width]);
+  useEffect(() => {
+    if (!open) return;
+    const pointer = (event: MouseEvent) => {
+      if (!root.current?.contains(event.target as Node) && !popup.current?.contains(event.target as Node)) close();
+    };
+    const key = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        close();
+        input.current?.focus();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const inside = popup.current?.contains(document.activeElement);
+      if (!inside && document.activeElement !== input.current) return;
+      if (!inside && event.shiftKey) { close(); return; }
+      const stops = Array.from(popup.current?.querySelectorAll<HTMLElement>('button:not(:disabled),input:not(:disabled)') ?? [])
+        .filter(node => node.tabIndex >= 0 && node.getClientRects().length);
+      const sequence = [input.current, ...stops].filter((node): node is HTMLElement => Boolean(node));
+      const index = sequence.indexOf(document.activeElement as HTMLElement);
+      event.preventDefault();
+      event.stopPropagation();
+      sequence[(index + (event.shiftKey ? -1 : 1) + sequence.length) % sequence.length]?.focus();
+    };
+    document.addEventListener("mousedown", pointer, true);
+    document.addEventListener("keydown", key, true);
+    return () => {
+      document.removeEventListener("mousedown", pointer, true);
+      document.removeEventListener("keydown", key, true);
+    };
+  }, [close, input, open, root]);
+  return [popup, position, typography] as const;
+}
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
 const WEEKDAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
@@ -94,24 +166,24 @@ function formatRange(from: string, to: string): string {
   return `${from} – ${to}`;
 }
 
-function parseRangeDraft(draft: string): { from: string; to: string } | null {
+function parseRangeDraft(draft: string, allowPartial = false): { from: string; to: string } | null {
   const match = draft
     .trim()
-    .match(/^(\d{4}-\d{2}-\d{2})\s+(?:–|to)\s+(\d{4}-\d{2}-\d{2})$/i);
+    .match(/^(\d{4}-\d{2}-\d{2})?\s*(?:–|to)\s*(\d{4}-\d{2}-\d{2})?$/i);
   if (!match) {
     return null;
   }
-  const from = match[1];
-  const to = match[2];
-  if (!parseIso(from) || !parseIso(to) || from > to) {
+  const from = match[1] ?? "";
+  const to = match[2] ?? "";
+  if ((!allowPartial && (!from || !to)) || (from && !parseIso(from)) || (to && !parseIso(to)) || (from && to && from > to)) {
     return null;
   }
   return { from, to };
 }
 
-function typedRangeError(draft: string): string {
+function typedRangeError(draft: string, allowPartial = false): string {
   const trimmed = draft.trim();
-  if (!trimmed || parseRangeDraft(trimmed)) {
+  if (!trimmed || parseRangeDraft(trimmed, allowPartial)) {
     return "";
   }
   return "Enter a valid range as YYYY-MM-DD – YYYY-MM-DD";
@@ -125,6 +197,8 @@ export type DatePickerProps = {
   required?: boolean;
   disabled?: boolean;
   optional?: boolean;
+  min?: string;
+  max?: string;
   error?: boolean;
   "aria-label"?: string;
   "aria-describedby"?: string;
@@ -138,6 +212,8 @@ export function DatePicker({
   required = false,
   disabled = false,
   optional = false,
+  min,
+  max,
   error = false,
   "aria-label": ariaLabel,
   "aria-describedby": ariaDescribedBy,
@@ -152,8 +228,9 @@ export function DatePicker({
   const [draft, setDraft] = useState(value);
   const selected = parseIso(value);
   const [view, setView] = useState(() => startOfMonth(selected ?? new Date()));
-  const [focusDay, setFocusDay] = useState(() => selected?.getDate() ?? 1);
-  const dateError = typedDateError(draft);
+  const [focusDay, setFocusDay] = useState(() => (selected ?? new Date()).getDate());
+  const dateError = typedDateError(draft) || boundsError(draft.trim(), min, max);
+  const [calendarPopup, calendarPosition, calendarTypography] = useCalendarPopup(open && !disabled, 312, rootRef, inputRef, () => setOpen(false));
 
   useEffect(() => {
     setDraft(value);
@@ -169,45 +246,30 @@ export function DatePicker({
     }
     restoreGridFocus.current = false;
     const iso = toIso(view.getFullYear(), view.getMonth(), focusDay);
-    rootRef.current?.querySelector<HTMLButtonElement>(`button[aria-label="${iso}"]`)?.focus();
-  }, [open, view, focusDay]);
-
-  useEffect(() => {
-    if (open) {
-      const base = parseIso(value) ?? new Date();
-      setView(startOfMonth(base));
-      setFocusDay(base.getDate());
-    }
-  }, [open, value]);
-
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-    function onPointer(event: MouseEvent) {
-      if (!rootRef.current?.contains(event.target as Node)) {
-        setOpen(false);
-      }
-    }
-    function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        setOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", onPointer);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onPointer);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
+    calendarPopup.current?.querySelector<HTMLButtonElement>(`button[aria-label="${iso}"]`)?.focus();
+  }, [open, view, focusDay, calendarPopup]);
 
   const cells = useMemo(() => monthCells(view), [view]);
 
-  function commit(next: string) {
+  function openPicker(focusGrid = false) {
+    if (disabled) return;
+    if (open) {
+      if (focusGrid) calendarPopup.current?.querySelector<HTMLButtonElement>(`button[aria-label="${toIso(view.getFullYear(), view.getMonth(), focusDay)}"]`)?.focus();
+      return;
+    }
+    const base = parseIso(value) ?? new Date();
+    setView(startOfMonth(base));
+    setFocusDay(base.getDate());
+    restoreGridFocus.current = focusGrid;
+    setOpen(true);
+  }
+
+  function commit(next: string, restoreFocus = false) {
+    if (boundsError(next, min, max)) return;
     onChange(next);
     setDraft(next);
     setOpen(false);
+    if (restoreFocus) inputRef.current?.focus();
   }
 
   function applyTyped() {
@@ -218,7 +280,7 @@ export function DatePicker({
       }
       return;
     }
-    if (parseIso(trimmed)) {
+    if (parseIso(trimmed) && !boundsError(trimmed, min, max)) {
       commit(trimmed);
     }
   }
@@ -241,6 +303,7 @@ export function DatePicker({
 
   return (
     <div ref={rootRef} className="relative mt-1.5">
+      <div className="relative">
       <input
         ref={inputRef}
         id={inputId}
@@ -250,7 +313,7 @@ export function DatePicker({
         autoComplete="off"
         spellCheck={false}
         placeholder="YYYY-MM-DD"
-        className={cx(controlClass, (error || Boolean(dateError)) && controlErrorClass)}
+        className={cx(controlClass, "pr-10", (error || Boolean(dateError)) && controlErrorClass)}
         role="combobox"
         value={draft}
         disabled={disabled}
@@ -261,20 +324,20 @@ export function DatePicker({
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls={dialogId}
-        onClick={() => setOpen(true)}
+        onClick={() => openPicker()}
         onChange={(event) => {
           const next = event.target.value;
           setDraft(next);
-          event.currentTarget.setCustomValidity(typedDateError(next));
+          event.currentTarget.setCustomValidity(typedDateError(next) || boundsError(next.trim(), min, max));
           const trimmed = next.trim();
-          if (parseIso(trimmed)) {
+          if (parseIso(trimmed) && !boundsError(trimmed, min, max)) {
             onChange(trimmed);
-          } else if (!trimmed && (optional || !required)) {
+          } else if (!trimmed) {
             onChange("");
           }
         }}
         onBlur={(event) => {
-          if (!rootRef.current?.contains(event.relatedTarget as Node | null)) {
+          if (!rootRef.current?.contains(event.relatedTarget as Node | null) && !calendarPopup.current?.contains(event.relatedTarget as Node | null)) {
             applyTyped();
           }
         }}
@@ -285,26 +348,33 @@ export function DatePicker({
           }
           if (event.key === "ArrowDown" && !open) {
             event.preventDefault();
-            restoreGridFocus.current = true;
-            setOpen(true);
+            openPicker(true);
           }
         }}
       />
+      <button type="button" disabled={disabled} aria-label={`Open ${ariaLabel ?? "date"} calendar`} aria-controls={dialogId} aria-expanded={open}
+        className={cx("absolute inset-y-0 right-0 flex w-9 items-center justify-center rounded-r-lg text-text-secondary disabled:opacity-50", focusRing)}
+        onClick={() => openPicker(true)}><IconCalendarCheck className="size-4" aria-hidden="true" /></button>
+      </div>
       {showClear ? (
         <button
           type="button"
           className={cx("mt-1 text-sm text-slate-600 underline-offset-2 hover:underline", focusRing)}
-          onClick={() => commit("")}
+          onClick={() => commit("", true)}
         >
           Clear
         </button>
       ) : null}
-      {open && !disabled ? (
+      {open && !disabled ? createPortal(
         <div
+          ref={calendarPopup}
+          data-amafh-workspace=""
+          data-amafh-page-typography={calendarTypography ? "" : undefined}
           id={dialogId}
           role="dialog"
           aria-label="Choose date"
-          className="absolute z-20 mt-2 w-[min(19.5rem,calc(100vw-2rem))] rounded-xl border border-slate-200 bg-surface p-3 shadow-[0_12px_28px_rgba(15,23,42,0.12)]"
+          className="fixed z-[1000] max-h-[calc(100dvh-1.5rem)] overflow-y-auto rounded-xl border border-control-border bg-surface p-3 shadow-[var(--amafh-shadow-elevated)]"
+          style={calendarPosition}
         >
           <div className="mb-2 flex items-center justify-between gap-1">
             <button
@@ -369,7 +439,7 @@ export function DatePicker({
               }
               if (event.key === "Enter") {
                 event.preventDefault();
-                commit(toIso(view.getFullYear(), view.getMonth(), focusDay));
+                commit(toIso(view.getFullYear(), view.getMonth(), focusDay), true);
               }
             }}
           >
@@ -384,20 +454,21 @@ export function DatePicker({
                 <button
                   key={cell.iso}
                   type="button"
+                  disabled={Boolean(boundsError(cell.iso, min, max))}
                   tabIndex={isFocused ? 0 : -1}
                   aria-current={isToday ? "date" : undefined}
                   aria-pressed={isSelected}
                   aria-label={cell.iso}
                   className={cx(
-                    "h-8 rounded-md text-sm",
+                    "h-8 rounded-md text-sm disabled:opacity-40",
                     focusRing,
                     isSelected
-                      ? "bg-slate-900 text-white"
+                      ? "bg-action text-action-text"
                       : isToday
                         ? "text-brand-primary ring-1 ring-brand-primary"
                         : "text-slate-900",
                   )}
-                  onClick={() => commit(cell.iso)}
+                  onClick={() => commit(cell.iso, true)}
                   onFocus={() => setFocusDay(cell.day)}
                 >
                   {cell.day}
@@ -410,12 +481,13 @@ export function DatePicker({
               type="button"
               variant="secondary"
               className="py-1 text-xs"
-              onClick={() => commit(todayIso())}
+              disabled={Boolean(boundsError(todayIso(), min, max))}
+              onClick={() => commit(todayIso(), true)}
             >
               Today
             </Button>
           </div>
-        </div>
+        </div>, document.body
       ) : null}
     </div>
   );
@@ -429,6 +501,10 @@ export type DateRangePickerProps = {
   required?: boolean;
   disabled?: boolean;
   error?: boolean;
+  allowPartial?: boolean;
+  fromRequired?: boolean;
+  min?: string;
+  max?: string;
   "aria-label": string;
 };
 
@@ -440,6 +516,10 @@ export function DateRangePicker({
   required = false,
   disabled = false,
   error = false,
+  allowPartial = false,
+  fromRequired = false,
+  min,
+  max,
   "aria-label": ariaLabel,
 }: DateRangePickerProps) {
   const generatedId = useId();
@@ -454,8 +534,16 @@ export function DateRangePicker({
   const [pendingFrom, setPendingFrom] = useState<string | null>(null);
   const [view, setView] = useState(() => startOfMonth(initialDate));
   const [focusIso, setFocusIso] = useState(() => toIso(initialDate.getFullYear(), initialDate.getMonth(), initialDate.getDate()));
-  const [popupPosition, setPopupPosition] = useState({ top: 0, left: 16, width: 624 });
-  const dateError = pendingFrom ? "" : typedRangeError(draft);
+  const parsedDraft = parseRangeDraft(draft, allowPartial);
+  const dateError = pendingFrom ? "" :
+    typedRangeError(draft, allowPartial) ||
+    (fromRequired && parsedDraft && !parsedDraft.from ? "Enter a start date" : "") ||
+    boundsError(parsedDraft?.from ?? "", min, max) || boundsError(parsedDraft?.to ?? "", min, max);
+  const [calendarPopup, calendarPosition, calendarTypography] = useCalendarPopup(open && !disabled, 624, rootRef, inputRef, () => {
+    setOpen(false);
+    setPendingFrom(null);
+    setDraft(formatRange(from, to));
+  });
   const leftCells = useMemo(() => monthCells(view), [view]);
   const rightView = useMemo(() => addMonths(view, 1), [view]);
   const rightCells = useMemo(() => monthCells(rightView), [rightView]);
@@ -469,81 +557,23 @@ export function DateRangePicker({
   }, [from, pendingFrom, to]);
 
   useEffect(() => {
-    inputRef.current?.setCustomValidity(dateError);
-  }, [dateError]);
-
-  useLayoutEffect(() => {
-    if (!open) {
-      return;
-    }
-    const updatePosition = () => {
-      const rect = inputRef.current?.getBoundingClientRect();
-      if (!rect) {
-        return;
-      }
-      const viewportPadding = 16;
-      const width = Math.min(624, window.innerWidth - viewportPadding * 2);
-      const left = Math.min(
-        Math.max(viewportPadding, rect.left),
-        window.innerWidth - width - viewportPadding,
-      );
-      const estimatedHeight = Math.min(390, window.innerHeight - viewportPadding * 2);
-      const below = rect.bottom + 8;
-      const top =
-        below + estimatedHeight <= window.innerHeight - viewportPadding
-          ? below
-          : Math.max(viewportPadding, rect.top - estimatedHeight - 8);
-      setPopupPosition({ top, left, width });
-    };
-    updatePosition();
-    window.addEventListener("resize", updatePosition);
-    window.addEventListener("scroll", updatePosition, true);
-    return () => {
-      window.removeEventListener("resize", updatePosition);
-      window.removeEventListener("scroll", updatePosition, true);
-    };
-  }, [open]);
+    inputRef.current?.setCustomValidity(pendingFrom ? "Choose the end date to complete the range" : dateError);
+  }, [dateError, pendingFrom]);
 
   useLayoutEffect(() => {
     if (!open || !restoreGridFocus.current) {
       return;
     }
     restoreGridFocus.current = false;
-    rootRef.current?.querySelector<HTMLButtonElement>(`button[aria-label="${focusIso}"]`)?.focus();
-  }, [focusIso, open, view]);
-
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-    function closePicker(restoreFocus = false) {
-      setOpen(false);
-      setPendingFrom(null);
-      setDraft(formatRange(from, to));
-      if (restoreFocus) {
-        inputRef.current?.focus();
-      }
-    }
-    function onPointer(event: MouseEvent) {
-      if (!rootRef.current?.contains(event.target as Node)) {
-        closePicker();
-      }
-    }
-    function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        closePicker(true);
-      }
-    }
-    document.addEventListener("mousedown", onPointer);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onPointer);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [from, open, to]);
+    calendarPopup.current?.querySelector<HTMLButtonElement>(`button[aria-label="${focusIso}"]`)?.focus();
+  }, [focusIso, open, view, calendarPopup]);
 
   function openPicker(focusGrid = false) {
     if (disabled) {
+      return;
+    }
+    if (open) {
+      if (focusGrid) calendarPopup.current?.querySelector<HTMLButtonElement>(`button[aria-label="${focusIso}"]`)?.focus();
       return;
     }
     const base = parseIso(from) ?? new Date();
@@ -551,7 +581,6 @@ export function DateRangePicker({
     setView(startOfMonth(base));
     setFocusIso(baseIso);
     setPendingFrom(null);
-    setDraft(formatRange(from, to));
     restoreGridFocus.current = focusGrid;
     setOpen(true);
   }
@@ -567,6 +596,7 @@ export function DateRangePicker({
   }
 
   function selectDate(iso: string) {
+    if (boundsError(iso, min, max)) return;
     if (!pendingFrom) {
       setPendingFrom(iso);
       setDraft(`${iso} – `);
@@ -580,6 +610,7 @@ export function DateRangePicker({
   }
 
   function applyTyped() {
+    if (pendingFrom) return;
     const trimmed = draft.trim();
     if (!trimmed) {
       onChange({ from: "", to: "" });
@@ -587,8 +618,8 @@ export function DateRangePicker({
       setOpen(false);
       return;
     }
-    const parsed = parseRangeDraft(trimmed);
-    if (parsed) {
+    const parsed = parseRangeDraft(trimmed, allowPartial);
+    if (parsed && !dateError) {
       closeAfterCommit(parsed);
     }
   }
@@ -666,18 +697,19 @@ export function DateRangePicker({
               <button
                 key={cell.iso}
                 type="button"
+                disabled={Boolean(boundsError(cell.iso, min, max))}
                 tabIndex={cell.iso === focusIso ? 0 : -1}
                 aria-current={isToday ? "date" : undefined}
                 aria-pressed={isStart || isEnd}
                 aria-label={cell.iso}
                 data-range-state={rangeState}
                 className={cx(
-                  "h-8 rounded-md text-sm",
+                  "h-8 rounded-md text-sm disabled:opacity-40",
                   focusRing,
                   isStart || isEnd
-                    ? "bg-slate-900 text-white"
+                    ? "bg-action text-action-text"
                     : isInRange
-                      ? "bg-blue-100 text-blue-900"
+                      ? "bg-information-soft text-information"
                       : isToday
                         ? "text-brand-primary ring-1 ring-brand-primary"
                         : "text-slate-900",
@@ -696,6 +728,7 @@ export function DateRangePicker({
 
   return (
     <div ref={rootRef} className="relative mt-1.5">
+      <div className="relative">
       <input
         ref={inputRef}
         id={inputId}
@@ -704,11 +737,11 @@ export function DateRangePicker({
         autoComplete="off"
         spellCheck={false}
         placeholder="YYYY-MM-DD – YYYY-MM-DD"
-        className={cx(controlClass, (error || Boolean(dateError)) && controlErrorClass)}
+        className={cx(controlClass, "pr-10", (error || Boolean(dateError)) && controlErrorClass)}
         role="combobox"
         value={draft}
         disabled={disabled}
-        required={required}
+        required={required || fromRequired}
         aria-label={ariaLabel}
         aria-invalid={error || Boolean(dateError) || undefined}
         aria-haspopup="dialog"
@@ -719,17 +752,19 @@ export function DateRangePicker({
           const next = event.target.value;
           setPendingFrom(null);
           setDraft(next);
-          const nextError = typedRangeError(next);
+          const parsed = parseRangeDraft(next, allowPartial);
+          const nextError = typedRangeError(next, allowPartial) ||
+            (fromRequired && parsed && !parsed.from ? "Enter a start date" : "") ||
+            boundsError(parsed?.from ?? "", min, max) || boundsError(parsed?.to ?? "", min, max);
           event.currentTarget.setCustomValidity(nextError);
-          const parsed = parseRangeDraft(next);
-          if (parsed) {
+          if (parsed && !nextError) {
             onChange(parsed);
           } else if (!next.trim()) {
             onChange({ from: "", to: "" });
           }
         }}
         onBlur={(event) => {
-          if (!rootRef.current?.contains(event.relatedTarget as Node | null)) {
+          if (!rootRef.current?.contains(event.relatedTarget as Node | null) && !calendarPopup.current?.contains(event.relatedTarget as Node | null)) {
             applyTyped();
           }
         }}
@@ -744,13 +779,20 @@ export function DateRangePicker({
           }
         }}
       />
-      {open && !disabled ? (
+      <button type="button" disabled={disabled} aria-label={`Open ${ariaLabel} calendar`} aria-controls={dialogId} aria-expanded={open}
+        className={cx("absolute inset-y-0 right-0 flex w-9 items-center justify-center rounded-r-lg text-text-secondary disabled:opacity-50", focusRing)}
+        onClick={() => openPicker(true)}><IconCalendarCheck className="size-4" aria-hidden="true" /></button>
+      </div>
+      {open && !disabled ? createPortal(
         <div
+          ref={calendarPopup}
+          data-amafh-workspace=""
+          data-amafh-page-typography={calendarTypography ? "" : undefined}
           id={dialogId}
           role="dialog"
           aria-label={`Choose ${ariaLabel.toLowerCase()} range`}
-          className="fixed z-50 max-h-[calc(100vh-2rem)] overflow-y-auto rounded-xl border border-slate-200 bg-surface p-3 shadow-[0_12px_28px_rgba(15,23,42,0.16)]"
-          style={popupPosition}
+          className="fixed z-[1000] max-h-[calc(100dvh-1.5rem)] overflow-y-auto rounded-xl border border-control-border bg-surface p-3 shadow-[var(--amafh-shadow-elevated)]"
+          style={calendarPosition}
         >
           <div className="mb-3 flex items-center justify-between gap-2">
             <div className="flex gap-1">
@@ -773,13 +815,13 @@ export function DateRangePicker({
               </Button>
             </div>
           </div>
-          <div className="overflow-x-auto">
-            <div className="grid min-w-[36rem] grid-cols-2 gap-4">
+          <div className="min-w-0">
+            <div className="grid grid-cols-2 gap-3 sm:gap-4">
               {renderMonth(view, leftCells)}
               {renderMonth(rightView, rightCells)}
             </div>
           </div>
-          <div className="mt-3 flex items-center justify-between gap-3 border-t border-slate-100 pt-3">
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3">
             <p className="min-w-0 truncate text-xs text-slate-600">
               {pendingFrom ? `${pendingFrom} – Select To` : formatRange(from, to) || "No range selected"}
             </p>
@@ -791,8 +833,9 @@ export function DateRangePicker({
             >
               Clear range
             </Button>
+            {allowPartial && pendingFrom ? <Button type="button" variant="secondary" size="compact" onClick={() => closeAfterCommit({ from: pendingFrom, to: "" }, true)}>Use start date only</Button> : null}
           </div>
-        </div>
+        </div>, document.body
       ) : null}
     </div>
   );

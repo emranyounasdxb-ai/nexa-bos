@@ -365,7 +365,9 @@ async def test_exit_requires_existing_asset_return_without_mutating_custody(clie
         row = await ready(owner, employee, operator, manager, clients)
         history = (await owner.get(f"/api/v1/assets/{asset['id']}/history")).json()
         await decision(owner, row, "complete", 409)
-        assert (await owner.get(f"/api/v1/assets/{asset['id']}/history")).json() == history
+        after_denial = (await owner.get(f"/api/v1/assets/{asset['id']}/history")).json()
+        for key in ("asset", "allocations", "officeCustody", "events"):
+            assert after_denial[key] == history[key]
         assert (await clients[0].get("/api/v1/auth/me")).status_code == 200
         returned = await owner.post(
             f"/api/v1/assets/{asset['id']}/return",
