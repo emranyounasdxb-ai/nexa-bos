@@ -36,7 +36,10 @@ import {
 import { apiGet, apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { formatDuration } from "@/lib/duration";
+import { formatAed } from "@/lib/reports";
 import { orderCaseProgress } from "@/lib/tl-case-presentation";
+import { caseStageLabel } from "@/lib/tl-case-journey";
+import { TlCaseJourney, caseJourneyDate } from "@/components/tl-case-journey";
 import { getBrowserApiUrl } from "@/lib/env";
 import { canManageCustomers } from "@/lib/role-access";
 import type {
@@ -47,6 +50,7 @@ import type {
   WorkflowRecord,
   WorkflowStageRecord,
 } from "@/lib/types";
+import tlStyles from "./tl-case-detail.module.css";
 
 type DetailTab = "overview" | "workflow" | "actions" | "timeline";
 
@@ -482,7 +486,7 @@ export default function ApplicationDetailPage() {
   if (user?.userType?.code === "ADMIN_OFFICER") return <AdminCaseDetails item={item} review={review} events={timeline} error={error} onSaved={async (text) => { setMessage(text); await refresh(); }} />;
 
   const selectedNext = nextStages.find((stage) => stage.id === stageId);
-  const status = item.terminalOutcome || item.currentStage || "In progress";
+  const status = isTl ? caseStageLabel(item, review ?? {}) : item.terminalOutcome || item.currentStage || "In progress";
   const displayedProgress = isTl ? orderCaseProgress(progress) : progress;
   const currentStageIndex = displayedProgress.findIndex((stage) => stage.current);
   const canEditOwn = can("Applications.Edit") && !item.submitted && !item.terminal &&
@@ -505,15 +509,15 @@ export default function ApplicationDetailPage() {
     (user?.id === item.routedCoordinatorId && ["booked", "sm_approved"].includes(item.routingStatus ?? ""));
 
   return (
-    <section className="min-w-0 space-y-4" aria-busy={loading}>
+    <section className={cx("min-w-0 space-y-4", isTl && tlStyles.detail)} aria-busy={loading}>
       <PageHeader
         title={item.applicationCode}
         frameTitle={isTl ? item.applicationCode : undefined}
         description={isTl ? "Case information, review progress and activity history." : "Application classification, workflow progress, controlled corrections, and immutable lifecycle history."}
         actions={
           <>
-            <Link className="text-sm font-medium text-brand-link underline" href="/applications">
-              Back to Applications
+            <Link className="text-sm font-medium text-brand-link underline" href={isTl ? "/reports?workspace=cases&queue=all" : "/applications"}>
+              {isTl ? "Back to Cases" : "Back to Applications"}
             </Link>
             {canManageCustomers(user) ? (
               <Link className="text-sm font-medium text-brand-link underline" href={`/customers/${item.customerId}`}>
@@ -524,7 +528,8 @@ export default function ApplicationDetailPage() {
         }
       />
 
-      <RecordFrame panelLabel="Application summary" summary={
+      {isTl ? <Card className={tlStyles.identitySurface}><div className={tlStyles.identityHeader}><div><span className={tlStyles.eyebrow}>Case record</span><h2>{item.applicationCode}</h2><p>{item.customerCode} · {item.customerName}</p></div><StatusBadge value={status} /></div><dl className={tlStyles.identityFacts}><Value label="Bank / product">{item.bankName} · {item.productName}</Value><Value label="Requested">{formatAed(item.requestedAmount)}</Value><Value label="Case Owner">{item.caseOwnerName || "—"}</Value><Value label="Team Leader">{review?.tlName || "—"}</Value><Value label="Sales Manager">{item.routedSalesManagerName || "—"}</Value><Value label="Coordinator">{item.routedCoordinatorName || "—"}</Value><Value label="Created">{caseJourneyDate(item.createdAt)}</Value><Value label="Current Stage">{status}</Value></dl></Card> : null}
+      <RecordFrame panelLabel="Application summary" summary={isTl ? null :
       <Card>
         <div className="flex min-w-0 flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0">
@@ -549,12 +554,13 @@ export default function ApplicationDetailPage() {
       </Card>
       }>
 
-      {review && <ApplicationInternalReview applicationId={item.id} state={review} requestedAmount={item.requestedAmount} onSaved={async text => { setMessage(text); await refresh(); }} />}
+      {review && (!isTl || review.actions.length > 0 || Boolean(review.reason)) && <ApplicationInternalReview compact={isTl} applicationId={item.id} state={review} requestedAmount={item.requestedAmount} onSaved={async text => { setMessage(text); await refresh(); }} />}
 
-      <Card>
+      {isTl && <Card className={tlStyles.progressSurface}><TlCaseJourney item={item} events={timeline} /></Card>}
+      {!isTl && <Card>
         <div className="flex min-w-0 flex-wrap items-start justify-between gap-2">
           <div className="min-w-0">
-            <h3 className="text-lg font-semibold text-text-primary">Workflow timeline</h3>
+            <h3 className="text-lg font-semibold text-text-primary">{isTl ? "Case progress" : "Workflow timeline"}</h3>
             <p className="mt-1 text-xs text-text-secondary">
               Completed stages retain their timestamps; the current stage is highlighted and upcoming stages remain visible.
             </p>
@@ -562,7 +568,7 @@ export default function ApplicationDetailPage() {
           {!isTl && <Badge>Version {version ?? item.workflowVersion ?? "—"}</Badge>}
         </div>
         {progress.length ? (
-          <ol className="mt-4 grid min-w-0 gap-2 sm:grid-cols-2 xl:grid-cols-4">
+          <ol className={cx("mt-4 grid min-w-0 gap-2 sm:grid-cols-2 xl:grid-cols-4", isTl && tlStyles.progressSteps)}>
             {displayedProgress.map((stage, index) => {
               const completed = Boolean(stage.exitedAt) || (
                 !isTl && !stage.current && currentStageIndex >= 0 && index < currentStageIndex && Boolean(stage.enteredAt)
@@ -579,6 +585,7 @@ export default function ApplicationDetailPage() {
                   data-stage-state={state.toLowerCase()}
                   className={cx(
                     "min-w-0 rounded-[10px] border p-3",
+                    isTl && tlStyles.progressStep,
                     stage.current
                       ? "border-brand-primary bg-brand-fill text-white shadow-sm"
                       : completed
@@ -600,12 +607,12 @@ export default function ApplicationDetailPage() {
         ) : (
           <EmptyState>No workflow stages are available for this Application.</EmptyState>
         )}
-      </Card>
+      </Card>}
 
       {error ? <ErrorText>{error}</ErrorText> : null}
       {message ? <p role="status" className="text-sm font-medium text-success">{message}</p> : null}
 
-      <div className="grid min-w-0 grid-cols-2 gap-1 rounded-[10px] border border-brand-border bg-surface p-1 lg:grid-cols-4" role="tablist" aria-label="Application workspace">
+      <div className={cx("grid min-w-0 grid-cols-2 gap-1 rounded-[10px] border border-brand-border bg-surface p-1 lg:grid-cols-4", isTl && tlStyles.detailTabs)} role="tablist" aria-label="Application workspace">
         {TABS.map((tab, index) => (
           <button
             key={tab.id}
@@ -624,12 +631,12 @@ export default function ApplicationDetailPage() {
             onClick={() => selectTab(tab.id)}
             onKeyDown={(event) => handleTabKey(event, index)}
           >
-            {tab.label}
+            {isTl ? ({ overview: "Overview", workflow: "Progress", actions: "Actions", timeline: "Activity" } as const)[tab.id] : tab.label}
           </button>
         ))}
       </div>
 
-      <section id={`application-panel-${activeTab}`} role="tabpanel" aria-labelledby={`application-tab-${activeTab}`} className="min-w-0 space-y-4">
+      <section id={`application-panel-${activeTab}`} role="tabpanel" aria-labelledby={`application-tab-${activeTab}`} className={cx("min-w-0 space-y-4", isTl && tlStyles.detailPanel)}>
         {activeTab === "overview" ? (
           <>
             <Card>
@@ -640,9 +647,8 @@ export default function ApplicationDetailPage() {
                 </div>
                 {item.productVariantStatus ? <StatusBadge value={item.productVariantStatus} /> : null}
               </div>
-              <div className="mt-3 grid gap-3 md:grid-cols-3">
-                <Field label="Bank"><Select aria-label="Bank" value={item.bankId} disabled><option value={item.bankId}>{item.bankName}</option></Select></Field>
-                <Field label="Product Category"><Select aria-label="Product Category" value={item.productId} disabled><option value={item.productId}>{item.productName}</option></Select></Field>
+              <div className={cx("mt-3 grid gap-3 md:grid-cols-3", isTl && tlStyles.classificationFacts)}>
+                {isTl ? <><Value label="Bank">{item.bankName}</Value><Value label="Product Category">{item.productName}</Value></> : <><Field label="Bank"><Select aria-label="Bank" value={item.bankId} disabled><option value={item.bankId}>{item.bankName}</option></Select></Field><Field label="Product Category"><Select aria-label="Product Category" value={item.productId} disabled><option value={item.productId}>{item.productName}</option></Select></Field></>}
                 <Field label="Product Variant">
                   {canEditOwn ? (
                     <Select aria-label="Product Variant" value={variantId} disabled={variantSaving} onChange={(event) => setVariantId(event.target.value)}>
@@ -657,7 +663,7 @@ export default function ApplicationDetailPage() {
               {variantFeedback?.tone === "success" ? <p role="status" className="mt-3 text-sm font-medium text-success">{variantFeedback.text}</p> : null}
               {canEditOwn ? <div className="mt-3 flex justify-end"><Button type="button" disabled={variantSaving || !variantId || variantId === item.productVariantId} onClick={() => void saveVariant()}>{variantSaving ? "Saving…" : "Save Product Variant"}</Button></div> : null}
             </Card>
-            <div className="grid min-w-0 gap-4 lg:grid-cols-3">
+            <div className={cx("grid min-w-0 gap-4 lg:grid-cols-3", isTl && tlStyles.overviewSections)}>
               <Card><h3 className="text-lg font-semibold">Customer</h3><dl className="mt-3 grid gap-3"><Value label="Customer">{item.customerCode} · {item.customerName}</Value><Value label="Mobile">{item.customerMobile ?? "Not recorded"}</Value></dl></Card>
               <Card><h3 className="text-lg font-semibold">Application values</h3><dl className="mt-3 grid gap-3 sm:grid-cols-2"><Value label="Requested amount">{item.requestedAmount ?? "—"}</Value><Value label="Approved amount">{item.approvedAmount ?? "—"}</Value><Value label="Booked amount">{item.bookedAmount ?? "—"}</Value><Value label="Funded amount">{item.fundedAmount ?? "—"}</Value></dl></Card>
               <Card><h3 className="text-lg font-semibold">Submission</h3><dl className="mt-3 grid gap-3 sm:grid-cols-2"><Value label="Bank File / Case Number">{item.bankCaseNumber ?? "Not submitted"}</Value><Value label="Submitted">{displayDate(item.submittedAt)}</Value><Value label="Created">{displayDate(item.createdAt)}</Value><Value label="Last updated">{displayDate(item.updatedAt)}</Value></dl></Card>

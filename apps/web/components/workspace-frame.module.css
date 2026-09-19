@@ -220,3 +220,35 @@
   .frame[data-tl-case="true"] .headerActions { grid-column: 1 / -1; width: 100%; margin-left: 0; }
   .frame[data-tl-case="true"] .createCase { margin-right: auto; white-space: nowrap; }
 }
+
+/* Stable TL workspace navigation; Dashboard content styling remains scoped separately. */
+.frame[data-tl-workspace-navigation] { --amafh-text-body: .9375rem; --amafh-text-support: .75rem; grid-template-columns: minmax(0,1fr); }
+.frame[data-tl-workspace-navigation] .workspace {
+  --amafh-text-body: 15px;
+  --amafh-text-support: 12px;
+  --amafh-table-heading: 14px;
+  --amafh-table-body: 14px;
+  --amafh-list-primary: 14px;
+  --amafh-list-secondary: 12px;
+  --amafh-list-status: 12px;
+  font-size: var(--amafh-text-body);
+}
+.frame[data-tl-workspace-navigation] .workspace :is(input:not([type="checkbox"]):not([type="radio"]), textarea, select, button, [role="combobox"]) { font-size: 14px; }
+.frame[data-tl-workspace-navigation] .workspace [role="tab"] { font-size: 14px !important; }
+.frame[data-tl-workspace-navigation] :is(.topbar,.content,.installSlot) { grid-column: 1 / -1; }
+.frame[data-tl-workspace-navigation] .topNav[hidden] { display: none; }
+.frame[data-tl-workspace-navigation] .pageHeader { height: auto; min-height: 0; margin-block: 12px 8px; padding: 12px 16px; align-items: center; flex-wrap: wrap; gap: 8px 16px; }
+.frame[data-tl-workspace-navigation] .pageDescription p { font-size: var(--amafh-text-body); line-height: 1.5; }
+.frame[data-tl-workspace-navigation] .pageActions :is(button,[role="combobox"]) { font-size: 14px; }
+@media (min-width:640px) and (max-width:1279px) {
+  .frame[data-tl-workspace-navigation] .topbar { height: auto; flex-wrap: wrap; }
+  .frame[data-tl-workspace-navigation] .desktopNav { display: flex; order: 3; flex: 1 1 100%; min-width: 0; justify-content: flex-start; overflow-x: auto; }
+  .frame[data-tl-workspace-navigation] .desktopNav a { flex-shrink: 0; }
+}
+@media (max-width:639px) {
+  .frame[data-tl-workspace-navigation] .topbar { height: auto; display: grid; grid-template-columns: 44px minmax(0,1fr); gap: 8px 12px; }
+  .frame[data-tl-workspace-navigation] .headerActions { grid-column: 1 / -1; width: 100%; margin-left: 0; }
+  .frame[data-tl-workspace-navigation] .createCase { margin-right: auto; }
+  .frame[data-tl-workspace-navigation] .pageHeader { margin: 0; padding: 0 20px; }
+  .frame[data-tl-workspace-navigation] .bottomNav :is(a,button) { flex: 1; min-width: 0; }
+}

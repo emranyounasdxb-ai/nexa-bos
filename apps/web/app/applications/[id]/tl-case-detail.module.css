@@ -1,0 +1,24 @@
+.detail { min-width:0; color:var(--amafh-text); font-size:15px; line-height:1.5; }
+.identitySurface, .progressSurface { border:1px solid var(--amafh-border); border-radius:12px; background:var(--amafh-surface); box-shadow:var(--amafh-shadow-surface); }
+.identitySurface { padding:0; overflow:hidden; }
+.identityHeader { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; padding:14px 16px; border-bottom:1px solid var(--amafh-border); }
+.identityHeader h2 { font-size:20px; line-height:1.3; font-weight:700; overflow-wrap:anywhere; }
+.identityHeader p { color:var(--amafh-text-secondary); }
+.eyebrow { display:block; color:var(--amafh-text-secondary); font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:.06em; }
+.identityFacts { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; padding:16px; }
+.identityFacts > div { min-width:0; padding:10px; border-radius:8px; background:var(--amafh-subtle); }
+.progressSurface { padding:16px; }
+.progressSteps { grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; }
+.progressStep { min-height:86px; border-radius:8px; padding:12px; }
+.detailTabs { display:flex; flex-wrap:wrap; gap:4px; padding:4px; border-radius:10px; }
+.detailTabs > button { flex:1 1 160px; min-height:38px; font-size:14px; }
+.detailPanel > :global([data-amafh-card]) { border:1px solid var(--amafh-border); border-radius:12px; box-shadow:var(--amafh-shadow-surface); }
+.overviewSections > :global([data-amafh-card]) { min-width:0; padding:14px; border:1px solid var(--amafh-border); border-radius:10px; box-shadow:none; }
+.overviewSections :global(dl) { gap:8px; }
+.overviewSections :global(dt), .identityFacts :global(dt) { color:var(--amafh-text-secondary); font-size:12px; }
+.overviewSections :global(dd), .identityFacts :global(dd) { font-size:14px; font-weight:600; }
+.classificationFacts > div { min-width:0; padding:10px 12px; border-radius:8px; background:var(--amafh-subtle); }
+.classificationFacts > :global([data-amafh-field]) { padding:0; background:transparent; }
+.detail :is(input:not([type=checkbox]):not([type=radio]),textarea,select,button) { font-size:14px; }
+@media(max-width:900px) { .identityFacts { grid-template-columns:repeat(2,minmax(0,1fr)); } .progressSteps { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media(max-width:639px) { .identityHeader, .identityFacts { padding:12px; } .identityHeader h2 { font-size:18px; } .identityFacts { gap:8px; } .identityFacts > div { padding:8px; } .progressSurface { padding:12px; } .progressSteps { grid-template-columns:minmax(0,1fr); } .progressStep { min-height:0; } .detailTabs { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); } .detailTabs > button { min-width:0; } .overviewSections { grid-template-columns:minmax(0,1fr); } }

@@ -252,6 +252,7 @@ export type ApplicationEventRecord = {
   stageNote: string | null;
   bosUpdatedAt: string;
   updatedBy: string | null;
+  updatedById?: string | null;
   reason: string | null;
   payload: Record<string, unknown> | null;
 };

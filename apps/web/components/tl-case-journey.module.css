@@ -1,0 +1,21 @@
+.journey { display:grid; gap:12px; min-width:0; }
+.heading { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px; }
+.heading h3 { font-size:15px; font-weight:700; }
+.heading > span { color:var(--amafh-text-secondary); font-size:13px; }
+.heading strong { color:var(--amafh-text); }
+.steps { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:8px; margin:0; padding:0; list-style:none; }
+.step { position:relative; display:grid; align-content:start; gap:6px; min-width:0; min-height:155px; padding:12px; border:1px solid var(--amafh-border); border-radius:10px; background:var(--amafh-surface); }
+.step:not(:last-child)::after { content:""; position:absolute; left:calc(100% + 1px); top:25px; width:8px; border-top:2px solid var(--amafh-border); }
+.stepTop { display:flex; align-items:center; justify-content:space-between; gap:5px; }
+.marker { display:grid; place-items:center; width:26px; height:26px; border-radius:50%; background:var(--amafh-subtle); color:var(--amafh-text-secondary); font-size:12px; font-weight:700; }
+.state { color:var(--amafh-text-secondary); font-size:11px; font-weight:700; text-transform:capitalize; }
+.name { font-size:14px; line-height:1.3; }
+.date,.actor,.duration { font-size:12px; line-height:1.35; overflow-wrap:anywhere; }
+.actor,.duration { color:var(--amafh-text-secondary); }
+.step[data-state="completed"] .marker { background:var(--amafh-success-soft); color:var(--amafh-success); }
+.step[data-state="current"] { border-color:var(--amafh-primary); background:var(--amafh-brand-soft); box-shadow:0 0 0 1px var(--amafh-primary); }
+.step[data-state="current"] .marker { background:var(--amafh-primary); color:white; }
+.step[data-state="current"] .state { color:var(--amafh-primary); }
+.step[data-state="upcoming"] { opacity:.58; }
+@media(max-width:1100px) { .steps { grid-template-columns:repeat(3,minmax(0,1fr)); } .step:nth-child(3n)::after { display:none; } }
+@media(max-width:639px) { .steps { grid-template-columns:minmax(0,1fr); gap:0; } .step { min-height:0; margin-left:13px; padding:10px 12px 14px 22px; border:0; border-left:2px solid var(--amafh-border); border-radius:0; background:transparent; box-shadow:none; } .step:not(:last-child)::after { display:none; } .step:last-child { border-left-color:transparent; } .stepTop { justify-content:flex-start; } .marker { position:absolute; left:-14px; top:9px; } .step[data-state="current"] { border:0; border-left:2px solid var(--amafh-primary); background:var(--amafh-brand-soft); box-shadow:none; } .name { font-size:14px; } }
