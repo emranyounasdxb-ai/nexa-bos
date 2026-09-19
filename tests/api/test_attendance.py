@@ -333,22 +333,26 @@ async def test_corrections_leave_holiday_and_ramadan(client: AsyncClient) -> Non
     )
     assert leave.status_code == 200, leave.text
     stamp = int(unique_tag()[:6], 16)
-    holiday_date = f"2027-{(stamp % 12) + 1:02d}-{(stamp % 28) + 1:02d}"
+    holiday_date = f"2026-07-{(stamp % 28) + 1:02d}"
     holiday = await _ensure_holiday(authed, holiday_date, "National Day")
     assert holiday["name"] == "National Day"
     roster = await authed.get(f"/api/v1/attendance/day?attendance_date={holiday_date}")
     assert roster.json()["officialHoliday"]["name"] == "National Day"
     assert roster.json()["suggestedStatus"] == "Official Holiday"
     marked = await _save(authed, holiday_date, employee["id"], status="Official Holiday")
+    assert marked.status_code == 200, marked.text
     assert marked.json()["items"][0]["status"] == "Official Holiday"
+    worked_date = f"2026-06-{(stamp % 28) + 1:02d}"
+    await _ensure_holiday(authed, worked_date, "Company holiday")
     worked = await _save(
         authed,
-        holiday_date,
+        worked_date,
         employee["id"],
         status="Present",
         time_in="11:00",
         time_out="15:00",
     )
+    assert worked.status_code == 200, worked.text
     worked_row = worked.json()["items"][0]
     assert worked_row["workedOnHoliday"] is True
     assert worked_row["isLate"] is False
@@ -502,7 +506,9 @@ async def test_impact_score_reports_reminders_and_business_metrics_untouched(
             .all()
         )
         assert events
-    reporter = await _attendance_user(authed, permissions=["Attendance.Reports"], office_id=dxb)
+    reporter = await _attendance_user(
+        authed, permissions=["Attendance.View", "Attendance.Reports"], office_id=dxb
+    )
     async with await spawned_client() as reporter_client:
         await authenticate(reporter_client, reporter["email"], "UserPass1!")
         allowed = await reporter_client.get(

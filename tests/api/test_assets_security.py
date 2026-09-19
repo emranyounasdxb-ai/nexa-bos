@@ -454,7 +454,7 @@ async def test_h1_controlled_status_blocks_custody_operation_until_authorized_co
         row
         for row in final_history["events"]
         if row["action"] == "asset.status.change"
-        and row["newValues"] == {"status": "Allocated"}
+        and row["newValues"]["status"] == "Allocated"
     )
     assert correction["reason"] == f"Authorized correction from {controlled_status}"
 

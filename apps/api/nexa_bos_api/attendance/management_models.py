@@ -5,7 +5,17 @@ from __future__ import annotations
 from datetime import date, datetime
 from uuid import UUID
 
-from sqlalchemy import Date, DateTime, ForeignKey, String, Text, UniqueConstraint, Uuid, event
+from sqlalchemy import (
+    CheckConstraint,
+    Date,
+    DateTime,
+    ForeignKey,
+    String,
+    Text,
+    UniqueConstraint,
+    Uuid,
+    event,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -45,6 +55,12 @@ class AttendanceProvenance(Base):
 
 class AttendanceMonthEvent(Base):
     __tablename__ = "attendance_month_events"
+    __table_args__ = (
+        CheckConstraint(
+            "action IN ('closed','reopened') AND length(trim(reason)) > 0",
+            name="ck_attendance_month_action",
+        ),
+    )
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=new_uuid)
     office_id: Mapped[UUID] = mapped_column(Uuid, ForeignKey("offices.id"), index=True)
     month: Mapped[date] = mapped_column(Date, index=True)
@@ -57,6 +73,12 @@ class AttendanceMonthEvent(Base):
 
 class AttendanceLeaveEvidence(Base):
     __tablename__ = "attendance_leave_evidence"
+    __table_args__ = (
+        CheckConstraint(
+            "end_date >= start_date AND length(trim(approval_reference)) > 0",
+            name="ck_attendance_leave_evidence_dates",
+        ),
+    )
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=new_uuid)
     employee_id: Mapped[UUID] = mapped_column(Uuid, ForeignKey("users.id"), index=True)
     leave_type_id: Mapped[UUID] = mapped_column(Uuid, ForeignKey("leave_types.id"))
