@@ -6,7 +6,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends
 
-from nexa_bos_api.api.v1.deps import CurrentUser, require_any_permission, require_permission
+from nexa_bos_api.api.v1.deps import CurrentUser, require_permission
 from nexa_bos_api.api.v1.pagination import PaginationDep
 from nexa_bos_api.attendance.schemas import (
     AttendanceBulkRequest,
@@ -58,12 +58,21 @@ from nexa_bos_api.identity.permissions import (
     NOTIFICATIONS_SEND_URGENT,
 )
 
+
 def _require_company_policy_scope(actor: CurrentUser) -> None:
     if visibility_scope(actor) is not VisibilityScope.COMPANY:
-        raise AppError(status_code=403, code="FORBIDDEN", message="Company scope is required to change company-wide attendance settings.")
+        raise AppError(
+            status_code=403,
+            code="FORBIDDEN",
+            message="Company scope is required to change company-wide attendance settings.",
+        )
 
 
-router = APIRouter(prefix="/attendance", tags=["attendance"], dependencies=[Depends(require_permission("Attendance.View"))])
+router = APIRouter(
+    prefix="/attendance",
+    tags=["attendance"],
+    dependencies=[Depends(require_permission("Attendance.View"))],
+)
 
 
 @router.get("/working-days")
@@ -133,9 +142,16 @@ async def schedules_create(
     session: SessionDep,
     actor: Annotated[CurrentUser, Depends(require_permission(ATTENDANCE_MANAGE))],
 ) -> dict[str, object]:
-    from nexa_bos_api.attendance.service import _assert_filter_scope
     from nexa_bos_api.attendance.management_guards import scoped_ids
-    await _assert_filter_scope(session, await scoped_ids(session, actor), employee_id=None, office_id=payload.office_id, department_id=payload.department_id)
+    from nexa_bos_api.attendance.service import _assert_filter_scope
+
+    await _assert_filter_scope(
+        session,
+        await scoped_ids(session, actor),
+        employee_id=None,
+        office_id=payload.office_id,
+        department_id=payload.department_id,
+    )
     return await create_schedule(session, actor, payload)
 
 
@@ -146,13 +162,20 @@ async def schedules_update(
     session: SessionDep,
     actor: Annotated[CurrentUser, Depends(require_permission(ATTENDANCE_MANAGE))],
 ) -> dict[str, object]:
+    from nexa_bos_api.attendance.management_guards import scoped_ids
     from nexa_bos_api.attendance.models import AttendanceSchedule
     from nexa_bos_api.attendance.service import _assert_filter_scope
-    from nexa_bos_api.attendance.management_guards import scoped_ids
+
     schedule = await session.get(AttendanceSchedule, schedule_id)
     if schedule is None:
         raise AppError(status_code=404, code="NOT_FOUND", message="Schedule was not found")
-    await _assert_filter_scope(session, await scoped_ids(session, actor), employee_id=None, office_id=schedule.office_id, department_id=schedule.department_id)
+    await _assert_filter_scope(
+        session,
+        await scoped_ids(session, actor),
+        employee_id=None,
+        office_id=schedule.office_id,
+        department_id=schedule.department_id,
+    )
     return await update_schedule(session, actor, schedule_id, payload)
 
 
@@ -345,6 +368,8 @@ async def attendance_employee_summary(
         raise AppError(status_code=404, code="NOT_FOUND", message="Employee was not found")
     return summary
 
+
 # Attendance Management reuses the existing authorization and attendance services.
 from nexa_bos_api.attendance.management_api import router as management_router  # noqa: E402
+
 router.include_router(management_router)

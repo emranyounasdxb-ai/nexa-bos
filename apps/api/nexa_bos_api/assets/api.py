@@ -18,11 +18,11 @@ from nexa_bos_api.assets.export import (
 )
 from nexa_bos_api.assets.schemas import (
     AssetAllocationRequest,
-    AssetLifecycleExportRequest,
     AssetCategoryCreateRequest,
     AssetCategoryUpdateRequest,
     AssetConditionCorrectionRequest,
     AssetCreateRequest,
+    AssetLifecycleExportRequest,
     AssetMasterUpdateRequest,
     AssetReportExportRequest,
     AssetReturnRequest,
@@ -68,7 +68,9 @@ from nexa_bos_api.identity.permissions import (
     ASSETS_VIEW_AUDIT,
 )
 
-router = APIRouter(prefix="/assets", tags=["assets"], dependencies=[Depends(require_permission("Assets.View"))])
+router = APIRouter(
+    prefix="/assets", tags=["assets"], dependencies=[Depends(require_permission("Assets.View"))]
+)
 
 
 def _require_history_permission(actor: CurrentUser, report: AssetReport) -> None:
@@ -358,7 +360,11 @@ async def assets_return(
 ) -> dict[str, object]:
     asset = await get_asset(session, actor, asset_id)
     if asset["status"] == AssetStatus.UNDER_REPAIR and not has_permission(actor, "Assets.Repair"):
-        raise AppError(status_code=403, code="FORBIDDEN", message="Repair permission is required to receive an asset from repair.")
+        raise AppError(
+            status_code=403,
+            code="FORBIDDEN",
+            message="Repair permission is required to receive an asset from repair.",
+        )
     return await return_asset(session, actor, asset_id, payload)
 
 
@@ -390,9 +396,21 @@ async def assets_status(
     actor: CurrentUser,
 ) -> dict[str, object]:
     asset = await get_asset(session, actor, asset_id)
-    permission = "Assets.Retire" if payload.status is AssetStatus.RETIRED else "Assets.Repair" if payload.status is AssetStatus.UNDER_REPAIR or (payload.status is AssetStatus.IN_STOCK and asset["status"] == AssetStatus.UNDER_REPAIR) else ASSETS_MANAGE_STATUS
+    permission = (
+        "Assets.Retire"
+        if payload.status is AssetStatus.RETIRED
+        else "Assets.Repair"
+        if payload.status is AssetStatus.UNDER_REPAIR
+        or (payload.status is AssetStatus.IN_STOCK and asset["status"] == AssetStatus.UNDER_REPAIR)
+        else ASSETS_MANAGE_STATUS
+    )
     if not has_permission(actor, permission):
-        raise AppError(status_code=403, code="FORBIDDEN", message="You do not have permission to perform this action", details=[{"permission": permission}])
+        raise AppError(
+            status_code=403,
+            code="FORBIDDEN",
+            message="You do not have permission to perform this action",
+            details=[{"permission": permission}],
+        )
     return await set_asset_status(session, actor, asset_id, payload)
 
 
@@ -413,8 +431,11 @@ async def assets_lifecycle_export(
     actor: Annotated[CurrentUser, Depends(require_permission(ASSETS_VIEW_AUDIT))],
 ) -> Response:
     from nexa_bos_api.identity.access import visibility_scope
+
     if not has_permission(actor, "Assets.Export"):
-        raise AppError(status_code=403, code="FORBIDDEN", message="Asset report export permission is required.")
+        raise AppError(
+            status_code=403, code="FORBIDDEN", message="Asset report export permission is required."
+        )
     history = await asset_history(session, actor, asset_id)  # Existing asset scope enforcement.
     report = lifecycle_export_payload(history, visibility_scope(actor).value)
     if payload.format == "xlsx":
@@ -429,9 +450,26 @@ async def assets_lifecycle_export(
     else:
         content = build_print_html(report, actor)
         media_type = "text/html"
-    await record_audit(session, action="asset.lifecycle.export", entity_type="asset_report",
-                       entity_id=str(asset_id), actor_id=actor.id,
-                       new_values={"format": payload.format, "scope": report["reportingScope"], "rows": report["total"]})
+    await record_audit(
+        session,
+        action="asset.lifecycle.export",
+        entity_type="asset_report",
+        entity_id=str(asset_id),
+        actor_id=actor.id,
+        new_values={
+            "format": payload.format,
+            "scope": report["reportingScope"],
+            "rows": report["total"],
+        },
+    )
     await session.commit()
-    headers = {"Content-Disposition": f'attachment; filename="asset-lifecycle-{asset_id}.{payload.format}"'} if payload.format != "print" else None
+    headers = (
+        {
+            "Content-Disposition": (
+                f'attachment; filename="asset-lifecycle-{asset_id}.{payload.format}"'
+            )
+        }
+        if payload.format != "print"
+        else None
+    )
     return Response(content=content, media_type=media_type, headers=headers)

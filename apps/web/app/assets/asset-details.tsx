@@ -138,7 +138,7 @@ export function AssetDetails({ assetId, onMutation, initialTab }: { assetId: str
     } finally {
       setLoading(false);
     }
-  }, [api, can, assetId]);
+  }, [api, can, assetId, setAsset, setOptions, setCondition, setStatus, setMaster, setIdentifiers, setHistory, setError, setLoading]);
 
   const restoreActionFocus = useCallback(() => {
     window.setTimeout(() => {

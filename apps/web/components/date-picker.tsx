@@ -16,11 +16,13 @@ function boundsError(value: string, min?: string, max?: string): string {
 function useCalendarPopup(open: boolean, width: number, root: RefObject<HTMLDivElement | null>, input: RefObject<HTMLInputElement | null>, close: () => void) {
   const popup = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState({ top: 16, left: 16, width });
+  const [typography, setTypography] = useState(false);
   useLayoutEffect(() => {
     if (!open) return;
     const update = () => {
       const rect = input.current?.getBoundingClientRect();
       if (!rect) return;
+      setTypography(Boolean(root.current?.closest("[data-amafh-page-typography]")));
       const availableWidth = Math.max(0, window.innerWidth - 24);
       const actualWidth = Math.min(width, availableWidth);
       const height = Math.min(popup.current?.getBoundingClientRect().height ?? 390, window.innerHeight - 24);
@@ -39,7 +41,7 @@ function useCalendarPopup(open: boolean, width: number, root: RefObject<HTMLDivE
       window.removeEventListener("resize", update);
       window.removeEventListener("scroll", update, true);
     };
-  }, [input, open, width]);
+  }, [input, open, root, width]);
   useEffect(() => {
     if (!open) return;
     const pointer = (event: MouseEvent) => {
@@ -72,7 +74,7 @@ function useCalendarPopup(open: boolean, width: number, root: RefObject<HTMLDivE
       document.removeEventListener("keydown", key, true);
     };
   }, [close, input, open, root]);
-  return { popup, position, typography: root.current?.closest("[data-amafh-page-typography]") ? "" : undefined };
+  return [popup, position, typography] as const;
 }
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
@@ -228,7 +230,7 @@ export function DatePicker({
   const [view, setView] = useState(() => startOfMonth(selected ?? new Date()));
   const [focusDay, setFocusDay] = useState(() => (selected ?? new Date()).getDate());
   const dateError = typedDateError(draft) || boundsError(draft.trim(), min, max);
-  const calendar = useCalendarPopup(open && !disabled, 312, rootRef, inputRef, () => setOpen(false));
+  const [calendarPopup, calendarPosition, calendarTypography] = useCalendarPopup(open && !disabled, 312, rootRef, inputRef, () => setOpen(false));
 
   useEffect(() => {
     setDraft(value);
@@ -244,15 +246,15 @@ export function DatePicker({
     }
     restoreGridFocus.current = false;
     const iso = toIso(view.getFullYear(), view.getMonth(), focusDay);
-    calendar.popup.current?.querySelector<HTMLButtonElement>(`button[aria-label="${iso}"]`)?.focus();
-  }, [open, view, focusDay, calendar.popup]);
+    calendarPopup.current?.querySelector<HTMLButtonElement>(`button[aria-label="${iso}"]`)?.focus();
+  }, [open, view, focusDay, calendarPopup]);
 
   const cells = useMemo(() => monthCells(view), [view]);
 
   function openPicker(focusGrid = false) {
     if (disabled) return;
     if (open) {
-      if (focusGrid) calendar.popup.current?.querySelector<HTMLButtonElement>(`button[aria-label="${toIso(view.getFullYear(), view.getMonth(), focusDay)}"]`)?.focus();
+      if (focusGrid) calendarPopup.current?.querySelector<HTMLButtonElement>(`button[aria-label="${toIso(view.getFullYear(), view.getMonth(), focusDay)}"]`)?.focus();
       return;
     }
     const base = parseIso(value) ?? new Date();
@@ -335,7 +337,7 @@ export function DatePicker({
           }
         }}
         onBlur={(event) => {
-          if (!rootRef.current?.contains(event.relatedTarget as Node | null) && !calendar.popup.current?.contains(event.relatedTarget as Node | null)) {
+          if (!rootRef.current?.contains(event.relatedTarget as Node | null) && !calendarPopup.current?.contains(event.relatedTarget as Node | null)) {
             applyTyped();
           }
         }}
@@ -365,14 +367,14 @@ export function DatePicker({
       ) : null}
       {open && !disabled ? createPortal(
         <div
-          ref={calendar.popup}
+          ref={calendarPopup}
           data-amafh-workspace=""
-          data-amafh-page-typography={calendar.typography}
+          data-amafh-page-typography={calendarTypography ? "" : undefined}
           id={dialogId}
           role="dialog"
           aria-label="Choose date"
           className="fixed z-[1000] max-h-[calc(100dvh-1.5rem)] overflow-y-auto rounded-xl border border-control-border bg-surface p-3 shadow-[var(--amafh-shadow-elevated)]"
-          style={calendar.position}
+          style={calendarPosition}
         >
           <div className="mb-2 flex items-center justify-between gap-1">
             <button
@@ -537,7 +539,7 @@ export function DateRangePicker({
     typedRangeError(draft, allowPartial) ||
     (fromRequired && parsedDraft && !parsedDraft.from ? "Enter a start date" : "") ||
     boundsError(parsedDraft?.from ?? "", min, max) || boundsError(parsedDraft?.to ?? "", min, max);
-  const calendar = useCalendarPopup(open && !disabled, 624, rootRef, inputRef, () => {
+  const [calendarPopup, calendarPosition, calendarTypography] = useCalendarPopup(open && !disabled, 624, rootRef, inputRef, () => {
     setOpen(false);
     setPendingFrom(null);
     setDraft(formatRange(from, to));
@@ -563,15 +565,15 @@ export function DateRangePicker({
       return;
     }
     restoreGridFocus.current = false;
-    calendar.popup.current?.querySelector<HTMLButtonElement>(`button[aria-label="${focusIso}"]`)?.focus();
-  }, [focusIso, open, view, calendar.popup]);
+    calendarPopup.current?.querySelector<HTMLButtonElement>(`button[aria-label="${focusIso}"]`)?.focus();
+  }, [focusIso, open, view, calendarPopup]);
 
   function openPicker(focusGrid = false) {
     if (disabled) {
       return;
     }
     if (open) {
-      if (focusGrid) calendar.popup.current?.querySelector<HTMLButtonElement>(`button[aria-label="${focusIso}"]`)?.focus();
+      if (focusGrid) calendarPopup.current?.querySelector<HTMLButtonElement>(`button[aria-label="${focusIso}"]`)?.focus();
       return;
     }
     const base = parseIso(from) ?? new Date();
@@ -762,7 +764,7 @@ export function DateRangePicker({
           }
         }}
         onBlur={(event) => {
-          if (!rootRef.current?.contains(event.relatedTarget as Node | null) && !calendar.popup.current?.contains(event.relatedTarget as Node | null)) {
+          if (!rootRef.current?.contains(event.relatedTarget as Node | null) && !calendarPopup.current?.contains(event.relatedTarget as Node | null)) {
             applyTyped();
           }
         }}
@@ -783,14 +785,14 @@ export function DateRangePicker({
       </div>
       {open && !disabled ? createPortal(
         <div
-          ref={calendar.popup}
+          ref={calendarPopup}
           data-amafh-workspace=""
-          data-amafh-page-typography={calendar.typography}
+          data-amafh-page-typography={calendarTypography ? "" : undefined}
           id={dialogId}
           role="dialog"
           aria-label={`Choose ${ariaLabel.toLowerCase()} range`}
           className="fixed z-[1000] max-h-[calc(100dvh-1.5rem)] overflow-y-auto rounded-xl border border-control-border bg-surface p-3 shadow-[var(--amafh-shadow-elevated)]"
-          style={calendar.position}
+          style={calendarPosition}
         >
           <div className="mb-3 flex items-center justify-between gap-2">
             <div className="flex gap-1">

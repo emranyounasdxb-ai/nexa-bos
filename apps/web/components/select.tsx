@@ -101,6 +101,7 @@ export function BrandedSelect({
   const [mounted, setMounted] = useState(false);
   const [constraintInvalid, setConstraintInvalid] = useState(false);
   const [menuStyle, setMenuStyle] = useState<React.CSSProperties>({});
+  const [pageTypography, setPageTypography] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const containerRef = useRef<HTMLSpanElement>(null);
 
@@ -145,6 +146,7 @@ export function BrandedSelect({
     function positionMenu() {
       const trigger = triggerRef.current;
       if (!trigger) return;
+      setPageTypography(Boolean(trigger.closest("[data-amafh-page-typography]")));
       const rect = trigger.getBoundingClientRect();
       const margin = 8;
       const gap = 6;
@@ -287,7 +289,7 @@ export function BrandedSelect({
             <div
               id={listboxId}
               role="listbox"
-              data-amafh-page-typography={triggerRef.current?.closest("[data-amafh-page-typography]") ? "" : undefined}
+              data-amafh-page-typography={pageTypography ? "" : undefined}
               aria-label={ariaLabel}
               aria-labelledby={ariaLabelledBy}
               className="fixed z-[70] overflow-y-auto rounded-lg border border-brand-border bg-surface p-1 shadow-[0_16px_40px_rgba(30,30,30,0.16)]"

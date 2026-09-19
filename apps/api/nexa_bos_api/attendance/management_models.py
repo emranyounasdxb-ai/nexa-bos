@@ -1,4 +1,5 @@
 """Attendance-only operational evidence. No leave approval or balance engine."""
+
 from __future__ import annotations
 
 from datetime import date, datetime
@@ -32,7 +33,9 @@ class AttendanceImportBatch(Base):
 
 class AttendanceProvenance(Base):
     __tablename__ = "attendance_provenance"
-    attendance_id: Mapped[UUID] = mapped_column(Uuid, ForeignKey("attendance_records.id"), primary_key=True)
+    attendance_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("attendance_records.id"), primary_key=True
+    )
     source: Mapped[str] = mapped_column(String(32))
     office_id: Mapped[UUID | None] = mapped_column(Uuid, ForeignKey("offices.id"))
     batch_id: Mapped[UUID | None] = mapped_column(Uuid, ForeignKey("attendance_import_batches.id"))

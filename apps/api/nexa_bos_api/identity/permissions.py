@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-
 USERS_VIEW = "Users.View"
 USERS_CREATE = "Users.Create"
 USERS_EDIT = "Users.Edit"
@@ -419,10 +418,55 @@ SYSTEM_CASE_OPERATIONS_PERMISSION_DEFAULTS = {
     "SE": (CASE_REPORTS_VIEW,),
 }
 
-PERMISSION_CATALOG += (('Assets.ManageCategories', 'Manage Asset Categories — Sensitive'), ('Assets.Repair', 'Send to Repair / Update Repair'), ('Assets.Retire', 'Retire Assets'), ('Assets.Reports', 'View Asset Reports'), ('Assets.Export', 'Export Asset Reports'), ('Attendance.Daily', 'View Daily Register'), ('Attendance.Calendar', 'View Employee Calendar'), ('Attendance.Upload', 'Upload and Validate Attendance CSV'), ('Attendance.ConfirmImport', 'Confirm Attendance Import'), ('Attendance.RecordApprovedLeave', 'Record External Approved Leave'), ('Attendance.Export', 'Export Attendance Reports'), ('Attendance.ManageHolidays', 'Manage Holidays — Sensitive'), ('Attendance.ManageLeaveTypes', 'Manage Leave Types — Sensitive'))
+PERMISSION_CATALOG += (
+    ("Assets.ManageCategories", "Manage Asset Categories — Sensitive"),
+    ("Assets.Repair", "Send to Repair / Update Repair"),
+    ("Assets.Retire", "Retire Assets"),
+    ("Assets.Reports", "View Asset Reports"),
+    ("Assets.Export", "Export Asset Reports"),
+    ("Attendance.Daily", "View Daily Register"),
+    ("Attendance.Calendar", "View Employee Calendar"),
+    ("Attendance.Upload", "Upload and Validate Attendance CSV"),
+    ("Attendance.ConfirmImport", "Confirm Attendance Import"),
+    ("Attendance.RecordApprovedLeave", "Record External Approved Leave"),
+    ("Attendance.Export", "Export Attendance Reports"),
+    ("Attendance.ManageHolidays", "Manage Holidays — Sensitive"),
+    ("Attendance.ManageLeaveTypes", "Manage Leave Types — Sensitive"),
+)
 
-PERMISSION_LABELS = {'Assets.View': 'View Assets', 'Assets.ManageStock': 'Register Assets', 'Assets.ManageMaster': 'Edit Assets and correct condition / identifiers', 'Assets.Allocate': 'Issue Assets', 'Assets.Return': 'Return Assets', 'Assets.Transfer': 'Transfer Assets', 'Assets.ManageStatus': 'Update lost or damaged asset status', 'Assets.ViewAudit': 'View Asset Lifecycle', 'Attendance.View': 'View Attendance', 'Attendance.Manage': 'Manage Shifts and Attendance Policies — Sensitive', 'Attendance.ManageOffice': 'Add Manual Attendance', 'Attendance.Correct': 'Correct Attendance — reason and immutable audit required', 'Attendance.Reports': 'View Attendance Reports', 'Attendance.CloseMonth': 'Close Attendance Month', 'Attendance.ReopenMonth': 'Reopen Attendance Month — Sensitive and mandatory reason', 'Assets.ManageCategories': 'Manage Asset Categories — Sensitive', 'Assets.Repair': 'Send to Repair / Update Repair', 'Assets.Retire': 'Retire Assets', 'Assets.Reports': 'View Asset Reports', 'Assets.Export': 'Export Asset Reports', 'Attendance.Daily': 'View Daily Register', 'Attendance.Calendar': 'View Employee Calendar', 'Attendance.Upload': 'Upload and Validate Attendance CSV', 'Attendance.ConfirmImport': 'Confirm Attendance Import', 'Attendance.RecordApprovedLeave': 'Record External Approved Leave', 'Attendance.Export': 'Export Attendance Reports', 'Attendance.ManageHolidays': 'Manage Holidays — Sensitive', 'Attendance.ManageLeaveTypes': 'Manage Leave Types — Sensitive'}
-PERMISSION_CATALOG = tuple((code, PERMISSION_LABELS.get(code, description)) for code, description in PERMISSION_CATALOG)
+PERMISSION_LABELS = {
+    "Assets.View": "View Assets",
+    "Assets.ManageStock": "Register Assets",
+    "Assets.ManageMaster": "Edit Assets and correct condition / identifiers",
+    "Assets.Allocate": "Issue Assets",
+    "Assets.Return": "Return Assets",
+    "Assets.Transfer": "Transfer Assets",
+    "Assets.ManageStatus": "Update lost or damaged asset status",
+    "Assets.ViewAudit": "View Asset Lifecycle",
+    "Attendance.View": "View Attendance",
+    "Attendance.Manage": "Manage Shifts and Attendance Policies — Sensitive",
+    "Attendance.ManageOffice": "Add Manual Attendance",
+    "Attendance.Correct": "Correct Attendance — reason and immutable audit required",
+    "Attendance.Reports": "View Attendance Reports",
+    "Attendance.CloseMonth": "Close Attendance Month",
+    "Attendance.ReopenMonth": "Reopen Attendance Month — Sensitive and mandatory reason",
+    "Assets.ManageCategories": "Manage Asset Categories — Sensitive",
+    "Assets.Repair": "Send to Repair / Update Repair",
+    "Assets.Retire": "Retire Assets",
+    "Assets.Reports": "View Asset Reports",
+    "Assets.Export": "Export Asset Reports",
+    "Attendance.Daily": "View Daily Register",
+    "Attendance.Calendar": "View Employee Calendar",
+    "Attendance.Upload": "Upload and Validate Attendance CSV",
+    "Attendance.ConfirmImport": "Confirm Attendance Import",
+    "Attendance.RecordApprovedLeave": "Record External Approved Leave",
+    "Attendance.Export": "Export Attendance Reports",
+    "Attendance.ManageHolidays": "Manage Holidays — Sensitive",
+    "Attendance.ManageLeaveTypes": "Manage Leave Types — Sensitive",
+}
+PERMISSION_CATALOG = tuple(
+    (code, PERMISSION_LABELS.get(code, description)) for code, description in PERMISSION_CATALOG
+)
 ALL_PERMISSION_CODES: tuple[str, ...] = tuple(code for code, _ in PERMISSION_CATALOG)
 
 SYSTEM_PROFILE_PERMISSION_DEFAULTS: dict[str, tuple[str, ...]] = {
@@ -494,6 +538,62 @@ SYSTEM_CONTRACT_PERMISSION_DEFAULTS: dict[str, tuple[str, ...]] = {
     ),
 }
 
-PERMISSION_DESCRIPTIONS = {'Assets.View': 'View Assets', 'Assets.ManageStock': 'Register Assets', 'Assets.ManageMaster': 'Edit Assets and correct condition / identifiers', 'Assets.Allocate': 'Issue Assets', 'Assets.Return': 'Return Assets', 'Assets.Transfer': 'Transfer Assets', 'Assets.ManageStatus': 'Update lost or damaged asset status', 'Assets.ViewAudit': 'View Asset Lifecycle', 'Attendance.View': 'View Attendance', 'Attendance.Manage': 'Manage Shifts and Attendance Policies — Sensitive', 'Attendance.ManageOffice': 'Add Manual Attendance', 'Attendance.Correct': 'Correct Attendance — reason and immutable audit required', 'Attendance.Reports': 'View Attendance Reports', 'Attendance.CloseMonth': 'Close Attendance Month', 'Attendance.ReopenMonth': 'Reopen Attendance Month — Sensitive and mandatory reason', 'Assets.ManageCategories': 'Manage Asset Categories — Sensitive', 'Assets.Repair': 'Send to Repair / Update Repair', 'Assets.Retire': 'Retire Assets', 'Assets.Reports': 'View Asset Reports', 'Assets.Export': 'Export Asset Reports', 'Attendance.Daily': 'View Daily Register', 'Attendance.Calendar': 'View Employee Calendar', 'Attendance.Upload': 'Upload and Validate Attendance CSV', 'Attendance.ConfirmImport': 'Confirm Attendance Import', 'Attendance.RecordApprovedLeave': 'Record External Approved Leave', 'Attendance.Export': 'Export Attendance Reports', 'Attendance.ManageHolidays': 'Manage Holidays — Sensitive', 'Attendance.ManageLeaveTypes': 'Manage Leave Types — Sensitive'}
+PERMISSION_DESCRIPTIONS = {
+    "Assets.View": "View Assets",
+    "Assets.ManageStock": "Register Assets",
+    "Assets.ManageMaster": "Edit Assets and correct condition / identifiers",
+    "Assets.Allocate": "Issue Assets",
+    "Assets.Return": "Return Assets",
+    "Assets.Transfer": "Transfer Assets",
+    "Assets.ManageStatus": "Update lost or damaged asset status",
+    "Assets.ViewAudit": "View Asset Lifecycle",
+    "Attendance.View": "View Attendance",
+    "Attendance.Manage": "Manage Shifts and Attendance Policies — Sensitive",
+    "Attendance.ManageOffice": "Add Manual Attendance",
+    "Attendance.Correct": "Correct Attendance — reason and immutable audit required",
+    "Attendance.Reports": "View Attendance Reports",
+    "Attendance.CloseMonth": "Close Attendance Month",
+    "Attendance.ReopenMonth": "Reopen Attendance Month — Sensitive and mandatory reason",
+    "Assets.ManageCategories": "Manage Asset Categories — Sensitive",
+    "Assets.Repair": "Send to Repair / Update Repair",
+    "Assets.Retire": "Retire Assets",
+    "Assets.Reports": "View Asset Reports",
+    "Assets.Export": "Export Asset Reports",
+    "Attendance.Daily": "View Daily Register",
+    "Attendance.Calendar": "View Employee Calendar",
+    "Attendance.Upload": "Upload and Validate Attendance CSV",
+    "Attendance.ConfirmImport": "Confirm Attendance Import",
+    "Attendance.RecordApprovedLeave": "Record External Approved Leave",
+    "Attendance.Export": "Export Attendance Reports",
+    "Attendance.ManageHolidays": "Manage Holidays — Sensitive",
+    "Attendance.ManageLeaveTypes": "Manage Leave Types — Sensitive",
+}
 
-MODULE_PERMISSION_DEPENDENCIES = {'Assets.ManageStock': ('Assets.View',), 'Assets.ManageMaster': ('Assets.View',), 'Assets.Allocate': ('Assets.View',), 'Assets.Return': ('Assets.View',), 'Assets.Transfer': ('Assets.View',), 'Assets.ManageStatus': ('Assets.View',), 'Assets.ViewAudit': ('Assets.View',), 'Attendance.Manage': ('Attendance.View',), 'Attendance.ManageOffice': ('Attendance.View',), 'Attendance.Correct': ('Attendance.View',), 'Attendance.Reports': ('Attendance.View',), 'Attendance.CloseMonth': ('Attendance.View',), 'Attendance.ReopenMonth': ('Attendance.View',), 'Assets.ManageCategories': ('Assets.View',), 'Assets.Repair': ('Assets.View',), 'Assets.Retire': ('Assets.View',), 'Assets.Reports': ('Assets.View',), 'Assets.Export': ('Assets.View', 'Assets.Reports'), 'Attendance.Daily': ('Attendance.View',), 'Attendance.Calendar': ('Attendance.View',), 'Attendance.Upload': ('Attendance.View',), 'Attendance.ConfirmImport': ('Attendance.View',), 'Attendance.RecordApprovedLeave': ('Attendance.View',), 'Attendance.Export': ('Attendance.View', 'Attendance.Reports'), 'Attendance.ManageHolidays': ('Attendance.View',), 'Attendance.ManageLeaveTypes': ('Attendance.View',)}
+MODULE_PERMISSION_DEPENDENCIES = {
+    "Assets.ManageStock": ("Assets.View",),
+    "Assets.ManageMaster": ("Assets.View",),
+    "Assets.Allocate": ("Assets.View",),
+    "Assets.Return": ("Assets.View",),
+    "Assets.Transfer": ("Assets.View",),
+    "Assets.ManageStatus": ("Assets.View",),
+    "Assets.ViewAudit": ("Assets.View",),
+    "Attendance.Manage": ("Attendance.View",),
+    "Attendance.ManageOffice": ("Attendance.View",),
+    "Attendance.Correct": ("Attendance.View",),
+    "Attendance.Reports": ("Attendance.View",),
+    "Attendance.CloseMonth": ("Attendance.View",),
+    "Attendance.ReopenMonth": ("Attendance.View",),
+    "Assets.ManageCategories": ("Assets.View",),
+    "Assets.Repair": ("Assets.View",),
+    "Assets.Retire": ("Assets.View",),
+    "Assets.Reports": ("Assets.View",),
+    "Assets.Export": ("Assets.View", "Assets.Reports"),
+    "Attendance.Daily": ("Attendance.View",),
+    "Attendance.Calendar": ("Attendance.View",),
+    "Attendance.Upload": ("Attendance.View",),
+    "Attendance.ConfirmImport": ("Attendance.View",),
+    "Attendance.RecordApprovedLeave": ("Attendance.View",),
+    "Attendance.Export": ("Attendance.View", "Attendance.Reports"),
+    "Attendance.ManageHolidays": ("Attendance.View",),
+    "Attendance.ManageLeaveTypes": ("Attendance.View",),
+}

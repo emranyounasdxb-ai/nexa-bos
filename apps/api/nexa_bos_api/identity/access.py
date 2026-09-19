@@ -100,7 +100,11 @@ def permission_set(user: User) -> set[str]:
                 and not code.endswith(".View")
             )
         }
-    return {code for code in permissions if all(required in permissions for required in MODULE_PERMISSION_DEPENDENCIES.get(code, ()))}
+    return {
+        code
+        for code in permissions
+        if all(required in permissions for required in MODULE_PERMISSION_DEPENDENCIES.get(code, ()))
+    }
 
 
 def has_permission(user: User, code: str) -> bool:

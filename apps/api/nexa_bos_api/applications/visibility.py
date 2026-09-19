@@ -27,7 +27,9 @@ async def tl_case_owner_ids(session: AsyncSession, actor: User) -> set[UUID]:
     if not has_user_type(actor, "TL") or not actor.office_id:
         return allowed
     admins = await session.scalars(
-        select(User.id).join(UserType, User.user_type_id == UserType.id).where(
+        select(User.id)
+        .join(UserType, User.user_type_id == UserType.id)
+        .where(
             User.reporting_manager_id == actor.id,
             User.office_id == actor.office_id,
             UserType.code == "ADMIN_OFFICER",
